@@ -40,6 +40,10 @@ OPCOES = {
         "timeout": 30,
         "max_bytes": 8_000_000,
         "respeitar_robots": True,
+        "tempo_maximo": 120,                  # prazo total por download, em segundos (timeout vale por leitura)
+        "max_redirecionamentos": 5,
+        # robots.txt com 5xx ou ilegivel: "permitir" (especificacao) ou "bloquear" (RFC 9309). Decisao do pesquisador.
+        "robots_se_inacessivel": "permitir",
     },
     "padrao": {"min_chars": 200},
     "gemini": {

@@ -20,7 +20,9 @@ def _int(x):
 
 # colunas acrescentadas depois da primeira versao do schema: bancos antigos as recebem ao abrir
 _COLUNAS_NOVAS = {
-    "execucoes": {"ambiente_json": "TEXT"},
+    "execucoes": {"ambiente_json": "TEXT", "no_relatorio": "INTEGER NOT NULL DEFAULT 1", "motivo_exclusao": "TEXT",
+                  "excluida_em": "TEXT"},
+    "paginas": {"dominio_final": "TEXT", "fonte_oficial_final": "INTEGER"},
     "selecao_download": {"auditoria": "INTEGER NOT NULL DEFAULT 0"},
     "achados": {"confianca_original": "TEXT"},
     "triagem": {"decisao_texto_completo": "TEXT", "motivo_texto_completo": "TEXT"},
@@ -44,6 +46,19 @@ class RepositorioSQLite:
             for coluna, tipo in colunas.items():
                 if coluna not in existentes:
                     self.conn.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
+        # paginas gravadas antes de existir o dominio final: preenche a partir de url_final
+        for linha in self.conn.execute("SELECT pagina_id, url_final FROM paginas WHERE dominio_final IS NULL AND url_final IS NOT NULL").fetchall():
+            dom = dominio_de(linha["url_final"])
+            self.conn.execute("UPDATE paginas SET dominio_final=?, fonte_oficial_final=? WHERE pagina_id=?",
+                              (dom, int(eh_oficial(dom)), linha["pagina_id"]))
+        self.conn.commit()
+
+    def definir_no_relatorio(self, run_id, no_relatorio, motivo=None):
+        """Marca uma execucao como dentro (1) ou fora (0) das views agregadas do relatorio. Nada e apagado."""
+        if not self.conn.execute("SELECT 1 FROM execucoes WHERE run_id=?", (run_id,)).fetchone():
+            raise SystemExit(f"Execução não encontrada: {run_id}")
+        self.conn.execute("UPDATE execucoes SET no_relatorio=?, motivo_exclusao=?, excluida_em=? WHERE run_id=?",
+                          (int(bool(no_relatorio)), None if no_relatorio else motivo, None if no_relatorio else agora(), run_id))
         self.conn.commit()
 
     # ---------- utilities ----------
@@ -201,6 +216,7 @@ class RepositorioSQLite:
     def salvar_pagina(self, run_id, url_id, chamada_id, arquivo, texto, texto_path):
         return self._inserir(
             "paginas", run_id=run_id, url_id=url_id, chamada_id=chamada_id, url_final=arquivo.url_final,
+            dominio_final=dominio_de(arquivo.url_final), fonte_oficial_final=int(eh_oficial(dominio_de(arquivo.url_final))),
             http_status=arquivo.http_status, content_type=arquivo.content_type, n_bytes=len(arquivo.conteudo),
             truncado=int(arquivo.truncado), texto_path=texto_path, n_chars=len(texto.texto) if texto else 0,
             extrator=texto.extrator if texto else None, extracao_ok=int(bool(texto and texto.ok)),
@@ -289,6 +305,7 @@ class RepositorioSQLite:
             "Qualidade_classif": "SELECT * FROM v_qualidade_classificacao",
             "Extracao": "SELECT * FROM v_extracao",
             "Eficiencia": "SELECT * FROM v_eficiencia",
+            "Gasto_real": "SELECT * FROM v_gasto_real",
             "Saldos": "SELECT * FROM v_saldos",
             "Metricas_run": "SELECT * FROM metricas_run",
             "Download_resultado": "SELECT * FROM v_resultado_download",

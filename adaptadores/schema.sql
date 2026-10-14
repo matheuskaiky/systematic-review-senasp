@@ -11,7 +11,10 @@ CREATE TABLE IF NOT EXISTS execucoes (
     status        TEXT NOT NULL DEFAULT 'em_andamento',
     metricas_json TEXT,
     run_origem    TEXT,                             -- C5: run (--de) that holds the input of this one
-    ambiente_json TEXT                              -- versoes, pausas e argumentos da execucao (fora do hash)
+    ambiente_json TEXT,                             -- versoes, pausas e argumentos da execucao (fora do hash)
+    no_relatorio  INTEGER NOT NULL DEFAULT 1,       -- 0 = execucao de teste/piloto: fora das views agregadas do relatorio
+    motivo_exclusao TEXT,
+    excluida_em   TEXT
 );
 
 -- cada retomada (--retomar) acrescenta uma linha: o codigo e o ambiente podem ser outros que os da execucao original
@@ -188,7 +191,9 @@ CREATE TABLE IF NOT EXISTS paginas (
     n_chars       INTEGER,
     extrator      TEXT,
     extracao_ok   INTEGER,
-    motivo_falha  TEXT
+    motivo_falha  TEXT,
+    dominio_final TEXT,                              -- dominio de url_final (apos redirecionamentos)
+    fonte_oficial_final INTEGER                      -- 1 se o dominio final e oficial (.gov.br)
 );
 CREATE TABLE IF NOT EXISTS classificacoes (
     classificacao_id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -249,6 +254,47 @@ CREATE TABLE IF NOT EXISTS achados_revisoes (
     importado_em   TEXT NOT NULL
 );
 
+-- ===== Execucoes dentro do relatorio =====
+-- As views agregadas leem estas views (r_*), que deixam de fora as execucoes marcadas com no_relatorio = 0
+-- (pilotos e testes: `python main.py execucao-excluir <run_id>`). Views por execucao e de auditoria usam as tabelas.
+DROP VIEW IF EXISTS r_chamadas;
+CREATE VIEW r_chamadas AS
+SELECT c.* FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id WHERE e.no_relatorio = 1;
+DROP VIEW IF EXISTS r_resultados_web;
+CREATE VIEW r_resultados_web AS
+SELECT r.* FROM resultados_web r JOIN execucoes e ON e.run_id = r.run_id WHERE e.no_relatorio = 1;
+DROP VIEW IF EXISTS r_ocorrencias;
+CREATE VIEW r_ocorrencias AS
+SELECT o.* FROM ocorrencias o JOIN execucoes e ON e.run_id = o.run_id WHERE e.no_relatorio = 1;
+DROP VIEW IF EXISTS r_selecao_download;
+CREATE VIEW r_selecao_download AS
+SELECT s.* FROM selecao_download s JOIN execucoes e ON e.run_id = s.run_id WHERE e.no_relatorio = 1;
+DROP VIEW IF EXISTS r_paginas;
+CREATE VIEW r_paginas AS
+SELECT p.* FROM paginas p JOIN execucoes e ON e.run_id = p.run_id WHERE e.no_relatorio = 1;
+DROP VIEW IF EXISTS r_classificacoes;
+CREATE VIEW r_classificacoes AS
+SELECT k.* FROM classificacoes k JOIN execucoes e ON e.run_id = k.run_id WHERE e.no_relatorio = 1;
+DROP VIEW IF EXISTS r_achados;
+CREATE VIEW r_achados AS
+SELECT a.* FROM achados a JOIN classificacoes k ON k.classificacao_id = a.classificacao_id
+JOIN execucoes e ON e.run_id = k.run_id WHERE e.no_relatorio = 1;
+DROP VIEW IF EXISTS r_achados_descartados;
+CREATE VIEW r_achados_descartados AS
+SELECT d.* FROM achados_descartados d JOIN classificacoes k ON k.classificacao_id = d.classificacao_id
+JOIN execucoes e ON e.run_id = k.run_id WHERE e.no_relatorio = 1;
+-- artigo que so apareceu em execucao fora do relatorio nao conta; artigos das buscas manuais sempre contam
+DROP VIEW IF EXISTS r_artigos;
+CREATE VIEW r_artigos AS
+SELECT a.* FROM artigos a WHERE a.artigo_id IN (SELECT artigo_id FROM r_ocorrencias UNION SELECT artigo_id FROM ocorrencias_manuais);
+
+-- Origem efetiva de cada classificacao: o dominio final da pagina (apos redirecionamentos), quando houve download.
+DROP VIEW IF EXISTS v_fonte_da_classificacao;
+CREATE VIEW v_fonte_da_classificacao AS
+SELECT k.classificacao_id, COALESCE(p.dominio_final, u.dominio) AS dominio_efetivo,
+       COALESCE(p.fonte_oficial_final, u.fonte_oficial) AS fonte_oficial_efetiva
+FROM classificacoes k JOIN urls u ON u.url_id = k.url_id LEFT JOIN paginas p ON p.pagina_id = k.pagina_id;
+
 -- ===== Metric views =====
 DROP VIEW IF EXISTS v_funil;
 CREATE VIEW v_funil AS
@@ -287,7 +333,7 @@ FROM chamadas WHERE sucesso=0 GROUP BY run_id, etapa, provedor, SUBSTR(erro,1,60
 DROP VIEW IF EXISTS v_dominios;
 CREATE VIEW v_dominios AS
 SELECT u.dominio, u.fonte_oficial, COUNT(*) AS n_resultados, COUNT(DISTINCT r.uf) AS n_ufs
-FROM resultados_web r JOIN urls u ON u.url_id=r.url_id
+FROM r_resultados_web r JOIN urls u ON u.url_id=r.url_id
 GROUP BY u.dominio, u.fonte_oficial ORDER BY n_resultados DESC;
 
 DROP VIEW IF EXISTS v_metricas_busca_web;
@@ -306,10 +352,13 @@ SELECT a.achado_id, k.run_id, a.uf, a.tecnologia, a.status_reportado, a.forneced
        a.evidencia, a.evidencia_confere, a.confianca, k.origem_texto, k.classificador,
        u.url_original AS url, u.dominio, u.fonte_oficial,
        a.verificado, a.status_final, a.verificado_por, a.observacao,
-       EXISTS (SELECT 1 FROM v_pares_auditoria pa WHERE pa.url_id = k.url_id AND pa.uf = k.uf) AS auditoria
+       EXISTS (SELECT 1 FROM v_pares_auditoria pa WHERE pa.url_id = k.url_id AND pa.uf = k.uf) AS auditoria,
+       p.dominio_final, p.fonte_oficial_final, e.no_relatorio
 FROM achados a
 JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
 JOIN urls u ON u.url_id=k.url_id
+LEFT JOIN paginas p ON p.pagina_id=k.pagina_id
+LEFT JOIN execucoes e ON e.run_id=k.run_id
 ORDER BY a.verificado, a.evidencia_confere, a.uf;
 
 DROP VIEW IF EXISTS v_resumo_uf;
@@ -319,10 +368,10 @@ SELECT a.uf,
   SUM(a.verificado) AS n_verificados,
   SUM(CASE WHEN a.verificado=1 AND COALESCE(a.status_final,'')<>'descartado' THEN 1 ELSE 0 END) AS n_confirmados,
   SUM(COALESCE(a.evidencia_confere,0)) AS n_evidencia_ok,
-  SUM(u.fonte_oficial) AS n_fonte_oficial
-FROM achados a
-JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
-JOIN urls u ON u.url_id=k.url_id
+  SUM(f.fonte_oficial_efetiva) AS n_fonte_oficial
+FROM r_achados a
+JOIN r_classificacoes k ON k.classificacao_id=a.classificacao_id
+JOIN v_fonte_da_classificacao f ON f.classificacao_id=k.classificacao_id
 GROUP BY a.uf;
 
 DROP VIEW IF EXISTS v_metricas_por_termo;
@@ -335,18 +384,18 @@ FROM chamadas WHERE etapa='busca_academica' GROUP BY run_id, alvo_id;
 
 DROP VIEW IF EXISTS v_artigos_por_ano;
 CREATE VIEW v_artigos_por_ano AS
-SELECT ano, COUNT(*) AS n_artigos FROM artigos GROUP BY ano ORDER BY ano;
+SELECT ano, COUNT(*) AS n_artigos FROM r_artigos GROUP BY ano ORDER BY ano;
 
 DROP VIEW IF EXISTS v_artigos_multi_termo;
 CREATE VIEW v_artigos_multi_termo AS
 SELECT a.artigo_id, a.titulo, a.ano, a.citacoes, COUNT(DISTINCT o.termo_id) AS n_termos
-FROM artigos a JOIN ocorrencias o ON o.artigo_id=a.artigo_id
+FROM r_artigos a JOIN r_ocorrencias o ON o.artigo_id=a.artigo_id
 GROUP BY a.artigo_id ORDER BY n_termos DESC, a.citacoes DESC;
 
 DROP VIEW IF EXISTS v_sobreposicao_termos;
 CREATE VIEW v_sobreposicao_termos AS
 SELECT o1.termo_id AS termo_a, o2.termo_id AS termo_b, COUNT(DISTINCT o1.artigo_id) AS n_em_comum
-FROM ocorrencias o1 JOIN ocorrencias o2 ON o1.artigo_id=o2.artigo_id AND o1.termo_id<o2.termo_id
+FROM r_ocorrencias o1 JOIN r_ocorrencias o2 ON o1.artigo_id=o2.artigo_id AND o1.termo_id<o2.termo_id
 GROUP BY o1.termo_id, o2.termo_id;
 
 DROP VIEW IF EXISTS v_manuais_resumo;
@@ -372,11 +421,11 @@ WHERE rn = 1;
 -- traz nenhum artigo incluido que outro termo nao traga.
 DROP VIEW IF EXISTS v_rendimento_termo;
 CREATE VIEW v_rendimento_termo AS
-WITH art_termo AS (SELECT DISTINCT termo_id, artigo_id FROM ocorrencias),
+WITH art_termo AS (SELECT DISTINCT termo_id, artigo_id FROM r_ocorrencias),
      por_artigo AS (SELECT artigo_id, COUNT(*) AS n_termos FROM art_termo GROUP BY artigo_id),
      por_termo AS (SELECT alvo_id AS termo_id, COUNT(*) AS n_requisicoes, COUNT(DISTINCT pagina) AS n_paginas,
                           MAX(total_reportado) AS total_reportado_aprox
-                   FROM chamadas WHERE etapa='busca_academica' GROUP BY alvo_id)
+                   FROM r_chamadas WHERE etapa='busca_academica' GROUP BY alvo_id)
 SELECT at.termo_id, t.query, t.idioma, t.grupo, pt.n_requisicoes, pt.n_paginas, pt.total_reportado_aprox,
        COUNT(*) AS n_artigos,
        ROUND(100.0 * COUNT(*) / NULLIF(pt.total_reportado_aprox, 0), 2) AS cobertura_pct,
@@ -399,7 +448,7 @@ ORDER BY n_incluidos DESC, taxa_inclusao_pct DESC, n_artigos DESC;
 -- Pares de termos: sobreposicao normalizada (Jaccard), contencao e ganho da uniao, com os incluidos.
 DROP VIEW IF EXISTS v_pares_termos;
 CREATE VIEW v_pares_termos AS
-WITH art_termo AS (SELECT DISTINCT termo_id, artigo_id FROM ocorrencias),
+WITH art_termo AS (SELECT DISTINCT termo_id, artigo_id FROM r_ocorrencias),
      tamanho AS (SELECT at.termo_id, COUNT(*) AS n, COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incl
                  FROM art_termo at LEFT JOIN triagem tr ON tr.artigo_id = at.artigo_id GROUP BY at.termo_id)
 SELECT a.termo_id AS termo_a, b.termo_id AS termo_b, ta.n AS n_a, tb.n AS n_b,
@@ -421,7 +470,7 @@ DROP VIEW IF EXISTS v_ganho_por_idioma;
 CREATE VIEW v_ganho_por_idioma AS
 WITH por_artigo AS (
     SELECT o.artigo_id, MAX(t.idioma = 'pt') AS tem_pt, MAX(t.idioma = 'en') AS tem_en
-    FROM ocorrencias o JOIN v_termos t ON t.termo_id = o.termo_id GROUP BY o.artigo_id)
+    FROM r_ocorrencias o JOIN v_termos t ON t.termo_id = o.termo_id GROUP BY o.artigo_id)
 SELECT CASE WHEN p.tem_pt = 1 AND p.tem_en = 1 THEN 'ambos' WHEN p.tem_pt = 1 THEN 'apenas_pt' ELSE 'apenas_en' END AS achado_por,
        COUNT(*) AS n_artigos,
        COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos,
@@ -436,8 +485,8 @@ SELECT c.pagina, COUNT(*) AS n_ocorrencias, COUNT(DISTINCT o.artigo_id) AS n_art
        COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos,
        COALESCE(SUM(tr.decisao = 'excluir'), 0) AS n_excluidos,
        ROUND(100.0 * SUM(tr.decisao = 'incluir') / NULLIF(SUM(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct
-FROM ocorrencias o
-JOIN chamadas c ON c.chamada_id = o.chamada_id
+FROM r_ocorrencias o
+JOIN r_chamadas c ON c.chamada_id = o.chamada_id
 LEFT JOIN triagem tr ON tr.artigo_id = o.artigo_id
 GROUP BY c.pagina ORDER BY c.pagina;
 
@@ -447,21 +496,21 @@ CREATE VIEW v_curva_descoberta AS
 SELECT c.chamada_id, c.alvo_id AS termo_id, c.pagina, c.n_retornados, c.n_novos,
        ROUND(100.0 * c.n_novos / NULLIF(c.n_retornados, 0), 1) AS pct_novos,
        SUM(c.n_novos) OVER (ORDER BY c.chamada_id) AS novos_acumulado
-FROM chamadas c WHERE c.etapa = 'busca_academica' AND c.sucesso = 1;
+FROM r_chamadas c WHERE c.etapa = 'busca_academica' AND c.sucesso = 1;
 
 -- Numeros do fluxo PRISMA (identificacao, triagem por titulo e resumo, elegibilidade por texto completo, inclusao).
 -- Se houver mais de uma execucao de busca academica, os registros somam todas.
 DROP VIEW IF EXISTS v_prisma;
 CREATE VIEW v_prisma AS
 SELECT 1 AS ordem, 'identificacao' AS fase, 'execucoes de busca academica' AS metrica,
-       (SELECT COUNT(DISTINCT run_id) FROM chamadas WHERE etapa = 'busca_academica') AS valor
+       (SELECT COUNT(DISTINCT run_id) FROM r_chamadas WHERE etapa = 'busca_academica') AS valor
 UNION ALL SELECT 2, 'identificacao', 'Google Scholar: registros retornados',
-       COALESCE((SELECT SUM(n_retornados) FROM chamadas WHERE etapa = 'busca_academica' AND sucesso = 1), 0)
+       COALESCE((SELECT SUM(n_retornados) FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1), 0)
 UNION ALL SELECT 3, 'identificacao', 'buscas manuais: registros retornados (contagem informada)',
        COALESCE((SELECT SUM(n_resultados) FROM buscas_manuais), 0)
 UNION ALL SELECT 4, 'identificacao', 'Google Scholar: duplicatas entre termos removidas',
-       (SELECT COUNT(*) FROM ocorrencias) - (SELECT COUNT(DISTINCT artigo_id) FROM ocorrencias)
-UNION ALL SELECT 5, 'identificacao', 'Google Scholar: artigos unicos', (SELECT COUNT(DISTINCT artigo_id) FROM ocorrencias)
+       (SELECT COUNT(*) FROM r_ocorrencias) - (SELECT COUNT(DISTINCT artigo_id) FROM r_ocorrencias)
+UNION ALL SELECT 5, 'identificacao', 'Google Scholar: artigos unicos', (SELECT COUNT(DISTINCT artigo_id) FROM r_ocorrencias)
 UNION ALL SELECT 6, 'identificacao', 'buscas manuais: apos filtro da base (contagem informada)',
        COALESCE((SELECT SUM(n_apos_filtro) FROM buscas_manuais), 0)
 UNION ALL SELECT 7, 'identificacao', 'buscas manuais: selecionados (contagem informada)',
@@ -471,14 +520,14 @@ UNION ALL SELECT 8, 'identificacao', 'buscas manuais: artigos importados (por ba
 UNION ALL SELECT 9, 'identificacao', 'registros (artigo x fonte) apos remover duplicatas entre termos',
        (SELECT COUNT(*) FROM (SELECT DISTINCT artigo_id, fonte FROM v_ocorrencias_fonte))
 UNION ALL SELECT 10, 'identificacao', 'duplicatas entre fontes removidas',
-       (SELECT COUNT(*) FROM (SELECT DISTINCT artigo_id, fonte FROM v_ocorrencias_fonte)) - (SELECT COUNT(*) FROM artigos)
-UNION ALL SELECT 11, 'triagem', 'artigos unicos para triagem', (SELECT COUNT(*) FROM artigos)
+       (SELECT COUNT(*) FROM (SELECT DISTINCT artigo_id, fonte FROM v_ocorrencias_fonte)) - (SELECT COUNT(*) FROM r_artigos)
+UNION ALL SELECT 11, 'triagem', 'artigos unicos para triagem', (SELECT COUNT(*) FROM r_artigos)
 UNION ALL SELECT 12, 'triagem', 'avaliados por titulo e resumo',
        (SELECT COUNT(*) FROM triagem WHERE decisao IN ('incluir', 'excluir'))
 UNION ALL SELECT 13, 'triagem', 'excluidos por titulo e resumo', (SELECT COUNT(*) FROM triagem WHERE decisao = 'excluir')
 UNION ALL SELECT 14, 'triagem', 'incluidos por titulo e resumo', (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir')
 UNION ALL SELECT 15, 'triagem', 'pendentes de titulo e resumo',
-       (SELECT COUNT(*) FROM artigos) - (SELECT COUNT(*) FROM triagem WHERE decisao IN ('incluir', 'excluir'))
+       (SELECT COUNT(*) FROM r_artigos) - (SELECT COUNT(*) FROM triagem WHERE decisao IN ('incluir', 'excluir'))
 UNION ALL SELECT 16, 'elegibilidade', 'avaliados por texto completo',
        (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND decisao_texto_completo IN ('incluir', 'excluir'))
 UNION ALL SELECT 17, 'elegibilidade', 'excluidos por texto completo',
@@ -508,11 +557,11 @@ SELECT 'Google Scholar (SerpApi)' AS fonte, c.alvo_id AS termo_id,
        '; ano_inicial=' || COALESCE(json_extract(c.parametros_json, '$.as_ylo'), '') ||
        '; ano_final=' || COALESCE(json_extract(c.parametros_json, '$.as_yhi'), '') AS filtros,
        c.pagina, c.requisitado_em AS data_busca, c.n_retornados AS n_resultados,
-       c.total_reportado AS total_reportado_aprox, c.sucesso, c.run_id, e.config_hash
+       c.total_reportado AS total_reportado_aprox, c.sucesso, c.run_id, e.config_hash, e.no_relatorio
 FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id
 WHERE c.etapa = 'busca_academica'
 UNION ALL
-SELECT m.base, m.termo_id, m.string_base, m.filtros, NULL, m.data_busca, m.n_resultados, NULL, 1, NULL, NULL
+SELECT m.base, m.termo_id, m.string_base, m.filtros, NULL, m.data_busca, m.n_resultados, NULL, 1, NULL, NULL, 1
 FROM buscas_manuais m;
 
 -- ===== Task 1: rendimento da busca web e qualidade da classificacao =====
@@ -523,7 +572,7 @@ CREATE VIEW v_status_url AS
 SELECT k.url_id, k.uf, COUNT(a.achado_id) AS n_achados,
        COALESCE(MAX(a.verificado), 0) AS verificado,
        COALESCE(MAX(CASE WHEN a.verificado = 1 AND COALESCE(a.status_final, '') <> 'descartado' THEN 1 ELSE 0 END), 0) AS confirmado
-FROM classificacoes k LEFT JOIN achados a ON a.classificacao_id = k.classificacao_id
+FROM r_classificacoes k LEFT JOIN r_achados a ON a.classificacao_id = k.classificacao_id
 GROUP BY k.url_id, k.uf;
 
 -- Do modelo de consulta ate o achado confirmado, por modelo x perfil x tecnologia consultada.
@@ -531,7 +580,7 @@ DROP VIEW IF EXISTS v_rendimento_busca_web;
 CREATE VIEW v_rendimento_busca_web AS
 WITH pares AS (
     SELECT DISTINCT substr(r.consulta_id, 1, instr(r.consulta_id, '-') - 1) AS modelo_id, r.perfil, r.tecnologia,
-           r.url_id, r.uf, r.consulta_id FROM resultados_web r)
+           r.url_id, r.uf, r.consulta_id FROM r_resultados_web r)
 SELECT p.modelo_id, p.perfil, p.tecnologia,
        COUNT(DISTINCT p.consulta_id) AS n_consultas_com_resultado,
        COUNT(DISTINCT p.url_id || '|' || p.uf) AS n_urls,
@@ -549,7 +598,7 @@ ORDER BY n_urls_confirmadas DESC, n_urls DESC;
 -- O segundo modelo de consulta acrescenta o que o primeiro nao traz?
 DROP VIEW IF EXISTS v_sobreposicao_modelos;
 CREATE VIEW v_sobreposicao_modelos AS
-WITH mu AS (SELECT DISTINCT substr(consulta_id, 1, instr(consulta_id, '-') - 1) AS modelo_id, url_id, uf FROM resultados_web),
+WITH mu AS (SELECT DISTINCT substr(consulta_id, 1, instr(consulta_id, '-') - 1) AS modelo_id, url_id, uf FROM r_resultados_web),
      tamanho AS (SELECT modelo_id, COUNT(*) AS n FROM mu GROUP BY modelo_id)
 SELECT a.modelo_id AS modelo_a, b.modelo_id AS modelo_b, ta.n AS n_urls_a, tb.n AS n_urls_b,
        COUNT(*) AS n_em_comum, ta.n + tb.n - COUNT(*) AS n_uniao,
@@ -573,7 +622,7 @@ SELECT r.posicao, COUNT(*) AS n_resultados, COUNT(DISTINCT r.url_id || '|' || r.
        COALESCE(SUM(s.verificado = 1), 0) AS n_verificados,
        COALESCE(SUM(s.confirmado = 1), 0) AS n_confirmados,
        ROUND(100.0 * SUM(s.confirmado = 1) / NULLIF(SUM(s.verificado = 1), 0), 1) AS taxa_confirmacao_pct
-FROM resultados_web r LEFT JOIN v_status_url s ON s.url_id = r.url_id AND s.uf = r.uf
+FROM r_resultados_web r LEFT JOIN v_status_url s ON s.url_id = r.url_id AND s.uf = r.uf
 GROUP BY r.posicao ORDER BY r.posicao;
 
 -- Consultas que devolveram zero resultados, por modelo e tecnologia.
@@ -583,39 +632,39 @@ SELECT substr(alvo_id, 1, instr(alvo_id, '-') - 1) AS modelo_id,
        substr(substr(alvo_id, instr(alvo_id, '-') + 1), instr(substr(alvo_id, instr(alvo_id, '-') + 1), '-') + 1) AS tecnologia,
        COUNT(*) AS n_consultas, SUM(COALESCE(n_retornados, 0) = 0) AS n_sem_resultado,
        ROUND(100.0 * SUM(COALESCE(n_retornados, 0) = 0) / COUNT(*), 1) AS pct_sem_resultado
-FROM chamadas WHERE etapa = 'busca_web' AND sucesso = 1
+FROM r_chamadas WHERE etapa = 'busca_web' AND sucesso = 1
 GROUP BY modelo_id, tecnologia;
 
 -- Matriz final do relatorio: achados confirmados por UF, tecnologia e status final.
 DROP VIEW IF EXISTS v_cobertura_uf_tecnologia;
 CREATE VIEW v_cobertura_uf_tecnologia AS
 SELECT a.uf, a.tecnologia, a.status_final, COUNT(DISTINCT k.url_id) AS n_fontes,
-       COUNT(DISTINCT CASE WHEN u.fonte_oficial = 1 THEN k.url_id END) AS n_fontes_oficiais
-FROM achados a
-JOIN classificacoes k ON k.classificacao_id = a.classificacao_id
-JOIN urls u ON u.url_id = k.url_id
+       COUNT(DISTINCT CASE WHEN f.fonte_oficial_efetiva = 1 THEN k.url_id END) AS n_fontes_oficiais
+FROM r_achados a
+JOIN r_classificacoes k ON k.classificacao_id = a.classificacao_id
+JOIN v_fonte_da_classificacao f ON f.classificacao_id = k.classificacao_id
 WHERE a.verificado = 1 AND COALESCE(a.status_final, '') <> 'descartado'
 GROUP BY a.uf, a.tecnologia, a.status_final ORDER BY a.uf, a.tecnologia, a.status_final;
 
 -- Quanto o LLM acerta (segundo a verificacao humana), por confianca, origem do texto, evidencia e fonte oficial.
 DROP VIEW IF EXISTS v_precisao_llm;
 CREATE VIEW v_precisao_llm AS
-SELECT a.confianca, k.origem_texto, a.evidencia_confere, u.fonte_oficial, COUNT(*) AS n_achados,
+SELECT a.confianca, k.origem_texto, a.evidencia_confere, f.fonte_oficial_efetiva AS fonte_oficial, COUNT(*) AS n_achados,
        COALESCE(SUM(a.verificado = 1), 0) AS n_verificados,
        COALESCE(SUM(a.verificado = 1 AND COALESCE(a.status_final, '') <> 'descartado'), 0) AS n_confirmados,
        ROUND(100.0 * SUM(a.verificado = 1 AND COALESCE(a.status_final, '') <> 'descartado')
              / NULLIF(SUM(a.verificado = 1), 0), 1) AS taxa_confirmacao_pct
-FROM achados a
-JOIN classificacoes k ON k.classificacao_id = a.classificacao_id
-JOIN urls u ON u.url_id = k.url_id
-GROUP BY a.confianca, k.origem_texto, a.evidencia_confere, u.fonte_oficial
+FROM r_achados a
+JOIN r_classificacoes k ON k.classificacao_id = a.classificacao_id
+JOIN v_fonte_da_classificacao f ON f.classificacao_id = k.classificacao_id
+GROUP BY a.confianca, k.origem_texto, a.evidencia_confere, f.fonte_oficial_efetiva
 ORDER BY n_achados DESC;
 
 -- Onde o humano corrigiu o LLM: status reportado x status final (so achados verificados).
 DROP VIEW IF EXISTS v_correcoes_humanas;
 CREATE VIEW v_correcoes_humanas AS
 SELECT status_reportado, status_final, status_reportado = status_final AS manteve, COUNT(*) AS n
-FROM achados WHERE verificado = 1
+FROM r_achados WHERE verificado = 1
 GROUP BY status_reportado, status_final ORDER BY n DESC;
 
 -- Qualidade e custo por classificador, versao do prompt e origem do texto.
@@ -625,7 +674,7 @@ WITH por_classificacao AS (
     SELECT k.classificacao_id, k.classificador, k.prompt_versao, k.origem_texto, k.json_valido, k.relevante,
            k.texto_truncado, k.n_achados_invalidos, k.chamada_id, COUNT(a.achado_id) AS n_achados,
            COALESCE(SUM(a.evidencia_confere = 1), 0) AS n_evidencia_ok
-    FROM classificacoes k LEFT JOIN achados a ON a.classificacao_id = k.classificacao_id
+    FROM r_classificacoes k LEFT JOIN r_achados a ON a.classificacao_id = k.classificacao_id
     GROUP BY k.classificacao_id)
 SELECT p.classificador, p.prompt_versao, p.origem_texto, COUNT(*) AS n_classificacoes,
        ROUND(100.0 * SUM(p.json_valido) / COUNT(*), 1) AS pct_json_valido,
@@ -636,30 +685,30 @@ SELECT p.classificador, p.prompt_versao, p.origem_texto, COUNT(*) AS n_classific
        ROUND(100.0 * SUM(p.texto_truncado) / COUNT(*), 1) AS pct_texto_truncado,
        SUM(c.tokens_entrada) AS tokens_entrada, SUM(c.tokens_saida) AS tokens_saida,
        ROUND(SUM(c.custo_usd), 4) AS custo_usd, ROUND(AVG(c.latencia_ms)) AS latencia_media_ms
-FROM por_classificacao p JOIN chamadas c ON c.chamada_id = p.chamada_id
+FROM por_classificacao p JOIN r_chamadas c ON c.chamada_id = p.chamada_id
 GROUP BY p.classificador, p.prompt_versao, p.origem_texto;
 
 -- Resultado do download e da extracao de cada URL selecionada (inclui downloads que falharam e URLs nao tentadas).
 DROP VIEW IF EXISTS v_extracao;
 CREATE VIEW v_extracao AS
-SELECT resultado, motivo, fonte_oficial, COALESCE(content_type, '') AS content_type,
+SELECT resultado, motivo, COALESCE(fonte_oficial_final, fonte_oficial) AS fonte_oficial, COALESCE(content_type, '') AS content_type,
        COUNT(DISTINCT run_id || '|' || url_id) AS n_urls,
        ROUND(100.0 * COUNT(DISTINCT run_id || '|' || url_id)
-             / (SELECT COUNT(DISTINCT run_id || '|' || url_id) FROM v_resultado_download), 1) AS pct
-FROM v_resultado_download
-GROUP BY resultado, motivo, fonte_oficial, COALESCE(content_type, '') ORDER BY n_urls DESC;
+             / (SELECT COUNT(DISTINCT run_id || '|' || url_id) FROM v_resultado_download WHERE no_relatorio = 1), 1) AS pct
+FROM v_resultado_download WHERE no_relatorio = 1
+GROUP BY resultado, motivo, COALESCE(fonte_oficial_final, fonte_oficial), COALESCE(content_type, '') ORDER BY n_urls DESC;
 
 -- Custos e eficiencia gerais (todas as execucoes).
 DROP VIEW IF EXISTS v_eficiencia;
 CREATE VIEW v_eficiencia AS
 SELECT
-  COALESCE((SELECT SUM(custo_usd) FROM chamadas), 0) AS custo_total_usd,
-  (SELECT COUNT(*) FROM chamadas WHERE etapa = 'busca_academica' AND sucesso = 1) AS creditos_scholar,
-  (SELECT COUNT(*) FROM chamadas WHERE etapa = 'busca_web' AND sucesso = 1) AS requisicoes_busca_web,
+  COALESCE((SELECT SUM(custo_usd) FROM r_chamadas), 0) AS custo_total_usd,
+  (SELECT COUNT(*) FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1) AS creditos_scholar,
+  (SELECT COUNT(*) FROM r_chamadas WHERE etapa = 'busca_web' AND sucesso = 1) AS requisicoes_busca_web,
   (SELECT COUNT(DISTINCT url_id || '|' || uf) FROM v_status_url WHERE confirmado = 1) AS fontes_confirmadas,
-  ROUND((SELECT SUM(custo_usd) FROM chamadas) / NULLIF((SELECT COUNT(*) FROM v_status_url WHERE confirmado = 1), 0), 4) AS custo_por_fonte_confirmada_usd,
+  ROUND((SELECT SUM(custo_usd) FROM r_chamadas) / NULLIF((SELECT COUNT(*) FROM v_status_url WHERE confirmado = 1), 0), 4) AS custo_por_fonte_confirmada_usd,
   (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir') AS artigos_incluidos,
-  ROUND(1.0 * (SELECT COUNT(*) FROM chamadas WHERE etapa = 'busca_academica' AND sucesso = 1)
+  ROUND(1.0 * (SELECT COUNT(*) FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1)
         / NULLIF((SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir'), 0), 2) AS creditos_por_artigo_incluido;
 
 -- ===== Auditoria da coleta: o que aconteceu com cada item selecionado =====
@@ -668,7 +717,8 @@ SELECT
 DROP VIEW IF EXISTS v_resultado_download;
 CREATE VIEW v_resultado_download AS
 WITH ultima AS (SELECT run_id, alvo_id, MAX(chamada_id) AS chamada_id FROM chamadas WHERE etapa = 'download' GROUP BY run_id, alvo_id)
-SELECT s.run_id, s.url_id, s.uf, s.auditoria, u.dominio, u.fonte_oficial, c.chamada_id, c.http_status, c.erro,
+SELECT s.run_id, s.url_id, s.uf, s.auditoria, u.dominio, u.fonte_oficial, p.dominio_final, p.fonte_oficial_final,
+       COALESCE(p.dominio_final <> u.dominio, 0) AS redirecionou_de_dominio, e.no_relatorio, c.chamada_id, c.http_status, c.erro,
        c.tentativas, p.pagina_id, p.content_type, p.extracao_ok,
        CASE WHEN c.chamada_id IS NULL THEN 'nao_tentada'
             WHEN c.sucesso = 0 THEN 'falha_download'
@@ -684,6 +734,7 @@ SELECT s.run_id, s.url_id, s.uf, s.auditoria, u.dominio, u.fonte_oficial, c.cham
             ELSE COALESCE(p.motivo_falha, 'sem_pagina') END AS motivo
 FROM selecao_download s
 JOIN urls u ON u.url_id = s.url_id
+JOIN execucoes e ON e.run_id = s.run_id
 LEFT JOIN ultima l ON l.run_id = s.run_id AND l.alvo_id = CAST(s.url_id AS TEXT)
 LEFT JOIN chamadas c ON c.chamada_id = l.chamada_id
 LEFT JOIN paginas p ON p.chamada_id = c.chamada_id
@@ -715,14 +766,14 @@ WHERE s.selecionada = 1 OR s.auditoria = 1;
 -- Achados que o modelo devolveu fora do vocabulario controlado (descartados, mas guardados).
 DROP VIEW IF EXISTS v_achados_descartados;
 CREATE VIEW v_achados_descartados AS
-SELECT motivo, tecnologia, status, COUNT(*) AS n FROM achados_descartados
+SELECT motivo, tecnologia, status, COUNT(*) AS n FROM r_achados_descartados
 GROUP BY motivo, tecnologia, status ORDER BY n DESC;
 
 -- Confianca devolvida pelo modelo x confianca gravada (o snippet rebaixa para baixa).
 DROP VIEW IF EXISTS v_confianca_ajustada;
 CREATE VIEW v_confianca_ajustada AS
 SELECT k.origem_texto, a.confianca_original, a.confianca, a.confianca_original <> a.confianca AS ajustada, COUNT(*) AS n
-FROM achados a JOIN classificacoes k ON k.classificacao_id = a.classificacao_id
+FROM r_achados a JOIN r_classificacoes k ON k.classificacao_id = a.classificacao_id
 WHERE a.confianca_original IS NOT NULL
 GROUP BY k.origem_texto, a.confianca_original, a.confianca ORDER BY n DESC;
 
@@ -766,14 +817,14 @@ CREATE VIEW v_total_reportado_estabilidade AS
 SELECT alvo_id AS termo_id, COUNT(*) AS n_paginas, MIN(total_reportado) AS total_min, MAX(total_reportado) AS total_max,
        ROUND(AVG(total_reportado)) AS total_medio,
        ROUND(100.0 * (MAX(total_reportado) - MIN(total_reportado)) / NULLIF(MAX(total_reportado), 0), 1) AS variacao_pct
-FROM chamadas WHERE etapa = 'busca_academica' AND sucesso = 1 AND total_reportado IS NOT NULL
+FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1 AND total_reportado IS NOT NULL
 GROUP BY alvo_id;
 
 -- ===== Fontes (Scholar e bases manuais) =====
 
 DROP VIEW IF EXISTS v_ocorrencias_fonte;
 CREATE VIEW v_ocorrencias_fonte AS
-SELECT DISTINCT artigo_id, 'Google Scholar' AS fonte, termo_id FROM ocorrencias
+SELECT DISTINCT artigo_id, 'Google Scholar' AS fonte, termo_id FROM r_ocorrencias
 UNION
 SELECT DISTINCT artigo_id, base, termo_id FROM ocorrencias_manuais;
 
@@ -851,8 +902,8 @@ WHERE s.auditoria = 1 AND s.selecionada = 0
 -- Entre as URLs descartadas pelo pre-filtro, uma amostra foi baixada e classificada: quantas tinham achado?
 DROP VIEW IF EXISTS v_auditoria_prefiltro;
 CREATE VIEW v_auditoria_prefiltro AS
-WITH amostra AS (SELECT run_id, url_id, uf FROM selecao_download WHERE auditoria = 1),
-     descartadas AS (SELECT run_id, COUNT(*) AS n FROM selecao_download WHERE selecionada = 0 AND motivo = 'prefiltro_palavras' GROUP BY run_id)
+WITH amostra AS (SELECT run_id, url_id, uf FROM r_selecao_download WHERE auditoria = 1),
+     descartadas AS (SELECT run_id, COUNT(*) AS n FROM r_selecao_download WHERE selecionada = 0 AND motivo = 'prefiltro_palavras' GROUP BY run_id)
 SELECT a.run_id, d.n AS n_descartadas_prefiltro, COUNT(*) AS n_amostra,
        COALESCE(SUM(st.url_id IS NOT NULL), 0) AS n_classificadas,
        COALESCE(SUM(st.n_achados > 0), 0) AS n_com_achado,
@@ -906,3 +957,14 @@ JOIN v_ultima_revisao_triagem b ON a.artigo_id = b.artigo_id AND a.revisor < b.r
 JOIN artigos ar ON ar.artigo_id = a.artigo_id
 LEFT JOIN triagem t ON t.artigo_id = a.artigo_id
 ORDER BY a.artigo_id;
+
+-- Gasto de cada provedor em TODAS as execucoes (dentro e fora do relatorio). `n_ok_sem_custo` conta chamadas bem-sucedidas
+-- sem custo gravado em provedores que registram custo em outras chamadas (execucoes feitas antes do custo ser gravado).
+DROP VIEW IF EXISTS v_gasto_real;
+CREATE VIEW v_gasto_real AS
+SELECT c.provedor, e.no_relatorio, COUNT(*) AS n_chamadas, COALESCE(SUM(c.sucesso), 0) AS n_ok,
+       ROUND(COALESCE(SUM(c.custo_usd), 0), 4) AS custo_registrado_usd,
+       COALESCE(SUM(c.sucesso = 1 AND c.custo_usd IS NULL
+                    AND EXISTS (SELECT 1 FROM chamadas x WHERE x.provedor = c.provedor AND x.custo_usd IS NOT NULL)), 0) AS n_ok_sem_custo
+FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id
+GROUP BY c.provedor, e.no_relatorio;

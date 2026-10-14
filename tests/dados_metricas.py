@@ -118,8 +118,9 @@ def _params():
         tecnologias=tuple(V.TECNOLOGIAS), status=tuple(V.STATUS))
 
 
-def construir_web(pasta):
-    repo = RepositorioSQLite(pasta / "web.db")
+def construir_web(pasta, repo=None):
+    """repo: banco existente, para acrescentar uma segunda execucao identica a primeira."""
+    repo = repo or RepositorioSQLite(pasta / "web.db")
     bruto = BrutoLocal(pasta / "raw")
     run_id = _novo_run(repo, "pipeline-uf")
     consultas = gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, {"PI": C.UFS["PI"]})

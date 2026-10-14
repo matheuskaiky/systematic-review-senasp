@@ -165,6 +165,10 @@ def main():
     # C6: exportacao e importacoes tambem aceitam --simulado (usam o banco simulado)
     s = sub.add_parser("exportar"); s.add_argument("--saida"); s.add_argument("--simulado", action="store_true")
     sub.add_parser("manual-modelo")
+    s = sub.add_parser("execucao-excluir", help="tira uma execucao (piloto/teste) das views agregadas do relatorio")
+    s.add_argument("run_id"); s.add_argument("--motivo", default=""); s.add_argument("--simulado", action="store_true")
+    s = sub.add_parser("execucao-incluir", help="devolve uma execucao as views agregadas do relatorio")
+    s.add_argument("run_id"); s.add_argument("--simulado", action="store_true")
     sub.add_parser("manual-artigos-modelo")
     for nome in ("manual-importar", "manual-artigos-importar", "triagem-importar", "achados-importar"):
         s = sub.add_parser(nome); s.add_argument("arquivo"); s.add_argument("--simulado", action="store_true")
@@ -189,6 +193,12 @@ def main():
         pd.DataFrame(manual.gerar_modelo_manual(C.TERMOS, C.BASES_MANUAIS)).to_csv(
             caminho, index=False, encoding="utf-8-sig")
         print("Generated:", caminho)
+    elif a.cmd == "execucao-excluir":
+        fab.repo.definir_no_relatorio(a.run_id, False, a.motivo or None)
+        print(f"Execução {a.run_id} fora do relatório (os dados continuam no banco; reverta com execucao-incluir).")
+    elif a.cmd == "execucao-incluir":
+        fab.repo.definir_no_relatorio(a.run_id, True)
+        print(f"Execução {a.run_id} dentro do relatório.")
     elif a.cmd == "manual-artigos-modelo":
         S.OUT_DIR.mkdir(parents=True, exist_ok=True)
         caminho = S.OUT_DIR / "artigos_manuais_modelo.csv"

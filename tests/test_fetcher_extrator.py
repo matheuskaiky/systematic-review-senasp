@@ -224,7 +224,8 @@ def test_arquivo_maior_que_o_limite_e_truncado(robots, monkeypatch):
     r = _Resp([b"a" * 8, b"b" * 8, b"c" * 8])
     _chamar(monkeypatch, r)
     a = FetcherRequests(UA, max_bytes=10).baixar("https://x.gov.br/a")
-    assert a.truncado and a.chamada.extras["truncado"] is True and len(a.conteudo) == 16 and r.closed   # para ao passar do limite
+    assert a.truncado and a.chamada.extras["truncado"] is True and r.closed
+    assert len(a.conteudo) == 10 == a.chamada.extras["n_bytes"] == len(a.chamada.raw)             # o limite vale exatamente
 
 
 def test_erro_http_devolve_arquivo_vazio_com_o_erro(robots, monkeypatch):

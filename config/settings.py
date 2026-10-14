@@ -58,8 +58,10 @@ OPCOES = {
         "preco_saida_por_m": 2.5,
         # Formato do esquema: o guia oficial de saida estruturada (consultado em 14/10/2026) documenta
         # generationConfig.responseFormat.text.{mimeType, schema} com JSON Schema; decisao do pesquisador: seguir a
-        # documentacao. Alternativas: "responseSchema" (formato da especificacao) e "responseJsonSchema".
-        # TODO(verificar): aceitacao desse formato pelo modelo, confirmada so pela 1a chamada real.
+        # documentacao. Na referencia REST o mimeType e um enum (APPLICATION_JSON): a 1a chamada real, com o texto
+        # "application/json" do exemplo do guia, recebeu HTTP 400. Alternativas: "responseSchema" (formato da
+        # especificacao) e "responseJsonSchema".
+        # TODO(verificar): aceitacao de APPLICATION_JSON pelo modelo, confirmada so por uma chamada real bem-sucedida.
         # A documentacao rotula o generateContent como "Legacy" (a API nova e a Interactions API).
         "formato_esquema": "responseFormat",
     },

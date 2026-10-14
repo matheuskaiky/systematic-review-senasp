@@ -112,8 +112,17 @@ def test_corpo_com_responseJsonSchema_envia_o_esquema_neutro():
 
 def test_corpo_com_responseFormat_aninha_mimeType_e_schema():
     g = _gemini(formato_esquema="responseFormat")._corpo(_instr())["generationConfig"]
-    assert g["responseFormat"] == {"text": {"mimeType": "application/json", "schema": ESQUEMA}}
+    assert g["responseFormat"] == {"text": {"mimeType": "APPLICATION_JSON", "schema": ESQUEMA}}
     assert "responseMimeType" not in g and "responseSchema" not in g
+
+
+def test_responseFormat_nao_usa_o_texto_application_json_que_a_api_real_rejeitou():
+    """Regressao: HTTP 400 'Invalid value at generation_config.response_format.text.mime_type' (fixture real)."""
+    g = _gemini(formato_esquema="responseFormat")._corpo(_instr())["generationConfig"]
+    assert g["responseFormat"]["text"]["mimeType"] == "APPLICATION_JSON"
+    assert "application/json" not in json.dumps(g["responseFormat"])
+    erro = json.loads((pathlib.Path(__file__).parent / "fixtures" / "gemini_erro_400_mimetype.json").read_text(encoding="utf-8"))["error"]
+    assert erro["code"] == 400 and "response_format.text.mime_type" in erro["message"] and erro["status"] == "INVALID_ARGUMENT"
 
 
 def test_formato_de_esquema_invalido_e_recusado():
@@ -344,3 +353,22 @@ def test_gemini_interpreta_resposta_real():
     texto, t_in, t_out = ClassificadorGemini.interpretar(_REAL.read_text(encoding="utf-8"))
     assert texto and t_in and t_out
     assert ClassificadorGemini.metadados(_REAL.read_text(encoding="utf-8"))["modelo_versao"]
+
+
+
+_ERRO_400 = pathlib.Path(__file__).parent / "fixtures" / "gemini_erro_400_mimetype.json"
+
+
+def test_erro_400_real_e_registrado_sem_levantar_e_sem_custo(monkeypatch):
+    corpo = _ERRO_400.read_text(encoding="utf-8")
+    _chamar(monkeypatch, corpo, erro="HTTP 400: " + corpo[:300], http_status=400)
+    res = _gemini().classificar(_entrada(), _instr())
+    c = res.chamada
+    assert not c.sucesso and c.http_status == 400 and c.erro.startswith("HTTP 400") and c.raw == corpo.encode()
+    assert (res.relevante, res.achados, res.json_valido) == (False, [], False)
+    assert c.custo_usd is None and c.tokens_entrada is None
+
+
+def test_metadados_do_corpo_de_erro_real_nao_levantam():
+    m = ClassificadorGemini.metadados(_ERRO_400.read_text(encoding="utf-8"))
+    assert m["sem_candidatos"] is True and m["finish_reason"] is None

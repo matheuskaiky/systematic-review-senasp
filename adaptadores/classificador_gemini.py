@@ -29,7 +29,8 @@ class ClassificadorGemini:
                  preco_entrada_por_m=None, preco_saida_por_m=None, timeout=120,
                  base_url="https://generativelanguage.googleapis.com/v1beta", formato_esquema="responseSchema"):
         """`formato_esquema`: "responseSchema" (esquema com tipos em maiusculas, como na referencia REST),
-        "responseJsonSchema" (JSON Schema) ou "responseFormat" (`generationConfig.responseFormat.text`)."""
+        "responseJsonSchema" (JSON Schema) ou "responseFormat" (`generationConfig.responseFormat.text`, com
+        `mimeType` no formato de enum da referencia REST)."""
         if formato_esquema not in FORMATOS_ESQUEMA:
             raise ValueError(f"formato_esquema deve ser um de {FORMATOS_ESQUEMA}, nao {formato_esquema!r}")
         self._chave, self._modelo, self._temp, self._max = chave, modelo, temperatura, max_tokens_saida
@@ -42,7 +43,9 @@ class ClassificadorGemini:
             return {"responseMimeType": "application/json", "responseSchema": _para_esquema_gemini(esquema)}
         if self._formato == "responseJsonSchema":
             return {"responseMimeType": "application/json", "responseJsonSchema": esquema}
-        return {"responseFormat": {"text": {"mimeType": "application/json", "schema": esquema}}}
+        # na referencia REST, TextResponseFormat.mimeType e um enum (APPLICATION_JSON, TEXT_PLAIN): a API real rejeitou
+        # o texto "application/json" usado no exemplo do guia (HTTP 400 em 14/10/2026)
+        return {"responseFormat": {"text": {"mimeType": "APPLICATION_JSON", "schema": esquema}}}
 
     def _corpo(self, instr):
         return {

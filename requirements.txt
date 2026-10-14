@@ -1,0 +1,7 @@
+requests
+pandas
+openpyxl
+python-dotenv
+trafilatura
+pypdf
+pytest

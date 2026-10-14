@@ -1,0 +1,110 @@
+import hashlib
+import json
+import re
+import unicodedata
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
+from dominio.modelos import Achado, ConsultaWeb
+
+_RASTREIO = ("fbclid", "gclid", "mc_cid", "mc_eid")   # tracking parameters
+_CERCA = "`" * 3                                      # markdown code fence
+
+
+def hash_chave(*partes):
+    return hashlib.sha1("|".join(str(p) for p in partes).encode("utf-8")).hexdigest()
+
+
+def normalizar_url(url):
+    p = urlsplit(url.strip())
+    host = p.netloc.lower().removeprefix("www.")
+    caminho = p.path.rstrip("/") or "/"
+    consulta = sorted((k, v) for k, v in parse_qsl(p.query, keep_blank_values=True)
+                      if not (k.startswith("utm_") or k in _RASTREIO))
+    return urlunsplit(((p.scheme or "https").lower(), host, caminho, urlencode(consulta), ""))
+
+
+def dominio_de(url):
+    return urlsplit(url).netloc.lower().removeprefix("www.")
+
+
+def eh_oficial(dominio, sufixos=(".gov.br",)):
+    return any(dominio == s.lstrip(".") or dominio.endswith(s) for s in sufixos)
+
+
+def normalizar_texto(t):
+    t = unicodedata.normalize("NFKD", t or "").encode("ascii", "ignore").decode().lower()
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def evidencia_confere(evidencia, texto):
+    """True if the excerpt cited by the LLM literally (normalized) exists in the text that was sent."""
+    e = normalizar_texto(evidencia)
+    return bool(e) and e in normalizar_texto(texto)
+
+
+def chave_dedup_titulo(titulo):
+    t = unicodedata.normalize("NFKD", titulo).encode("ascii", "ignore").decode().lower()
+    return hashlib.sha1(re.sub(r"[^a-z0-9]+", " ", t).strip().encode()).hexdigest()
+
+
+def ano_do_resumo(resumo):
+    anos = re.findall(r"\b(?:19|20)\d{2}\b", resumo or "")
+    return int(anos[-1]) if anos else None
+
+
+def gerar_consultas_web(modelos, tecnologias, ufs):
+    saida = []
+    for m in modelos:
+        for uf, nome in ufs.items():
+            for chave_tec, rotulo in tecnologias.items():
+                saida.append(ConsultaWeb(
+                    id=f"{m.id}-{uf}-{chave_tec}",
+                    texto=m.template.format(tec=rotulo, nome=nome, uf=uf),
+                    idioma=m.idioma, uf=uf, tecnologia=chave_tec,
+                    modelo_id=m.id, perfil=m.perfil))
+    return saida
+
+
+def selecionar_candidatos(candidatos, politica):
+    """Returns [(candidate, selected: bool, discard_reason | None)]. Records EVERY decision."""
+    palavras = [normalizar_texto(p) for p in politica.palavras_chave]
+    por_uf, saida = {}, []
+    for c in sorted(candidatos, key=lambda c: (c.uf, -c.n_ocorrencias, c.melhor_posicao)):
+        motivo = None
+        if any(c.dominio == d or c.dominio.endswith("." + d) for d in politica.dominios_excluir):
+            motivo = "dominio_excluido"
+        elif politica.apenas_oficiais and not c.fonte_oficial:
+            motivo = "nao_oficial"
+        elif palavras and not any(p in normalizar_texto(f"{c.titulo} {c.snippet}") for p in palavras):
+            motivo = "prefiltro_palavras"
+        elif por_uf.get(c.uf, 0) >= politica.max_urls_por_uf:
+            motivo = "limite_por_uf"
+        if motivo is None:
+            por_uf[c.uf] = por_uf.get(c.uf, 0) + 1
+        saida.append((c, motivo is None, motivo))
+    return saida
+
+
+def interpretar_json_classificacao(texto):
+    """Converts the LLM output into (relevant, [Achado], json_valid). Tolerant of code fences and <think>."""
+    t = re.sub(r"<think>.*?</think>", "", texto or "", flags=re.S).strip()
+    t = re.sub(rf"^{_CERCA}(?:json)?\s*|\s*{_CERCA}$", "", t, flags=re.M).strip()
+    dados = None
+    try:
+        dados = json.loads(t)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", t, flags=re.S)
+        if m:
+            try:
+                dados = json.loads(m.group(0))
+            except json.JSONDecodeError:
+                pass
+    if not isinstance(dados, dict) or not isinstance(dados.get("achados"), list):
+        return False, [], False
+    achados = [
+        Achado(tecnologia=str(a.get("tecnologia", "")), status=str(a.get("status", "")),
+               fornecedor=str(a.get("fornecedor") or ""), menciona_lgpd=bool(a.get("menciona_lgpd")),
+               evidencia=str(a.get("evidencia") or ""), confianca=str(a.get("confianca", "baixa")))
+        for a in dados["achados"] if isinstance(a, dict)
+    ]
+    return bool(dados.get("relevante", bool(achados))), achados, True

@@ -47,13 +47,18 @@ OPCOES = {
     },
     "padrao": {"min_chars": 200},
     "gemini": {
-        # The "latest" alias changes over time. For reproducibility, pin the exact version.
-        # TODO(verificar): identificador atual do modelo Gemini, formato do responseSchema e precos
+        # Identificador e precos conferidos na documentacao oficial em 14/10/2026 (ai.google.dev): modelo
+        # gemini-3.5-flash-lite; US$ 0,30 por 1M tokens de entrada e US$ 2,50 de saida (raciocinio conta como saida).
+        # O raciocinio vem ligado em nivel minimo por padrao, e max_output_tokens inclui os tokens de raciocinio.
         "modelo": "gemini-3.5-flash-lite",
         "temperatura": 0.0,
         "max_tokens_saida": 4096,
-        "preco_entrada_por_m": 0.3,   # US$ per 1M tokens (fill in with the current price)
+        "preco_entrada_por_m": 0.3,   # US$ per 1M tokens
         "preco_saida_por_m": 2.5,
+        # TODO(verificar): formato do esquema aceito por este modelo no generateContent ("responseSchema" como na
+        # referencia REST, "responseJsonSchema" ou "responseFormat" como no guia novo); confirmado so pela 1a chamada real.
+        # A documentacao rotula o generateContent como "Legacy" (a API nova e a Interactions API).
+        "formato_esquema": "responseSchema",
     },
     "openai_compat": {
         "url": "https://api.openai.com/v1/chat/completions",

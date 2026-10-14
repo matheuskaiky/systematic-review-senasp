@@ -1,0 +1,12 @@
+{
+  "candidates": [
+    {
+      "content": {"role": "model", "parts": [{"text": "{\"relevante\": true, \"achados\": [{\"tecnologia\": \"reconhecimento_facial\", \"status\": \"em_uso\", \"fornec"}]},
+      "finishReason": "MAX_TOKENS",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {"promptTokenCount": 1200, "candidatesTokenCount": 40, "thoughtsTokenCount": 4056, "totalTokenCount": 5296},
+  "modelVersion": "gemini-3.5-flash-lite-sintetico",
+  "responseId": "resp-sintetico-0003"
+}

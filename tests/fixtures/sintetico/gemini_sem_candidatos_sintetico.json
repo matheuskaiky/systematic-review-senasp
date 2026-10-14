@@ -1,0 +1,6 @@
+{
+  "promptFeedback": {"blockReason": "SAFETY"},
+  "usageMetadata": {"promptTokenCount": 1200, "totalTokenCount": 1200},
+  "modelVersion": "gemini-3.5-flash-lite-sintetico",
+  "responseId": "resp-sintetico-0002"
+}

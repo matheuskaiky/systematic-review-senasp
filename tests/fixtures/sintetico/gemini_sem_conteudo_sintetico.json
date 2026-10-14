@@ -1,0 +1,6 @@
+{
+  "candidates": [{"finishReason": "SAFETY", "index": 0}],
+  "usageMetadata": {"promptTokenCount": 1200, "candidatesTokenCount": 0, "totalTokenCount": 1200},
+  "modelVersion": "gemini-3.5-flash-lite-sintetico",
+  "responseId": "resp-sintetico-0004"
+}

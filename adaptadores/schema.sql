@@ -676,9 +676,11 @@ SELECT s.run_id, s.url_id, s.uf, s.auditoria, u.dominio, u.fonte_oficial, c.cham
             ELSE 'falha_extracao' END AS resultado,
        CASE WHEN c.chamada_id IS NULL THEN 'limite_ou_interrompida'
             WHEN c.sucesso = 0 THEN CASE WHEN c.erro LIKE 'bloqueado_por_robots%' THEN 'bloqueado_por_robots'
-                                         WHEN c.http_status IS NOT NULL THEN 'http_' || c.http_status
+                                         WHEN c.erro LIKE 'erro_de_leitura%' THEN 'erro_de_leitura'
+                                         WHEN c.erro LIKE 'HTTP %' AND c.http_status IS NOT NULL THEN 'http_' || c.http_status
                                          ELSE 'erro_de_rede' END
             WHEN p.extracao_ok = 1 THEN 'ok'
+            WHEN p.motivo_falha LIKE 'erro:%' THEN substr(p.motivo_falha, 1, instr(p.motivo_falha || '(', '(') - 1)
             ELSE COALESCE(p.motivo_falha, 'sem_pagina') END AS motivo
 FROM selecao_download s
 JOIN urls u ON u.url_id = s.url_id

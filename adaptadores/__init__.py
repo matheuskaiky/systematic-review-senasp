@@ -1,4 +1,6 @@
 from adaptadores.busca_perplexity import BuscaPerplexity
+from adaptadores.fetcher_requests import FetcherRequests
+from adaptadores.extrator_padrao import ExtratorPadrao
 from adaptadores.repositorio_sqlite import RepositorioSQLite
 from adaptadores.bruto_local import BrutoLocal
 from adaptadores.exportador_excel import ExportadorExcel
@@ -6,6 +8,8 @@ from adaptadores.exportador_excel import ExportadorExcel
 # Completar conforme os adaptadores forem criados; ao final do M7 deve coincidir com a secao 8.1 da especificacao.
 REGISTROS = {
     "busca_web": {"perplexity_search": BuscaPerplexity},
+    "fetcher": {"requests": FetcherRequests},
+    "extrator": {"padrao": ExtratorPadrao},
     "armazenamento": {"sqlite": RepositorioSQLite},
     "bruto": {"local": BrutoLocal},
     "exportador": {"excel": ExportadorExcel},

@@ -4,7 +4,7 @@ import pytest
 
 import config.settings as S
 
-CHAVES = ("SERPAPI_KEY", "PERPLEXITY_API_KEY", "GEMINI_API_KEY", "LLM_API_KEY")
+CHAVES = ("SERPAPI_KEY", "PERPLEXITY_API_KEY", "GEMINI_API_KEY", "LLM_API_KEY", "RESEARCHER_EMAIL")
 
 
 @pytest.fixture(autouse=True)

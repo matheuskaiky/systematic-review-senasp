@@ -1,0 +1,11 @@
+{
+  "id": "sintetico-0001",
+  "results": [
+    {"title": "Reconhecimento facial na SSP (sintetico)", "url": "https://ssp.exemplo.gov.br/noticias/reconhecimento-facial",
+     "snippet": "Texto de exemplo sobre cameras com reconhecimento facial.", "date": "2024-05-01", "last_updated": "2024-06-01"},
+    {"title": "Edital de videomonitoramento (sintetico)", "url": "https://licitacoes.exemplo.gov.br/edital/123",
+     "snippet": "Texto de exemplo sobre edital.", "last_updated": "2024-03-15"},
+    {"title": "Resultado sem URL (sintetico)", "snippet": "Deve ser ignorado pelo adaptador."},
+    {"title": "Pagina sem data (sintetico)", "url": "https://exemplo.com.br/materia", "snippet": "Texto de exemplo."}
+  ]
+}

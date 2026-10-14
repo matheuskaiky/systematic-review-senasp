@@ -35,6 +35,11 @@ class Fabrica:
             if not chave:
                 raise SystemExit(f"Set {env} in .env to use '{nome}'")
             opcoes["chave"] = chave
+        if "user_agent" in opcoes:       # e-mail de contato vem do ambiente, nao da configuracao
+            email = os.environ.get(S.EMAIL_PESQUISADOR_ENV)
+            if not email:
+                raise SystemExit(f"Set {S.EMAIL_PESQUISADOR_ENV} in .env to use '{nome}'")
+            opcoes["user_agent"] = opcoes["user_agent"].replace("{email}", email)
         return cls(**opcoes)
 
     # lazy creation: only requires a key for the adapters the command actually uses

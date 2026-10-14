@@ -8,6 +8,7 @@ from aplicacao import busca_academica, busca_web, download, classificacao
 from config import consultas as C, vocabulario as V
 from dominio.esquemas import esquema_classificacao
 from dominio.modelos import ParametrosClassificacao
+from dominio.modelos import RespostaBusca
 from dominio.servicos import gerar_consultas_web
 
 UFS = ("PI", "CE")
@@ -181,3 +182,59 @@ class _BuscaQueVazaSegredo(BuscaSimulada):
         resp = super().buscar(consulta, filtros)
         resp.chamada.raw = ('{"eco": "api_key=%s"}' % self._segredo).encode()
         return resp
+
+
+# ---------- metricas: tudo o que e medido precisa chegar ao banco ----------
+COLUNAS_OBRIGATORIAS = ("run_id", "etapa", "provedor", "operacao", "alvo_tipo", "alvo_id", "parametros_json",
+                        "chave_idempotencia", "requisitado_em", "http_status", "sucesso", "tentativas",
+                        "latencia_ms", "raw_path", "raw_sha256", "extras_json")
+
+
+def test_toda_chamada_grava_as_metricas_e_o_bruto(repo, bruto, tmp_path):
+    _pipeline(repo, bruto)
+    linhas = repo.conn.execute("SELECT * FROM chamadas").fetchall()
+    assert len(linhas) == 32                                    # 20 buscas + 6 downloads + 6 classificacoes
+    for l in linhas:
+        faltando = [c for c in COLUNAS_OBRIGATORIAS if l[c] is None]
+        assert not faltando, f"chamada {l['chamada_id']} ({l['etapa']}) sem {faltando}"
+        assert l["sucesso"] == 1 and l["erro"] is None and len(l["raw_sha256"]) == 64
+        assert (tmp_path / "raw" / l["raw_path"]).is_file()
+
+
+def test_busca_web_grava_contagens_e_classificacao_grava_tokens_e_custo(repo, bruto):
+    _pipeline(repo, bruto)
+    for l in repo.conn.execute("SELECT n_retornados, n_novos FROM chamadas WHERE etapa='busca_web'"):
+        assert l["n_retornados"] == 3 and l["n_novos"] is not None
+    for l in repo.conn.execute("SELECT tokens_entrada, tokens_saida, custo_usd FROM chamadas WHERE etapa='classificacao'"):
+        assert (l["tokens_entrada"], l["tokens_saida"], l["custo_usd"]) == (100, 20, 0.0)
+
+
+class _BuscaQueFalha(BuscaSimulada):
+    def buscar(self, consulta, filtros):
+        resp = super().buscar(consulta, filtros)
+        c = resp.chamada
+        c.erro, c.http_status, c.tentativas, c.latencia_ms, c.raw = "HTTP 500: falha", 500, 4, 1234, b"corpo do erro"
+        return RespostaBusca([], c)
+
+
+def test_chamada_com_falha_tambem_grava_as_metricas_e_o_bruto(repo, bruto, tmp_path):
+    run_id = _novo_run(repo)
+    busca_web.executar(repo, bruto, _BuscaQueFalha(), run_id, _consultas()[:1], C.PERFIS_BUSCA_WEB, [], 0)
+    l = repo.conn.execute("SELECT * FROM chamadas").fetchone()
+    assert (l["sucesso"], l["erro"], l["http_status"], l["tentativas"], l["latencia_ms"]) == (0, "HTTP 500: falha", 500, 4, 1234)
+    assert l["n_retornados"] == 0 and l["n_novos"] == 0
+    assert (tmp_path / "raw" / l["raw_path"]).read_bytes() == b"corpo do erro"
+    assert repo.conn.execute("SELECT n FROM v_falhas").fetchone()[0] == 1
+    assert not repo.ja_feito(run_id, l["chave_idempotencia"])        # falha nao conta como feita: sera repetida
+
+
+def test_custo_da_busca_web_aparece_em_v_custos(repo, bruto):
+    class _Paga(BuscaSimulada):
+        def buscar(self, consulta, filtros):
+            resp = super().buscar(consulta, filtros)
+            resp.chamada.custo_usd = 0.005
+            return resp
+    run_id = _novo_run(repo)
+    busca_web.executar(repo, bruto, _Paga(), run_id, _consultas()[:5], C.PERFIS_BUSCA_WEB, [], 0)
+    l = repo.conn.execute("SELECT n_chamadas, n_ok, custo_usd FROM v_custos WHERE etapa='busca_web'").fetchone()
+    assert (l["n_chamadas"], l["n_ok"], l["custo_usd"]) == (5, 5, 0.025)

@@ -20,16 +20,23 @@ PROVEDORES = {
     "exportador": "excel",
 }
 
+# Perplexity Search API: US$ 5,00 por 1.000 requisicoes, cobradas por requisicao bem-sucedida e sem custo por token
+# (docs.perplexity.ai/docs/getting-started/pricing, consultado em 14/10/2026). O modo `search_type: "fast"`
+# custa US$ 1,00 por 1.000; para usa-lo, corpo_extra={"search_type": "fast"} e preco 0.001 (decisao do pesquisador).
+PRECO_BUSCA_WEB_USD = 0.005     # per request
+
 # Options per adapter (never put API keys here)
 OPCOES = {
     "perplexity_search": {
-        # TODO(verificar): campos extras aceitos pela API Perplexity Search (pais, idioma, datas)
+        # TODO(verificar): demais campos extras aceitos pela API Perplexity Search (pais, idioma, datas); `search_type` existe
         "corpo_extra": {},   # extra fields accepted by the API (country, language, dates...). Check the documentation.
+        "preco_por_requisicao_usd": PRECO_BUSCA_WEB_USD,   # gravado em chamadas.custo_usd a cada requisicao aceita
     },
     "serpapi_google": {"pais": "br"},
     "serpapi_scholar": {},
     "requests": {
-        "user_agent": "AcademicResearch-AIPublicSecurity/1.0 (contact: SEU_EMAIL)",
+        # {email} e trocado pela composicao com o valor da variavel EMAIL_PESQUISADOR_ENV (nunca fixo aqui)
+        "user_agent": "AcademicResearch-AIPublicSecurity/1.0 (contact: {email})",
         "timeout": 30,
         "max_bytes": 8_000_000,
         "respeitar_robots": True,
@@ -38,11 +45,11 @@ OPCOES = {
     "gemini": {
         # The "latest" alias changes over time. For reproducibility, pin the exact version.
         # TODO(verificar): identificador atual do modelo Gemini, formato do responseSchema e precos
-        "modelo": "gemini-flash-latest",
+        "modelo": "gemini-3.5-flash-lite",
         "temperatura": 0.0,
         "max_tokens_saida": 4096,
-        "preco_entrada_por_m": None,   # US$ per 1M tokens (fill in with the current price)
-        "preco_saida_por_m": None,
+        "preco_entrada_por_m": 0.3,   # US$ per 1M tokens (fill in with the current price)
+        "preco_saida_por_m": 2.5,
     },
     "openai_compat": {
         "url": "https://api.openai.com/v1/chat/completions",
@@ -67,10 +74,10 @@ SEGREDOS = {
     "openai_compat": "LLM_API_KEY",
 }
 
-PAUSAS = {"busca_academica": 1.0, "busca_web": 0.5, "download": 1.0, "classificacao": 0.5}
+# variavel de ambiente com o e-mail de contato do pesquisador (vai no User-Agent dos downloads)
+EMAIL_PESQUISADOR_ENV = "RESEARCHER_EMAIL"
 
-# TODO(verificar): preco atual da Perplexity Search API por requisicao
-PRECO_BUSCA_WEB_USD = 0.005     # per request (check the current price)
+PAUSAS = {"busca_academica": 1.0, "busca_web": 0.5, "download": 1.0, "classificacao": 0.5}
 
 CLASSIFICACAO = {"max_chars_texto": 60_000, "usar_snippet_se_falhar": True}
 
@@ -98,8 +105,8 @@ def snapshot_config():
         "modelos_web": c.MODELOS_WEB, "perfis_busca_web": c.PERFIS_BUSCA_WEB,
         "politica_download": c.POLITICA_DOWNLOAD, "ufs": c.UFS,
         "tecnologias": v.TECNOLOGIAS, "status": v.STATUS,
-        "prompt_versao": p.PROMPT_VERSAO, "prompt_sistema": p.PROMPT_SISTEMA,
-        "prompt_usuario": p.PROMPT_USUARIO, "classificacao": CLASSIFICACAO,
+        "prompt_versao": p.PROMPT_VERSAO, "prompt_sistema": p.SYSTEM_PROMPT,
+        "prompt_usuario": p.USER_PROMPT, "classificacao": CLASSIFICACAO,
     }
     texto = json.dumps(conteudo, sort_keys=True, ensure_ascii=False, default=_plano)
     return {"json": texto, "hash": hashlib.sha256(texto.encode()).hexdigest()[:12]}

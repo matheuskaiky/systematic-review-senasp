@@ -1,10 +1,11 @@
 from config.vocabulario import STATUS
 
-PROMPT_VERSAO = "v1"
+# v2: regra 7 e linha "Output language" (entradas em en-US, saidas em pt-BR)
+PROMPT_VERSAO = "v2"
 
 _DEFINICOES = "\n".join(f"- {k}: {v}" for k, v in STATUS.items())
 
-PROMPT_SISTEMA = (
+SYSTEM_PROMPT = (
     "You analyze text from web pages about public security in Brazil.\n"
     "Rules:\n"
     "1. Use EXCLUSIVELY the text provided. Do not use outside knowledge.\n"
@@ -17,13 +18,19 @@ PROMPT_SISTEMA = (
     "5. 'fornecedor': company name if it appears in the text; otherwise, an empty string.\n"
     "6. 'menciona_lgpd': true only if the excerpt addresses LGPD (the Brazilian data "
     "protection law) or data protection.\n"
+    "7. Language: these instructions are written in English (en-US). Write every free-text value "
+    "you produce in Brazilian Portuguese (pt-BR). Never translate 'evidencia': it must be copied "
+    "exactly as it appears in the source text. JSON keys and enumerated values stay exactly as "
+    "defined in the schema.\n"
     "Status definitions:\n" + _DEFINICOES
 )
 
-PROMPT_USUARIO = (
+USER_PROMPT = (
     "TARGET STATE: {nome} ({uf})\n"
     "URL: {url}\n"
     "Title: {titulo}\n"
-    "Text origin: {origem}\n\n"
+    "Text origin: {origem}\n"
+    "Output language: Brazilian Portuguese (pt-BR) for any free text; copy 'evidencia' verbatim "
+    "from the text below, without translating.\n\n"
     "TEXT:\n{texto}"
 )

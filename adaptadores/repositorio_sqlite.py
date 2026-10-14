@@ -1,7 +1,7 @@
 import json
 import sqlite3
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -14,6 +14,20 @@ def _v(x):
     return None if pd.isna(x) else x
 
 
+def _int(x):
+    return None if pd.isna(x) else int(x)
+
+
+# colunas acrescentadas depois da primeira versao do schema: bancos antigos as recebem ao abrir
+_COLUNAS_NOVAS = {
+    "execucoes": {"ambiente_json": "TEXT"},
+    "selecao_download": {"auditoria": "INTEGER NOT NULL DEFAULT 0"},
+    "achados": {"confianca_original": "TEXT"},
+    "triagem": {"decisao_texto_completo": "TEXT", "motivo_texto_completo": "TEXT"},
+    "triagem_revisoes": {"independente": "INTEGER NOT NULL DEFAULT 0"},
+}
+
+
 class RepositorioSQLite:
     def __init__(self, caminho):
         caminho = Path(caminho)
@@ -22,6 +36,15 @@ class RepositorioSQLite:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript((Path(__file__).parent / "schema.sql").read_text(encoding="utf-8"))
+        self._garantir_colunas()
+
+    def _garantir_colunas(self):
+        for tabela, colunas in _COLUNAS_NOVAS.items():
+            existentes = {l["name"] for l in self.conn.execute(f"PRAGMA table_info({tabela})")}
+            for coluna, tipo in colunas.items():
+                if coluna not in existentes:
+                    self.conn.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
+        self.conn.commit()
 
     # ---------- utilities ----------
     def _inserir(self, tabela, **c):
@@ -33,7 +56,8 @@ class RepositorioSQLite:
         self.conn.commit()
 
     # ---------- run ----------
-    def iniciar_execucao(self, comando, config_hash, config_json, commit_git, retomar=None, run_origem=None):
+    def iniciar_execucao(self, comando, config_hash, config_json, commit_git, retomar=None, run_origem=None,
+                         ambiente_json=None):
         # C5: a execucao indicada em --de precisa existir
         if run_origem and not self.conn.execute(
                 "SELECT 1 FROM execucoes WHERE run_id=?", (run_origem,)).fetchone():
@@ -47,12 +71,15 @@ class RepositorioSQLite:
             self.conn.execute("UPDATE execucoes SET status='em_andamento' WHERE run_id=?", (retomar,))
             if run_origem:                    # sem --de na retomada, preserva o valor guardado
                 self.conn.execute("UPDATE execucoes SET run_origem=? WHERE run_id=?", (run_origem, retomar))
+            # o codigo e o ambiente da retomada podem ser outros: ficam registrados, sem apagar os da execucao original
+            self._inserir("execucoes_retomadas", run_id=retomar, retomado_em=agora(), commit_git=commit_git,
+                          ambiente_json=ambiente_json)
             self.conn.commit()
             return retomar
-        run_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]     # UTC, como `agora()`
         self._inserir("execucoes", run_id=run_id, iniciado_em=agora(), comando=comando,
                       config_hash=config_hash, config_json=config_json, commit_git=commit_git,
-                      run_origem=run_origem)
+                      run_origem=run_origem, ambiente_json=ambiente_json)
         self.conn.commit()
         return run_id
 
@@ -160,14 +187,15 @@ class RepositorioSQLite:
                                   l["melhor_posicao"], l["n_ocorrencias"], bool(l["fonte_oficial"])) for l in linhas]
 
     def salvar_selecao(self, run_id, linhas):
+        # cada linha: (url_id, uf, selecionada, motivo) ou (url_id, uf, selecionada, motivo, auditoria)
         self.conn.executemany(
-            "INSERT OR REPLACE INTO selecao_download (run_id, url_id, uf, selecionada, motivo) VALUES (?,?,?,?,?)",
-            [(run_id, *l) for l in linhas])
+            "INSERT OR REPLACE INTO selecao_download (run_id, url_id, uf, selecionada, motivo, auditoria) "
+            "VALUES (?,?,?,?,?,?)", [(run_id, *l, *(0,) * (5 - len(l))) for l in linhas])
 
     def urls_selecionadas(self, run_id):
         return [(l["url_id"], l["url"]) for l in self.conn.execute(
             """SELECT DISTINCT s.url_id, u.url_original AS url FROM selecao_download s
-               JOIN urls u ON u.url_id=s.url_id WHERE s.run_id=? AND s.selecionada=1 ORDER BY s.url_id""",
+               JOIN urls u ON u.url_id=s.url_id WHERE s.run_id=? AND (s.selecionada=1 OR s.auditoria=1) ORDER BY s.url_id""",
             (run_id,)).fetchall()]
 
     def salvar_pagina(self, run_id, url_id, chamada_id, arquivo, texto, texto_path):
@@ -187,7 +215,7 @@ class RepositorioSQLite:
             FROM selecao_download s
             JOIN urls u ON u.url_id=s.url_id
             LEFT JOIN paginas p ON p.pagina_id=(SELECT MAX(pagina_id) FROM paginas WHERE url_id=s.url_id AND run_id=s.run_id)
-            WHERE s.run_id=? AND s.selecionada=1
+            WHERE s.run_id=? AND (s.selecionada=1 OR s.auditoria=1)
             ORDER BY s.uf, s.url_id""", (run_origem,)).fetchall()
         return [ItemClassificacao(l["url_id"], l["uf"], l["url"], l["titulo"], l["snippet"],
                                   l["pagina_id"], l["texto_path"]) for l in linhas]
@@ -205,8 +233,16 @@ class RepositorioSQLite:
                           status_reportado=a.status, fornecedor=a.fornecedor or None,
                           menciona_lgpd=int(a.menciona_lgpd), evidencia=a.evidencia,
                           evidencia_confere=None if a.evidencia_confere is None else int(a.evidencia_confere),
-                          confianca=a.confianca)
+                          confianca=a.confianca, confianca_original=a.confianca_original)
         return cid
+
+    def salvar_achados_descartados(self, classificacao_id, descartados):
+        """descartados: [(Achado, motivo)] devolvidos pelo modelo fora do vocabulario controlado."""
+        uf = self.conn.execute("SELECT uf FROM classificacoes WHERE classificacao_id=?", (classificacao_id,)).fetchone()[0]
+        for a, motivo in descartados:
+            self._inserir("achados_descartados", classificacao_id=classificacao_id, uf=uf, tecnologia=a.tecnologia,
+                          status=a.status, fornecedor=a.fornecedor or None, menciona_lgpd=int(a.menciona_lgpd),
+                          evidencia=a.evidencia, confianca=a.confianca, motivo=motivo)
 
     # ---------- export and imports ----------
     def tabelas_para_exportacao(self):
@@ -228,11 +264,48 @@ class RepositorioSQLite:
             "Sobreposicao": "SELECT * FROM v_sobreposicao_termos",
             "Triagem": """SELECT a.artigo_id, a.titulo, a.ano, a.link, a.citacoes,
                                  COALESCE(t.decisao,'pendente') AS decisao, t.motivo,
-                                 t.confirmado_em_base, t.link_confirmado, t.revisor
+                                 t.confirmado_em_base, t.link_confirmado, t.revisor,
+                                 t.decisao_texto_completo, t.motivo_texto_completo
                           FROM artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id
                           ORDER BY a.citacoes DESC""",
             "Buscas_manuais": "SELECT * FROM buscas_manuais ORDER BY base, termo_id",
             "Manuais_resumo": "SELECT * FROM v_manuais_resumo",
+            # metricas para o relatorio (protocolo e justificativas)
+            "Termos_rendimento": "SELECT * FROM v_rendimento_termo",
+            "Termos_pares": "SELECT * FROM v_pares_termos",
+            "Termos_idioma": "SELECT * FROM v_ganho_por_idioma",
+            "Termos_pagina": "SELECT * FROM v_rendimento_por_pagina",
+            "Curva_descoberta": "SELECT * FROM v_curva_descoberta ORDER BY chamada_id",
+            "PRISMA": "SELECT fase, metrica, valor FROM v_prisma ORDER BY ordem",
+            "Motivos_exclusao": "SELECT * FROM v_motivos_exclusao",
+            "Registro_buscas": "SELECT * FROM v_registro_buscas",
+            "Web_rendimento": "SELECT * FROM v_rendimento_busca_web",
+            "Web_modelos": "SELECT * FROM v_sobreposicao_modelos",
+            "Web_posicao": "SELECT * FROM v_rendimento_por_posicao",
+            "Web_consultas_vazias": "SELECT * FROM v_consultas_vazias",
+            "UF_tecnologia": "SELECT * FROM v_cobertura_uf_tecnologia",
+            "Precisao_LLM": "SELECT * FROM v_precisao_llm",
+            "Correcoes_humanas": "SELECT * FROM v_correcoes_humanas",
+            "Qualidade_classif": "SELECT * FROM v_qualidade_classificacao",
+            "Extracao": "SELECT * FROM v_extracao",
+            "Eficiencia": "SELECT * FROM v_eficiencia",
+            "Saldos": "SELECT * FROM v_saldos",
+            "Metricas_run": "SELECT * FROM metricas_run",
+            "Download_resultado": "SELECT * FROM v_resultado_download",
+            "Classif_resultado": "SELECT * FROM v_resultado_classificacao",
+            "Achados_descartados": "SELECT * FROM v_achados_descartados",
+            "Confianca_ajustada": "SELECT * FROM v_confianca_ajustada",
+            "Auditoria_prefiltro": "SELECT * FROM v_auditoria_prefiltro",
+            "Fontes": "SELECT * FROM v_rendimento_fonte",
+            "Fontes_sobreposicao": "SELECT * FROM v_sobreposicao_fontes",
+            "Termos_fonte": "SELECT * FROM v_rendimento_termo_fonte",
+            "Termos_total_estabilidade": "SELECT * FROM v_total_reportado_estabilidade",
+            "Ganho_contexto": "SELECT * FROM v_ganho_contexto",
+            "Revisores_kappa": "SELECT * FROM v_concordancia_revisores",
+            "Discordancias": "SELECT * FROM v_discordancias_triagem",
+            "Passadas": "SELECT * FROM v_passadas ORDER BY run_id, passada",
+            "Historico_triagem": "SELECT * FROM triagem_revisoes ORDER BY revisao_id",
+            "Historico_achados": "SELECT * FROM achados_revisoes ORDER BY revisao_id",
         }
         return {k: pd.read_sql_query(v, self.conn) for k, v in consultas.items()}
 
@@ -248,20 +321,53 @@ class RepositorioSQLite:
         self.conn.commit()
         return n
 
-    def importar_triagem(self, df):
+    def _registrar_revisao_triagem(self, artigo_id, revisor, decisao, motivo, tc, motivo_tc, independente):
+        """Historico: so grava se algo mudou em relacao a ultima revisao do mesmo revisor, do mesmo tipo
+        (independente ou nao), para o artigo."""
+        ultima = self.conn.execute(
+            """SELECT decisao, motivo, decisao_texto_completo, motivo_texto_completo FROM triagem_revisoes
+               WHERE artigo_id=? AND revisor=? AND independente=? ORDER BY revisao_id DESC LIMIT 1""",
+            (artigo_id, revisor, independente)).fetchone()
+        if ultima is not None and tuple(ultima) == (decisao, motivo, tc, motivo_tc):
+            return
+        self._inserir("triagem_revisoes", artigo_id=artigo_id, revisor=revisor, decisao=decisao, motivo=motivo,
+                      decisao_texto_completo=tc, motivo_texto_completo=motivo_tc, importado_em=agora(),
+                      independente=independente)
+
+    def importar_triagem(self, df, so_historico=False):
+        """Importa a aba Triagem. Toda decisao entra no historico (`triagem_revisoes`), por revisor.
+
+        Com so_historico=True a decisao NAO altera `triagem` (revisao independente, antes do consenso).
+        """
         validos = {"pendente", "incluir", "excluir"}
+        tem_tc = "decisao_texto_completo" in df.columns
         for _, r in df.iterrows():
             dec = str(_v(r["decisao"]) or "pendente").strip().lower()
             if dec not in validos:
                 raise SystemExit(f"Invalid decision for article {r['artigo_id']}: {dec}")
+            tc = motivo_tc = None
+            if tem_tc:
+                tc = str(_v(r["decisao_texto_completo"]) or "").strip().lower() or None
+                if tc is not None and tc not in validos:
+                    raise SystemExit(f"Invalid full-text decision for article {r['artigo_id']}: {tc}")
+                if "motivo_texto_completo" in df.columns:
+                    motivo_tc = _v(r["motivo_texto_completo"])
+            artigo_id = int(r["artigo_id"])
+            motivo = _v(r["motivo"])
+            revisor = str(_v(r["revisor"]) or "").strip() or "(sem revisor)"
+            self._registrar_revisao_triagem(artigo_id, revisor, dec, motivo, tc, motivo_tc, int(bool(so_historico)))
+            if so_historico:
+                continue
             self.conn.execute(
                 """INSERT INTO triagem (artigo_id, decisao, motivo, confirmado_em_base, link_confirmado, revisor, revisado_em)
-                   VALUES (?,?,?,?,?,?,datetime('now'))
+                   VALUES (?,?,?,?,?,?,?)
                    ON CONFLICT(artigo_id) DO UPDATE SET decisao=excluded.decisao, motivo=excluded.motivo,
                      confirmado_em_base=excluded.confirmado_em_base, link_confirmado=excluded.link_confirmado,
                      revisor=excluded.revisor, revisado_em=excluded.revisado_em""",
-                (int(r["artigo_id"]), dec, _v(r["motivo"]), _v(r["confirmado_em_base"]),
-                 _v(r["link_confirmado"]), _v(r["revisor"])))
+                (artigo_id, dec, motivo, _v(r["confirmado_em_base"]), _v(r["link_confirmado"]), _v(r["revisor"]), agora()))
+            if tem_tc:
+                self.conn.execute("UPDATE triagem SET decisao_texto_completo=?, motivo_texto_completo=? WHERE artigo_id=?",
+                                  (tc, motivo_tc, artigo_id))
         self.conn.commit()
         return len(df)
 
@@ -273,10 +379,49 @@ class RepositorioSQLite:
             final = _v(r["status_final"])
             if final not in status_permitidos:
                 raise SystemExit(f"Invalid status_final for finding {r['achado_id']}: {final}")
+            achado_id, por, obs = int(r["achado_id"]), _v(r["verificado_por"]), _v(r["observacao"])
             self.conn.execute(
-                """UPDATE achados SET verificado=1, status_final=?, verificado_por=?, verificado_em=datetime('now'),
-                   observacao=? WHERE achado_id=?""",
-                (final, _v(r["verificado_por"]), _v(r["observacao"]), int(r["achado_id"])))
+                """UPDATE achados SET verificado=1, status_final=?, verificado_por=?, verificado_em=?,
+                   observacao=? WHERE achado_id=?""", (final, por, agora(), obs, achado_id))
+            # historico: so grava se mudou em relacao a ultima verificacao da mesma pessoa
+            revisor = str(por or "").strip() or "(sem revisor)"
+            ultima = self.conn.execute(
+                """SELECT status_final, observacao FROM achados_revisoes WHERE achado_id=? AND verificado_por=?
+                   ORDER BY revisao_id DESC LIMIT 1""", (achado_id, revisor)).fetchone()
+            if ultima is None or tuple(ultima) != (final, obs):
+                self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=revisor, status_final=final,
+                              observacao=obs, importado_em=agora())
             n += 1
         self.conn.commit()
         return n
+
+    def importar_artigos_manuais(self, df):
+        """Artigos informados a mao nas buscas manuais. Entram em `artigos` (deduplicados por titulo) e em
+        `ocorrencias_manuais`. Reimportar o mesmo arquivo nao duplica nada. Devolve (ocorrencias novas, artigos novos)."""
+        ocorrencias = novos = 0
+        for _, r in df.iterrows():
+            titulo = str(r["titulo"]).strip()
+            chave = chave_dedup_titulo(titulo)
+            link = _v(r["link"]) if "link" in df.columns else None
+            linha = self.conn.execute("SELECT artigo_id FROM artigos WHERE chave_dedup=?", (chave,)).fetchone()
+            if linha:
+                artigo_id = linha["artigo_id"]
+                if link:
+                    self.conn.execute("UPDATE artigos SET link=COALESCE(link, ?) WHERE artigo_id=?", (link, artigo_id))
+            else:
+                artigo_id = self._inserir(
+                    "artigos", chave_dedup=chave, titulo=titulo, link=link,
+                    autores_publicacao=_v(r["autores_publicacao"]) if "autores_publicacao" in df.columns else None,
+                    ano=_int(r["ano"]) if "ano" in df.columns else None, snippet=None,
+                    citacoes=_int(r["citacoes"]) if "citacoes" in df.columns else None,
+                    primeira_vez_run=f"manual:{r['base']}", primeira_vez_em=agora())
+                novos += 1
+            data = str(_v(r["data_busca"]) or "") if "data_busca" in df.columns else ""
+            cur = self.conn.execute(
+                """INSERT OR IGNORE INTO ocorrencias_manuais (artigo_id, base, termo_id, data_busca, posicao, importado_em)
+                   VALUES (?,?,?,?,?,?)""",
+                (artigo_id, r["base"], r["termo_id"], data,
+                 _int(r["posicao"]) if "posicao" in df.columns else None, agora()))
+            ocorrencias += cur.rowcount
+        self.conn.commit()
+        return ocorrencias, novos

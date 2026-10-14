@@ -33,6 +33,7 @@ class Termo:
     query: str
     idioma: str
     grupo: str
+    pai: str = ""        # id do termo de que esta consulta combinada deriva ("" = termo original)
 
 
 @dataclass(frozen=True)
@@ -167,6 +168,7 @@ class Achado:
     evidencia: str
     confianca: str
     evidencia_confere: Optional[bool] = None
+    confianca_original: Optional[str] = None     # confianca devolvida pelo modelo, antes de qualquer ajuste
 
 
 @dataclass

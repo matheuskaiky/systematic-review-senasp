@@ -31,3 +31,10 @@ def test_adaptadores_e_infra_nao_importam_config():
 
 def test_adaptadores_nao_leem_ambiente():
     assert not _viola(r"os\.environ|getenv", ["adaptadores", "dominio", "aplicacao", "infra"])
+
+
+def test_adaptadores_de_rede_guardam_o_historico_de_tentativas():
+    """Todo adaptador que chama `chamar` e monta um RegistroChamada precisa gravar `extras_http(r)` nos extras."""
+    faltando = [str(p) for p, src in _fontes("adaptadores")
+                if "chamar(" in src and "RegistroChamada(" in src and "extras_http(" not in src]
+    assert not faltando, faltando

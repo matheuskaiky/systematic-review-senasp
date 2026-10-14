@@ -4,7 +4,7 @@ import re
 import unicodedata
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
-from dominio.modelos import Achado, ConsultaWeb
+from dominio.modelos import Achado, ConsultaWeb, Termo
 
 _RASTREIO = ("fbclid", "gclid", "mc_cid", "mc_eid")   # tracking parameters
 _CERCA = "`" * 3                                      # markdown code fence
@@ -108,3 +108,24 @@ def interpretar_json_classificacao(texto):
         for a in dados["achados"] if isinstance(a, dict)
     ]
     return bool(dados.get("relevante", bool(achados))), achados, True
+
+
+def termo_composto(id, pai, contexto, operador="AND"):
+    """Consulta combinada: o termo `pai` ligado a um contexto (ex.: '"public security" OR police').
+
+    O contexto vai entre parenteses; o termo composto herda idioma e grupo do pai e guarda o id dele em `pai`.
+    """
+    return Termo(id, f"{pai.query} {operador} ({contexto})", pai.idioma, pai.grupo, pai.id)
+
+
+def escolher_auditoria(decisoes, n, semente):
+    """Amostra reprodutivel de itens descartados pelo pre-filtro de palavras-chave, para auditar o filtro.
+
+    `decisoes` e a saida de selecionar_candidatos. A ordem vem de hash_chave(semente, url_id, uf), sem aleatoriedade
+    externa: a mesma semente e os mesmos candidatos dao sempre a mesma amostra.
+    """
+    if n <= 0:
+        return []
+    descartados = [d for d in decisoes if d[2] == "prefiltro_palavras"]
+    descartados.sort(key=lambda d: hash_chave(semente, d[0].url_id, d[0].uf))
+    return descartados[:n]

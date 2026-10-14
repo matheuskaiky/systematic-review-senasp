@@ -1,0 +1,9 @@
+{
+  "id": "sintetico-0002",
+  "results": [
+    [
+      {"title": "Primeiro do lote (sintetico)", "url": "https://exemplo.gov.br/a", "snippet": "A", "date": "2024-01-01"},
+      {"title": "Segundo do lote (sintetico)", "url": "https://exemplo.gov.br/b", "snippet": "B"}
+    ]
+  ]
+}

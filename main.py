@@ -1,7 +1,10 @@
 import argparse
+import hashlib
+import json
 import logging
 import subprocess
 from datetime import datetime
+from pathlib import Path
 import pandas as pd
 
 import config.settings as S
@@ -12,6 +15,7 @@ from dominio.modelos import ParametrosClassificacao
 from dominio.servicos import gerar_consultas_web
 from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao
 from infra.log import iniciar_log
+from infra.util import coletar_ambiente
 
 ETAPAS = {
     "academico": ["academico"],
@@ -23,18 +27,48 @@ ETAPAS = {
 }
 
 
+# arquivos de acompanhamento que nao mudam o comportamento do codigo: nao contam para "arvore suja"
+_FORA_DO_CODIGO = (":!DECISIONS.md", ":!.gitignore")
+
+
+def _git(*args):
+    return subprocess.check_output(["git", *args], stderr=subprocess.DEVNULL, cwd=S.RAIZ)
+
+
 def _commit_git():
+    """Commit curto. Com alteracoes nao commitadas (inclusive arquivos novos), acrescenta `+sujo:<hash>` do
+    conteudo, para que a execucao nao seja atribuida a um commit cujo codigo ela nao rodou."""
     try:
-        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"],
-                                       stderr=subprocess.DEVNULL).decode().strip()
+        commit = _git("rev-parse", "--short", "HEAD").decode().strip()
+        status = _git("status", "--porcelain", "--untracked-files=all", "--", ".", *_FORA_DO_CODIGO).decode()
+        if not status.strip():
+            return commit
+        h = hashlib.sha256(status.encode())
+        h.update(_git("diff", "HEAD", "--", ".", *_FORA_DO_CODIGO))
+        for linha in status.splitlines():
+            if linha.startswith("??"):
+                try:
+                    h.update((Path(S.RAIZ) / linha[3:]).read_bytes())
+                except OSError:
+                    pass
+        return f"{commit}+sujo:{h.hexdigest()[:8]}"
     except Exception:
         return None
+
+
+def _ambiente(args):
+    """Versoes, pausas e argumentos da execucao: ficam em execucoes.ambiente_json, fora do hash da configuracao."""
+    lock = Path(S.RAIZ) / "requirements.lock.txt"
+    return json.dumps(coletar_ambiente({
+        "pausas": S.PAUSAS, "argumentos": vars(args),
+        "requirements_lock_sha256": hashlib.sha256(lock.read_bytes()).hexdigest() if lock.exists() else None}),
+        ensure_ascii=False, sort_keys=True, default=str)
 
 
 def _params_classificacao():
     esquema = esquema_classificacao(tuple(V.TECNOLOGIAS), tuple(V.STATUS), V.CONFIANCA)
     return ParametrosClassificacao(
-        versao_prompt=P.PROMPT_VERSAO, sistema=P.PROMPT_SISTEMA, usuario_template=P.PROMPT_USUARIO,
+        versao_prompt=P.PROMPT_VERSAO, sistema=P.SYSTEM_PROMPT, usuario_template=P.USER_PROMPT,
         esquema=esquema, tecnologias=tuple(V.TECNOLOGIAS), status=tuple(V.STATUS),
         max_chars=S.CLASSIFICACAO["max_chars_texto"],
         usar_snippet_se_falhar=S.CLASSIFICACAO["usar_snippet_se_falhar"])
@@ -69,7 +103,8 @@ def rodar(args, etapas):
         raise SystemExit(f"O comando '{args.cmd}' lê dados de uma etapa anterior que não roda nele: "
                          "informe --de <run_id> com a execução que contém essa entrada.")
     run_id = repo.iniciar_execucao(args.cmd + (" [simulado]" if args.simulado else ""),
-                                   snap["hash"], snap["json"], _commit_git(), args.retomar, run_origem=de)
+                                   snap["hash"], snap["json"], _commit_git(), args.retomar, run_origem=de,
+                                   ambiente_json=_ambiente(args))
     iniciar_log(run_id, S.LOG_DIR)
     ufs = {k: v for k, v in C.UFS.items() if not args.ufs or k in args.ufs}
     termos = [t for t in C.TERMOS if not args.termos or t.id in args.termos]
@@ -93,7 +128,8 @@ def rodar(args, etapas):
                                fab.segredos, S.PAUSAS["busca_web"], args.limite)
         if "download" in etapas:
             download.executar(repo, fab.bruto, fab.fetcher, fab.extrator, run_id, origem_dl,
-                              C.POLITICA_DOWNLOAD, fab.segredos, S.PAUSAS["download"], args.limite, set(ufs))
+                              C.POLITICA_DOWNLOAD, fab.segredos, S.PAUSAS["download"], args.limite, set(ufs),
+                              auditoria=args.auditoria or 0, semente=run_id)
         if "classificacao" in etapas:
             classificacao.executar(repo, fab.bruto, fab.classificador, run_id, origem_cl, _params_classificacao(),
                                    C.UFS, fab.segredos, S.PAUSAS["classificacao"], args.limite, set(ufs))
@@ -124,11 +160,17 @@ def main():
         s.add_argument("--ufs", nargs="*"); s.add_argument("--termos", nargs="*")
         s.add_argument("--paginas", type=int); s.add_argument("--perfil")
         s.add_argument("--limite", type=int, help="max. items per stage (testing)")
+        s.add_argument("--auditoria", type=int, default=0,
+                       help="N URLs descartadas pelo pre-filtro de palavras-chave tambem sao baixadas e classificadas (auditoria)")
     # C6: exportacao e importacoes tambem aceitam --simulado (usam o banco simulado)
     s = sub.add_parser("exportar"); s.add_argument("--saida"); s.add_argument("--simulado", action="store_true")
     sub.add_parser("manual-modelo")
-    for nome in ("manual-importar", "triagem-importar", "achados-importar"):
+    sub.add_parser("manual-artigos-modelo")
+    for nome in ("manual-importar", "manual-artigos-importar", "triagem-importar", "achados-importar"):
         s = sub.add_parser(nome); s.add_argument("arquivo"); s.add_argument("--simulado", action="store_true")
+        if nome == "triagem-importar":
+            s.add_argument("--independente", action="store_true",
+                           help="revisao independente: so entra no historico, nao altera a decisao final")
 
     a = p.parse_args()
     fab = Fabrica(simulado=getattr(a, "simulado", False))
@@ -147,12 +189,23 @@ def main():
         pd.DataFrame(manual.gerar_modelo_manual(C.TERMOS, C.BASES_MANUAIS)).to_csv(
             caminho, index=False, encoding="utf-8-sig")
         print("Generated:", caminho)
+    elif a.cmd == "manual-artigos-modelo":
+        S.OUT_DIR.mkdir(parents=True, exist_ok=True)
+        caminho = S.OUT_DIR / "artigos_manuais_modelo.csv"
+        pd.DataFrame(columns=manual.COLUNAS_ARTIGOS_MANUAIS).to_csv(caminho, index=False, encoding="utf-8-sig")
+        print("Generated:", caminho)
+    elif a.cmd == "manual-artigos-importar":
+        df = pd.read_csv(a.arquivo, encoding="utf-8-sig", dtype=str)
+        manual.validar_artigos_manuais(df, C.TERMOS, C.BASES_MANUAIS)
+        ocorrencias, novos = fab.repo.importar_artigos_manuais(df)
+        print(f"Ocorrências novas: {ocorrencias} | artigos novos: {novos} | linhas no arquivo: {len(df)}")
     elif a.cmd == "manual-importar":
         df = pd.read_csv(a.arquivo)
         manual.validar_manuais(df[df["n_resultados"].notna()], C.TERMOS, C.BASES_MANUAIS)
         print("Rows imported:", fab.repo.importar_buscas_manuais(df))
     elif a.cmd == "triagem-importar":
-        print("Rows imported:", fab.repo.importar_triagem(pd.read_excel(a.arquivo, sheet_name="Triagem")))
+        print("Rows imported:", fab.repo.importar_triagem(pd.read_excel(a.arquivo, sheet_name="Triagem"),
+                                                    so_historico=a.independente))
     elif a.cmd == "achados-importar":
         permitidos = set(V.STATUS) | set(V.STATUS_FINAL_EXTRA)
         print("Findings verified:", fab.repo.importar_verificacao_achados(

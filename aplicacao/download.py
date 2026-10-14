@@ -1,14 +1,18 @@
 import logging
 import time
-from dominio.servicos import hash_chave, selecionar_candidatos
+from dominio.servicos import hash_chave, selecionar_candidatos, escolher_auditoria
 from aplicacao.comum import registrar_chamada
 
 
 def executar(repo, bruto, fetcher, extrator, run_id, run_origem, politica, segredos, pausa,
-             limite=None, ufs=None):
+             limite=None, ufs=None, auditoria=0, semente=""):
     cands = [c for c in repo.candidatos_download(run_origem) if not ufs or c.uf in ufs]
     decisao = selecionar_candidatos(cands, politica)
-    repo.salvar_selecao(run_id, [(c.url_id, c.uf, int(ok), motivo) for c, ok, motivo in decisao])
+    # auditoria do pre-filtro: amostra reprodutivel dos descartados por palavra-chave tambem e baixada e classificada
+    amostra = {(c.url_id, c.uf) for c, _, _ in escolher_auditoria(decisao, auditoria, semente)}
+    repo.salvar_selecao(run_id, [(c.url_id, c.uf, int(ok), motivo, int((c.url_id, c.uf) in amostra))
+                                 for c, ok, motivo in decisao])
+    repo.registrar_metrica(run_id, "download_auditoria_amostra", len(amostra))
     repo.registrar_metrica(run_id, "download_candidatos", len(cands))
     repo.registrar_metrica(run_id, "download_selecionados", sum(1 for _, ok, _ in decisao if ok))
     repo.confirmar()

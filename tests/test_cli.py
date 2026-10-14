@@ -159,4 +159,20 @@ def test_manual_modelo_gera_csv(ambiente_cli, monkeypatch):
     _rodar(monkeypatch, "manual-modelo")
     csv = ambiente_cli / "outputs" / "buscas_manuais_modelo.csv"
     assert csv.read_bytes().startswith(b"\xef\xbb\xbf")             # utf-8-sig
-    assert len(csv.read_text(encoding="utf-8-sig").strip().splitlines()) == 1 + 4 * 4
+    n_linhas = len(csv.read_text(encoding="utf-8-sig").strip().splitlines())
+    assert n_linhas == 1 + len(main.C.TERMOS) * len(main.C.BASES_MANUAIS)
+
+
+def test_execucao_grava_o_resumo_de_metricas(ambiente_cli, monkeypatch):
+    import json
+    _rodar(monkeypatch, "tudo", "--simulado", "--ufs", "PI", "CE", "--paginas", "1")
+    linha = _runs(ambiente_cli)[0]
+    m = json.loads(linha["metricas_json"])
+    assert linha["status"] == "concluida" and linha["finalizado_em"] and linha["config_hash"] and linha["config_json"]
+    esperadas = len(main.C.TERMOS) + 20 + 6 + 6      # academico + busca web + download + classificacao
+    assert (m["chamadas"], m["sucesso"], m["falhas"]) == (esperadas, esperadas, 0)
+    assert (m["tokens_entrada"], m["tokens_saida"], m["custo_usd"]) == (600, 120, 0.0)
+    assert m["latencia_media_ms"] == 1
+    metricas = {l["chave"]: l["valor"] for l in _banco(ambiente_cli).execute("SELECT * FROM metricas_run")}
+    assert metricas == {"download_candidatos": 6, "download_selecionados": 6, "download_auditoria_amostra": 0,
+                        "classificacao_ignorados_sem_texto": 0}

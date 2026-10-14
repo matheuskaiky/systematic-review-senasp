@@ -37,3 +37,15 @@ Registro de desvios e decisões de julgamento em relação à especificação (`
 - Decisão: `_plano` em `config/settings.py` trata também `Path` e passou a ser o `default` único do `json.dumps`, no lugar do lambda da especificação.
 - Motivo: o lambda só chamava `_plano` para dataclasses; os `Path` caíam em `str()` com caminho absoluto.
 - Impacto: `config/settings.py`, `tests/test_config.py`.
+
+### D7 — Leitura e validação do `run_origem` no repositório (marco M1)
+- Contexto: C5 manda guardar `--de` em `execucoes.run_origem`, reaproveitá-lo em `--retomar` e validar que a execução existe, mas só cita `iniciar_execucao(run_origem=None)` na porta.
+- Decisão: a validação de `--de` (mensagem em português) fica dentro de `iniciar_execucao`; foi acrescentado o método `obter_run_origem(run_id)` à porta `Repositorio` e ao adaptador SQLite, para que o `main.py` leia o valor guardado ao retomar. Na retomada com `--de` novo o valor guardado é atualizado; sem `--de` é preservado.
+- Motivo: menor mudança que dá ao `main.py` o dado de que ele precisa sem consultar o banco diretamente.
+- Impacto: `dominio/portas.py`, `adaptadores/repositorio_sqlite.py`, `tests/test_repositorio.py`.
+
+### D8 — Nome do arquivo bruto com sufixo único (C11) (marco M1)
+- Contexto: C11 pede um sufixo curto e único no nome do arquivo bruto.
+- Decisão: `BrutoLocal.salvar` grava `<16 primeiros caracteres da chave>_<6 hex de uuid4>.<ext>`.
+- Motivo: uma nova tentativa não sobrescreve o arquivo da tentativa anterior e o `raw_path` antigo continua válido.
+- Impacto: `adaptadores/bruto_local.py`, `tests/test_repositorio.py`.

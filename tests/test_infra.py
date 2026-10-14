@@ -91,19 +91,6 @@ def test_agora_e_iso_8601_em_utc():
 
 
 # ---------- C13: log ----------
-@pytest.fixture
-def raiz_limpa():
-    raiz = logging.getLogger()
-    salvos, nivel = list(raiz.handlers), raiz.level
-    yield raiz
-    for h in list(raiz.handlers):
-        raiz.removeHandler(h)
-        h.close()
-    for h in salvos:
-        raiz.addHandler(h)
-    raiz.setLevel(nivel)
-
-
 def test_iniciar_log_duas_vezes_deixa_dois_handlers(raiz_limpa, tmp_path):
     log.iniciar_log("run_a", tmp_path)
     log.iniciar_log("run_b", tmp_path)

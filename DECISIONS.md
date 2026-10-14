@@ -49,3 +49,21 @@ Registro de desvios e decisões de julgamento em relação à especificação (`
 - Decisão: `BrutoLocal.salvar` grava `<16 primeiros caracteres da chave>_<6 hex de uuid4>.<ext>`.
 - Motivo: uma nova tentativa não sobrescreve o arquivo da tentativa anterior e o `raw_path` antigo continua válido.
 - Impacto: `adaptadores/bruto_local.py`, `tests/test_repositorio.py`.
+
+### D9 — Execução que encerra por `SystemExit` não consta como concluída (marco M2)
+- Contexto: no `rodar` da especificação, `status` começa como `"concluida"` e só `KeyboardInterrupt` e `Exception` o alteram. A fábrica encerra com `SystemExit` quando falta uma chave (`Set <VAR> in .env ...`), então o `finally` gravava a execução como `concluida`, sem nenhuma chamada feita.
+- Decisão: `except SystemExit` marca `status = "falhou"` e relança a exceção.
+- Motivo: defeito não coberto pelas correções; uma execução abortada por falta de chave não pode constar como concluída no banco que sustenta a metodologia.
+- Impacto: `main.py`; teste de regressão `test_execucao_que_encerra_por_falta_de_chave_nao_consta_como_concluida` em `tests/test_cli.py`.
+
+### D10 — Exportador básico já no M2 e caminho padrão calculado no `main.py` (marco M2)
+- Contexto: o aceite do M2 (C6) exige `python main.py exportar --simulado`, mas o `ExportadorExcel` está previsto para o M8, onde C3 troca o `outputs/` fixo por uma opção `pasta`.
+- Decisão: o `ExportadorExcel` da especificação (sem C3, C4 e C7) foi criado e registrado no M2. O `main.py` calcula o caminho padrão como `OUT_DIR/[simulado_]resultado_<data>.xlsx` quando `--saida` não é dado.
+- Motivo: cumprir o aceite do M2 com o menor código; o caminho absoluto a partir de `OUT_DIR` não depende do diretório de execução.
+- Impacto: `adaptadores/exportador_excel.py`, `adaptadores/__init__.py`, `main.py`. O M8 acrescenta C3, C4 e C7 sobre esse adaptador.
+
+### D11 — Testes isolados das chaves reais (marco M2)
+- Contexto: `composicao.py` chama `load_dotenv()` ao ser importado, e o `main` é importado pelos testes da CLI.
+- Decisão: `tests/conftest.py` remove as quatro variáveis de chave do ambiente em todo teste (fixture automática) e aponta `DATA_DIR`, `LOG_DIR`, `OUT_DIR` para `tmp_path` e zera as pausas nos testes da CLI.
+- Motivo: nenhum teste pode abrir conexão nem usar chave, mesmo depois que os adaptadores reais existirem.
+- Impacto: `tests/conftest.py`, `tests/test_cli.py`.

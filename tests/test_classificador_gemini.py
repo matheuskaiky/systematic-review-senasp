@@ -124,13 +124,13 @@ def test_formato_de_esquema_invalido_e_recusado():
 
 def test_o_formato_do_esquema_esta_na_configuracao_e_no_hash():
     import config.settings as S
-    assert S.OPCOES["gemini"]["formato_esquema"] == "responseSchema" and S.OPCOES["gemini"]["modelo"] == "gemini-3.5-flash-lite"
+    assert S.OPCOES["gemini"]["formato_esquema"] == "responseFormat" and S.OPCOES["gemini"]["modelo"] == "gemini-3.5-flash-lite"
     antes = S.snapshot_config()["hash"]
-    S.OPCOES["gemini"]["formato_esquema"] = "responseFormat"
+    S.OPCOES["gemini"]["formato_esquema"] = "responseSchema"
     try:
         assert S.snapshot_config()["hash"] != antes
     finally:
-        S.OPCOES["gemini"]["formato_esquema"] = "responseSchema"
+        S.OPCOES["gemini"]["formato_esquema"] = "responseFormat"
 
 
 # ====================== interpretar ======================
@@ -293,7 +293,7 @@ def test_fabrica_monta_o_classificador_com_a_chave_do_ambiente(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", CHAVE)
     c = Fabrica().classificador
     assert isinstance(c, ClassificadorGemini) and c.nome == "gemini:gemini-3.5-flash-lite"
-    assert (c._pin, c._pout, c._max, c._formato) == (0.3, 2.5, 4096, "responseSchema")
+    assert (c._pin, c._pout, c._max, c._formato) == (0.3, 2.5, 4096, "responseFormat")
 
 
 def test_fabrica_sem_chave_nao_cria_o_classificador():

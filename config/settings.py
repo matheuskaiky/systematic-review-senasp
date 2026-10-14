@@ -42,8 +42,9 @@ OPCOES = {
         "respeitar_robots": True,
         "tempo_maximo": 120,                  # prazo total por download, em segundos (timeout vale por leitura)
         "max_redirecionamentos": 5,
-        # robots.txt com 5xx ou ilegivel: "permitir" (especificacao) ou "bloquear" (RFC 9309). Decisao do pesquisador.
-        "robots_se_inacessivel": "permitir",
+        # robots.txt com 5xx ou ilegivel: "permitir" (especificacao) ou "bloquear" (RFC 9309).
+        # Decisao do pesquisador (14/10/2026): bloquear.
+        "robots_se_inacessivel": "bloquear",
     },
     "padrao": {"min_chars": 200},
     "gemini": {
@@ -55,10 +56,12 @@ OPCOES = {
         "max_tokens_saida": 4096,
         "preco_entrada_por_m": 0.3,   # US$ per 1M tokens
         "preco_saida_por_m": 2.5,
-        # TODO(verificar): formato do esquema aceito por este modelo no generateContent ("responseSchema" como na
-        # referencia REST, "responseJsonSchema" ou "responseFormat" como no guia novo); confirmado so pela 1a chamada real.
+        # Formato do esquema: o guia oficial de saida estruturada (consultado em 14/10/2026) documenta
+        # generationConfig.responseFormat.text.{mimeType, schema} com JSON Schema; decisao do pesquisador: seguir a
+        # documentacao. Alternativas: "responseSchema" (formato da especificacao) e "responseJsonSchema".
+        # TODO(verificar): aceitacao desse formato pelo modelo, confirmada so pela 1a chamada real.
         # A documentacao rotula o generateContent como "Legacy" (a API nova e a Interactions API).
-        "formato_esquema": "responseSchema",
+        "formato_esquema": "responseFormat",
     },
     "openai_compat": {
         "url": "https://api.openai.com/v1/chat/completions",

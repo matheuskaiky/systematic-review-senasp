@@ -187,13 +187,13 @@ def test_politica_de_robots_invalida_e_recusada():
 
 def test_a_politica_de_robots_esta_na_configuracao_e_no_hash():
     import config.settings as S
-    assert S.OPCOES["requests"]["robots_se_inacessivel"] == "permitir" and S.OPCOES["requests"]["tempo_maximo"] == 120
+    assert S.OPCOES["requests"]["robots_se_inacessivel"] == "bloquear" and S.OPCOES["requests"]["tempo_maximo"] == 120
     antes = S.snapshot_config()["hash"]
-    S.OPCOES["requests"]["robots_se_inacessivel"] = "bloquear"
+    S.OPCOES["requests"]["robots_se_inacessivel"] = "permitir"
     try:
         assert S.snapshot_config()["hash"] != antes                                # a decisao fica registrada na execucao
     finally:
-        S.OPCOES["requests"]["robots_se_inacessivel"] = "permitir"
+        S.OPCOES["requests"]["robots_se_inacessivel"] = "bloquear"
 
 
 # ====================== prazo total e tempo de leitura ======================
@@ -546,3 +546,9 @@ def test_abas_novas_da_exportacao(tmp_path):
     t = repo.tabelas_para_exportacao()
     assert "Gasto_real" in t and {"no_relatorio", "motivo_exclusao", "excluida_em"} <= set(t["Execucoes"].columns)
     assert all(len(n) <= 31 for n in t)
+
+
+def test_a_fabrica_monta_o_fetcher_com_a_politica_de_robots_da_configuracao(monkeypatch):
+    from composicao import Fabrica
+    monkeypatch.setenv("RESEARCHER_EMAIL", "pesquisador@exemplo.org")
+    assert Fabrica().fetcher._politica == "bloquear"

@@ -1,0 +1,10 @@
+{
+  "search_metadata": {"id": "sintetico-google-0001", "status": "Success"},
+  "organic_results": [
+    {"position": 1, "title": "Reconhecimento facial na SSP (sintetico)", "link": "https://ssp.exemplo.gov.br/noticias/a",
+     "snippet": "Texto de exemplo sobre cameras.", "date": "May 1, 2024", "displayed_link": "https://ssp.exemplo.gov.br › noticias"},
+    {"position": 2, "title": "Edital de videomonitoramento (sintetico)", "link": "https://licitacoes.exemplo.gov.br/edital/1", "snippet": "Texto sobre edital."},
+    {"position": 3, "title": "Resultado sem link (sintetico)", "snippet": "Deve ser ignorado."},
+    {"title": "Resultado sem position (sintetico)", "link": "https://exemplo.com.br/materia", "snippet": "Posicao cai para o indice."}
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "chatcmpl-sintetico-0002",
+  "model": "modelo-sintetico-2026-01-01",
+  "choices": [{"index": 0, "finish_reason": "length", "message": {"role": "assistant", "content": "{\"relevante\": true, \"achados\": [{\"tecnologia\": \"reconhec"}}],
+  "usage": {"prompt_tokens": 1000, "completion_tokens": 4096}
+}

@@ -70,6 +70,9 @@ OPCOES = {
         "modelo": "PREENCHA",
         "temperatura": 0.0,
         "max_tokens": 4096,
+        # C14: alguns modelos rejeitam `max_tokens` (esperam "max_completion_tokens") ou qualquer temperatura
+        # (use temperatura None para omitir o campo). TODO(verificar): o que cada provedor aceita.
+        "campo_max_tokens": "max_tokens",
         "usar_response_format": False,
         "preco_entrada_por_m": None,
         "preco_saida_por_m": None,

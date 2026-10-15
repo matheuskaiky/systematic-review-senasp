@@ -1,0 +1,6 @@
+{
+  "id": "chatcmpl-sintetico-0003",
+  "model": "modelo-sintetico-2026-01-01",
+  "choices": [],
+  "usage": {"prompt_tokens": 1000, "completion_tokens": 0}
+}

@@ -21,7 +21,8 @@ class AcademicoSerpApiScholar:
             return None
         try:
             d = r["resp"].json()
-            # TODO(verificar): diferenca entre total_searches_left e plan_searches_left (a documentacao so mostra valores iguais)
+            # TODO(verificar): diferenca entre total_searches_left e plan_searches_left (a documentacao so mostra valores
+            # iguais; o saldo de 250 antes e 249 depois de uma busca bateu com o consumo de 1 credito)
             return d.get("total_searches_left", d.get("plan_searches_left"))
         except (ValueError, AttributeError):
             return None
@@ -36,13 +37,13 @@ class AcademicoSerpApiScholar:
                 continue
             pub = item.get("publication_info") or {}
             citado = (item.get("inline_links") or {}).get("cited_by") or {}
-            # TODO(verificar): a documentacao mostra position com base 1 (primeiro resultado = 1); aqui ele e somado ao
-            # deslocamento da pagina, o que da a posicao global. Conferir com a primeira resposta real.
+            # Verificado em 15/10/2026 com resposta real: position tem base 1 (1 a 20 na primeira pagina) e reinicia a cada
+            # pagina; somado ao deslocamento da pagina (start) ele da a posicao global (21 a 40 na segunda).
             artigos.append(ArtigoAcademico(
                 titulo=titulo, link=item.get("link"), autores_publicacao=pub.get("summary"),
                 ano=ano_do_resumo(pub.get("summary")), snippet=item.get("snippet"),
                 citacoes=citado.get("total"), posicao=inicio + int(item.get("position", i) or 0)))
-        # TODO(verificar): campos de search_metadata (a pagina de documentacao nao os mostra no exemplo)
+        # search_metadata traz id, status e total_time_taken (verificado em 15/10/2026 com resposta real)
         meta, info = d.get("search_metadata") or {}, d.get("search_information") or {}
         return artigos, info.get("total_results"), meta.get("id"), meta.get("total_time_taken"), d.get("error")
 

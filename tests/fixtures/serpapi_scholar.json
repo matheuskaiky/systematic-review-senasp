@@ -1,0 +1,990 @@
+{
+  "search_metadata": {
+    "id": "6ad0272e484c09d2c920fc19",
+    "status": "Success",
+    "json_endpoint": "https://serpapi.com/searches/NyFj0nVkTShJY9A45SQdN0ffJ-mS_NxmYhwc7r5D6OM/6ad0272e484c09d2c920fc19.json",
+    "markdown_endpoint": "https://serpapi.com/searches/NyFj0nVkTShJY9A45SQdN0ffJ-mS_NxmYhwc7r5D6OM/6ad0272e484c09d2c920fc19.md",
+    "created_at": "2026-10-15 01:06:54 UTC",
+    "processed_at": "2026-10-15 01:06:54 UTC",
+    "google_scholar_url": "https://scholar.google.com/scholar?q=%22reconhecimento+facial%22&hl=pt&start=0&num=21&as_ylo=2019",
+    "raw_html_file": "https://serpapi.com/searches/NyFj0nVkTShJY9A45SQdN0ffJ-mS_NxmYhwc7r5D6OM/6ad0272e484c09d2c920fc19.html",
+    "total_time_taken": 1.8
+  },
+  "search_parameters": {
+    "engine": "google_scholar",
+    "q": "\"reconhecimento facial\"",
+    "hl": "pt",
+    "start": 0,
+    "num": "20",
+    "as_ylo": "2019"
+  },
+  "search_information": {
+    "organic_results_state": "Results for exact spelling",
+    "total_results": 2320,
+    "time_taken_displayed": 0.22,
+    "query_displayed": "\"reconhecimento facial\""
+  },
+  "organic_results": [
+    {
+      "position": 1,
+      "title": "Reconhecimento facial",
+      "result_id": "Xgn-nc2_b6kJ",
+      "link": "https://rce.casadasciencias.org/rceapp/art/2019/073/",
+      "snippet": "Hoje em dia fala-se muito de reconhecimento facial sendo esta tecnologia conotada, pelo público em geral, como já utilizada em diversos campos incluindo o das Ciências Forenses. …",
+      "publication_info": {
+        "summary": "V Orvalho - Revista de Ciência Elementar, 2019 - rce.casadasciencias.org",
+        "authors": [
+          {
+            "name": "V Orvalho",
+            "link": "https://scholar.google.com/citations?user=nbzZKdwAAAAJ&hl=pt-BR&num=20&oi=sra",
+            "author_id": "nbzZKdwAAAAJ",
+            "serpapi_scholar_link": "https://serpapi.com/search.json?author_id=nbzZKdwAAAAJ&engine=google_scholar_author&hl=pt"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "casadasciencias.org",
+          "file_format": "PDF",
+          "link": "https://rce.casadasciencias.org/static/docs/artigos/2019-073.pdf"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=Xgn-nc2_b6kJ",
+        "cited_by": {
+          "total": 7,
+          "link": "https://scholar.google.com/scholar?cites=12209188004664576350&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "12209188004664576350",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=12209188004664576350&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:Xgn-nc2_b6kJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3AXgn-nc2_b6kJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 3,
+          "link": "https://scholar.google.com/scholar?cluster=12209188004664576350&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "12209188004664576350",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=12209188004664576350&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:Xgn-nc2_b6kJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 2,
+      "title": "O Reconhecimento Facial como uma das Vertentes da Inteligência Artificial (IA): um estudo de prospecção tecnológica",
+      "result_id": "IJGJY2qOSKgJ",
+      "type": "Pdf",
+      "link": "https://www.academia.edu/download/84460269/21137.pdf",
+      "snippet": "… Este trabalho revisou a literatura referente ao reconhecimento facial, tendo como base os pedidos de patentes nos escritórios. A metodologia utilizada foi a prospecção tecnológica …",
+      "publication_info": {
+        "summary": "VS Conceição, EM Nunes, AM Rocha - Cadernos de Prospecção, 2020 - academia.edu",
+        "authors": [
+          {
+            "name": "VS Conceição",
+            "link": "https://scholar.google.com/citations?user=2W6GDB8AAAAJ&hl=pt-BR&num=20&oi=sra",
+            "author_id": "2W6GDB8AAAAJ",
+            "serpapi_scholar_link": "https://serpapi.com/search.json?author_id=2W6GDB8AAAAJ&engine=google_scholar_author&hl=pt"
+          },
+          {
+            "name": "EM Nunes"
+          },
+          {
+            "name": "AM Rocha",
+            "link": "https://scholar.google.com/citations?user=m1kRBG0AAAAJ&hl=pt-BR&num=20&oi=sra",
+            "author_id": "m1kRBG0AAAAJ",
+            "serpapi_scholar_link": "https://serpapi.com/search.json?author_id=m1kRBG0AAAAJ&engine=google_scholar_author&hl=pt"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "academia.edu",
+          "file_format": "PDF",
+          "link": "https://www.academia.edu/download/84460269/21137.pdf"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=IJGJY2qOSKgJ",
+        "cited_by": {
+          "total": 10,
+          "link": "https://scholar.google.com/scholar?cites=12126098584282698016&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "12126098584282698016",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=12126098584282698016&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:IJGJY2qOSKgJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3AIJGJY2qOSKgJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 4,
+          "link": "https://scholar.google.com/scholar?cluster=12126098584282698016&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "12126098584282698016",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=12126098584282698016&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:IJGJY2qOSKgJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 3,
+      "title": "Vigilância negra: O dispositivo de reconhecimento facial e a disciplinaridade dos corpos",
+      "result_id": "Kj0qKr7wWxoJ",
+      "link": "https://revistas.usp.br/novosolhares/article/view/165698",
+      "snippet": "… Wilson Bledsoe, considerado o pai do reconhecimento facial, a tecnologia só se tornou mais … “O reconhecimento facial tem se mostrado uma atualização high-tech para o velho e …",
+      "publication_info": {
+        "summary": "MESP Magno, JS Bezerra - Novos Olhares, 2020 - revistas.usp.br",
+        "authors": [
+          {
+            "name": "MESP Magno"
+          },
+          {
+            "name": "JS Bezerra"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "usp.br",
+          "file_format": "PDF",
+          "link": "https://revistas.usp.br/novosolhares/article/download/165698/169548"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=Kj0qKr7wWxoJ",
+        "cited_by": {
+          "total": 20,
+          "link": "https://scholar.google.com/scholar?cites=1899376367408659754&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "1899376367408659754",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=1899376367408659754&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:Kj0qKr7wWxoJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3AKj0qKr7wWxoJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cluster=1899376367408659754&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "1899376367408659754",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=1899376367408659754&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:Kj0qKr7wWxoJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 4,
+      "title": "Inteligência artificial: a importância do reconhecimento facial na educação",
+      "result_id": "rPTYwsm3QoIJ",
+      "link": "https://periodicos.unir.br/index.php/RPGeo/article/view/5317",
+      "snippet": "… delas o objeto de estudo deste trabalho: o reconhecimento facial. Essa área destina-se ao … de demonstrar a eficiência de algoritmos de reconhecimento facial. O projeto mostrou-se …",
+      "publication_info": {
+        "summary": "LAF Monteiro - Revista Presença Geográfica, 2020 - periodicos.unir.br",
+        "authors": [
+          {
+            "name": "LAF Monteiro"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "unir.br",
+          "file_format": "PDF",
+          "link": "https://periodicos.unir.br/index.php/RPGeo/article/download/5317/3631"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=rPTYwsm3QoIJ",
+        "cited_by": {
+          "total": 3,
+          "link": "https://scholar.google.com/scholar?cites=9386266650578842796&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "9386266650578842796",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=9386266650578842796&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:rPTYwsm3QoIJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3ArPTYwsm3QoIJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 6,
+          "link": "https://scholar.google.com/scholar?cluster=9386266650578842796&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "9386266650578842796",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=9386266650578842796&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:rPTYwsm3QoIJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 5,
+      "title": "Estudo de um modelo de rede neural convolucional aplicado ao reconhecimento facial",
+      "result_id": "P_FDavtiq18J",
+      "link": "https://repositorio.ufu.br/handle/123456789/50063",
+      "snippet": "… Este trabalho avalia uma arquitetura de Rede Neural Convolucional aplicada ao reconhecimento facial com base no modelo C1-C2-H. A configuração implementada mantém 16 e 36 …",
+      "publication_info": {
+        "summary": "EL Amorim - 2026 - repositorio.ufu.br",
+        "authors": [
+          {
+            "name": "EL Amorim"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "ufu.br",
+          "file_format": "PDF",
+          "link": "https://repositorio.ufu.br/bitstream/123456789/50063/1/Estudo%20de%20um%20modelo%20de%20rede%20neural%20convolucional%20aplicado%20ao%20reconhecimento%20facial.pdf"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=P_FDavtiq18J",
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:P_FDavtiq18J:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3AP_FDavtiq18J%3Ascholar.google.com%2F&start=0",
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:P_FDavtiq18J:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 6,
+      "title": "Desvendando vieses em IA: um estudo sobre reconhecimento facial e futuros feministas",
+      "result_id": "aET4oGt9aoQJ",
+      "link": "https://econtents.sbu.unicamp.br/inpec/index.php/tematicas/article/view/19932",
+      "snippet": "… Neste estudo, queremos explorar a questão dos vieses na IA, com foco no reconhecimento facial. Para isso, identificamos que a estrutura do algoritmo em si não é inerentemente …",
+      "publication_info": {
+        "summary": "CA Lisboa, EG Passos, J da Silva Ferreira - 2025 - econtents.sbu.unicamp.br",
+        "authors": [
+          {
+            "name": "CA Lisboa",
+            "link": "https://scholar.google.com/citations?user=U85CIrwAAAAJ&hl=pt-BR&num=20&oi=sra",
+            "author_id": "U85CIrwAAAAJ",
+            "serpapi_scholar_link": "https://serpapi.com/search.json?author_id=U85CIrwAAAAJ&engine=google_scholar_author&hl=pt"
+          },
+          {
+            "name": "EG Passos",
+            "link": "https://scholar.google.com/citations?user=DGA1iPkAAAAJ&hl=pt-BR&num=20&oi=sra",
+            "author_id": "DGA1iPkAAAAJ",
+            "serpapi_scholar_link": "https://serpapi.com/search.json?author_id=DGA1iPkAAAAJ&engine=google_scholar_author&hl=pt"
+          },
+          {
+            "name": "J da Silva Ferreira"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "unicamp.br",
+          "file_format": "PDF",
+          "link": "https://econtents.sbu.unicamp.br/inpec/index.php/tematicas/article/download/19932/14811"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=aET4oGt9aoQJ",
+        "cited_by": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cites=9541576661753414760&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "9541576661753414760",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=9541576661753414760&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:aET4oGt9aoQJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3AaET4oGt9aoQJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 5,
+          "link": "https://scholar.google.com/scholar?cluster=9541576661753414760&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "9541576661753414760",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=9541576661753414760&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:aET4oGt9aoQJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 7,
+      "title": "Análise de performance de um algoritmo de reconhecimento facial por visão computacional aplicado a sistemas embarcados",
+      "result_id": "SvuUBvAA_ugJ",
+      "link": "https://repositorio.ufsc.br/handle/123456789/228984",
+      "snippet": "… A tarefa de reconhecimento facial para biometria é … e uso dos sistemas de reconhecimento facial em plataformas de … a adoção de um framework para reconhecimento facial e a sua …",
+      "publication_info": {
+        "summary": "SM Böhm - 2021 - repositorio.ufsc.br",
+        "authors": [
+          {
+            "name": "SM Böhm"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "ufsc.br",
+          "file_format": "PDF",
+          "link": "https://repositorio.ufsc.br/bitstream/handle/123456789/228984/Artigo_TCC%20.pdf?sequence=1"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=SvuUBvAA_ugJ",
+        "cited_by": {
+          "total": 1,
+          "link": "https://scholar.google.com/scholar?cites=16788857491786365770&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "16788857491786365770",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=16788857491786365770&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:SvuUBvAA_ugJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3ASvuUBvAA_ugJ%3Ascholar.google.com%2F&start=0",
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:SvuUBvAA_ugJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 8,
+      "title": "Tecnologias de reconhecimento facial: um estudo a partir do contexto de vigilância digital e sutil",
+      "result_id": "Qtw3m2m-KnMJ",
+      "type": "Pdf",
+      "link": "https://www.academia.edu/download/87459123/38321.pdf",
+      "snippet": "… as tecnologias de reconhecimento facial se inserem no … as tecnologias de reconhecimento facial, possibilitando que … reflexiva sobre as tecnologias de reconhecimento facial, sendo tal …",
+      "publication_info": {
+        "summary": "EAV Bastos, VB Esteves - Revista Direitos Democráticos & Estado …, 2021 - academia.edu",
+        "authors": [
+          {
+            "name": "EAV Bastos"
+          },
+          {
+            "name": "VB Esteves"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "academia.edu",
+          "file_format": "PDF",
+          "link": "https://www.academia.edu/download/87459123/38321.pdf"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=Qtw3m2m-KnMJ",
+        "cited_by": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cites=8298654624168533058&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "8298654624168533058",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=8298654624168533058&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:Qtw3m2m-KnMJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3AQtw3m2m-KnMJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 5,
+          "link": "https://scholar.google.com/scholar?cluster=8298654624168533058&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "8298654624168533058",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=8298654624168533058&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:Qtw3m2m-KnMJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 9,
+      "title": "GOVERNANÇA PÚBLICA E DIREITOS FUNDAMENTAIS NO USO DO RECONHECIMENTO FACIAL NA SEGURANÇA PÚBLICA: UMA REVISÃO INTEGRATIVA DA …",
+      "result_id": "j7h8DeOwnfIJ",
+      "link": "https://journal.editorailustracao.com.br/index.php/ilustracao/article/view/591",
+      "snippet": "… de direitos fundamentais no uso do reconhecimento facial na segurança pública. Por meio … Os resultados revelam que o reconhecimento facial opera em um denso campo de tensões …",
+      "publication_info": {
+        "summary": "CM Barbosa, FS Santana… - Revista …, 2026 - journal.editorailustracao.com.br",
+        "authors": [
+          {
+            "name": "CM Barbosa"
+          },
+          {
+            "name": "FS Santana"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "editorailustracao.com.br",
+          "file_format": "PDF",
+          "link": "https://journal.editorailustracao.com.br/index.php/ilustracao/article/download/591/514"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=j7h8DeOwnfIJ",
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:j7h8DeOwnfIJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3Aj7h8DeOwnfIJ%3Ascholar.google.com%2F&start=0",
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:j7h8DeOwnfIJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 10,
+      "title": "Uso do reconhecimento facial na segurança pública",
+      "result_id": "rM0kqCfJRbgJ",
+      "type": "Pdf",
+      "link": "https://www.academia.edu/download/110584237/Uso_do_reconhecimento_facial_na_seguranca_publica.pdf",
+      "snippet": "… de reconhecimento facial em seu nome; permitir que pessoa jurídica de direito público ou privado use tecnologias de reconhecimento facial … tecnologias de reconhecimento facial nos …",
+      "publication_info": {
+        "summary": "Y Nabeshima - Revista Eletrônica CONJUR, São Paulo, 2024 - academia.edu",
+        "authors": [
+          {
+            "name": "Y Nabeshima"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "academia.edu",
+          "file_format": "PDF",
+          "link": "https://www.academia.edu/download/110584237/Uso_do_reconhecimento_facial_na_seguranca_publica.pdf"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=rM0kqCfJRbgJ",
+        "cited_by": {
+          "total": 3,
+          "link": "https://scholar.google.com/scholar?cites=13278240248533667244&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "13278240248533667244",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=13278240248533667244&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:rM0kqCfJRbgJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3ArM0kqCfJRbgJ%3Ascholar.google.com%2F&start=0",
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:rM0kqCfJRbgJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 11,
+      "title": "Reconhecimento facial e viés algorítmico em grandes municípios brasileiros",
+      "result_id": "DdI80kBjEfYJ",
+      "link": "https://sol.sbc.org.br/index.php/wics/article/view/15970",
+      "snippet": "… Neles, buscamos as ocorrências da expressão “reconhecimento facial” ou – quando o buscador digital não permitia a utilização de expressões – da palavra “facial”. Essa busca foi …",
+      "publication_info": {
+        "summary": "R Brandão, JL Oliveira - … sobre as Implicações da Computação na …, 2021 - sol.sbc.org.br",
+        "authors": [
+          {
+            "name": "R Brandão"
+          },
+          {
+            "name": "JL Oliveira",
+            "link": "https://scholar.google.com/citations?user=sG6G0x0AAAAJ&hl=pt-BR&num=20&oi=sra",
+            "author_id": "sG6G0x0AAAAJ",
+            "serpapi_scholar_link": "https://serpapi.com/search.json?author_id=sG6G0x0AAAAJ&engine=google_scholar_author&hl=pt"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "sbc.org.br",
+          "file_format": "PDF",
+          "link": "https://sol.sbc.org.br/index.php/wics/article/download/15970/15811"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=DdI80kBjEfYJ",
+        "cited_by": {
+          "total": 8,
+          "link": "https://scholar.google.com/scholar?cites=17731062337990611469&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "17731062337990611469",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=17731062337990611469&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:DdI80kBjEfYJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3ADdI80kBjEfYJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 3,
+          "link": "https://scholar.google.com/scholar?cluster=17731062337990611469&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "17731062337990611469",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=17731062337990611469&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:DdI80kBjEfYJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 12,
+      "title": "Câmeras de reconhecimento facial no Brasil: implicações legais, constitucionais e a estruturação de sua regulamentação sob a ótica dos direitos da personalidade …",
+      "result_id": "BC_wQIZ9Py8J",
+      "link": "https://saber.unioeste.br/index.php/csaemrevista/article/view/35335",
+      "snippet": "… As câmeras de reconhecimento facial estão presentes em nossa sociedade atual e elas possuem a finalidade de identificar as pessoas e comparar as imagens obtidas com um banco …",
+      "publication_info": {
+        "summary": "WJJ Manzato, MN Soares… - … Sociais Aplicadas em …, 2025 - saber.unioeste.br",
+        "authors": [
+          {
+            "name": "WJJ Manzato"
+          },
+          {
+            "name": "MN Soares"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "unioeste.br",
+          "file_format": "PDF",
+          "link": "https://saber.unioeste.br/index.php/csaemrevista/article/download/35335/24650"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=BC_wQIZ9Py8J",
+        "cited_by": {
+          "total": 1,
+          "link": "https://scholar.google.com/scholar?cites=3404577858883956484&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "3404577858883956484",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=3404577858883956484&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:BC_wQIZ9Py8J:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3ABC_wQIZ9Py8J%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cluster=3404577858883956484&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "3404577858883956484",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=3404577858883956484&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:BC_wQIZ9Py8J:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 13,
+      "title": "TECNOLOGIAS DE RECONHECIMENTO FACIAL",
+      "result_id": "-vGYJA1hR0EJ",
+      "type": "Pdf",
+      "link": "https://repositorium.uminho.pt/bitstreams/06cc0b03-fc30-48c3-bedc-60ae914b98ff/download#page=15",
+      "snippet": "… captura e a vigilância se manifestam no caso das tecnologias de reconhecimento facial. No modelo de vigilância, o reconhecimento facial pode ser utilizado de forma difusa e passiva, …",
+      "publication_info": {
+        "summary": "H MACHADO, S SILVA - TECNOLOGIA E - repositorium.uminho.pt",
+        "authors": [
+          {
+            "name": "H MACHADO"
+          },
+          {
+            "name": "S SILVA"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "uminho.pt",
+          "file_format": "PDF",
+          "link": "https://repositorium.uminho.pt/bitstreams/06cc0b03-fc30-48c3-bedc-60ae914b98ff/download#page=15"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=-vGYJA1hR0EJ",
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:-vGYJA1hR0EJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3A-vGYJA1hR0EJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cluster=4703835044888244730&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "4703835044888244730",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=4703835044888244730&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:-vGYJA1hR0EJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 14,
+      "title": "Reconhecimento sob suspeita: colaboração entre antropologia e ciência da computação na crítica ética ao reconhecimento facial",
+      "result_id": "mz4rINWpa4UJ",
+      "link": "https://revistas.usp.br/gis/article/view/230902",
+      "snippet": "O presente trabalho busca construir pontes possíveis entre a Antropologia e a Ciência da computação, qualificando o entendimento de transdisciplinaridade que informa a proposição …",
+      "publication_info": {
+        "summary": "M Marini, N da Hora, S Avila - GIS-Gesto, Imagem e Som-Revista de …, 2025 - revistas.usp.br",
+        "authors": [
+          {
+            "name": "M Marini"
+          },
+          {
+            "name": "N da Hora"
+          },
+          {
+            "name": "S Avila"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "usp.br",
+          "file_format": "PDF",
+          "link": "https://revistas.usp.br/gis/article/download/230902/221842"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=mz4rINWpa4UJ",
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:mz4rINWpa4UJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3Amz4rINWpa4UJ%3Ascholar.google.com%2F&start=0",
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:mz4rINWpa4UJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 15,
+      "title": "Influência do viés racial no uso de reconhecimento facial aplicado para controle de acesso",
+      "result_id": "FPo61UtbXTEJ",
+      "type": "Pdf",
+      "link": "https://ppee.unb.br/wp-content/uploads/2025/05/Dissertacao_na_versao_final-1.pdf",
+      "snippet": "… O viés racial em tecnologias de reconhecimento facial, … de máquina em tarefas de reconhecimento facial. Os modelos … o viés racial em sistemas de reconhecimento facial, incluindo …",
+      "publication_info": {
+        "summary": "AM DE OLIVEIRA - 2025 - ppee.unb.br",
+        "authors": [
+          {
+            "name": "AM DE OLIVEIRA"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "unb.br",
+          "file_format": "PDF",
+          "link": "https://ppee.unb.br/wp-content/uploads/2025/05/Dissertacao_na_versao_final-1.pdf"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=FPo61UtbXTEJ",
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:FPo61UtbXTEJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3AFPo61UtbXTEJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cluster=3557099661950646804&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "3557099661950646804",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=3557099661950646804&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:FPo61UtbXTEJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 16,
+      "title": "E quando o suspeito for você?: Reconhecimento facial na segurança pública",
+      "result_id": "-V1wkChYyKgJ",
+      "type": "Livro",
+      "link": "https://books.google.com/books?hl=pt-BR&lr=&id=ORYXEQAAQBAJ&oi=fnd&pg=PT5&dq=%22reconhecimento+facial%22&ots=ArrsOv2lkv&sig=jHAQul3woQYPMOEYrIb7wrE0vhs",
+      "snippet": "… considerar as implicações mais amplas do reconhecimento facial: sua capacidade de transformar … sobre o estado da tecnologia de reconhecimento facial; somos também convidados a …",
+      "publication_info": {
+        "summary": "SR de Melo - 2024 - books.google.com",
+        "authors": [
+          {
+            "name": "SR de Melo"
+          }
+        ]
+      },
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=-V1wkChYyKgJ",
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:-V1wkChYyKgJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3A-V1wkChYyKgJ%3Ascholar.google.com%2F&start=0"
+      }
+    },
+    {
+      "position": 17,
+      "title": "Predição da experiência do usuário a partir de reconhecimento facial de emoções utilizando técnicas de aprendizado de máquina",
+      "result_id": "8NmOxUppkYwJ",
+      "link": "https://repositorio.usp.br/item/003310594",
+      "snippet": "… do usuário (UX) por meio do reconhecimento facial de emoções, utilizando técnicas de … de UX baseada em emoções, integrando reconhecimento facial, aprendizado de máquina e …",
+      "publication_info": {
+        "summary": "BL Santos, LA Digiampietri - 2026 - repositorio.usp.br",
+        "authors": [
+          {
+            "name": "BL Santos"
+          },
+          {
+            "name": "LA Digiampietri"
+          }
+        ]
+      },
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=8NmOxUppkYwJ",
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:8NmOxUppkYwJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3A8NmOxUppkYwJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cluster=10128992806795926000&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "10128992806795926000",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=10128992806795926000&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:8NmOxUppkYwJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 18,
+      "title": "Reconhecimento Facial e Militarização da Segurança Pública no Brasil",
+      "result_id": "hLFBl7qc11wJ",
+      "link": "https://periodicos.ufsc.br/index.php/emtese/article/view/109321",
+      "snippet": "… interligadas a sistemas de reconhecimento facial, reforça práticas … de tecnologias de reconhecimento facial na segurança … de que o reconhecimento facial representa uma atualização …",
+      "publication_info": {
+        "summary": "GG de Oliveira Brasilino, JZ de Assunção - Em Tese, 2026 - periodicos.ufsc.br",
+        "authors": [
+          {
+            "name": "GG de Oliveira Brasilino"
+          },
+          {
+            "name": "JZ de Assunção"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "ufsc.br",
+          "file_format": "PDF",
+          "link": "https://periodicos.ufsc.br/index.php/emtese/article/download/109321/61495"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=hLFBl7qc11wJ",
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:hLFBl7qc11wJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3AhLFBl7qc11wJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cluster=6689988096697676164&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "6689988096697676164",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=6689988096697676164&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:hLFBl7qc11wJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 19,
+      "title": "Vigilância e relações de poder–O uso de tecnologias de reconhecimento facial e identificação biométrica a distância em espaço público e impactos na vida …",
+      "result_id": "t_f4YZpAXxYJ",
+      "type": "Pdf",
+      "link": "https://www.mpsp.mp.br/portal/page/portal/documentacao_e_divulgacao/doc_biblioteca/bibli_servicos_produtos/bibli_informativo/2022_Periodicos/Direito-Publico_n.100.pdf#page=80",
+      "snippet": "… O uso de tecnologias de reconhecimento facial e identificação biométrica enquadra-se neste panorama. As esferas de implementação são múltiplas. Funcionando de forma …",
+      "publication_info": {
+        "summary": "AC Fontes, C Lütge - TOTA MACHINA, 2021 - mpsp.mp.br",
+        "authors": [
+          {
+            "name": "AC Fontes"
+          },
+          {
+            "name": "C Lütge"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "mpsp.mp.br",
+          "file_format": "PDF",
+          "link": "https://www.mpsp.mp.br/portal/page/portal/documentacao_e_divulgacao/doc_biblioteca/bibli_servicos_produtos/bibli_informativo/2022_Periodicos/Direito-Publico_n.100.pdf#page=80"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=t_f4YZpAXxYJ",
+        "cited_by": {
+          "total": 3,
+          "link": "https://scholar.google.com/scholar?cites=1612078223434774455&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "1612078223434774455",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=1612078223434774455&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:t_f4YZpAXxYJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3At_f4YZpAXxYJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 5,
+          "link": "https://scholar.google.com/scholar?cluster=1612078223434774455&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "1612078223434774455",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=1612078223434774455&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:t_f4YZpAXxYJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    },
+    {
+      "position": 20,
+      "title": "O reconhecimento facial como instrumento de reforço do estado de coisas inconstitucionais no Brasil",
+      "result_id": "1UVyoS8WZfEJ",
+      "link": "https://www.portaldeperiodicos.idp.edu.br/lawreview/article/view/5943",
+      "snippet": "… através da adoção de algoritmos de reconhecimento facial para fins de segurança pública. … de viés racial nos algoritmos de reconhecimento facial amplamente divulgadas pela mídia e …",
+      "publication_info": {
+        "summary": "A Possa - IDP Law Review, 2022 - portaldeperiodicos.idp.edu.br",
+        "authors": [
+          {
+            "name": "A Possa",
+            "link": "https://scholar.google.com/citations?user=VnyvZvEAAAAJ&hl=pt-BR&num=20&oi=sra",
+            "author_id": "VnyvZvEAAAAJ",
+            "serpapi_scholar_link": "https://serpapi.com/search.json?author_id=VnyvZvEAAAAJ&engine=google_scholar_author&hl=pt"
+          }
+        ]
+      },
+      "resources": [
+        {
+          "title": "",
+          "file_format": "PDF",
+          "link": null
+        },
+        {
+          "title": "idp.edu.br",
+          "file_format": "PDF",
+          "link": "https://www.portaldeperiodicos.idp.edu.br/lawreview/article/download/5943/2553"
+        }
+      ],
+      "inline_links": {
+        "serpapi_cite_link": "https://serpapi.com/search.json?engine=google_scholar_cite&hl=pt&q=1UVyoS8WZfEJ",
+        "cited_by": {
+          "total": 5,
+          "link": "https://scholar.google.com/scholar?cites=17394333529616303573&as_sdt=2005&sciodt=0,5&hl=pt-BR&num=20",
+          "cites_id": "17394333529616303573",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=2005&cites=17394333529616303573&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "related_pages_link": "https://scholar.google.com/scholar?q=related:1UVyoS8WZfEJ:scholar.google.com/&scioq=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+        "serpapi_related_pages_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=related%3A1UVyoS8WZfEJ%3Ascholar.google.com%2F&start=0",
+        "versions": {
+          "total": 2,
+          "link": "https://scholar.google.com/scholar?cluster=17394333529616303573&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+          "cluster_id": "17394333529616303573",
+          "serpapi_scholar_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&cluster=17394333529616303573&engine=google_scholar&hl=pt-BR&num=20"
+        },
+        "cached_page_link": "https://scholar.googleusercontent.com/scholar?q=cache:1UVyoS8WZfEJ:scholar.google.com/+%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+      }
+    }
+  ],
+  "related_searches": [
+    {
+      "query": "\"reconhecimento facial\" segurança",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=1&q=%22reconhecimento+facial%22+seguran%C3%A7a&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" racismo",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=2&q=%22reconhecimento+facial%22+racismo&qst=bb"
+    },
+    {
+      "query": "inteligência artificial \"reconhecimento facial\"",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=3&q=intelig%C3%AAncia+artificial+%22reconhecimento+facial%22&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" redes neurais",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=4&q=%22reconhecimento+facial%22+redes+neurais&qst=bb"
+    },
+    {
+      "query": "penal \"reconhecimento facial\"",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=5&q=penal+%22reconhecimento+facial%22&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" direito",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=6&q=%22reconhecimento+facial%22+direito&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" sistema",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=7&q=%22reconhecimento+facial%22+sistema&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" dados",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=8&q=%22reconhecimento+facial%22+dados&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" controle",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=9&q=%22reconhecimento+facial%22+controle&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" opencv",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=10&q=%22reconhecimento+facial%22+opencv&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" privacidade",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=11&q=%22reconhecimento+facial%22+privacidade&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" controle de acesso",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=12&q=%22reconhecimento+facial%22+controle+de+acesso&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" análise",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=13&q=%22reconhecimento+facial%22+an%C3%A1lise&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" pessoas",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=14&q=%22reconhecimento+facial%22+pessoas&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" algoritmos",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=15&q=%22reconhecimento+facial%22+algoritmos&qst=bb"
+    },
+    {
+      "query": "\"reconhecimento facial\" segurança pública",
+      "link": "https://scholar.google.com/scholar?hl=pt-BR&num=20&as_sdt=0,5&qsp=16&q=%22reconhecimento+facial%22+seguran%C3%A7a+p%C3%BAblica&qst=bb"
+    }
+  ],
+  "pagination": {
+    "current": 1,
+    "next": "https://scholar.google.com/scholar?start=20&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+    "other_pages": {
+      "2": "https://scholar.google.com/scholar?start=20&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+      "3": "https://scholar.google.com/scholar?start=40&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+      "4": "https://scholar.google.com/scholar?start=60&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+      "5": "https://scholar.google.com/scholar?start=80&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+      "6": "https://scholar.google.com/scholar?start=100&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+      "7": "https://scholar.google.com/scholar?start=120&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+      "8": "https://scholar.google.com/scholar?start=140&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+      "9": "https://scholar.google.com/scholar?start=160&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019",
+      "10": "https://scholar.google.com/scholar?start=180&q=%22reconhecimento+facial%22&hl=pt-BR&num=20&as_sdt=0,5&as_ylo=2019"
+    }
+  },
+  "serpapi_pagination": {
+    "current": 1,
+    "next_link": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=20",
+    "next": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=20",
+    "other_pages": {
+      "2": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=20",
+      "3": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=40",
+      "4": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=60",
+      "5": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=80",
+      "6": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=100",
+      "7": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=120",
+      "8": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=140",
+      "9": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=160",
+      "10": "https://serpapi.com/search.json?as_sdt=0%2C5&as_ylo=2019&engine=google_scholar&hl=pt-BR&num=20&q=%22reconhecimento+facial%22&start=180"
+    }
+  }
+}

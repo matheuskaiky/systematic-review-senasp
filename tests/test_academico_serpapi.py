@@ -323,5 +323,54 @@ def test_termo_sem_resultados_encerra_e_nao_pede_mais(banco):
 # ====================== contrato real ======================
 @pytest.mark.skipif(not REAL.exists(), reason="fixture real ainda nao existe (criada no M6, depois da primeira busca real)")
 def test_scholar_interpreta_resposta_real():
+    """Resposta real de 15/10/2026: T01 "reconhecimento facial", pt, a partir de 2019, num=20, start=0 (execucao 20261015_010653_5a2994)."""
     artigos, total, id_externo, tempo, erro = AcademicoSerpApiScholar.interpretar(REAL.read_text(encoding="utf-8"), 0)
-    assert artigos and erro is None and all(a.titulo and a.posicao >= 0 for a in artigos)
+    assert erro is None and len(artigos) == 20 and total == 2320
+    assert id_externo == "6ad0272e484c09d2c920fc19" and tempo == 1.8
+    assert [a.posicao for a in artigos] == list(range(1, 21))                  # position tem base 1
+    assert all(a.titulo and a.link and a.snippet and a.autores_publicacao for a in artigos)
+    assert sum(a.citacoes is not None for a in artigos) == 12 and sum(a.ano is None for a in artigos) == 1
+    assert all(a.ano is None or 2019 <= a.ano <= 2026 for a in artigos)
+
+
+@pytest.mark.skipif(not REAL.exists(), reason="fixture real ainda nao existe")
+def test_resposta_real_tem_a_forma_que_o_adaptador_assume():
+    d = json.loads(REAL.read_text(encoding="utf-8"))
+    assert {"organic_results", "search_metadata", "search_information", "search_parameters"} <= set(d)
+    assert {"id", "status", "total_time_taken"} <= set(d["search_metadata"]) and d["search_metadata"]["status"] == "Success"
+    assert d["search_information"]["total_results"] == 2320 and d["search_parameters"]["engine"] == "google_scholar"
+    assert {"position", "title", "link", "snippet", "publication_info", "inline_links"} <= set(d["organic_results"][0])
+    assert "error" not in d
+
+
+@pytest.mark.skipif(not REAL.exists(), reason="fixture real ainda nao existe")
+def test_posicao_global_na_segunda_pagina_com_a_resposta_real():
+    artigos, *_ = AcademicoSerpApiScholar.interpretar(REAL.read_text(encoding="utf-8"), 20)
+    assert [a.posicao for a in artigos] == list(range(21, 41))
+
+
+@pytest.mark.skipif(not REAL.exists(), reason="fixture real ainda nao existe")
+def test_buscar_pagina_com_a_resposta_real(monkeypatch):
+    _chamar(monkeypatch, REAL.read_text(encoding="utf-8"))
+    pag = AcademicoSerpApiScholar(CHAVE).buscar_pagina(TERMO, 0, FILTROS)
+    c = pag.chamada
+    assert c.sucesso and len(pag.artigos) == 20 and pag.total_reportado == 2320 and c.extras["tempo_servidor_s"] == 1.8
+    assert c.parametros == {"engine": "google_scholar", "q": '"reconhecimento facial"', "hl": "pt", "num": 20, "start": 0, "as_ylo": 2019}
+
+
+@pytest.mark.skipif(not REAL.exists(), reason="fixture real ainda nao existe")
+def test_pagina_completa_da_resposta_real_pede_a_pagina_seguinte_e_deduplica(tmp_path, monkeypatch, silencio):
+    """20 resultados = por_pagina: o estagio continua para a pagina 2 (start=20). Como o fake devolve a mesma pagina,
+    os artigos se repetem: 20 artigos, 40 ocorrencias, 0 novos na segunda."""
+    visto = []
+    modelo = _chamar(monkeypatch, REAL.read_text(encoding="utf-8"))
+    real = modulo.chamar
+    monkeypatch.setattr(modulo, "chamar", lambda *a, **k: (visto.append(k["params"]["start"]), real(*a, **k))[1])
+    repo, bruto = RepositorioSQLite(tmp_path / "r.db"), BrutoLocal(tmp_path / "raw")
+    run_id = _novo_run(repo, "academico")
+    busca_academica.executar(repo, bruto, AcademicoSerpApiScholar(CHAVE), run_id, [TERMO], FILTROS, 2, [CHAVE], 0)
+    assert visto == [0, 20]
+    assert repo.conn.execute("SELECT COUNT(*) FROM artigos").fetchone()[0] == 20
+    assert repo.conn.execute("SELECT COUNT(*) FROM ocorrencias").fetchone()[0] == 40
+    assert [r[0] for r in repo.conn.execute("SELECT n_novos FROM chamadas ORDER BY chamada_id")] == [20, 0]
+    assert [r[0] for r in repo.conn.execute("SELECT MIN(posicao) FROM ocorrencias GROUP BY chamada_id ORDER BY chamada_id")] == [1, 21]

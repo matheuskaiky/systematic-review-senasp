@@ -36,6 +36,14 @@ def normalizar_texto(t):
     return re.sub(r"\s+", " ", t).strip()
 
 
+def normalizar_status_final(valor, permitidos):
+    """Regra unica (painel e importacao da planilha): espacos e maiusculas nao contam. None se vazio ou fora do vocabulario."""
+    if valor is None:
+        return None
+    v = str(valor).strip().lower()
+    return v if v in permitidos else None
+
+
 def evidencia_confere(evidencia, texto):
     """True if the excerpt cited by the LLM literally (normalized) exists in the text that was sent."""
     e = normalizar_texto(evidencia)

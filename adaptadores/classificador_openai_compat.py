@@ -71,7 +71,7 @@ class ClassificadorOpenAICompat:
                         "usar_response_format": self._rf, "prompt_versao": instr.versao,
                         "uf": entrada.uf, "url": entrada.url, "n_chars": len(entrada.texto),
                         "entrada_sha256": hashlib.sha256(instr.usuario.encode()).hexdigest(),
-                        "sistema_sha256": hashlib.sha256(instr.sistema.encode()).hexdigest()},
+                        "sistema_sha256": hashlib.sha256(corpo["messages"][0]["content"].encode()).hexdigest()},   # o texto realmente enviado
             requisitado_em=agora(), http_status=r["http_status"], latencia_ms=r["latencia_ms"],
             tentativas=r["tentativas"], erro=r["erro"])
         reg.extras.update(extras_http(r))
@@ -99,7 +99,10 @@ class ClassificadorOpenAICompat:
                     reg.custo_usd = custo
                     if custo is not None:
                         reg.extras["custo_origem"] = origem
-                    if meta.get("finish_reason") == "length":
+                    if meta.get("finish_reason") == "content_filter":
+                        # o provedor interrompeu a resposta pelo filtro de conteudo: nao e uma classificacao
+                        reg.erro = "resposta_bloqueada: content_filter"
+                    elif meta.get("finish_reason") == "length":
                         # saida cortada pelo limite de tokens: falha visivel, com tokens e custo gravados (como no Gemini)
                         reg.erro = "resposta_truncada: length"
                     else:

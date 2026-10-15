@@ -253,7 +253,9 @@ CREATE TABLE IF NOT EXISTS achados_revisoes (
     verificado_por TEXT NOT NULL,
     status_final   TEXT,
     observacao     TEXT,
-    importado_em   TEXT NOT NULL
+    importado_em   TEXT NOT NULL,
+    anterior_json  TEXT,                  -- estado antes de uma decisao do painel (permite desfazer)
+    desfeita       INTEGER NOT NULL DEFAULT 0
 );
 
 -- ===== Execucoes dentro do relatorio =====
@@ -355,13 +357,13 @@ SELECT a.achado_id, k.run_id, a.uf, a.tecnologia, a.status_reportado, a.forneced
        u.url_original AS url, u.dominio, u.fonte_oficial,
        a.verificado, a.status_final, a.verificado_por, a.observacao,
        EXISTS (SELECT 1 FROM v_pares_auditoria pa WHERE pa.url_id = k.url_id AND pa.uf = k.uf) AS auditoria,
-       p.dominio_final, p.fonte_oficial_final, e.no_relatorio,
+       p.dominio_final, p.fonte_oficial_final,
        a.evidencia_cita_tecnologia, a.evidencia_cita_lgpd
 FROM achados a
 JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
 JOIN urls u ON u.url_id=k.url_id
 LEFT JOIN paginas p ON p.pagina_id=k.pagina_id
-LEFT JOIN execucoes e ON e.run_id=k.run_id
+JOIN execucoes e ON e.run_id=k.run_id AND e.no_relatorio=1       -- fila de revisao: so execucoes do relatorio
 ORDER BY a.verificado, a.evidencia_confere, a.evidencia_cita_tecnologia, a.uf;
 
 DROP VIEW IF EXISTS v_secretarias_confirmadas;
@@ -405,7 +407,7 @@ DROP VIEW IF EXISTS v_artigos_multi_termo;
 CREATE VIEW v_artigos_multi_termo AS
 SELECT a.artigo_id, a.titulo, a.ano, a.citacoes, COUNT(DISTINCT o.termo_id) AS n_termos
 FROM r_artigos a JOIN r_ocorrencias o ON o.artigo_id=a.artigo_id
-GROUP BY a.artigo_id ORDER BY n_termos DESC, a.citacoes DESC;
+GROUP BY a.artigo_id ORDER BY n_termos DESC, COALESCE(a.citacoes,0) DESC;
 
 DROP VIEW IF EXISTS v_sobreposicao_termos;
 CREATE VIEW v_sobreposicao_termos AS

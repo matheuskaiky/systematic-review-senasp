@@ -380,7 +380,7 @@ def test_achados_e_resumo_usam_a_origem_efetiva(tmp_path, monkeypatch, silencio)
     repo = _estagio_com_redirecionamento(tmp_path, monkeypatch)
     a = {x["url"].rsplit("/", 1)[1]: dict(x) for x in repo.conn.execute("SELECT * FROM v_achados_revisao")}
     assert (a["1"]["fonte_oficial"], a["1"]["fonte_oficial_final"], a["1"]["dominio_final"]) == (1, 0, "externo.example")
-    assert a["2"]["fonte_oficial_final"] == 1 and a["2"]["no_relatorio"] == 1
+    assert a["2"]["fonte_oficial_final"] == 1
     uf = dict(repo.conn.execute("SELECT * FROM v_resumo_uf").fetchone())
     assert (uf["n_achados"], uf["n_fonte_oficial"]) == (4, 3)                       # o redirecionado nao conta como oficial
     prec = {x["fonte_oficial"]: x["n_achados"] for x in repo.conn.execute("SELECT * FROM v_precisao_llm")}
@@ -439,8 +439,8 @@ def test_views_por_execucao_e_logs_continuam_mostrando_a_execucao_fora(tmp_path,
     repo.definir_no_relatorio(run2, False, "piloto")
     assert {r["run_id"] for r in repo.conn.execute("SELECT run_id FROM v_funil")} == {run1, run2}
     assert {r["run_id"] for r in repo.conn.execute("SELECT run_id FROM v_custos")} == {run1, run2}
-    assert _val(repo, "SELECT COUNT(*) FROM v_achados_revisao") == 8                  # fila de revisao: tudo, com a marca
-    assert {r[0] for r in repo.conn.execute("SELECT no_relatorio FROM v_achados_revisao")} == {0, 1}
+    assert _val(repo, "SELECT COUNT(*) FROM v_achados_revisao") == 4                  # fila de revisao: so a execucao do relatorio
+    assert {r[0] for r in repo.conn.execute("SELECT run_id FROM v_achados_revisao")} == {run1}
     assert _val(repo, "SELECT COUNT(*) FROM v_resultado_download WHERE no_relatorio=0") == 4
 
 

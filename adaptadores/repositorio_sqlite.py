@@ -1,4 +1,5 @@
 import json
+import logging
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -7,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 from dominio.modelos import CandidatoDownload, ItemClassificacao
 from dominio.servicos import (normalizar_url, dominio_de, eh_oficial, chave_dedup_titulo, palavras_chave_tecnologia,
-                              evidencia_cita_termo, evidencia_cita_lgpd)
+                              evidencia_cita_termo, evidencia_cita_lgpd, normalizar_status_final)
 from infra.util import agora
 
 
@@ -28,6 +29,7 @@ _COLUNAS_NOVAS = {
     "achados": {"confianca_original": "TEXT", "evidencia_cita_tecnologia": "INTEGER", "evidencia_cita_lgpd": "INTEGER"},
     "triagem": {"decisao_texto_completo": "TEXT", "motivo_texto_completo": "TEXT"},
     "triagem_revisoes": {"independente": "INTEGER NOT NULL DEFAULT 0"},
+    "achados_revisoes": {"anterior_json": "TEXT", "desfeita": "INTEGER NOT NULL DEFAULT 0"},
 }
 
 
@@ -38,6 +40,7 @@ class RepositorioSQLite:
         self.conn = sqlite3.connect(caminho)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
+        self.conn.execute("PRAGMA busy_timeout = 5000")        # o painel e a linha de comando podem abrir o banco juntos
         self.conn.executescript((Path(__file__).parent / "schema.sql").read_text(encoding="utf-8"))
         self._garantir_colunas()
 
@@ -310,7 +313,7 @@ class RepositorioSQLite:
             "Secretarias": "SELECT * FROM v_secretarias_confirmadas",
             "Chamadas": "SELECT * FROM chamadas ORDER BY chamada_id",
             "Metricas_termo": "SELECT * FROM v_metricas_por_termo",
-            "Artigos": "SELECT * FROM artigos ORDER BY citacoes DESC",
+            "Artigos": "SELECT * FROM artigos ORDER BY COALESCE(citacoes,0) DESC, artigo_id",
             "Artigos_ano": "SELECT * FROM v_artigos_por_ano",
             "Multi_termo": "SELECT * FROM v_artigos_multi_termo",
             "Sobreposicao": "SELECT * FROM v_sobreposicao_termos",
@@ -319,7 +322,7 @@ class RepositorioSQLite:
                                  t.confirmado_em_base, t.link_confirmado, t.revisor,
                                  t.decisao_texto_completo, t.motivo_texto_completo
                           FROM artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id
-                          ORDER BY a.citacoes DESC""",
+                          ORDER BY COALESCE(a.citacoes,0) DESC, a.artigo_id""",
             "Buscas_manuais": "SELECT * FROM buscas_manuais ORDER BY base, termo_id",
             "Manuais_resumo": "SELECT * FROM v_manuais_resumo",
             # metricas para o relatorio (protocolo e justificativas)
@@ -401,25 +404,45 @@ class RepositorioSQLite:
                       decisao_texto_completo=tc, motivo_texto_completo=motivo_tc, importado_em=agora(),
                       independente=independente)
 
+    def _ids_validos(self, pares, coluna, tabela, chave, rotulo):
+        """Confere, antes de gravar qualquer coisa, que todo identificador da planilha e um inteiro que existe.
+        `pares` = [(linha da planilha, valor)], com o cabecalho na linha 1. Devolve os inteiros na mesma ordem."""
+        ids = []
+        for linha, bruto in pares:
+            try:
+                ids.append(int(float(str(bruto).strip())))
+            except (TypeError, ValueError):
+                raise SystemExit(f"{coluna} invalido: {bruto!r} (linha {linha})")
+        existentes = {r[0] for r in self.conn.execute(
+            f"SELECT {chave} FROM {tabela} WHERE {chave} IN ({','.join('?' for _ in ids) or 'NULL'})", ids)}
+        for (linha, _), i in zip(pares, ids):
+            if i not in existentes:
+                raise SystemExit(f"{rotulo} inexistente: {i} (linha {linha})")
+        return ids
+
     def importar_triagem(self, df, so_historico=False):
         """Importa a aba Triagem. Toda decisao entra no historico (`triagem_revisoes`), por revisor.
 
         Com so_historico=True a decisao NAO altera `triagem` (revisao independente, antes do consenso).
+        Tudo e validado antes da primeira gravacao: um erro de digitacao nao deixa o lote pela metade.
         """
         validos = {"pendente", "incluir", "excluir"}
         tem_tc = "decisao_texto_completo" in df.columns
-        for _, r in df.iterrows():
+        ids = self._ids_validos([(pos + 2, v) for pos, v in enumerate(df["artigo_id"])], "artigo_id", "artigos", "artigo_id", "Artigo")
+        linhas = []
+        for pos, (_, r) in enumerate(df.iterrows()):
             dec = str(_v(r["decisao"]) or "pendente").strip().lower()
             if dec not in validos:
-                raise SystemExit(f"Invalid decision for article {r['artigo_id']}: {dec}")
+                raise SystemExit(f"Invalid decision for article {ids[pos]}: {dec} (linha {pos + 2})")
             tc = motivo_tc = None
             if tem_tc:
                 tc = str(_v(r["decisao_texto_completo"]) or "").strip().lower() or None
                 if tc is not None and tc not in validos:
-                    raise SystemExit(f"Invalid full-text decision for article {r['artigo_id']}: {tc}")
+                    raise SystemExit(f"Invalid full-text decision for article {ids[pos]}: {tc} (linha {pos + 2})")
                 if "motivo_texto_completo" in df.columns:
                     motivo_tc = _v(r["motivo_texto_completo"])
-            artigo_id = int(r["artigo_id"])
+            linhas.append((ids[pos], r, dec, tc, motivo_tc))
+        for artigo_id, r, dec, tc, motivo_tc in linhas:
             motivo = _v(r["motivo"])
             revisor = str(_v(r["revisor"]) or "").strip() or "(sem revisor)"
             self._registrar_revisao_triagem(artigo_id, revisor, dec, motivo, tc, motivo_tc, int(bool(so_historico)))
@@ -438,29 +461,124 @@ class RepositorioSQLite:
         self.conn.commit()
         return len(df)
 
-    def importar_verificacao_achados(self, df, status_permitidos):
-        n = 0
-        for _, r in df.iterrows():
-            if pd.isna(r["verificado"]) or int(r["verificado"]) != 1:
-                continue
-            final = _v(r["status_final"])
-            if final not in status_permitidos:
-                raise SystemExit(f"Invalid status_final for finding {r['achado_id']}: {final}")
-            achado_id, por, obs = int(r["achado_id"]), _v(r["verificado_por"]), _v(r["observacao"])
-            self.conn.execute(
-                """UPDATE achados SET verificado=1, status_final=?, verificado_por=?, verificado_em=?,
-                   observacao=? WHERE achado_id=?""", (final, por, agora(), obs, achado_id))
-            # historico: so grava se mudou em relacao a ultima verificacao da mesma pessoa
-            revisor = str(por or "").strip() or "(sem revisor)"
-            ultima = self.conn.execute(
-                """SELECT status_final, observacao FROM achados_revisoes WHERE achado_id=? AND verificado_por=?
-                   ORDER BY revisao_id DESC LIMIT 1""", (achado_id, revisor)).fetchone()
-            if ultima is None or tuple(ultima) != (final, obs):
-                self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=revisor, status_final=final,
-                              observacao=obs, importado_em=agora())
-            n += 1
+    def _estado_achado(self, achado_id):
+        l = self.conn.execute("""SELECT verificado, status_final, verificado_por, verificado_em, observacao FROM achados
+                                 WHERE achado_id=?""", (achado_id,)).fetchone()
+        if l is None:
+            raise SystemExit(f"Achado inexistente: {achado_id}")
+        return dict(l)
+
+    def _gravar_verificacao(self, achado_id, final, por, obs, com_desfazer=False):
+        anterior = json.dumps(self._estado_achado(achado_id), ensure_ascii=False) if com_desfazer else None
+        self.conn.execute(
+            """UPDATE achados SET verificado=1, status_final=?, verificado_por=?, verificado_em=?,
+               observacao=? WHERE achado_id=?""", (final, por, agora(), obs, achado_id))
+        revisor = str(por or "").strip() or "(sem revisor)"
+        if com_desfazer:
+            # decisao do painel: sempre uma linha, para poder desfazer
+            self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=revisor, status_final=final,
+                          observacao=obs, importado_em=agora(), anterior_json=anterior)
+            return
+        # importacao: so grava se mudou em relacao a ultima verificacao da mesma pessoa
+        ultima = self.conn.execute(
+            """SELECT status_final, observacao FROM achados_revisoes WHERE achado_id=? AND verificado_por=?
+               ORDER BY revisao_id DESC LIMIT 1""", (achado_id, revisor)).fetchone()
+        if ultima is None or tuple(ultima) != (final, obs):
+            self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=revisor, status_final=final,
+                          observacao=obs, importado_em=agora())
+
+    def verificar_achado(self, achado_id, status_final, revisor, observacao=None, status_permitidos=None):
+        """Decisao humana de um achado (painel). Valida o status com a mesma regra da importacao e exige o revisor."""
+        revisor = str(revisor or "").strip()
+        if not revisor:
+            raise SystemExit("Informe o nome do revisor")
+        final = normalizar_status_final(status_final, status_permitidos) if status_permitidos is not None \
+            else (str(status_final).strip().lower() or None)
+        if final is None:
+            raise SystemExit(f"Invalid status_final for finding {achado_id}: {str(status_final).strip()!r}")
+        self._gravar_verificacao(achado_id, final, revisor, (observacao or "").strip() or None, com_desfazer=True)
         self.conn.commit()
-        return n
+
+    def desfazer_ultima_decisao(self, achado_id):
+        """Volta o achado ao estado anterior a ultima decisao do painel que ainda nao foi desfeita."""
+        l = self.conn.execute("""SELECT revisao_id, anterior_json FROM achados_revisoes WHERE achado_id=?
+                                 AND anterior_json IS NOT NULL AND desfeita=0 ORDER BY revisao_id DESC LIMIT 1""",
+                              (achado_id,)).fetchone()
+        if l is None:
+            raise SystemExit(f"Nada a desfazer no achado {achado_id}")
+        e = json.loads(l["anterior_json"])
+        self.conn.execute("""UPDATE achados SET verificado=?, status_final=?, verificado_por=?, verificado_em=?,
+                             observacao=? WHERE achado_id=?""",
+                          (e["verificado"], e["status_final"], e["verificado_por"], e["verificado_em"], e["observacao"], achado_id))
+        self.conn.execute("UPDATE achados_revisoes SET desfeita=1 WHERE revisao_id=?", (l["revisao_id"],))
+        self.conn.commit()
+
+    def importar_verificacao_achados(self, df, status_permitidos):
+        """Importa a aba Achados. So linhas com verificado = 1 entram; verificado = 0 e ignorado de proposito (uma
+        planilha exportada antes do trabalho de outro revisor nao pode apagar o que ele fez): para desfazer uma
+        verificacao use `desverificar_achado` (painel). Tudo e validado antes da primeira gravacao."""
+        selecionadas = []
+        for pos, (_, r) in enumerate(df.iterrows()):
+            try:
+                marcado = not pd.isna(r["verificado"]) and int(float(r["verificado"])) == 1
+            except (TypeError, ValueError):
+                raise SystemExit(f"verificado invalido: {r['verificado']!r} (linha {pos + 2})")
+            if marcado:
+                selecionadas.append((pos, r))
+        ids = self._ids_validos([(pos + 2, r["achado_id"]) for pos, r in selecionadas], "achado_id", "achados",
+                                "achado_id", "Achado")
+        registros = []
+        for (pos, r), achado_id in zip(selecionadas, ids):
+            bruto_final = _v(r["status_final"])
+            final = normalizar_status_final(bruto_final, status_permitidos)
+            if final is None:
+                raise SystemExit(f"Invalid status_final for finding {achado_id}: "
+                                 f"{None if bruto_final is None else str(bruto_final).strip()!r} (linha {pos + 2})")
+            registros.append((achado_id, final, _v(r["verificado_por"]), _v(r["observacao"])))
+        if registros:
+            marcas = ",".join("?" for _ in registros)
+            fora = [r[0] for r in self.conn.execute(
+                f"""SELECT a.achado_id FROM achados a JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
+                    JOIN execucoes e ON e.run_id=k.run_id WHERE e.no_relatorio=0 AND a.achado_id IN ({marcas})""",
+                [x[0] for x in registros])]
+            if fora:
+                logging.warning("Achados de execucao fora do relatorio (nao entram em Secretarias nem em Resumo_UF): %s",
+                                ", ".join(str(i) for i in sorted(fora)))
+        for achado_id, final, por, obs in registros:
+            self._gravar_verificacao(achado_id, final, por, obs)
+        self.conn.commit()
+        return len(registros)
+
+    def desverificar_achado(self, achado_id, revisor, motivo):
+        """Revoga a verificacao (verificado = 0, sem status final) e registra isso no historico. Diferente de
+        `desfazer_ultima_decisao`: nao volta a nenhum estado anterior, tira a verificacao."""
+        estado = self._estado_achado(achado_id)
+        if not estado["verificado"]:
+            raise SystemExit(f"Achado {achado_id} nao esta verificado")
+        self.conn.execute("""UPDATE achados SET verificado=0, status_final=NULL, verificado_por=NULL, verificado_em=NULL
+                             WHERE achado_id=?""", (achado_id,))
+        self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=str(revisor or "").strip() or "(sem revisor)",
+                      status_final=None, observacao=f"verificacao desfeita: {motivo}".strip(": "), importado_em=agora(),
+                      anterior_json=json.dumps(estado, ensure_ascii=False))
+        self.conn.commit()
+
+    def copia_de_seguranca(self, pasta, manter=10):
+        """Copia consistente do banco (API de backup do SQLite) em `pasta`; mantem as `manter` mais recentes."""
+        pasta = Path(pasta)
+        pasta.mkdir(parents=True, exist_ok=True)
+        nome = Path(self.conn.execute("PRAGMA database_list").fetchone()["file"]).stem
+        destino = pasta / f"{nome}_painel_{datetime.now():%Y%m%d_%H%M%S}.db"
+        copia = sqlite3.connect(destino)
+        try:
+            self.conn.backup(copia)
+        finally:
+            copia.close()
+        for antiga in sorted(pasta.glob(f"{nome}_painel_*.db"))[:-manter]:
+            antiga.unlink()
+        return str(destino)
+
+    def fechar(self):
+        self.conn.close()
 
     def importar_artigos_manuais(self, df):
         """Artigos informados a mao nas buscas manuais. Entram em `artigos` (deduplicados por titulo) e em

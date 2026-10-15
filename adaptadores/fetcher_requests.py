@@ -1,3 +1,5 @@
+import socket
+import threading
 import time
 from urllib.robotparser import RobotFileParser
 from urllib.parse import urljoin, urlsplit
@@ -12,12 +14,32 @@ _CORPO_ERRO_MAX = 16_384          # bytes do corpo de uma resposta de erro guard
 _POLITICAS_ROBOTS = ("permitir", "bloquear")
 
 
+def _abortar(resp, estourou):
+    """Chamado pelo temporizador quando o prazo total acaba: interrompe a leitura bloqueada do corpo.
+
+    `iter_content` so devolve com o bloco inteiro ou no fim da conexao, entao um servidor que goteja bytes nunca
+    deixaria o laco de leitura checar o prazo. O shutdown do socket usa atributos internos do urllib3 (melhor esforco);
+    se falhar, o laco ainda confere `estourou` a cada bloco.
+    """
+    estourou.set()
+    try:
+        resp.raw._fp.fp.raw._sock.shutdown(socket.SHUT_RDWR)
+    except Exception:
+        pass
+    try:
+        resp.close()
+    except Exception:
+        pass
+
+
 class FetcherRequests:
     nome = "requests"
 
     def __init__(self, user_agent, timeout=30, max_bytes=8_000_000, respeitar_robots=True,
                  tempo_maximo=120, max_redirecionamentos=5, robots_se_inacessivel="permitir"):
-        """`timeout` vale por leitura de socket; `tempo_maximo` e o prazo total (segundos) de cada download.
+        """`timeout` vale por leitura de socket; `tempo_maximo` e o prazo total (segundos) de cada download:
+        conferido antes de cada salto e durante a leitura do corpo (por um temporizador, que interrompe uma leitura
+        bloqueada). As esperas entre retentativas de `chamar` e a consulta ao robots.txt (ate 10 s por host) ficam fora.
 
         `robots_se_inacessivel`: o que fazer quando o robots.txt responde 5xx ou nao pode ser lido.
         "permitir" segue a especificacao; "bloquear" segue a RFC 9309 (5xx ou rede = assuma proibido).
@@ -70,8 +92,14 @@ class FetcherRequests:
                     if salto > 0:
                         reg.extras["redirecionamentos"] = visitadas
                     return vazio
+            restante = self._tempo_max - (time.perf_counter() - inicio)
+            if restante <= 0:
+                reg.erro = "tempo_excedido"
+                if len(visitadas) > 1:
+                    reg.extras["redirecionamentos"] = visitadas
+                return vazio
             # o robots.txt vale para cada destino: os redirecionamentos sao seguidos aqui, e nao pelo requests
-            r = chamar("GET", atual, headers={"User-Agent": self._ua}, timeout=self._timeout, stream=True,
+            r = chamar("GET", atual, headers={"User-Agent": self._ua}, timeout=min(self._timeout, restante), stream=True,
                        allow_redirects=False, ler_corpo_erro=_CORPO_ERRO_MAX)
             soma_ms += r.get("latencia_total_ms") or 0
             resp = r["resp"]
@@ -101,19 +129,28 @@ class FetcherRequests:
         ctype = resp.headers.get("Content-Type", "").split(";")[0].strip().lower()
         dados, truncado = bytearray(), False
         t_leitura = time.perf_counter()
+        estourou = threading.Event()
+        restante = max(self._tempo_max - (t_leitura - inicio), 0)
+        temporizador = threading.Timer(restante, _abortar, args=(resp, estourou))
+        temporizador.daemon = True
+        temporizador.start()
         try:
             for bloco in resp.iter_content(65536):
                 dados.extend(bloco)
                 if len(dados) > self._max:
                     dados, truncado = dados[:self._max], True
                     break
-                if time.perf_counter() - inicio > self._tempo_max:
+                if estourou.is_set() or time.perf_counter() - inicio > self._tempo_max:
                     reg.erro = "tempo_excedido"
                     return vazio
-        except requests.RequestException as e:      # a leitura do corpo tambem pode falhar (conexao cortada, timeout)
-            reg.erro = f"erro_de_leitura: {e!r}"
+            if estourou.is_set():                   # a leitura foi interrompida pelo temporizador
+                reg.erro = "tempo_excedido"
+                return vazio
+        except (requests.RequestException, OSError, ValueError) as e:   # conexao cortada, timeout, resposta fechada no meio
+            reg.erro = "tempo_excedido" if estourou.is_set() else f"erro_de_leitura: {e!r}"
             return vazio
         finally:
+            temporizador.cancel()
             resp.close()
             leitura_ms = int((time.perf_counter() - t_leitura) * 1000)
             # a latencia da resposta nao inclui a leitura do corpo: o tempo de leitura e o total ficam nos extras

@@ -302,7 +302,7 @@ def test_item_sem_texto_utilizavel_fica_registrado(tmp_path, silencio):
     assert repo.conn.execute("SELECT valor FROM metricas_run WHERE chave='classificacao_ignorados_sem_texto'").fetchone()[0] == 1
     r = {l["url_id"]: l for l in _linhas(repo, "v_resultado_classificacao")}
     por_resultado = sorted((l["resultado"], l["motivo"]) for l in r.values())
-    assert por_resultado == [("classificado", None), ("classificado", None), ("falha_chamada", "ver chamadas.erro"),
+    assert por_resultado == [("classificado", None), ("classificado", None), ("falha_chamada", "HTTP 500: falha"),
                              ("nao_classificado", "sem_texto_utilizavel")]
     sem = next(l for l in r.values() if l["resultado"] == "nao_classificado")
     assert (sem["tem_texto_de_pagina"], sem["tem_snippet"]) == (0, 0)

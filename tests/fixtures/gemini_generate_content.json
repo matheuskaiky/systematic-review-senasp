@@ -1,0 +1,41 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\n  \"relevante\": true,\n  \"achados\": [\n    {\n      \"tecnologia\": \"reconhecimento_facial\",\n      \"status\": \"anunciado\",\n      \"fornecedor\": \"\",\n      \"menciona_lgpd\": true,\n      \"evidencia\": \"A Secretaria de Segurança Pública do Estado do Piauí, lançou nesta quarta-feira (06), dois novos projetos para aprimorar a segurança e a privacidade de dados na área pública: o “Lupa App” e a tecnologia de reconhecimento facial.\",\n      \"confianca\": \"alta\"\n    },\n    {\n      \"tecnologia\": \"leitura_placas\",\n      \"status\": \"anunciado\",\n      \"fornecedor\": \"\",\n      \"menciona_lgpd\": false,\n      \"evidencia\": \"Atualmente, o foco está na implementação do projeto “Lupa App” para veículos, que realiza a leitura de placas, e na tecnologia de reconhecimento facial.\",\n      \"confianca\": \"alta\"\n    },\n    {\n      \"tecnologia\": \"reconhecimento_facial\",\n      \"status\": \"em_uso\",\n      \"fornecedor\": \"\",\n      \"menciona_lgpd\": false,\n      \"evidencia\": \"“O reconhecimento facial foi desenvolvido no Piauí, com um algoritmo treinado com as características faciais dos piauienses, já possuindo 800 mil faces cadastradas na base de identidade.\",\n      \"confianca\": \"alta\"\n    }\n  ]\n}",
+            "thoughtSignature": "EmAKXgFpFH0T14BCCBMOs7ssYlXBa1qj/H2b4tbTQbu2YnQuLVS7nBqZSEN1/HOeSzPQ3O0YhgBpT6wVlLyCbs7BhXMi31uden42kqci2c1OGAQi7iHoD2EtFrC7V0+3BpY="
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0,
+      "citationMetadata": {
+        "citationSources": [
+          {
+            "startIndex": 191,
+            "endIndex": 415,
+            "uri": "https://www.ssp.pi.gov.br/noticia.php?id=4856",
+            "license": ""
+          }
+        ]
+      }
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1073,
+    "candidatesTokenCount": 352,
+    "totalTokenCount": 1425,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 1073
+      }
+    ],
+    "serviceTier": "standard"
+  },
+  "modelVersion": "gemini-3.5-flash-lite",
+  "responseId": "ohfQarHWM4W_qtsPmK-VqQY"
+}

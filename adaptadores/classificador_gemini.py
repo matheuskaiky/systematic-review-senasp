@@ -78,6 +78,10 @@ class ClassificadorGemini:
                     "bloqueio": (d.get("promptFeedback") or {}).get("blockReason"),
                     "modelo_versao": d.get("modelVersion"), "response_id": d.get("responseId"),
                     "tokens_raciocinio": uso.get("thoughtsTokenCount"), "tokens_cache": uso.get("cachedContentTokenCount"),
+                    "tokens_entrada": uso.get("promptTokenCount"),
+                    "tokens_saida": (uso.get("candidatesTokenCount") or 0) + (uso.get("thoughtsTokenCount") or 0)
+                    if uso else None,
+                    "service_tier": uso.get("serviceTier"),          # standard, priority ou batch: muda o preco
                     "sem_candidatos": cand is None, "sem_conteudo": sem_conteudo}
         except (ValueError, TypeError, AttributeError):
             return {}
@@ -108,18 +112,33 @@ class ClassificadorGemini:
         if reg.erro is None:
             try:
                 meta = self.metadados(r["resp"].text)
-                reg.extras.update({k: v for k, v in meta.items() if v is not None and v is not False})
+                reg.extras.update({k: v for k, v in meta.items()
+                                   if v is not None and v is not False and k not in ("tokens_entrada", "tokens_saida")})
                 reg.id_externo = meta.get("response_id")
-                if meta.get("sem_candidatos"):                  # C15: prompt bloqueado ou resposta sem candidatos
-                    reg.erro = f"sem_candidatos: {meta.get('bloqueio') or 'sem_motivo'}"
-                elif meta.get("sem_conteudo"):                  # candidato sem texto (por exemplo, SAFETY)
-                    reg.erro = f"sem_conteudo: {meta.get('finish_reason') or 'sem_motivo'}"
+                if meta.get("sem_candidatos") or meta.get("sem_conteudo"):
+                    # C15: prompt bloqueado, resposta sem candidatos ou candidato sem texto (por exemplo, SAFETY).
+                    # Os tokens da resposta ficam registrados e o custo e calculado por eles.
+                    reg.tokens_entrada, reg.tokens_saida = meta.get("tokens_entrada"), meta.get("tokens_saida")
+                    reg.custo_usd = self._custo(reg.tokens_entrada, reg.tokens_saida)
+                    if reg.custo_usd is not None:
+                        reg.extras["custo_origem"] = "calculado_por_tokens"
+                    if meta.get("sem_candidatos"):
+                        # TODO(verificar): se um prompt bloqueado e cobrado; o custo acima e conservador (maximo possivel)
+                        reg.extras["custo_cobranca_incerta"] = True
+                        reg.erro = f"sem_candidatos: {meta.get('bloqueio') or 'sem_motivo'}"
+                    else:
+                        reg.erro = f"sem_conteudo: {meta.get('finish_reason') or 'sem_motivo'}"
                 else:
                     texto, reg.tokens_entrada, reg.tokens_saida = self.interpretar(r["resp"].text)
                     reg.custo_usd = self._custo(reg.tokens_entrada, reg.tokens_saida)
                     if reg.custo_usd is not None:
                         reg.extras["custo_origem"] = "calculado_por_tokens"
-                    relevante, achados, valido = interpretar_json_classificacao(texto)
+                    if meta.get("finish_reason") == "MAX_TOKENS":
+                        # saida cortada (o raciocinio conta no limite): nao e uma classificacao. Fica como falha, com os
+                        # tokens e o custo gravados, para nao virar um "sem achados" silencioso. O texto parcial esta no bruto.
+                        reg.erro = "resposta_truncada: MAX_TOKENS"
+                    else:
+                        relevante, achados, valido = interpretar_json_classificacao(texto)
             except (ValueError, KeyError, IndexError, TypeError, AttributeError) as e:
                 reg.erro = f"resposta_inesperada: {e!r}"
         return ResultadoClassificacao(relevante, achados, valido, texto, reg)

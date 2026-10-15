@@ -744,16 +744,19 @@ WHERE s.selecionada = 1 OR s.auditoria = 1;
 DROP VIEW IF EXISTS v_resultado_classificacao;
 CREATE VIEW v_resultado_classificacao AS
 SELECT s.run_id AS run_selecao, s.url_id, s.uf, s.auditoria, u.dominio, u.fonte_oficial,
-       CASE WHEN EXISTS (SELECT 1 FROM classificacoes k WHERE k.url_id = s.url_id AND k.uf = s.uf) THEN 'classificado'
+       CASE WHEN EXISTS (SELECT 1 FROM classificacoes k WHERE k.url_id = s.url_id AND k.uf = s.uf AND k.json_valido = 1) THEN 'classificado'
+            WHEN EXISTS (SELECT 1 FROM classificacoes k WHERE k.url_id = s.url_id AND k.uf = s.uf) THEN 'classificado_json_invalido'
             WHEN EXISTS (SELECT 1 FROM chamadas c WHERE c.etapa = 'classificacao' AND c.alvo_id = s.url_id || ':' || s.uf AND c.sucesso = 0)
                  THEN 'falha_chamada'
             ELSE 'nao_classificado' END AS resultado,
        EXISTS (SELECT 1 FROM paginas p WHERE p.run_id = s.run_id AND p.url_id = s.url_id AND p.extracao_ok = 1) AS tem_texto_de_pagina,
        EXISTS (SELECT 1 FROM resultados_web r WHERE r.url_id = s.url_id AND r.uf = s.uf
                AND (COALESCE(r.titulo, '') <> '' OR COALESCE(r.snippet, '') <> '')) AS tem_snippet,
-       CASE WHEN EXISTS (SELECT 1 FROM classificacoes k WHERE k.url_id = s.url_id AND k.uf = s.uf) THEN NULL
+       CASE WHEN EXISTS (SELECT 1 FROM classificacoes k WHERE k.url_id = s.url_id AND k.uf = s.uf AND k.json_valido = 1) THEN NULL
+            WHEN EXISTS (SELECT 1 FROM classificacoes k WHERE k.url_id = s.url_id AND k.uf = s.uf) THEN 'json_invalido: ver Classif_invalidas'
             WHEN EXISTS (SELECT 1 FROM chamadas c WHERE c.etapa = 'classificacao' AND c.alvo_id = s.url_id || ':' || s.uf AND c.sucesso = 0)
-                 THEN 'ver chamadas.erro'
+                 THEN COALESCE((SELECT substr(c.erro, 1, 80) FROM chamadas c WHERE c.etapa = 'classificacao'
+                                AND c.alvo_id = s.url_id || ':' || s.uf AND c.sucesso = 0 ORDER BY c.chamada_id DESC LIMIT 1), 'falha_chamada')
             WHEN NOT EXISTS (SELECT 1 FROM paginas p WHERE p.run_id = s.run_id AND p.url_id = s.url_id AND p.extracao_ok = 1)
                  AND NOT EXISTS (SELECT 1 FROM resultados_web r WHERE r.url_id = s.url_id AND r.uf = s.uf
                                  AND (COALESCE(r.titulo, '') <> '' OR COALESCE(r.snippet, '') <> '')) THEN 'sem_texto_utilizavel'
@@ -968,3 +971,13 @@ SELECT c.provedor, e.no_relatorio, COUNT(*) AS n_chamadas, COALESCE(SUM(c.sucess
                     AND EXISTS (SELECT 1 FROM chamadas x WHERE x.provedor = c.provedor AND x.custo_usd IS NOT NULL)), 0) AS n_ok_sem_custo
 FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id
 GROUP BY c.provedor, e.no_relatorio;
+
+-- Classificacoes cuja resposta nao e um JSON valido e que nao tem outra classificacao valida do mesmo par (url, uf):
+-- o par NAO pode ser tratado como "sem achados". `finish_reason` (nos extras da chamada) ajuda a ver a causa.
+DROP VIEW IF EXISTS v_classificacoes_invalidas;
+CREATE VIEW v_classificacoes_invalidas AS
+SELECT k.classificacao_id, k.run_id, k.url_id, k.uf, k.classificador, k.prompt_versao, k.origem_texto,
+       json_extract(c.extras_json, '$.finish_reason') AS finish_reason, c.tokens_saida, substr(k.resposta_texto, 1, 200) AS inicio_da_resposta
+FROM r_classificacoes k JOIN chamadas c ON c.chamada_id = k.chamada_id
+WHERE k.json_valido = 0
+  AND NOT EXISTS (SELECT 1 FROM r_classificacoes v WHERE v.url_id = k.url_id AND v.uf = k.uf AND v.json_valido = 1);

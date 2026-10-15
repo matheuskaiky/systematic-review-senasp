@@ -2,6 +2,8 @@
 import logging
 import sqlite3
 import sys
+import threading
+import time
 
 import pytest
 import requests
@@ -54,12 +56,14 @@ class Resp:
 
 class Rede:
     """Substitui `chamar` do fetcher: cada URL tem uma resposta; `pedidos` guarda o que foi requisitado."""
-    def __init__(self, monkeypatch, paginas):
-        self.paginas, self.pedidos = paginas, []
+    def __init__(self, monkeypatch, paginas, relogio=None, avanco=0.0):
+        self.paginas, self.pedidos, self._relogio, self._avanco = paginas, [], relogio, avanco
         monkeypatch.setattr(fetcher_requests, "chamar", self.chamar)
 
     def chamar(self, metodo, url, **kw):
         self.pedidos.append((url, kw))
+        if self._relogio is not None:
+            self._relogio["t"] += self._avanco                # cada requisicao "demora" este tanto
         resp, erro, status, corpo = (list(self.paginas[url]) + [None] * 4)[:4] if isinstance(self.paginas[url], tuple) else (self.paginas[url], None, 200, None)
         return {"resp": resp, "http_status": status, "latencia_ms": 10, "tentativas": 1, "erro": erro, "corpo_erro": corpo,
                 "latencia_total_ms": 10, "historico": [{"tentativa": 1, "http_status": status, "latencia_ms": 10, "erro": erro, "espera_s": None}]}
@@ -552,3 +556,119 @@ def test_a_fabrica_monta_o_fetcher_com_a_politica_de_robots_da_configuracao(monk
     from composicao import Fabrica
     monkeypatch.setenv("RESEARCHER_EMAIL", "pesquisador@exemplo.org")
     assert Fabrica().fetcher._politica == "bloquear"
+
+
+# ====================== prazo total: leitura bloqueada e gotejamento ======================
+class Bloqueia(Resp):
+    """Corpo que bloqueia na leitura ate a resposta ser fechada (como um servidor que nao manda mais nada)."""
+    def __init__(self):
+        super().__init__(blocos=())
+        self._evento = threading.Event()
+
+    def iter_content(self, tamanho):
+        self._evento.wait(10)
+        yield from ()
+
+    def close(self):
+        self.closed = True
+        self._evento.set()
+
+
+def test_leitura_bloqueada_e_interrompida_pelo_temporizador_no_prazo(robots, monkeypatch):
+    resp = Bloqueia()
+    Rede(monkeypatch, {A: resp})
+    t0 = time.perf_counter()
+    a = FetcherRequests(UA, tempo_maximo=0.3, respeitar_robots=False).baixar(A)
+    assert a.chamada.erro == "tempo_excedido" and not a.chamada.sucesso and a.conteudo == b"" and a.chamada.raw is None
+    assert time.perf_counter() - t0 < 3 and resp.closed                          # sem o temporizador seriam 10 s
+
+
+def test_abortar_nao_levanta_com_resposta_sem_os_atributos_internos():
+    evento = threading.Event()
+    fetcher_requests._abortar(object(), evento)
+    assert evento.is_set()
+
+
+def test_temporizador_e_cancelado_quando_o_download_termina(robots, monkeypatch):
+    criados = []
+
+    class TimerRastreado(threading.Timer):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            criados.append(self)
+
+    monkeypatch.setattr(fetcher_requests.threading, "Timer", TimerRastreado)
+    Rede(monkeypatch, {A: Resp()})
+    for _ in range(5):
+        assert FetcherRequests(UA, tempo_maximo=60, respeitar_robots=False).baixar(A).chamada.sucesso
+    assert len(criados) == 5 and all(tm.finished.is_set() for tm in criados)     # cancelar marca o temporizador como encerrado
+
+
+def test_temporizador_tambem_e_cancelado_quando_a_leitura_falha(robots, monkeypatch):
+    criados = []
+
+    class TimerRastreado(threading.Timer):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            criados.append(self)
+
+    class Corta(Resp):
+        def iter_content(self, n):
+            raise requests.exceptions.ChunkedEncodingError("cortou")
+            yield b""
+
+    monkeypatch.setattr(fetcher_requests.threading, "Timer", TimerRastreado)
+    Rede(monkeypatch, {A: Corta()})
+    assert FetcherRequests(UA, tempo_maximo=60, respeitar_robots=False).baixar(A).chamada.erro.startswith("erro_de_leitura")
+    assert len(criados) == 1 and criados[0].finished.is_set()
+
+
+def test_prazo_total_e_conferido_antes_de_cada_salto(robots, monkeypatch, relogio):
+    rede = Rede(monkeypatch, {A: _redir(B), B: Resp(url=B)}, relogio=relogio, avanco=100.0)
+    a = FetcherRequests(UA, tempo_maximo=60, respeitar_robots=False).baixar(A)
+    assert a.chamada.erro == "tempo_excedido" and [p[0] for p in rede.pedidos] == [A]      # o segundo salto nem comecou
+    assert a.chamada.extras["redirecionamentos"] == [A, B]
+
+
+def test_timeout_de_rede_nunca_passa_do_prazo_restante(robots, monkeypatch, relogio):
+    rede = Rede(monkeypatch, {A: Resp()})
+    FetcherRequests(UA, timeout=30, tempo_maximo=10, respeitar_robots=False).baixar(A)
+    assert rede.pedidos[0][1]["timeout"] == 10
+    rede2 = Rede(monkeypatch, {A: Resp()})
+    FetcherRequests(UA, timeout=5, tempo_maximo=120, respeitar_robots=False).baixar(A)
+    assert rede2.pedidos[0][1]["timeout"] == 5
+
+
+def test_gotejamento_em_servidor_local_respeita_o_prazo_total():
+    """Regressao com socket real (so loopback): 1 byte a cada 0,2 s, 40 bytes, prazo de 1 s. Antes da correcao a leitura
+    so conferia o prazo a cada 64 KB e levava ate o fim da resposta."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", "40")
+            self.end_headers()
+            try:
+                for _ in range(40):
+                    self.wfile.write(b"x")
+                    self.wfile.flush()
+                    time.sleep(0.2)
+            except OSError:
+                pass
+
+    servidor = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=servidor.serve_forever, daemon=True).start()
+    try:
+        t0 = time.perf_counter()
+        a = FetcherRequests(UA, timeout=5, tempo_maximo=1.0, respeitar_robots=False).baixar(f"http://127.0.0.1:{servidor.server_address[1]}/lento")
+        duracao = time.perf_counter() - t0
+    finally:
+        servidor.shutdown()
+        servidor.server_close()
+    assert a.chamada.erro == "tempo_excedido" and a.conteudo == b"" and not a.chamada.sucesso
+    assert duracao < 3.0                                                         # o servidor levaria 8 s

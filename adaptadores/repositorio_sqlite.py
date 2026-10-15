@@ -305,6 +305,7 @@ class RepositorioSQLite:
             "Qualidade_classif": "SELECT * FROM v_qualidade_classificacao",
             "Extracao": "SELECT * FROM v_extracao",
             "Eficiencia": "SELECT * FROM v_eficiencia",
+            "Classif_invalidas": "SELECT * FROM v_classificacoes_invalidas",
             "Gasto_real": "SELECT * FROM v_gasto_real",
             "Saldos": "SELECT * FROM v_saldos",
             "Metricas_run": "SELECT * FROM metricas_run",

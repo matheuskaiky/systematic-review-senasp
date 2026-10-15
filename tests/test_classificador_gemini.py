@@ -170,6 +170,7 @@ def test_metadados_da_resposta_normal():
     assert m["finish_reason"] == "STOP" and m["modelo_versao"] == "gemini-3.5-flash-lite-sintetico"
     assert m["response_id"] == "resp-sintetico-0001" and m["tokens_raciocinio"] == 120
     assert (m["sem_candidatos"], m["sem_conteudo"], m["bloqueio"]) == (False, False, None)
+    assert (m["service_tier"], m["tokens_entrada"], m["tokens_saida"]) == ("standard", 1200, 200)
 
 
 def test_metadados_de_prompt_bloqueado():
@@ -211,6 +212,7 @@ def test_classificar_com_resposta_normal(monkeypatch):
     assert c.id_externo == "resp-sintetico-0001" and c.http_status == 200 and c.latencia_ms == 800
     assert c.extras["finish_reason"] == "STOP" and c.extras["modelo_versao"] == "gemini-3.5-flash-lite-sintetico"
     assert c.extras["tokens_raciocinio"] == 120 and c.extras["custo_origem"] == "calculado_por_tokens" and "latencia_total_ms" in c.extras
+    assert c.extras["service_tier"] == "standard" and "tokens_entrada" not in c.extras
     assert c.raw == _fix("gemini_generate_content_sintetico.json").encode()
     assert visto["url"].endswith("/models/gemini-3.5-flash-lite:generateContent") and visto["metodo"] == "POST"
 
@@ -244,7 +246,10 @@ def test_prompt_bloqueado_vira_erro_sem_candidatos(monkeypatch):
     c = res.chamada
     assert c.erro == "sem_candidatos: SAFETY" and not c.sucesso
     assert (res.relevante, res.achados, res.json_valido, res.texto_resposta) == (False, [], False, "")
-    assert c.extras["bloqueio"] == "SAFETY" and c.id_externo == "resp-sintetico-0002" and c.raw is not None and c.custo_usd is None
+    assert c.extras["bloqueio"] == "SAFETY" and c.id_externo == "resp-sintetico-0002" and c.raw is not None
+    # os tokens da resposta ficam registrados; o custo e conservador e marcado como de cobranca incerta
+    assert (c.tokens_entrada, c.tokens_saida) == (1200, 0) and c.custo_usd == pytest.approx(1200 * 0.3 / 1e6)
+    assert c.extras["custo_cobranca_incerta"] is True and c.extras["custo_origem"] == "calculado_por_tokens"
 
 
 def test_resposta_sem_candidatos_e_sem_motivo(monkeypatch):
@@ -256,15 +261,19 @@ def test_candidato_sem_conteudo_vira_erro_sem_conteudo(monkeypatch):
     _chamar(monkeypatch, _fix("gemini_sem_conteudo_sintetico.json"))
     c = _gemini().classificar(_entrada(), _instr()).chamada
     assert c.erro == "sem_conteudo: SAFETY" and c.extras["finish_reason"] == "SAFETY"
+    assert (c.tokens_entrada, c.tokens_saida) == (1200, 0) and c.custo_usd == pytest.approx(1200 * 0.3 / 1e6)
+    assert "custo_cobranca_incerta" not in c.extras                      # houve geracao: a cobranca e esperada
 
 
-def test_resposta_truncada_por_max_tokens_fica_visivel_nos_extras(monkeypatch):
+def test_resposta_truncada_por_max_tokens_e_uma_falha_com_tokens_e_custo(monkeypatch):
     _chamar(monkeypatch, _fix("gemini_max_tokens_sintetico.json"))
     res = _gemini().classificar(_entrada(), _instr())
     c = res.chamada
-    assert c.sucesso and c.extras["finish_reason"] == "MAX_TOKENS" and c.extras["tokens_raciocinio"] == 4056
+    assert c.erro == "resposta_truncada: MAX_TOKENS" and not c.sucesso                       # nunca vira "sem achados" silencioso
+    assert c.extras["finish_reason"] == "MAX_TOKENS" and c.extras["tokens_raciocinio"] == 4056
     assert not res.json_valido and res.achados == [] and res.texto_resposta.startswith('{"relevante": true')
-    assert (c.tokens_entrada, c.tokens_saida) == (1200, 40 + 4056) and c.custo_usd > 0                   # a cobranca existe mesmo assim
+    assert (c.tokens_entrada, c.tokens_saida) == (1200, 40 + 4056) and c.custo_usd > 0       # a cobranca existe mesmo assim
+    assert c.raw is not None                                                                  # o texto parcial fica no bruto
 
 
 def test_erro_http_nao_levanta_e_guarda_o_corpo(monkeypatch):
@@ -350,25 +359,83 @@ _REAL = pathlib.Path(__file__).parent / "fixtures" / "gemini_generate_content.js
 
 @pytest.mark.skipif(not _REAL.exists(), reason="fixture real ainda nao existe (criada no M5, depois da primeira classificacao real)")
 def test_gemini_interpreta_resposta_real():
-    texto, t_in, t_out = ClassificadorGemini.interpretar(_REAL.read_text(encoding="utf-8"))
-    assert texto and t_in and t_out
-    assert ClassificadorGemini.metadados(_REAL.read_text(encoding="utf-8"))["modelo_versao"]
+    """Resposta real de 15/10/2026 (gemini-3.5-flash-lite, execucao 20261015_000030_28053b, item 2:PI)."""
+    from dominio.servicos import interpretar_json_classificacao
+    raw = _REAL.read_text(encoding="utf-8")
+    texto, t_in, t_out = ClassificadorGemini.interpretar(raw)
+    assert (t_in, t_out) == (1073, 352)                           # sem thoughtsTokenCount: o raciocinio minimo nao e reportado
+    relevante, achados, valido = interpretar_json_classificacao(texto)
+    assert relevante and valido and len(achados) == 3
+    assert {a.tecnologia for a in achados} <= set(V.TECNOLOGIAS) and {a.status for a in achados} <= set(V.STATUS)
+    assert all(a.evidencia and a.confianca in V.CONFIANCA for a in achados)
+    m = ClassificadorGemini.metadados(raw)
+    assert m["finish_reason"] == "STOP" and m["modelo_versao"] == "gemini-3.5-flash-lite" and m["response_id"]
+    assert (m["service_tier"], m["tokens_raciocinio"], m["sem_candidatos"], m["sem_conteudo"]) == ("standard", None, False, False)
 
 
+@pytest.mark.skipif(not _REAL.exists(), reason="fixture real ainda nao existe")
+def test_resposta_real_tem_a_forma_que_o_adaptador_assume():
+    d = json.loads(_REAL.read_text(encoding="utf-8"))
+    assert set(d) == {"candidates", "modelVersion", "responseId", "usageMetadata"}
+    partes = d["candidates"][0]["content"]["parts"]
+    assert not any(p.get("thought") for p in partes) and all("text" in p for p in partes)   # thoughtSignature acompanha o texto
+    assert d["usageMetadata"]["serviceTier"] == "standard"
 
-_ERRO_400 = pathlib.Path(__file__).parent / "fixtures" / "gemini_erro_400_mimetype.json"
 
-
-def test_erro_400_real_e_registrado_sem_levantar_e_sem_custo(monkeypatch):
-    corpo = _ERRO_400.read_text(encoding="utf-8")
-    _chamar(monkeypatch, corpo, erro="HTTP 400: " + corpo[:300], http_status=400)
+@pytest.mark.skipif(not _REAL.exists(), reason="fixture real ainda nao existe")
+def test_classificar_com_a_resposta_real(monkeypatch):
+    _chamar(monkeypatch, _REAL.read_text(encoding="utf-8"))
     res = _gemini().classificar(_entrada(), _instr())
-    c = res.chamada
-    assert not c.sucesso and c.http_status == 400 and c.erro.startswith("HTTP 400") and c.raw == corpo.encode()
-    assert (res.relevante, res.achados, res.json_valido) == (False, [], False)
-    assert c.custo_usd is None and c.tokens_entrada is None
+    assert res.chamada.sucesso and res.json_valido and len(res.achados) == 3
+    assert res.chamada.custo_usd == pytest.approx((1073 * 0.3 + 352 * 2.5) / 1e6) and res.chamada.extras["service_tier"] == "standard"
 
 
-def test_metadados_do_corpo_de_erro_real_nao_levantam():
-    m = ClassificadorGemini.metadados(_ERRO_400.read_text(encoding="utf-8"))
-    assert m["sem_candidatos"] is True and m["finish_reason"] is None
+# ---------- resposta truncada no estagio: falha visivel, retentada na retomada ----------
+def _estagio_gemini(tmp_path):
+    repo, bruto = RepositorioSQLite(tmp_path / "t.db"), BrutoLocal(tmp_path / "raw")
+    run_id = _novo_run(repo, "pipeline-uf")
+    busca_web.executar(repo, bruto, BuscaSimulada(), run_id, _consulta_pi(), C.PERFIS_BUSCA_WEB, [], 0)
+    download.executar(repo, bruto, FetcherSimulado(), ExtratorSimulado(), run_id, run_id, C.POLITICA_DOWNLOAD, [], 0, ufs={"PI"})
+    return repo, bruto, run_id
+
+
+def test_resposta_truncada_nao_vira_classificacao_e_e_retentada_ao_retomar(tmp_path, monkeypatch):
+    logging.disable(logging.CRITICAL)
+    try:
+        _chamar(monkeypatch, _fix("gemini_max_tokens_sintetico.json"))
+        repo, bruto, run_id = _estagio_gemini(tmp_path)
+        classificacao.executar(repo, bruto, _gemini(), run_id, run_id, _params(), C.UFS, [CHAVE], 0, ufs={"PI"})
+        assert repo.conn.execute("SELECT COUNT(*) FROM classificacoes").fetchone()[0] == 0
+        assert repo.conn.execute("SELECT COUNT(*) FROM chamadas WHERE etapa='classificacao' AND sucesso=0").fetchone()[0] == 3
+        r = repo.conn.execute("SELECT resultado, motivo FROM v_resultado_classificacao").fetchall()
+        assert {tuple(x) for x in r} == {("falha_chamada", "resposta_truncada: MAX_TOKENS")}
+        v = dict(repo.conn.execute("SELECT * FROM v_custos WHERE etapa='classificacao'").fetchone())
+        assert v["n_falhas"] == 3 and v["tokens_saida"] == 3 * 4096 and v["custo_usd"] > 0     # o gasto foi registrado
+        classificacao.executar(repo, bruto, _gemini(), run_id, run_id, _params(), C.UFS, [CHAVE], 0, ufs={"PI"})   # --retomar
+        assert repo.conn.execute("SELECT COUNT(*) FROM chamadas WHERE etapa='classificacao'").fetchone()[0] == 6   # tentou de novo
+    finally:
+        logging.disable(logging.NOTSET)
+
+
+def test_json_invalido_sem_truncamento_aparece_em_classif_invalidas(tmp_path, monkeypatch):
+    logging.disable(logging.CRITICAL)
+    try:
+        raw = json.dumps({"candidates": [{"content": {"parts": [{"text": "Nao consigo responder em JSON."}]}, "finishReason": "STOP"}],
+                          "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 10}})
+        _chamar(monkeypatch, raw)
+        repo, bruto, run_id = _estagio_gemini(tmp_path)
+        classificacao.executar(repo, bruto, _gemini(), run_id, run_id, _params(), C.UFS, [CHAVE], 0, ufs={"PI"})
+        assert {tuple(x) for x in repo.conn.execute("SELECT resultado, motivo FROM v_resultado_classificacao")} == \
+            {("classificado_json_invalido", "json_invalido: ver Classif_invalidas")}
+        inv = [dict(x) for x in repo.conn.execute("SELECT * FROM v_classificacoes_invalidas")]
+        assert len(inv) == 3 and inv[0]["finish_reason"] == "STOP" and inv[0]["inicio_da_resposta"] == "Nao consigo responder em JSON."
+        assert all(x["classificador"] == "gemini:gemini-3.5-flash-lite" for x in inv)
+        # uma classificacao valida posterior do mesmo par tira o par da lista
+        _chamar(monkeypatch, _fix("gemini_generate_content_sintetico.json"))
+        outro = _gemini(modelo="gemini-outro")
+        run2 = _novo_run(repo, "classificar")
+        classificacao.executar(repo, bruto, outro, run2, run_id, _params(), C.UFS, [CHAVE], 0, ufs={"PI"})
+        assert repo.conn.execute("SELECT COUNT(*) FROM v_classificacoes_invalidas").fetchone()[0] == 0
+        assert {x[0] for x in repo.conn.execute("SELECT resultado FROM v_resultado_classificacao")} == {"classificado"}
+    finally:
+        logging.disable(logging.NOTSET)

@@ -93,6 +93,13 @@ MODELOS_WEB = [
     ModeloConsultaWeb("M02", "{tec} segurança pública {nome} {uf}", perfil="geral"),
 ]
 
+# Secretarias MUNICIPAIS (vazio = so as estaduais). Preencha as duas listas para buscar cidades; nada foi inventado aqui:
+#   MUNICIPIOS = {"PI": ["Teresina"]}      (UF -> cidades escolhidas pelo pesquisador)
+#   MODELOS_WEB_MUNICIPAIS = [ModeloConsultaWeb("M11", "{tec} Secretaria Municipal de Segurança {cidade} {uf}", perfil="oficial")]
+# Cada consulta municipal grava a cidade em resultados_web, classificacoes e nos achados (coluna `cidade`).
+MUNICIPIOS = {}
+MODELOS_WEB_MUNICIPAIS = []
+
 # NEUTRAL filter profiles; each adapter translates them to its own provider.
 # Warning: do not mix allowlist and denylist in the same profile (some APIs reject it).
 PERFIS_BUSCA_WEB = {
@@ -118,5 +125,6 @@ POLITICA_DOWNLOAD = PoliticaDownload(
 assert len({t.id for t in TERMOS}) == len(TERMOS), "Duplicate term IDs"
 assert len({m.id for m in MODELOS_WEB}) == len(MODELOS_WEB), "Duplicate template IDs"
 assert len(UFS) == 27, "The state list must have 27 entries"
-for _m in MODELOS_WEB:
+assert len({m.id for m in MODELOS_WEB + MODELOS_WEB_MUNICIPAIS}) == len(MODELOS_WEB + MODELOS_WEB_MUNICIPAIS), "Duplicate template IDs"
+for _m in MODELOS_WEB + MODELOS_WEB_MUNICIPAIS:
     assert _m.perfil in PERFIS_BUSCA_WEB, f"Nonexistent profile: {_m.perfil}"

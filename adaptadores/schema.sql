@@ -166,7 +166,8 @@ CREATE TABLE IF NOT EXISTS resultados_web (
     posicao      INTEGER,
     titulo       TEXT,
     snippet      TEXT,
-    data_pub     TEXT
+    data_pub     TEXT,
+    cidade       TEXT                                 -- NULL = secretaria estadual; preenchido = municipal
 );
 CREATE TABLE IF NOT EXISTS selecao_download (       -- EVERY decision to download or discard is recorded
     run_id      TEXT NOT NULL REFERENCES execucoes(run_id),
@@ -206,6 +207,7 @@ CREATE TABLE IF NOT EXISTS classificacoes (
     texto_truncado      INTEGER,
     n_chars_enviados    INTEGER,
     classificador       TEXT,
+    cidade              TEXT,                        -- NULL = estadual; preenchido = secretaria municipal
     prompt_versao       TEXT,
     relevante           INTEGER,
     json_valido         INTEGER,
@@ -255,6 +257,7 @@ CREATE TABLE IF NOT EXISTS achados_revisoes (
     observacao     TEXT,
     importado_em   TEXT NOT NULL,
     anterior_json  TEXT,                  -- estado antes de uma decisao do painel (permite desfazer)
+    posterior_json TEXT,                  -- estado que a decisao produziu: o desfazer so vale se o achado ainda esta assim
     desfeita       INTEGER NOT NULL DEFAULT 0
 );
 
@@ -358,7 +361,7 @@ SELECT a.achado_id, k.run_id, a.uf, a.tecnologia, a.status_reportado, a.forneced
        a.verificado, a.status_final, a.verificado_por, a.observacao,
        EXISTS (SELECT 1 FROM v_pares_auditoria pa WHERE pa.url_id = k.url_id AND pa.uf = k.uf) AS auditoria,
        p.dominio_final, p.fonte_oficial_final,
-       a.evidencia_cita_tecnologia, a.evidencia_cita_lgpd
+       a.evidencia_cita_tecnologia, a.evidencia_cita_lgpd, k.cidade
 FROM achados a
 JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
 JOIN urls u ON u.url_id=k.url_id
@@ -368,7 +371,7 @@ ORDER BY a.verificado, a.evidencia_confere, a.evidencia_cita_tecnologia, a.uf;
 
 DROP VIEW IF EXISTS v_secretarias_confirmadas;
 CREATE VIEW v_secretarias_confirmadas AS      -- C4: achados verificados e nao descartados, por UF e tecnologia
-SELECT a.uf, a.tecnologia, a.status_final, a.fornecedor, a.menciona_lgpd, a.evidencia,
+SELECT a.uf, k.cidade, a.tecnologia, a.status_final, a.fornecedor, a.menciona_lgpd, a.evidencia,
        u.url_original AS url, f.dominio_efetivo AS dominio, f.fonte_oficial_efetiva AS fonte_oficial,
        a.achado_id, a.verificado_por, a.verificado_em
 FROM r_achados a
@@ -376,7 +379,18 @@ JOIN r_classificacoes k ON k.classificacao_id=a.classificacao_id
 JOIN urls u ON u.url_id=k.url_id
 JOIN v_fonte_da_classificacao f ON f.classificacao_id=k.classificacao_id
 WHERE a.verificado=1 AND COALESCE(a.status_final,'')<>'descartado'
-ORDER BY a.uf, a.tecnologia, a.achado_id;
+ORDER BY a.uf, k.cidade, a.tecnologia, a.achado_id;
+
+DROP VIEW IF EXISTS v_resumo_municipio;
+CREATE VIEW v_resumo_municipio AS                  -- so secretarias municipais (achados com cidade)
+SELECT k.uf, k.cidade,
+  COUNT(*) AS n_achados,
+  SUM(a.verificado) AS n_verificados,
+  SUM(CASE WHEN a.verificado=1 AND COALESCE(a.status_final,'')<>'descartado' THEN 1 ELSE 0 END) AS n_confirmados,
+  SUM(COALESCE(a.evidencia_confere,0)) AS n_evidencia_ok
+FROM r_achados a JOIN r_classificacoes k ON k.classificacao_id=a.classificacao_id
+WHERE k.cidade IS NOT NULL
+GROUP BY k.uf, k.cidade;
 
 DROP VIEW IF EXISTS v_resumo_uf;
 CREATE VIEW v_resumo_uf AS

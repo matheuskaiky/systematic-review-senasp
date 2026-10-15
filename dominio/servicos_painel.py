@@ -60,3 +60,58 @@ def trecho_mais_parecido(evidencia, texto, minimo=0.35):
             if melhor is None or r > melhor[2]:
                 melhor = (inicio + parte.start(), inicio + parte.end(), r)
     return melhor if melhor and melhor[2] >= minimo else None
+
+
+# ---------- configuracao e respostas brutas: leitura sem expor segredos ----------
+_CHAVES_SECRETAS = {"api_key", "apikey", "authorization", "x-goog-api-key", "key", "token", "password", "senha", "secret", "access_token"}
+
+
+def _eh_secreta(chave):
+    k = str(chave).lower()
+    return k in _CHAVES_SECRETAS or k.endswith(("_key", "_token", "_secret", "_password"))
+
+
+def mascarar_segredos(valor):
+    """Copia do valor (dict/lista aninhados) com `***` no lugar do que esta sob chaves de segredo (api_key, authorization...)."""
+    if isinstance(valor, dict):
+        return {k: ("***" if _eh_secreta(k) and v not in (None, "") else mascarar_segredos(v)) for k, v in valor.items()}
+    if isinstance(valor, list):
+        return [mascarar_segredos(v) for v in valor]
+    return valor
+
+
+def _rotulo_item(item, i):
+    return f"{item['id']}" if isinstance(item, dict) and "id" in item else str(i)
+
+
+def _achatar(valor, caminho, saida):
+    if isinstance(valor, dict):
+        for k, v in valor.items():
+            _achatar(v, f"{caminho}.{k}" if caminho else str(k), saida)
+        if not valor and caminho:
+            saida[caminho] = {}
+    elif isinstance(valor, list):
+        for i, v in enumerate(valor):
+            _achatar(v, f"{caminho}[{_rotulo_item(v, i)}]", saida)
+        if not valor and caminho:
+            saida[caminho] = []
+    else:
+        saida[caminho] = valor
+
+
+def diff_config(a, b):
+    """Diferencas entre duas configuracoes (dicts vindos de config_json): lista de (caminho, valor_a, valor_b, tipo) com
+    tipo em {'alterado', 'so_em_a', 'so_em_b'}. Listas de itens com `id` sao pareadas pelo id; as demais, pela posicao."""
+    fa, fb = {}, {}
+    _achatar(a or {}, "", fa)
+    _achatar(b or {}, "", fb)
+    saida = []
+    for caminho in sorted(set(fa) | set(fb)):
+        if caminho in fa and caminho in fb:
+            if fa[caminho] != fb[caminho]:
+                saida.append((caminho, fa[caminho], fb[caminho], "alterado"))
+        elif caminho in fa:
+            saida.append((caminho, fa[caminho], None, "so_em_a"))
+        else:
+            saida.append((caminho, None, fb[caminho], "so_em_b"))
+    return saida

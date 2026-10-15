@@ -18,10 +18,11 @@
 <div class="duas-colunas assimetricas">
 <div>
   <article class="cartao">
-    <h1>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} <small>em {{ ctx.ufs.get(a.uf, a.uf) }} ({{ a.uf }})</small></h1>
+    <h1>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} <small>em {% if a.cidade %}{{ a.cidade }}, {% endif %}{{ ctx.ufs.get(a.uf, a.uf) }} ({{ a.uf }})</small></h1>
     <p class="selos">{{ s.status(a.status_reportado) }} {{ s.confianca(a.confianca) }} {{ s.verificacao(a) }}
       {{ s.origem(a.origem_texto) }} {{ s.fonte(fonte_oficial) }}</p>
     <dl class="ficha">
+      <dt>Secretaria</dt><dd>{% if a.cidade %}Municipal: {{ a.cidade }} ({{ a.uf }}){% else %}Estadual: {{ ctx.ufs.get(a.uf, a.uf) }}{% endif %}</dd>
       <dt>Fornecedor</dt><dd>{{ a.fornecedor or "não informado" }}</dd>
       <dt>Menciona LGPD</dt><dd>{{ "sim" if a.menciona_lgpd else "não" }}{% if a.menciona_lgpd %} <small>({{ "o trecho cita LGPD" if a.evidencia_cita_lgpd else "mas o trecho citado não fala de LGPD" }})</small>{% endif %}</dd>
       <dt>Trecho cita a tecnologia</dt><dd>{{ "sim" if a.evidencia_cita_tecnologia else "não" }}</dd>
@@ -68,6 +69,7 @@
     {% else %}
     <form method="post" action="/achados/{{ a.achado_id }}/verificar{% if query %}?{{ query }}{% endif %}" id="form-decisao">
       <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="versao" value="{{ a.verificado_em or 'nao-verificado' }}">
       <label for="revisor">Seu nome (revisor)</label>
       <input id="revisor" name="revisor" value="{{ revisor }}" required autocomplete="name" placeholder="ex.: Maria Silva">
       <p class="rotulo-mini">Confirmar como (a seta indica o status que o modelo apontou)</p>
@@ -81,6 +83,20 @@
       <label for="observacao">Observação (opcional)</label>
       <textarea id="observacao" name="observacao" rows="3" placeholder="por que descartou, dúvida, fornecedor correto…">{{ a.observacao or "" }}</textarea>
     </form>
+    {% if a.verificado %}
+    <details class="revogar"><summary>Revogar verificação</summary>
+      <form method="post" action="/achados/{{ a.achado_id }}/revogar{% if query %}?{{ query }}{% endif %}">
+        <p><small>Tira a verificação (de qualquer origem, inclusive da planilha) e deixa o motivo no histórico. O achado volta a "não verificado".</small></p>
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="versao" value="{{ a.verificado_em or 'nao-verificado' }}">
+        <label for="revisor-revogar">Seu nome (revisor)</label>
+        <input id="revisor-revogar" name="revisor" value="{{ revisor }}" required>
+        <label for="motivo">Motivo</label>
+        <textarea id="motivo" name="motivo" rows="2" required placeholder="por que a verificação está errada"></textarea>
+        <button class="botao secundario" type="submit">Revogar</button>
+      </form>
+    </details>
+    {% endif %}
     {% if pode_desfazer %}
     <form method="post" action="/achados/{{ a.achado_id }}/desfazer{% if query %}?{{ query }}{% endif %}">
       <input type="hidden" name="csrf" value="{{ csrf }}"><button class="botao secundario" type="submit" data-tecla="u"><kbd>u</kbd> Desfazer última decisão</button></form>

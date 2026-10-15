@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}Painel{% endblock %} · IA na Segurança Pública</title>
 <link rel="stylesheet" href="/static/painel.css">
+{% block extra_head %}{% endblock %}
 </head>
 <body>
 {% set banco_rotulo = {"real": "BANCO REAL", "simulado": "SIMULADO", "demo": "DEMONSTRAÇÃO (dados fictícios)"} %}
@@ -20,6 +21,9 @@
     {{ item("/estados", "Estados", "/estados") }}
     {{ item("/achados", "Achados", "/achados") }}
     {{ item("/revisao/achados", "Revisar achados", "/revisao") }}
+    <span class="menu-grupo">Pipeline</span>
+    {{ item("/execucoes", "Execuções", "/execucoes") }}
+    {{ item("/chamadas", "Chamadas", "/chamadas") }}
   </nav>
   <main id="conteudo">{% block conteudo %}{% endblock %}</main>
 </div>

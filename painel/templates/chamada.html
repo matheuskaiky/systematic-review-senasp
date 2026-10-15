@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "_arvore.html" as arv %}
+{% import "_selos.html" as s %}
+{% block titulo %}Chamada {{ c.chamada_id }}{% endblock %}
+{% block conteudo %}
+<p class="trilha"><a href="/chamadas">Chamadas</a> › nº {{ c.chamada_id }}</p>
+<h1>{{ c.etapa }} <small>{{ c.provedor }} · {{ c.operacao or "" }}</small></h1>
+<p class="selos">{% if c.sucesso %}<span class="selo ok">✔ com sucesso</span>{% else %}<span class="selo st-descartado">✕ falhou</span>{% endif %}
+  {% if c.http_status %}<span class="selo neutro">HTTP {{ c.http_status }}</span>{% endif %}
+  {% if c.tentativas and c.tentativas > 1 %}<span class="selo alerta">{{ c.tentativas }} tentativas</span>{% endif %}</p>
+{% if c.erro %}<div class="aviso aviso-forte"><strong>Erro:</strong> {{ c.erro }}</div>{% endif %}
+<dl class="ficha">
+  <dt>Execução</dt><dd><a href="/execucoes/{{ c.run_id }}"><code>{{ c.run_id }}</code></a></dd>
+  <dt>Quando</dt><dd>{{ fmt.data_hora(c.requisitado_em) }}</dd>
+  <dt>Alvo</dt><dd>{{ c.alvo_tipo or "—" }}: {{ c.alvo_id or "—" }}{% if c.uf %} ({{ c.uf }}){% endif %}{% if c.pagina %} · página {{ c.pagina }}{% endif %}</dd>
+  <dt>Latência</dt><dd>{{ fmt.numero(c.latencia_ms) }} ms</dd>
+  <dt>Custo</dt><dd>{{ fmt.moeda_usd(c.custo_usd) if c.custo_usd is not none else "não informado" }}{% if c.tokens_entrada is not none %} · {{ fmt.numero(c.tokens_entrada) }} tokens de entrada, {{ fmt.numero(c.tokens_saida) }} de saída{% endif %}</dd>
+  {% if c.id_externo %}<dt>Id no provedor</dt><dd><code>{{ c.id_externo }}</code></dd>{% endif %}
+  {% if c.n_retornados is not none %}<dt>Retornados</dt><dd>{{ fmt.numero(c.n_retornados) }}{% if c.n_novos is not none %} · {{ fmt.numero(c.n_novos) }} novos{% endif %}{% if c.total_reportado %} · total aproximado {{ fmt.numero(c.total_reportado) }}{% endif %}</dd>{% endif %}
+  <dt>Chave de idempotência</dt><dd><code>{{ c.chave_idempotencia }}</code></dd>
+</dl>
+
+<div class="duas-colunas">
+<section class="cartao"><h2>Parâmetros enviados</h2>{{ arv.tabela(parametros) }}</section>
+<section class="cartao"><h2>Detalhes da resposta</h2>{{ arv.tabela(extras) }}</section>
+</div>
+
+{% if c.classificacao %}<section class="cartao"><h2>Classificação gravada</h2>
+  <p>{% if c.classificacao.relevante %}Página relevante{% else %}Página sem achados{% endif %} · {{ c.classificacao.n_achados }} achado(s){% if c.classificacao.n_achados_invalidos %}, {{ c.classificacao.n_achados_invalidos }} fora do vocabulário (descartados){% endif %} ·
+    {{ rotulos.rotulo(rotulos.ORIGEM_TEXTO, c.classificacao.origem_texto) }}{% if c.classificacao.texto_truncado %} (texto cortado){% endif %} · {{ fmt.numero(c.classificacao.n_chars_enviados) }} caracteres · prompt {{ c.classificacao.prompt_versao }}{% if not c.classificacao.json_valido %} · <span class="selo alerta">JSON inválido</span>{% endif %}</p>
+  {% if c.achados %}<ul class="lista-simples">{% for a in c.achados %}<li><a href="/achados/{{ a.achado_id }}">nº {{ a.achado_id }}</a> · {{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} · {{ s.status(a.status_reportado) }} {{ s.evidencia(a.evidencia_confere) }}</li>{% endfor %}</ul>{% endif %}
+</section>{% endif %}
+{% if c.pagina %}<section class="cartao"><h2>Página baixada</h2>
+  <dl class="ficha"><dt>Endereço final</dt><dd>{{ c.pagina.url_final }}</dd><dt>Tipo</dt><dd>{{ c.pagina.content_type }}</dd><dt>Tamanho</dt><dd>{{ fmt.numero(c.pagina.n_bytes) }} bytes{% if c.pagina.truncado %} (cortado no limite){% endif %}</dd>
+    <dt>Texto extraído</dt><dd>{% if c.pagina.extracao_ok %}{{ fmt.numero(c.pagina.n_chars) }} caracteres ({{ c.pagina.extrator }}){% else %}<span class="selo alerta">falhou</span> {{ rotulos.motivo_falha(c.pagina.motivo_falha) }}{% endif %}</dd></dl></section>{% endif %}
+
+<section class="cartao"><h2>Resposta bruta</h2>
+  {% if not bruto.existe %}<p class="vazio">{{ bruto.aviso or "Esta chamada não guardou resposta (falha antes de haver resposta)." }}</p>
+  {% else %}
+    <p><small>{{ fmt.numero(bruto.tamanho) }} bytes{% if bruto.cortado %} · mostrando só os primeiros 200 KB{% endif %}</small> · <a href="/chamadas/{{ c.chamada_id }}/bruto">baixar o arquivo</a>
+      · <small>valores sob chaves de segredo aparecem como ***</small></p>
+    {% if bruto.arvore is not none %}{{ arv.no(bruto.arvore, 0) }}
+    {% elif bruto.texto is not none %}<pre class="bruto">{{ bruto.texto }}</pre>
+    {% else %}<p class="vazio">Arquivo binário: use o download.</p>{% endif %}
+  {% endif %}
+</section>
+{% endblock %}

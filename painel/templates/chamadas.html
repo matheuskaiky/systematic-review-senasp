@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}Chamadas{% endblock %}
+{% block conteudo %}
+<h1>Chamadas</h1>
+<p class="sub">Cada chamada externa (busca, download, classificação): o que foi enviado, o que voltou, quanto custou e quanto demorou.</p>
+<form class="filtros" method="get" action="/chamadas">
+  <label>Execução <select name="run"><option value="">todas</option>{% for r in opcoes.runs %}<option value="{{ r }}"{% if filtros.run == r %} selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
+  <label>Etapa <select name="etapa"><option value="">todas</option>{% for r in opcoes.etapas %}<option value="{{ r }}"{% if filtros.etapa == r %} selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
+  <label>Provedor <select name="provedor"><option value="">todos</option>{% for r in opcoes.provedores %}<option value="{{ r }}"{% if filtros.provedor == r %} selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
+  <label>Resultado <select name="resultado"><option value="">todos</option><option value="ok"{% if filtros.resultado == "ok" %} selected{% endif %}>com sucesso</option><option value="falha"{% if filtros.resultado == "falha" %} selected{% endif %}>com falha</option></select></label>
+  <label>UF <select name="uf"><option value="">todas</option>{% for sigla in ctx.ufs %}<option value="{{ sigla }}"{% if filtros.uf == sigla %} selected{% endif %}>{{ sigla }}</option>{% endfor %}</select></label>
+  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="mensagem de erro ou alvo"></label>
+  <button class="botao" type="submit">Filtrar</button>{% if filtros %}<a href="/chamadas">Limpar</a>{% endif %}
+</form>
+<p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> chamada(s)</p>
+{% if not res.itens and res.total %}
+<p class="vazio">Não há chamadas nesta página: são {{ fmt.numero(res.total) }} em {{ paginas }} página(s). <a href="/chamadas?{{ base }}{{ '&' if base }}p=1">Ir para a primeira</a>.</p>
+{% elif not res.itens %}
+<p class="vazio">Nenhuma chamada com estes filtros.{% if filtros %} <a href="/chamadas">Limpar filtros</a>.{% endif %}</p>
+{% else %}
+<div class="tabela-rolavel"><table>
+  <thead><tr><th>Nº</th><th>Quando</th><th>Etapa</th><th>Provedor</th><th>Alvo</th><th>Resultado</th><th class="num">Latência</th><th class="num">Custo</th></tr></thead>
+  <tbody>{% for c in res.itens %}
+    <tr><td><a href="/chamadas/{{ c.chamada_id }}">{{ c.chamada_id }}</a></td><td>{{ fmt.data_hora(c.requisitado_em) }}</td><td>{{ c.etapa }}</td><td>{{ c.provedor }}</td>
+      <td>{{ c.alvo_id or "—" }}{% if c.uf %} <small>({{ c.uf }})</small>{% endif %}</td>
+      <td>{% if c.sucesso %}<span class="selo ok">✔ ok</span>{% else %}<span class="selo st-descartado">✕ falha</span><br><small>{{ (c.erro or "")[:80] }}</small>{% endif %}
+        {% if c.tentativas and c.tentativas > 1 %}<br><small>{{ c.tentativas }} tentativas</small>{% endif %}</td>
+      <td class="num">{{ fmt.numero(c.latencia_ms) }} ms</td><td class="num">{{ fmt.moeda_usd(c.custo_usd) if c.custo_usd is not none else "—" }}</td></tr>
+  {% endfor %}</tbody></table></div>
+<nav class="paginacao" aria-label="Páginas">
+  {% if n > 1 %}<a href="/chamadas?{{ base }}{{ '&' if base }}p={{ n - 1 }}">← Anterior</a>{% endif %}
+  <span>Página {{ n }} de {{ paginas }}</span>
+  {% if n < paginas %}<a href="/chamadas?{{ base }}{{ '&' if base }}p={{ n + 1 }}">Próxima →</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% import "_arvore.html" as arv %}
+{% block extra_head %}{% if e.status == "em_andamento" %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block titulo %}Execução {{ e.run_id }}{% endblock %}
+{% block conteudo %}
+<p class="trilha"><a href="/execucoes">Execuções</a> › {{ e.run_id }}</p>
+<h1>{{ e.comando }} <small><code>{{ e.run_id }}</code></small></h1>
+<p class="selos">
+  {% if e.status == "concluida" %}<span class="selo ok">✔ concluída</span>{% elif e.status == "em_andamento" %}<span class="selo alerta">● em andamento (a página se atualiza sozinha a cada 5 s)</span>{% else %}<span class="selo st-descartado">✕ {{ e.status }}</span>{% endif %}
+  {% if e.no_relatorio %}<span class="selo ok">dentro do relatório</span>{% else %}<span class="selo alerta">fora do relatório{% if e.motivo_exclusao %}: {{ e.motivo_exclusao }}{% endif %}</span>{% endif %}
+</p>
+<dl class="ficha">
+  <dt>Início</dt><dd>{{ fmt.data_hora(e.iniciado_em) }}{% if e.finalizado_em %} · duração {{ fmt.duracao(e.iniciado_em, e.finalizado_em) }}{% endif %}</dd>
+  <dt>Configuração</dt><dd><code>{{ e.config_hash }}</code> · veja a configuração completa no fim da página</dd>
+  <dt>Código</dt><dd><code>{{ e.commit_git or "—" }}</code>{% if e.commit_git and "+sujo" in e.commit_git %} <span class="selo alerta">código com alterações não commitadas</span>{% endif %}</dd>
+  {% if e.run_origem %}<dt>Entrada</dt><dd><a href="/execucoes/{{ e.run_origem }}"><code>{{ e.run_origem }}</code></a> (<code>--de</code>)</dd>{% endif %}
+  {% if e.run_destino %}<dt>Alimentou</dt><dd>{% for r in e.run_destino %}<a href="/execucoes/{{ r }}"><code>{{ r }}</code></a>{{ ", " if not loop.last }}{% endfor %}</dd>{% endif %}
+  <dt>Custo registrado</dt><dd>{{ fmt.moeda_usd(custo_total) }}</dd>
+  {% if e.retomadas %}<dt>Retomadas</dt><dd>{{ e.retomadas|length }}: {% for r in e.retomadas %}{{ fmt.data_hora(r.retomado_em) }}{{ ", " if not loop.last }}{% endfor %}</dd>{% endif %}
+</dl>
+
+{% if funil %}<section class="cartao"><h2>Funil</h2>{{ funil|safe }}</section>{% endif %}
+
+<section class="cartao"><h2>Custo e latência por etapa</h2>
+  {% if e.custos %}<div class="tabela-rolavel"><table>
+    <thead><tr><th>Etapa</th><th>Provedor</th><th class="num">Chamadas</th><th class="num">Falhas</th><th class="num">Custo</th><th class="num">Latência</th></tr></thead>
+    <tbody>{% for c in e.custos %}<tr><td>{{ c.etapa }}</td><td>{{ c.provedor }}</td><td class="num">{{ fmt.numero(c.n_chamadas) }}</td>
+      <td class="num">{{ fmt.numero(c.n_falhas) }}</td><td class="num">{{ fmt.moeda_usd(c.custo_usd) }}</td><td class="num">{{ fmt.numero(c.latencia_media_ms) }} ms</td></tr>{% endfor %}</tbody></table></div>
+    <p><a href="/chamadas?run={{ e.run_id }}">Ver as chamadas desta execução</a></p>
+  {% else %}<p class="vazio">Nenhuma chamada registrada.</p>{% endif %}</section>
+<section class="cartao"><h2>Falhas</h2>
+  {% if e.falhas %}<ul class="lista-simples">{% for f in e.falhas %}<li><strong>{{ f.n }}×</strong> {{ f.etapa }} · {{ f.provedor }}<br><small>{{ f.erro or "sem mensagem" }}</small>
+      · <a href="/chamadas?run={{ e.run_id }}&etapa={{ f.etapa }}&resultado=falha">ver</a></li>{% endfor %}</ul>
+  {% else %}<p class="vazio">Nenhuma chamada falhou nesta execução.</p>{% endif %}
+  {% if e.falhas_download %}<h3>Páginas que não viraram texto</h3><ul class="lista-simples">{% for f in e.falhas_download %}<li><strong>{{ f.n }}×</strong> {{ rotulos.motivo_falha(f.motivo) }}</li>{% endfor %}</ul>{% endif %}
+</section>
+
+{% if e.descartes %}<section class="cartao"><h2>O que foi escolhido para baixar</h2>
+  <ul class="lista-simples">{% for d in e.descartes %}<li><strong>{{ fmt.numero(d.n) }}</strong> {{ "selecionadas para download" if d.motivo == "selecionada" else "descartadas: " ~ rotulos.rotulo(rotulos.MOTIVOS_DESCARTE, d.motivo) }}</li>{% endfor %}</ul></section>{% endif %}
+{% if e.saldos %}<section class="cartao"><h2>Créditos antes e depois</h2><div class="tabela-rolavel"><table>
+  <thead><tr><th>Provedor</th><th class="num">Passada</th><th class="num">Início</th><th class="num">Fim</th><th class="num">Consumo</th><th class="num">Chamadas ok</th><th class="num">Diferença</th></tr></thead>
+  <tbody>{% for s in e.saldos %}<tr><td>{{ s.provedor }}</td><td class="num">{{ s.passada }}</td><td class="num">{{ fmt.numero(s.saldo_inicio) }}</td><td class="num">{{ fmt.numero(s.saldo_fim) }}</td>
+    <td class="num">{{ fmt.numero(s.consumo) }}</td><td class="num">{{ fmt.numero(s.chamadas_ok) }}</td><td class="num">{% if s.diferenca %}<span class="selo alerta">{{ s.diferenca }}</span>{% else %}0{% endif %}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+{% if metricas %}<section class="cartao"><h2>Resumo da execução</h2>{{ arv.tabela(metricas) }}</section>{% endif %}
+
+<details class="cartao" id="configuracao"><summary class="titulo-recolhivel">Configuração desta execução <small>(clique para abrir)</small></summary>
+  <p class="sub">Hash <code>{{ e.config_hash }}</code>. Valores sob chaves de segredo aparecem como <code>***</code>.</p>
+  {% if cfg %}
+  <h3>Provedores</h3>{{ arv.tabela(cfg.provedores) }}
+  <h3>Opções de cada adaptador</h3>{{ arv.no(cfg.opcoes, 0) }}
+  <h3>Termos acadêmicos ({{ cfg.termos|length }})</h3>
+  <div class="tabela-rolavel"><table><thead><tr><th>Id</th><th>Termo</th><th>Idioma</th><th>Grupo</th></tr></thead><tbody>
+    {% for t in cfg.termos %}<tr><td>{{ t.id }}</td><td>{{ t.query }}</td><td>{{ t.idioma }}</td><td>{{ t.grupo }}</td></tr>{% endfor %}</tbody></table></div>
+  <h3>Consultas web</h3>{{ arv.no(cfg.modelos_web, 0) }}
+  {% if cfg.modelos_web_municipais %}<h3>Consultas municipais</h3>{{ arv.no(cfg.modelos_web_municipais, 0) }}{{ arv.tabela(cfg.municipios) }}{% endif %}
+  <h3>Perfis de busca</h3>{{ arv.no(cfg.perfis_busca_web, 0) }}
+  <h3>Política de download</h3>{{ arv.tabela(cfg.politica_download) }}
+  <h3>Tecnologias</h3>{{ arv.tabela(cfg.tecnologias) }}
+  <h3>Status e definições</h3>{{ arv.tabela(cfg.status) }}
+  <h3>Prompt {{ cfg.prompt_versao }}</h3>
+  <details><summary>Prompt de sistema</summary><pre class="comando">{{ cfg.prompt_sistema }}</pre></details>
+  <details><summary>Prompt do usuário</summary><pre class="comando">{{ cfg.prompt_usuario }}</pre></details>
+  <h3>Limites da classificação</h3>{{ arv.tabela(cfg.classificacao) }}
+  <h3>Outros</h3>{{ arv.tabela({"filtros_academicos": cfg.filtros_academicos, "max_paginas_academico": cfg.max_paginas_academico}) }}
+  {% else %}<p class="vazio">Configuração não registrada.</p>{% endif %}
+  {% if ambiente %}<h3>Ambiente</h3>{{ arv.tabela(ambiente) }}{% endif %}
+</details>
+{% endblock %}

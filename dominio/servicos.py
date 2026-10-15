@@ -60,7 +60,13 @@ def ano_do_resumo(resumo):
     return int(anos[-1]) if anos else None
 
 
-def gerar_consultas_web(modelos, tecnologias, ufs):
+def _slug(texto):
+    return re.sub(r"[^a-z0-9]+", "_", unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()).strip("_")
+
+
+def gerar_consultas_web(modelos, tecnologias, ufs, municipios=None, modelos_municipais=()):
+    """Consultas das secretarias estaduais (modelos x UFs x tecnologias) e, quando `municipios` ({uf: [cidades]}) e
+    `modelos_municipais` estiverem preenchidos, das secretarias municipais (o template aceita {cidade})."""
     saida = []
     for m in modelos:
         for uf, nome in ufs.items():
@@ -70,6 +76,16 @@ def gerar_consultas_web(modelos, tecnologias, ufs):
                     texto=m.template.format(tec=rotulo, nome=nome, uf=uf),
                     idioma=m.idioma, uf=uf, tecnologia=chave_tec,
                     modelo_id=m.id, perfil=m.perfil))
+    for m in modelos_municipais:
+        for uf, cidades in (municipios or {}).items():
+            if uf not in ufs:
+                continue
+            for cidade in cidades:
+                for chave_tec, rotulo in tecnologias.items():
+                    saida.append(ConsultaWeb(
+                        id=f"{m.id}-{uf}-{_slug(cidade)}-{chave_tec}",
+                        texto=m.template.format(tec=rotulo, nome=ufs.get(uf, uf), uf=uf, cidade=cidade),
+                        idioma=m.idioma, uf=uf, tecnologia=chave_tec, modelo_id=m.id, perfil=m.perfil, cidade=cidade))
     return saida
 
 

@@ -1,0 +1,24 @@
+{# Arvore recursiva de um valor JSON, com <details> (funciona sem JavaScript). Mostra no maximo 200 itens por nivel. #}
+{% macro no(valor, nivel=0) -%}
+{% if valor is mapping %}
+  {% if valor %}<ul class="arvore">
+    {% for k, v in (valor.items()|list)[:200] %}
+    <li>{% if v is mapping or (v is iterable and v is not string) %}
+      <details{% if nivel < 1 %} open{% endif %}><summary><span class="chave">{{ k }}</span> <small>{{ v|length }} {{ "chaves" if v is mapping else "itens" }}</small></summary>{{ no(v, nivel + 1) }}</details>
+      {% else %}<span class="chave">{{ k }}</span>: <span class="valor">{{ "nulo" if v is none else ("sim" if v is sameas true else ("não" if v is sameas false else v)) }}</span>{% endif %}</li>
+    {% endfor %}
+    {% if valor|length > 200 %}<li><em>… e mais {{ valor|length - 200 }}</em></li>{% endif %}
+  </ul>{% else %}<em>vazio</em>{% endif %}
+{% elif valor is iterable and valor is not string %}
+  {% if valor %}<ol class="arvore">
+    {% for v in valor[:200] %}
+    <li>{% if v is mapping or (v is iterable and v is not string) %}<details><summary><small>{{ v|length }} {{ "chaves" if v is mapping else "itens" }}</small></summary>{{ no(v, nivel + 1) }}</details>{% else %}<span class="valor">{{ "nulo" if v is none else v }}</span>{% endif %}</li>
+    {% endfor %}
+    {% if valor|length > 200 %}<li><em>… e mais {{ valor|length - 200 }}</em></li>{% endif %}
+  </ol>{% else %}<em>vazio</em>{% endif %}
+{% else %}<span class="valor">{{ valor }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro tabela(dicionario) -%}
+{% if dicionario %}<dl class="ficha">{% for k, v in dicionario.items() %}<dt>{{ k }}</dt><dd>{% if v is mapping or (v is iterable and v is not string) %}{{ no(v, 1) }}{% else %}{{ "nulo" if v is none else ("sim" if v is sameas true else ("não" if v is sameas false else v)) }}{% endif %}</dd>{% endfor %}</dl>{% else %}<p class="vazio">Nada registrado.</p>{% endif %}
+{%- endmacro %}

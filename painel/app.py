@@ -1,28 +1,45 @@
 """Painel de resultados (FastAPI + Jinja2, HTML no servidor). Recebe leitura, fabrica de repositorio e armazenamento
 bruto por parametro; nao importa adaptadores, composicao, sqlite3, requests nem le o ambiente."""
 import hmac
+import json
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import quote, unquote, urlencode
+from urllib.parse import quote, unquote, urlencode, urlsplit
 
 from fastapi import FastAPI, Form, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.templating import Jinja2Templates
 
 from aplicacao import revisao
-from dominio.servicos_painel import localizar_evidencia, trecho_mais_parecido
+from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import formatacao as fmt, rotulos
 from painel.graficos import barra_empilhada, barras_horizontais, mapa_de_blocos
 
 AQUI = Path(__file__).parent
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
-FILTROS = ("uf", "tecnologia", "status", "confianca", "evidencia", "oficial", "origem", "verificacao", "q")
+FILTROS_CHAMADAS = ("run", "etapa", "provedor", "uf", "resultado", "q")
+FILTROS = ("uf", "esfera", "cidade", "tecnologia", "status", "confianca", "evidencia", "oficial", "origem", "verificacao", "q")
 JANELA_CONTEXTO = 2500            # caracteres de cada lado da evidencia na visao resumida
 LIMITE_TEXTO = 200_000            # o visor nunca mostra mais que isto
+MAX_PAGINA = 1_000_000            # teto do ?p= (o OFFSET do SQLite estoura acima de 2**63)
+MAX_BUSCA = 200
+LIMITE_BRUTO = 200_000            # o visor de arquivos brutos mostra no maximo isto; o arquivo inteiro vai por download
+
+
+def _inteiro(valor, padrao, minimo=1, maximo=MAX_PAGINA):
+    """Parametro numerico da URL: vazio usa o padrao; texto ou fora da faixa devolve None (a rota responde 404)."""
+    if valor in (None, ""):
+        return padrao
+    try:
+        n = int(str(valor).strip())
+    except ValueError:
+        return None
+    return n if minimo <= n <= maximo else None
 
 
 @dataclass
@@ -35,11 +52,12 @@ class Contexto:
     status_permitidos: set
     status_definicoes: dict                   # chave -> definicao (vem de config/vocabulario)
     comando_criar_banco: str = "python main.py pipeline-uf --ufs PI --limite 5"
+    hosts_permitidos: tuple = ("127.0.0.1", "localhost")   # DNS rebinding: qualquer outro Host e recusado
     backup_feito: bool = field(default=False)
 
 
 def _filtros(params):
-    return {k: params[k] for k in FILTROS if params.get(k) not in (None, "")}
+    return {k: str(params[k])[:MAX_BUSCA] for k in FILTROS if params.get(k) not in (None, "")}
 
 
 def criar_app(leitura, repositorio_fabrica, bruto, contexto):
@@ -61,6 +79,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         resposta.headers["Referrer-Policy"] = "no-referrer"
         return resposta
 
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(contexto.hosts_permitidos))
+
     def pagina(request, modelo, status=200, **dados):
         revisor = unquote(request.cookies.get("revisor", ""))
         return modelos.TemplateResponse(request, modelo, {"revisor": revisor, "csrf": request.state.csrf,
@@ -72,9 +92,20 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
     def sem_banco(request):
         return pagina(request, "sem_banco.html", status=503)
 
+    def _mesma_origem(request):
+        """Origin (ou, sem ele, Referer) tem de ser o proprio painel: o cookie de CSRF sozinho nao distingue outra porta
+        de localhost. Sem nenhum dos dois (cliente que nao e navegador) nao ha o que conferir."""
+        for cabecalho in ("origin", "referer"):
+            valor = request.headers.get(cabecalho)
+            if valor is not None:
+                return urlsplit(valor).netloc == request.headers.get("host")
+        return True
+
     def checar_escrita(request, csrf):
         if contexto.somente_leitura:
             return erro(request, 403, "Modo somente leitura", "O painel foi iniciado com --somente-leitura; nenhuma decisão é gravada.")
+        if not _mesma_origem(request):
+            return erro(request, 403, "Pedido recusado", "O pedido veio de outro site ou de outra porta, não deste painel.")
         if not csrf or not hmac.compare_digest(csrf, request.cookies.get("csrf", "")):
             return erro(request, 403, "Formulário recusado", "O token de segurança não confere. Recarregue a página e tente de novo.")
         return None
@@ -150,17 +181,132 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
             grupos.setdefault(a["tecnologia"], []).append(a)
         return pagina(request, "estado.html", uf=uf, nome=contexto.ufs[uf], grupos=grupos, total=len(itens))
 
+    # ---------- execucoes ----------
+    def _json(texto):
+        try:
+            return json.loads(texto) if texto else {}
+        except ValueError:
+            return {}
+
+    def _arredondar(d):
+        return {k: (round(v, 4) if isinstance(v, float) else v) for k, v in d.items()}
+
+    @app.get("/execucoes", response_class=HTMLResponse)
+    def execucoes(request: Request):
+        if not leitura.existe():
+            return sem_banco(request)
+        return pagina(request, "execucoes.html", itens=leitura.execucoes())
+
+    @app.get("/execucoes/comparar", response_class=HTMLResponse)
+    def comparar(request: Request, a: str = "", b: str = ""):
+        if not leitura.existe():
+            return sem_banco(request)
+        todas = leitura.execucoes()
+        ea, eb = (leitura.execucao(a) if a else None), (leitura.execucao(b) if b else None)
+        if (a and ea is None) or (b and eb is None):
+            return erro(request, 404, "Execução não encontrada", "Uma das execuções escolhidas não existe.")
+        diferencas = []
+        if ea and eb:
+            diferencas = diff_config(mascarar_segredos(_json(ea["config_json"])), mascarar_segredos(_json(eb["config_json"])))
+        campos = [("consultas_web_ok", "Consultas web"), ("resultados", "Resultados"), ("urls_unicas", "URLs únicas"),
+                  ("pares_url_uf_selecionados", "Páginas selecionadas"), ("paginas_baixadas", "Páginas baixadas"),
+                  ("paginas_com_texto", "Páginas com texto"), ("classificacoes", "Classificações"), ("achados", "Achados"),
+                  ("achados_evidencia_ok", "Achados com evidência"), ("achados_verificados", "Achados verificados")]
+        return pagina(request, "comparar.html", todas=todas, a=a, b=b, ea=ea, eb=eb, diferencas=diferencas, campos=campos)
+
+    @app.get("/execucoes/{run_id}", response_class=HTMLResponse)
+    def execucao(request: Request, run_id: str):
+        if not leitura.existe():
+            return sem_banco(request)
+        e = leitura.execucao(run_id)
+        if e is None:
+            return erro(request, 404, "Execução não encontrada", f"Não existe a execução “{run_id[:60]}”.")
+        f = e["funil"]
+        etapas = [("Consultas web", f.get("consultas_web_ok")), ("Resultados", f.get("resultados")), ("URLs únicas", f.get("urls_unicas")),
+                  ("Páginas selecionadas", f.get("pares_url_uf_selecionados")), ("Páginas baixadas", f.get("paginas_baixadas")),
+                  ("Páginas com texto", f.get("paginas_com_texto")), ("Classificações", f.get("classificacoes")), ("Achados", f.get("achados")),
+                  ("Achados verificados", f.get("achados_verificados"))]
+        etapas = [(r, v) for r, v in etapas if v]
+        funil = barras_horizontais(etapas, f"Funil da execução {run_id}", "Quantidade em cada etapa desta execução", fmt.numero)
+        return pagina(request, "execucao.html", e=e, funil=funil, metricas=_arredondar(_json(e["metricas_json"])),
+                      cfg=mascarar_segredos(_json(e["config_json"])), ambiente=mascarar_segredos(_json(e["ambiente_json"])),
+                      custo_total=sum((c["custo_usd"] or 0) for c in e["custos"]))
+
+    # ---------- chamadas ----------
+    @app.get("/chamadas", response_class=HTMLResponse)
+    def chamadas(request: Request):
+        if not leitura.existe():
+            return sem_banco(request)
+        filtros = {k: str(request.query_params[k])[:MAX_BUSCA] for k in FILTROS_CHAMADAS if request.query_params.get(k)}
+        n = _inteiro(request.query_params.get("p"), 1)
+        if n is None:
+            return erro(request, 404, "Página inválida", "O número da página não é válido.")
+        res = leitura.chamadas(filtros, n, 50)
+        paginas = max((res["total"] + res["por_pagina"] - 1) // res["por_pagina"], 1)
+        return pagina(request, "chamadas.html", res=res, filtros=filtros, n=n, paginas=paginas, base=urlencode(filtros),
+                      opcoes=leitura.opcoes_chamadas())
+
+    def _extensao(c):
+        return (str(c.get("raw_path") or "").rsplit(".", 1)[-1] if "." in str(c.get("raw_path") or "") else "bin")[:8]
+
+    def _bruto(c):
+        """Resposta bruta da chamada para exibir: JSON vira arvore (com segredos mascarados); o resto, texto escapado."""
+        if not c.get("raw_path"):
+            return {"existe": False}
+        try:
+            dados = bruto.ler(c["raw_path"])
+        except (OSError, ValueError):
+            return {"existe": False, "aviso": "O arquivo bruto não foi encontrado em data/raw."}
+        out = {"existe": True, "tamanho": len(dados), "cortado": len(dados) > LIMITE_BRUTO, "arvore": None, "texto": None}
+        amostra = dados[:LIMITE_BRUTO]
+        if not out["cortado"]:
+            try:
+                out["arvore"] = mascarar_segredos(json.loads(dados.decode("utf-8")))
+                return out
+            except (ValueError, UnicodeDecodeError):
+                pass
+        if _extensao(c) in ("bin", "pdf") or b"\x00" in amostra[:2000]:
+            out["binario"] = True
+        else:
+            out["texto"] = amostra.decode("utf-8", "replace")
+        return out
+
+    @app.get("/chamadas/{chamada_id}", response_class=HTMLResponse)
+    def chamada(request: Request, chamada_id: int):
+        if not leitura.existe():
+            return sem_banco(request)
+        c = leitura.chamada(chamada_id)
+        if c is None:
+            return erro(request, 404, "Chamada não encontrada", f"Não existe a chamada nº {chamada_id}.")
+        return pagina(request, "chamada.html", c=c, parametros=mascarar_segredos(_json(c["parametros_json"])),
+                      extras=mascarar_segredos(_json(c["extras_json"])), bruto=_bruto(c))
+
+    @app.get("/chamadas/{chamada_id}/bruto")
+    def chamada_bruto(request: Request, chamada_id: int):
+        c = leitura.chamada(chamada_id) if leitura.existe() else None
+        if c is None or not c.get("raw_path"):
+            return erro(request, 404, "Arquivo não encontrado", "Esta chamada não tem resposta bruta guardada.")
+        try:
+            dados = bruto.ler(c["raw_path"])
+        except (OSError, ValueError):
+            return erro(request, 404, "Arquivo não encontrado", "O arquivo bruto não foi encontrado em data/raw.")
+        return Response(dados, media_type="application/octet-stream",
+                        headers={"Content-Disposition": f'attachment; filename="chamada_{chamada_id}.{_extensao(c)}"'})
+
     # ---------- achados ----------
     @app.get("/achados", response_class=HTMLResponse)
     def achados(request: Request):
         if not leitura.existe():
             return sem_banco(request)
         filtros = _filtros(request.query_params)
-        n = max(int(request.query_params.get("p", 1) or 1), 1)
+        n = _inteiro(request.query_params.get("p"), 1)
+        if n is None:
+            return erro(request, 404, "Página inválida", "O número da página não é válido.")
         res = leitura.achados(filtros, n, 50)
         paginas = max((res["total"] + res["por_pagina"] - 1) // res["por_pagina"], 1)
         base = urlencode(filtros)
-        return pagina(request, "achados.html", res=res, filtros=filtros, paginas=paginas, base=base, n=n)
+        return pagina(request, "achados.html", res=res, filtros=filtros, paginas=paginas, base=base, n=n,
+                      cidades=leitura.cidades())
 
     def _texto_enviado(a):
         """Texto que foi enviado ao classificador: a pagina extraida (cortada no que foi enviado) ou titulo + snippet."""
@@ -208,6 +354,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
 
     @app.get("/achados/{achado_id}", response_class=HTMLResponse)
     def achado(request: Request, achado_id: int, completo: int = 0, ok: int = 0):
+        ok = ok if 0 <= ok <= MAX_PAGINA * 1000 else 0
         if not leitura.existe():
             return sem_banco(request)
         a = leitura.achado(achado_id)
@@ -259,9 +406,12 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         finally:
             repo.fechar()
 
+    def _conflito(texto):
+        return "mudou depois" in texto or "alterado depois" in texto
+
     @app.post("/achados/{achado_id}/verificar")
     def verificar(request: Request, achado_id: int, status_final: str = Form(""), revisor: str = Form(""),
-                  observacao: str = Form(""), csrf: str = Form("")):
+                  observacao: str = Form(""), versao: str = Form(None), csrf: str = Form("")):
         bloqueio = checar_escrita(request, csrf)
         if bloqueio:
             return bloqueio
@@ -269,8 +419,10 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
             return erro(request, 404, "Achado não encontrado", f"Não existe o achado nº {achado_id}.")
         try:
             _escrever(lambda repo: revisao.verificar_achado(repo, achado_id, status_final, revisor, observacao,
-                                                            contexto.status_permitidos))
+                                                            contexto.status_permitidos, versao))
         except SystemExit as e:
+            if _conflito(str(e)):
+                return erro(request, 409, "Achado alterado", str(e))
             return erro(request, 400, "Decisão não gravada", str(e))
         destino = (_voltar(request, achado_id, achado_id) if "fila" in request.query_params
                    else "/achados/%d?ok=%d" % (achado_id, achado_id))
@@ -286,7 +438,23 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         try:
             _escrever(lambda repo: revisao.desfazer_decisao(repo, achado_id))
         except SystemExit as e:
-            return erro(request, 400, "Nada a desfazer", str(e))
+            return erro(request, 409 if _conflito(str(e)) else 400, "Não foi possível desfazer", str(e))
         return RedirectResponse("/achados/%d?%s" % (achado_id, _query_fila(request)), status_code=303)
+
+    @app.post("/achados/{achado_id}/revogar")
+    def revogar(request: Request, achado_id: int, revisor: str = Form(""), motivo: str = Form(""),
+                versao: str = Form(None), csrf: str = Form("")):
+        bloqueio = checar_escrita(request, csrf)
+        if bloqueio:
+            return bloqueio
+        if leitura.achado(achado_id) is None:
+            return erro(request, 404, "Achado não encontrado", f"Não existe o achado nº {achado_id}.")
+        try:
+            _escrever(lambda repo: revisao.revogar_verificacao(repo, achado_id, revisor, motivo, versao))
+        except SystemExit as e:
+            return erro(request, 409 if _conflito(str(e)) else 400, "Verificação não revogada", str(e))
+        resposta = RedirectResponse("/achados/%d?%s" % (achado_id, _query_fila(request)), status_code=303)
+        resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
+        return resposta
 
     return app

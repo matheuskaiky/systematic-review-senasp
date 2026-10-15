@@ -70,3 +70,42 @@ def test_trecho_mais_parecido_acha_a_frase_adulterada():
 def test_trecho_mais_parecido_devolve_none_sem_semelhanca():
     assert trecho_mais_parecido("zzzz qqqq wwww", "Texto sobre outra coisa totalmente diferente aqui.") is None
     assert trecho_mais_parecido("", "texto") is None and trecho_mais_parecido("x", "") is None
+
+
+# ---------- diff_config e mascara de segredos ----------
+from dominio.servicos_painel import diff_config, mascarar_segredos
+
+
+def test_diff_config_iguais_nao_tem_diferenca():
+    c = {"a": 1, "b": {"c": [1, 2], "d": "x"}, "t": [{"id": "T01", "q": "x"}]}
+    assert diff_config(c, {"a": 1, "b": {"c": [1, 2], "d": "x"}, "t": [{"id": "T01", "q": "x"}]}) == []
+
+
+def test_diff_config_alterado_adicionado_removido_e_aninhado():
+    a = {"prompt_versao": "v2", "opcoes": {"gemini": {"modelo": "m1", "temperatura": 0.0}}, "so_a": 1}
+    b = {"prompt_versao": "v3", "opcoes": {"gemini": {"modelo": "m1", "temperatura": 0.2, "novo": True}}, "so_b": 2}
+    d = {c: (x, y, t) for c, x, y, t in diff_config(a, b)}
+    assert d == {"prompt_versao": ("v2", "v3", "alterado"), "opcoes.gemini.temperatura": (0.0, 0.2, "alterado"),
+                 "opcoes.gemini.novo": (None, True, "so_em_b"), "so_a": (1, None, "so_em_a"), "so_b": (None, 2, "so_em_b")}
+
+
+def test_diff_config_listas_pareiam_por_id_e_por_posicao():
+    a = {"termos": [{"id": "T01", "q": "x"}, {"id": "T02", "q": "y"}], "lista": [1, 2, 3]}
+    b = {"termos": [{"id": "T02", "q": "y"}, {"id": "T01", "q": "z"}, {"id": "T03", "q": "w"}], "lista": [1, 9]}
+    d = {c: t for c, _, _, t in diff_config(a, b)}
+    assert d["termos[T01].q"] == "alterado" and d["termos[T03].id"] == "so_em_b" and "termos[T02].q" not in d    # T02 mudou de posicao so
+    assert d["lista[1]"] == "alterado" and d["lista[2]"] == "so_em_a"
+
+
+def test_diff_config_vazios_e_none():
+    assert diff_config(None, {"a": 1}) == [("a", None, 1, "so_em_b")]
+    assert diff_config({"a": []}, {"a": {}}) == [("a", [], {}, "alterado")]
+
+
+def test_mascarar_segredos_em_qualquer_nivel_sem_alterar_o_original():
+    original = {"api_key": "SEGREDO", "headers": {"Authorization": "Bearer SEGREDO", "x-goog-api-key": "SEGREDO", "Content-Type": "json"},
+                "lista": [{"token": "SEGREDO", "ok": 1}], "minha_key": "SEGREDO", "monkeys": "ok", "vazio": {"key": ""}}
+    m = mascarar_segredos(original)
+    assert "SEGREDO" not in str(m) and m["headers"]["Content-Type"] == "json" and m["lista"][0]["ok"] == 1
+    assert m["monkeys"] == "ok" and m["vazio"]["key"] == ""            # nao mascara o que nao e segredo nem o vazio
+    assert original["api_key"] == "SEGREDO"

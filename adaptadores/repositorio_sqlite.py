@@ -20,6 +20,9 @@ def _int(x):
     return None if pd.isna(x) else int(x)
 
 
+NAO_VERIFICADO = "nao-verificado"      # valor de `versao` de um achado ainda sem verificacao
+
+
 # colunas acrescentadas depois da primeira versao do schema: bancos antigos as recebem ao abrir
 _COLUNAS_NOVAS = {
     "execucoes": {"ambiente_json": "TEXT", "no_relatorio": "INTEGER NOT NULL DEFAULT 1", "motivo_exclusao": "TEXT",
@@ -29,7 +32,9 @@ _COLUNAS_NOVAS = {
     "achados": {"confianca_original": "TEXT", "evidencia_cita_tecnologia": "INTEGER", "evidencia_cita_lgpd": "INTEGER"},
     "triagem": {"decisao_texto_completo": "TEXT", "motivo_texto_completo": "TEXT"},
     "triagem_revisoes": {"independente": "INTEGER NOT NULL DEFAULT 0"},
-    "achados_revisoes": {"anterior_json": "TEXT", "desfeita": "INTEGER NOT NULL DEFAULT 0"},
+    "achados_revisoes": {"anterior_json": "TEXT", "posterior_json": "TEXT", "desfeita": "INTEGER NOT NULL DEFAULT 0"},
+    "resultados_web": {"cidade": "TEXT"},
+    "classificacoes": {"cidade": "TEXT"},
 }
 
 
@@ -224,18 +229,20 @@ class RepositorioSQLite:
                 novas += 1
             self._inserir("resultados_web", chamada_id=chamada_id, run_id=run_id, consulta_id=consulta.id,
                           uf=consulta.uf, tecnologia=consulta.tecnologia, perfil=consulta.perfil, url_id=url_id,
-                          posicao=r.posicao, titulo=r.titulo, snippet=r.snippet, data_pub=r.data)
+                          posicao=r.posicao, titulo=r.titulo, snippet=r.snippet, data_pub=r.data,
+                          cidade=consulta.cidade or None)
         return novas
 
     def candidatos_download(self, run_origem):
         linhas = self.conn.execute("""
             SELECT r.url_id, u.url_original AS url, r.uf, u.dominio, u.fonte_oficial,
                    COALESCE(MAX(r.titulo),'') AS titulo, COALESCE(MAX(r.snippet),'') AS snippet,
-                   MIN(r.posicao) AS melhor_posicao, COUNT(*) AS n_ocorrencias
+                   MIN(r.posicao) AS melhor_posicao, COUNT(*) AS n_ocorrencias, MAX(r.cidade) AS cidade
             FROM resultados_web r JOIN urls u ON u.url_id=r.url_id
             WHERE r.run_id=? GROUP BY r.url_id, r.uf""", (run_origem,)).fetchall()
         return [CandidatoDownload(l["url_id"], l["url"], l["uf"], l["dominio"], l["titulo"], l["snippet"],
-                                  l["melhor_posicao"], l["n_ocorrencias"], bool(l["fonte_oficial"])) for l in linhas]
+                                  l["melhor_posicao"], l["n_ocorrencias"], bool(l["fonte_oficial"]),
+                                  l["cidade"] or "") for l in linhas]
 
     def salvar_selecao(self, run_id, linhas):
         # cada linha: (url_id, uf, selecionada, motivo) ou (url_id, uf, selecionada, motivo, auditoria)
@@ -263,21 +270,23 @@ class RepositorioSQLite:
             SELECT s.url_id, s.uf, u.url_original AS url,
                    (SELECT titulo  FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf ORDER BY r.resultado_id DESC LIMIT 1) AS titulo,
                    (SELECT snippet FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf ORDER BY r.resultado_id DESC LIMIT 1) AS snippet,
-                   p.pagina_id, CASE WHEN p.extracao_ok=1 THEN p.texto_path END AS texto_path
+                   p.pagina_id, CASE WHEN p.extracao_ok=1 THEN p.texto_path END AS texto_path,
+                   (SELECT cidade FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf AND r.run_id=s.run_id
+                    AND r.cidade IS NOT NULL LIMIT 1) AS cidade
             FROM selecao_download s
             JOIN urls u ON u.url_id=s.url_id
             LEFT JOIN paginas p ON p.pagina_id=(SELECT MAX(pagina_id) FROM paginas WHERE url_id=s.url_id AND run_id=s.run_id)
             WHERE s.run_id=? AND (s.selecionada=1 OR s.auditoria=1)
             ORDER BY s.uf, s.url_id""", (run_origem,)).fetchall()
         return [ItemClassificacao(l["url_id"], l["uf"], l["url"], l["titulo"], l["snippet"],
-                                  l["pagina_id"], l["texto_path"]) for l in linhas]
+                                  l["pagina_id"], l["texto_path"], l["cidade"] or "") for l in linhas]
 
     def salvar_classificacao(self, chamada_id, run_id, item, entrada, classificador, prompt_versao,
                              resultado, achados, n_invalidos):
         cid = self._inserir(
             "classificacoes", chamada_id=chamada_id, run_id=run_id, url_id=item.url_id, pagina_id=item.pagina_id,
             uf=item.uf, origem_texto=entrada.origem, texto_truncado=int(entrada.truncado),
-            n_chars_enviados=len(entrada.texto), classificador=classificador, prompt_versao=prompt_versao,
+            n_chars_enviados=len(entrada.texto), classificador=classificador, cidade=item.cidade or None, prompt_versao=prompt_versao,
             relevante=int(resultado.relevante), json_valido=int(resultado.json_valido),
             n_achados=len(achados), n_achados_invalidos=n_invalidos, resposta_texto=resultado.texto_resposta)
         for a in achados:
@@ -311,6 +320,7 @@ class RepositorioSQLite:
             "Achados": "SELECT * FROM v_achados_revisao",
             "Resumo_UF_bruto": "SELECT * FROM v_resumo_uf",
             "Secretarias": "SELECT * FROM v_secretarias_confirmadas",
+            "Municipios": "SELECT * FROM v_resumo_municipio",
             "Chamadas": "SELECT * FROM chamadas ORDER BY chamada_id",
             "Metricas_termo": "SELECT * FROM v_metricas_por_termo",
             "Artigos": "SELECT * FROM artigos ORDER BY COALESCE(citacoes,0) DESC, artigo_id",
@@ -468,16 +478,31 @@ class RepositorioSQLite:
             raise SystemExit(f"Achado inexistente: {achado_id}")
         return dict(l)
 
+    def _iniciar_escrita(self, achado_id, versao=None):
+        """Abre uma transacao que ja trava o banco para escrita (nenhuma outra escrita entra entre a conferencia e a
+        gravacao) e confere a versao da pagina: `versao` e o `verificado_em` que o revisor viu (`NAO_VERIFICADO` se nao havia; o
+        formulario nao pode mandar texto vazio, que o FastAPI trata como ausente)."""
+        if not self.conn.in_transaction:
+            self.conn.execute("BEGIN IMMEDIATE")
+        estado = self._estado_achado(achado_id)
+        if versao is not None and (estado["verificado_em"] or NAO_VERIFICADO) != versao:
+            quem = f" (verificado por {estado['verificado_por']})" if estado["verificado"] else ""
+            raise SystemExit(f"O achado {achado_id} mudou depois que a página foi aberta{quem}: recarregue a página e decida de novo")
+        return estado
+
     def _gravar_verificacao(self, achado_id, final, por, obs, com_desfazer=False):
         anterior = json.dumps(self._estado_achado(achado_id), ensure_ascii=False) if com_desfazer else None
+        quando = agora()
         self.conn.execute(
             """UPDATE achados SET verificado=1, status_final=?, verificado_por=?, verificado_em=?,
-               observacao=? WHERE achado_id=?""", (final, por, agora(), obs, achado_id))
+               observacao=? WHERE achado_id=?""", (final, por, quando, obs, achado_id))
         revisor = str(por or "").strip() or "(sem revisor)"
         if com_desfazer:
-            # decisao do painel: sempre uma linha, para poder desfazer
+            # decisao do painel: sempre uma linha, para poder desfazer; guarda tambem o estado que ela produziu
+            posterior = json.dumps({"verificado": 1, "status_final": final, "verificado_por": por,
+                                    "verificado_em": quando, "observacao": obs}, ensure_ascii=False)
             self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=revisor, status_final=final,
-                          observacao=obs, importado_em=agora(), anterior_json=anterior)
+                          observacao=obs, importado_em=quando, anterior_json=anterior, posterior_json=posterior)
             return
         # importacao: so grava se mudou em relacao a ultima verificacao da mesma pessoa
         ultima = self.conn.execute(
@@ -485,10 +510,11 @@ class RepositorioSQLite:
                ORDER BY revisao_id DESC LIMIT 1""", (achado_id, revisor)).fetchone()
         if ultima is None or tuple(ultima) != (final, obs):
             self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=revisor, status_final=final,
-                          observacao=obs, importado_em=agora())
+                          observacao=obs, importado_em=quando)
 
-    def verificar_achado(self, achado_id, status_final, revisor, observacao=None, status_permitidos=None):
-        """Decisao humana de um achado (painel). Valida o status com a mesma regra da importacao e exige o revisor."""
+    def verificar_achado(self, achado_id, status_final, revisor, observacao=None, status_permitidos=None, versao=None):
+        """Decisao humana de um achado (painel). Valida o status com a mesma regra da importacao, exige o revisor e,
+        com `versao`, recusa a decisao se o achado mudou desde que a pagina foi aberta."""
         revisor = str(revisor or "").strip()
         if not revisor:
             raise SystemExit("Informe o nome do revisor")
@@ -496,22 +522,74 @@ class RepositorioSQLite:
             else (str(status_final).strip().lower() or None)
         if final is None:
             raise SystemExit(f"Invalid status_final for finding {achado_id}: {str(status_final).strip()!r}")
-        self._gravar_verificacao(achado_id, final, revisor, (observacao or "").strip() or None, com_desfazer=True)
-        self.conn.commit()
+        try:
+            self._iniciar_escrita(achado_id, versao)
+            self._gravar_verificacao(achado_id, final, revisor, (observacao or "").strip() or None, com_desfazer=True)
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
 
     def desfazer_ultima_decisao(self, achado_id):
-        """Volta o achado ao estado anterior a ultima decisao do painel que ainda nao foi desfeita."""
-        l = self.conn.execute("""SELECT revisao_id, anterior_json FROM achados_revisoes WHERE achado_id=?
-                                 AND anterior_json IS NOT NULL AND desfeita=0 ORDER BY revisao_id DESC LIMIT 1""",
-                              (achado_id,)).fetchone()
-        if l is None:
-            raise SystemExit(f"Nada a desfazer no achado {achado_id}")
-        e = json.loads(l["anterior_json"])
-        self.conn.execute("""UPDATE achados SET verificado=?, status_final=?, verificado_por=?, verificado_em=?,
-                             observacao=? WHERE achado_id=?""",
-                          (e["verificado"], e["status_final"], e["verificado_por"], e["verificado_em"], e["observacao"], achado_id))
-        self.conn.execute("UPDATE achados_revisoes SET desfeita=1 WHERE revisao_id=?", (l["revisao_id"],))
-        self.conn.commit()
+        """Volta o achado ao estado anterior a ultima decisao do painel que ainda nao foi desfeita, mas so se o achado
+        ainda esta como essa decisao o deixou: se outra pessoa verificou depois (painel ou planilha), recusa."""
+        try:
+            atual = self._iniciar_escrita(achado_id)
+            l = self.conn.execute("""SELECT revisao_id, anterior_json, posterior_json FROM achados_revisoes WHERE achado_id=?
+                                     AND anterior_json IS NOT NULL AND posterior_json IS NOT NULL AND desfeita=0
+                                     ORDER BY revisao_id DESC LIMIT 1""", (achado_id,)).fetchone()
+            if l is None:
+                raise SystemExit(f"Nada a desfazer no achado {achado_id}")
+            if json.loads(l["posterior_json"]) != atual:
+                quem = f" por {atual['verificado_por']}" if atual["verificado"] else ""
+                raise SystemExit(f"O achado {achado_id} foi alterado depois desta decisão{quem}: desfazer apagaria esse "
+                                 "trabalho. Se a verificação atual estiver errada, use Revogar verificação")
+            e = json.loads(l["anterior_json"])
+            self.conn.execute("""UPDATE achados SET verificado=?, status_final=?, verificado_por=?, verificado_em=?,
+                                 observacao=? WHERE achado_id=?""",
+                              (e["verificado"], e["status_final"], e["verificado_por"], e["verificado_em"], e["observacao"], achado_id))
+            self.conn.execute("UPDATE achados_revisoes SET desfeita=1 WHERE revisao_id=?", (l["revisao_id"],))
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
+
+    def desverificar_achado(self, achado_id, revisor, motivo, versao=None):
+        """Revoga a verificacao (verificado = 0, sem status final) e registra isso no historico. Diferente de
+        `desfazer_ultima_decisao`: nao volta a nenhum estado anterior, tira a verificacao (de qualquer origem)."""
+        try:
+            estado = self._iniciar_escrita(achado_id, versao)
+            if not estado["verificado"]:
+                raise SystemExit(f"Achado {achado_id} nao esta verificado")
+            self.conn.execute("""UPDATE achados SET verificado=0, status_final=NULL, verificado_por=NULL, verificado_em=NULL
+                                 WHERE achado_id=?""", (achado_id,))
+            posterior = {"verificado": 0, "status_final": None, "verificado_por": None, "verificado_em": None,
+                         "observacao": estado["observacao"]}
+            self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=str(revisor or "").strip() or "(sem revisor)",
+                          status_final=None, observacao=f"verificacao desfeita: {motivo}".strip(": "), importado_em=agora(),
+                          anterior_json=json.dumps(estado, ensure_ascii=False), posterior_json=json.dumps(posterior, ensure_ascii=False))
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
+
+    def copia_de_seguranca(self, pasta, manter=10):
+        """Copia consistente do banco (API de backup do SQLite) em `pasta`; mantem as `manter` mais recentes."""
+        pasta = Path(pasta)
+        pasta.mkdir(parents=True, exist_ok=True)
+        nome = Path(self.conn.execute("PRAGMA database_list").fetchone()["file"]).stem
+        destino = pasta / f"{nome}_painel_{datetime.now():%Y%m%d_%H%M%S}.db"
+        copia = sqlite3.connect(destino)
+        try:
+            self.conn.backup(copia)
+        finally:
+            copia.close()
+        for antiga in sorted(pasta.glob(f"{nome}_painel_*.db"))[:-manter]:
+            antiga.unlink()
+        return str(destino)
+
+    def fechar(self):
+        self.conn.close()
 
     def importar_verificacao_achados(self, df, status_permitidos):
         """Importa a aba Achados. So linhas com verificado = 1 entram; verificado = 0 e ignorado de proposito (uma
@@ -548,37 +626,6 @@ class RepositorioSQLite:
             self._gravar_verificacao(achado_id, final, por, obs)
         self.conn.commit()
         return len(registros)
-
-    def desverificar_achado(self, achado_id, revisor, motivo):
-        """Revoga a verificacao (verificado = 0, sem status final) e registra isso no historico. Diferente de
-        `desfazer_ultima_decisao`: nao volta a nenhum estado anterior, tira a verificacao."""
-        estado = self._estado_achado(achado_id)
-        if not estado["verificado"]:
-            raise SystemExit(f"Achado {achado_id} nao esta verificado")
-        self.conn.execute("""UPDATE achados SET verificado=0, status_final=NULL, verificado_por=NULL, verificado_em=NULL
-                             WHERE achado_id=?""", (achado_id,))
-        self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=str(revisor or "").strip() or "(sem revisor)",
-                      status_final=None, observacao=f"verificacao desfeita: {motivo}".strip(": "), importado_em=agora(),
-                      anterior_json=json.dumps(estado, ensure_ascii=False))
-        self.conn.commit()
-
-    def copia_de_seguranca(self, pasta, manter=10):
-        """Copia consistente do banco (API de backup do SQLite) em `pasta`; mantem as `manter` mais recentes."""
-        pasta = Path(pasta)
-        pasta.mkdir(parents=True, exist_ok=True)
-        nome = Path(self.conn.execute("PRAGMA database_list").fetchone()["file"]).stem
-        destino = pasta / f"{nome}_painel_{datetime.now():%Y%m%d_%H%M%S}.db"
-        copia = sqlite3.connect(destino)
-        try:
-            self.conn.backup(copia)
-        finally:
-            copia.close()
-        for antiga in sorted(pasta.glob(f"{nome}_painel_*.db"))[:-manter]:
-            antiga.unlink()
-        return str(destino)
-
-    def fechar(self):
-        self.conn.close()
 
     def importar_artigos_manuais(self, df):
         """Artigos informados a mao nas buscas manuais. Entram em `artigos` (deduplicados por titulo) e em

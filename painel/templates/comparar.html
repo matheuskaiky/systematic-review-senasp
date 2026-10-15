@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block titulo %}Comparar execuções{% endblock %}
+{% block conteudo %}
+<p class="trilha"><a href="/execucoes">Execuções</a> › comparar</p>
+<h1>Comparar execuções</h1>
+<p class="sub">Por que duas execuções deram resultados diferentes? Escolha duas: o painel mostra o funil lado a lado e o que mudou na configuração.</p>
+<form class="filtros" method="get" action="/execucoes/comparar">
+  <label>Execução A <select name="a">{% for e in todas %}<option value="{{ e.run_id }}"{% if e.run_id == a %} selected{% endif %}>{{ e.run_id }} · {{ e.comando }}</option>{% endfor %}</select></label>
+  <label>Execução B <select name="b">{% for e in todas %}<option value="{{ e.run_id }}"{% if e.run_id == b %} selected{% endif %}>{{ e.run_id }} · {{ e.comando }}</option>{% endfor %}</select></label>
+  <button class="botao" type="submit">Comparar</button>
+</form>
+{% if ea and eb %}
+<section class="cartao"><h2>Funil lado a lado</h2><div class="tabela-rolavel"><table>
+  <thead><tr><th></th><th class="num"><a href="/execucoes/{{ ea.run_id }}"><code>{{ ea.run_id }}</code></a></th><th class="num"><a href="/execucoes/{{ eb.run_id }}"><code>{{ eb.run_id }}</code></a></th><th class="num">Diferença</th></tr></thead>
+  <tbody>{% for chave, rotulo in campos %}{% set va = ea.funil.get(chave) or 0 %}{% set vb = eb.funil.get(chave) or 0 %}
+    <tr><td>{{ rotulo }}</td><td class="num">{{ fmt.numero(va) }}</td><td class="num">{{ fmt.numero(vb) }}</td><td class="num">{{ "+" if vb > va }}{{ fmt.numero(vb - va) }}</td></tr>{% endfor %}
+    <tr><td>Custo registrado</td><td class="num">{{ fmt.moeda_usd(ea.custos|sum(attribute="custo_usd")) }}</td><td class="num">{{ fmt.moeda_usd(eb.custos|sum(attribute="custo_usd")) }}</td><td></td></tr>
+  </tbody></table></div></section>
+<section class="cartao"><h2>O que mudou na configuração</h2>
+  {% if ea.config_hash == eb.config_hash %}<p class="selos"><span class="selo ok">✔ Configuração idêntica</span> (<code>{{ ea.config_hash }}</code>)</p>
+  {% elif not diferencas %}<p class="vazio">Os hashes são diferentes ({{ ea.config_hash }} e {{ eb.config_hash }}), mas nenhuma diferença foi encontrada nos campos exibidos.</p>
+  {% else %}<p class="sub">{{ diferencas|length }} diferença(s). Hash A <code>{{ ea.config_hash }}</code>, hash B <code>{{ eb.config_hash }}</code>.</p>
+  <div class="tabela-rolavel"><table><thead><tr><th>Caminho</th><th>Em A</th><th>Em B</th><th></th></tr></thead><tbody>
+    {% for caminho, va, vb, tipo in diferencas %}<tr><td><code>{{ caminho }}</code></td>
+      <td class="quebra">{% if tipo == "so_em_b" %}<em>não existe</em>{% else %}{{ va }}{% endif %}</td><td class="quebra">{% if tipo == "so_em_a" %}<em>não existe</em>{% else %}{{ vb }}{% endif %}</td>
+      <td>{{ {"alterado": "alterado", "so_em_a": "só em A", "so_em_b": "só em B"}[tipo] }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

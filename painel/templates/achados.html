@@ -6,6 +6,8 @@
 <p class="sub">Em ordem de revisão: não verificados primeiro, depois evidência não localizada, texto só de snippet, confiança baixa e fonte não oficial.</p>
 <form class="filtros" method="get" action="/achados">
   <label>UF <select name="uf"><option value="">todas</option>{% for sigla, nome in ctx.ufs.items() %}<option value="{{ sigla }}"{% if filtros.uf == sigla %} selected{% endif %}>{{ sigla }}</option>{% endfor %}</select></label>
+  <label>Esfera <select name="esfera"><option value="">todas</option><option value="estadual"{% if filtros.esfera == "estadual" %} selected{% endif %}>estadual</option><option value="municipal"{% if filtros.esfera == "municipal" %} selected{% endif %}>municipal</option></select></label>
+  {% if cidades %}<label>Cidade <select name="cidade"><option value="">todas</option>{% for c in cidades %}<option value="{{ c }}"{% if filtros.cidade == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>{% endif %}
   <label>Tecnologia <select name="tecnologia"><option value="">todas</option>{% for k, v in rotulos.TECNOLOGIAS.items() %}<option value="{{ k }}"{% if filtros.tecnologia == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
   <label>Status <select name="status"><option value="">todos</option>{% for k in ctx.status_definicoes %}<option value="{{ k }}"{% if filtros.status == k %} selected{% endif %}>{{ rotulos.rotulo(rotulos.STATUS, k) }}</option>{% endfor %}</select></label>
   <label>Confiança <select name="confianca"><option value="">todas</option>{% for k, v in rotulos.CONFIANCA.items() %}<option value="{{ k }}"{% if filtros.confianca == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
@@ -19,14 +21,17 @@
 </form>
 
 <p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> achado(s){% if filtros.get("verificacao") == "pendente" or not filtros %} · <a href="/revisao/achados?{{ base }}">revisar esta fila</a>{% endif %}</p>
-{% if not res.itens %}
+{% if not res.itens and res.total %}
+<p class="vazio">Não há achados nesta página: são {{ fmt.numero(res.total) }} em {{ paginas }} página(s). <a href="/achados?{{ base }}{{ '&' if base }}p=1">Ir para a primeira</a>.</p>
+{% elif not res.itens %}
 <p class="vazio">Nenhum achado com estes filtros.{% if filtros %} <a href="/achados">Limpar filtros</a>.{% else %} Rode a classificação (<code>python main.py classificar --de &lt;run_id&gt; --ufs PI --limite 5</code>).{% endif %}</p>
 {% else %}
 <div class="tabela-rolavel"><table class="tabela-achados">
-  <thead><tr><th>UF</th><th>Tecnologia</th><th>Status</th><th>Evidência</th><th>Fonte</th><th>Verificação</th><th></th></tr></thead>
+  <thead><tr><th>UF</th><th>Cidade</th><th>Tecnologia</th><th>Status</th><th>Evidência</th><th>Fonte</th><th>Verificação</th><th></th></tr></thead>
   <tbody>{% for a in res.itens %}
     <tr>
       <td>{{ a.uf }}</td>
+      <td>{% if a.cidade %}{{ a.cidade }}{% else %}<small class="fornecedor">estadual</small>{% endif %}</td>
       <td>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }}<br><small class="fornecedor">{{ a.fornecedor or "fornecedor não informado" }}</small></td>
       <td>{{ s.status(a.status_reportado) }}<br>{{ s.confianca(a.confianca) }}</td>
       <td>{{ s.evidencia(a.evidencia_confere) }}{% if a.origem_texto == 'snippet' %}<br>{{ s.origem(a.origem_texto, false) }}{% endif %}</td>

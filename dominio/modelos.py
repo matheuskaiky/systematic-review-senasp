@@ -53,6 +53,7 @@ class ConsultaWeb:
     tecnologia: str
     modelo_id: str
     perfil: str
+    cidade: str = ""          # vazio = secretaria estadual; preenchido = secretaria municipal da cidade
 
 
 @dataclass(frozen=True)
@@ -195,6 +196,7 @@ class CandidatoDownload:
     melhor_posicao: int
     n_ocorrencias: int
     fonte_oficial: bool
+    cidade: str = ""
 
 
 @dataclass(frozen=True)
@@ -206,3 +208,4 @@ class ItemClassificacao:
     snippet: Optional[str]
     pagina_id: Optional[int]
     texto_path: Optional[str]
+    cidade: str = ""

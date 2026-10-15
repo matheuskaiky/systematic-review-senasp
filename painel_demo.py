@@ -14,12 +14,15 @@ from adaptadores.repositorio_sqlite import RepositorioSQLite
 from aplicacao import busca_web, classificacao, download
 from config import consultas as C, vocabulario as V
 from dominio.esquemas import esquema_classificacao
-from dominio.modelos import (Achado, ArquivoBaixado, ParametrosClassificacao, RegistroChamada, ResultadoClassificacao,
+from dominio.modelos import (Achado, ModeloConsultaWeb, ArquivoBaixado, ParametrosClassificacao, RegistroChamada, ResultadoClassificacao,
                              ResultadoWeb, RespostaBusca, TextoExtraido)
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia
 from infra.util import agora
 
 SEMENTE = 2026
+# cidades FICTICIAS: a demonstracao nao usa nomes de municipios nem de orgaos reais
+MUNICIPIOS_DEMO = {"SP": ["Vila Modelo", "Porto Exemplo"], "PE": ["Campo Demo"]}
+MODELOS_MUNICIPAIS_DEMO = [ModeloConsultaWeb("M11", "{tec} Secretaria Municipal de Segurança {cidade} {uf}", perfil="oficial")]
 FORNECEDORES = ["Alfa Soluções Digitais", "Beta Vigilância S.A.", "Consórcio Gama Segurança", "Delta Analytics", ""]
 # cobertura desigual de proposito: algumas UFs sem nenhum achado
 UFS_RICAS = ["SP", "RJ", "MG", "BA", "PE", "CE", "RS", "PR", "GO", "DF"]
@@ -52,6 +55,12 @@ class BuscaDemo:
     def buscar(self, consulta, filtros):
         uf, tec = consulta.uf, consulta.tecnologia
         res = []
+        if consulta.cidade:                                       # secretaria municipal: sempre 2 resultados oficiais
+            host = f"guarda-{consulta.cidade.lower().replace(' ', '-')}.{uf.lower()}.exemplo.gov.br"
+            for n in (1, 2):
+                res.append(ResultadoWeb(f"https://{host}/noticias/{tec}-{n}", f"{tec.replace('_', ' ').capitalize()} na guarda municipal de {consulta.cidade}",
+                                        f"A prefeitura {FRASES[tec]}.", None, n))
+            return RespostaBusca(res, _reg(self.nome, "buscar", custo_usd=0.005, raw=b'{"demo": true}'))
         if uf in UFS_RICAS or (uf in UFS_MEDIAS and _h(uf + tec, 3) == 0):
             for n in (1, 2):
                 res.append(ResultadoWeb(f"https://ssp.{uf.lower()}.exemplo.gov.br/noticias/{tec}-{n}",
@@ -149,7 +158,7 @@ def construir(pasta_dados=None):
     logging.disable(logging.CRITICAL)
     try:
         repo, bruto = RepositorioSQLite(banco), BrutoLocal(raw)
-        consultas = gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, C.UFS)
+        consultas = gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, C.UFS, MUNICIPIOS_DEMO, MODELOS_MUNICIPAIS_DEMO)
         run_a = _run(repo, "busca-web")
         busca_web.executar(repo, bruto, BuscaDemo(), run_a, consultas, C.PERFIS_BUSCA_WEB, [], 0)
         repo.finalizar_execucao(run_a, "concluida")

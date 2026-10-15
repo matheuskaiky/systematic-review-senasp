@@ -18,7 +18,8 @@ from painel.mapa_ufs import POSICOES
 
 def _app(banco, raw, tmp_path, somente_leitura=False, nome="demo"):
     ctx = Contexto(banco=nome, nome_banco=banco.name, somente_leitura=somente_leitura, pasta_backup=tmp_path / "backups",
-                   ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA), status_definicoes=dict(V.STATUS))
+                   ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA), status_definicoes=dict(V.STATUS),
+                   hosts_permitidos=("testserver", "127.0.0.1", "localhost"))
     return criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(raw), ctx), ctx
 
 

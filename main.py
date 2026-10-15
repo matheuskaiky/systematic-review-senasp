@@ -76,7 +76,7 @@ def _params_classificacao():
 
 
 def estimar(args):
-    consultas = gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, C.UFS)
+    consultas = gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, C.UFS, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)
     print(f"Academic terms: {len(C.TERMOS)} | pages per term (max.): {C.MAX_PAGINAS_ACADEMICO}")
     print(f"Academic search credits (worst case): {len(C.TERMOS) * C.MAX_PAGINAS_ACADEMICO}")
     print(f"Web queries: {len(consultas)} | estimated cost: US$ {len(consultas) * S.PRECO_BUSCA_WEB_USD:.2f}")
@@ -123,7 +123,7 @@ def rodar(args, etapas):
                                      args.paginas or C.MAX_PAGINAS_ACADEMICO, fab.segredos, S.PAUSAS["busca_academica"])
             repo.registrar_saldo(run_id, fab.academico.nome, "fim", saldo())
         if "busca_web" in etapas:
-            consultas = [c for c in gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, ufs)
+            consultas = [c for c in gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, ufs, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)
                          if not args.perfil or c.perfil == args.perfil]
             busca_web.executar(repo, fab.bruto, fab.busca_web, run_id, consultas, C.PERFIS_BUSCA_WEB,
                                fab.segredos, S.PAUSAS["busca_web"], args.limite)
@@ -152,7 +152,7 @@ def rodar(args, etapas):
 
 def abrir_painel(a, fab):
     """Liga o painel aos adaptadores e o serve em 127.0.0.1. Importa o servidor so aqui: as demais etapas nao precisam dele."""
-    if a.host not in ("127.0.0.1", "localhost", "::1"):
+    if a.host not in ("127.0.0.1", "localhost"):
         raise SystemExit("O painel só aceita conexões locais (127.0.0.1): ele não tem autenticação.")
     import uvicorn
     from painel.app import Contexto, criar_app

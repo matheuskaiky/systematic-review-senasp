@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block titulo %}Execuções{% endblock %}
+{% block conteudo %}
+<h1>Execuções</h1>
+<p class="sub">Tudo o que o pipeline rodou, da mais recente para a mais antiga. Uma execução fora do relatório continua guardada, mas não entra nas somas.</p>
+<p><a href="/execucoes/comparar">Comparar duas execuções</a></p>
+{% if not itens %}
+<p class="vazio">Nenhuma execução registrada. Rode <code>python main.py pipeline-uf --ufs PI --limite 5</code>.</p>
+{% else %}
+<div class="tabela-rolavel"><table>
+  <thead><tr><th>Execução</th><th>Comando</th><th>Situação</th><th>Início</th><th>Duração</th><th class="num">Chamadas</th><th class="num">Falhas</th><th class="num">Custo</th><th>Relatório</th></tr></thead>
+  <tbody>{% for e in itens %}
+    <tr><td><a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a>{% if e.run_origem %}<br><small>entrada: <code>{{ e.run_origem }}</code></small>{% endif %}</td>
+      <td>{{ e.comando }}</td>
+      <td>{% if e.status == "concluida" %}<span class="selo ok">✔ concluída</span>{% elif e.status == "em_andamento" %}<span class="selo alerta">● em andamento</span>{% else %}<span class="selo st-descartado">✕ {{ e.status }}</span>{% endif %}</td>
+      <td>{{ fmt.data_hora(e.iniciado_em) }}</td><td>{{ fmt.duracao(e.iniciado_em, e.finalizado_em) }}</td>
+      <td class="num">{{ fmt.numero(e.n_chamadas) }}</td><td class="num">{{ fmt.numero(e.n_falhas) }}</td><td class="num">{{ fmt.moeda_usd(e.custo_usd) }}</td>
+      <td>{% if e.no_relatorio %}dentro{% else %}<span class="selo neutro" title="{{ e.motivo_exclusao or '' }}">fora</span>{% endif %}</td></tr>
+  {% endfor %}</tbody></table></div>
+{% endif %}
+{% endblock %}

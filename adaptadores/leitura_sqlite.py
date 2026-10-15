@@ -1,4 +1,5 @@
 """Leituras do painel sobre o banco SQLite. Abre uma conexao somente leitura por consulta e nunca roda o schema."""
+import json
 import sqlite3
 from pathlib import Path
 
@@ -79,8 +80,81 @@ class LeituraPainelSQLite:
                    (SELECT COALESCE(SUM(custo_usd), 0) FROM chamadas c WHERE c.run_id=e.run_id) AS custo_usd
             FROM execucoes e ORDER BY e.iniciado_em DESC, e.run_id DESC LIMIT ?""", (min(max(int(n), 1), 50),))
 
+    def cidades(self):
+        """Cidades que tem achado (so secretarias municipais), para o filtro."""
+        return [l["cidade"] for l in self._consulta(
+            "SELECT DISTINCT cidade FROM v_achados_revisao WHERE cidade IS NOT NULL ORDER BY cidade")]
+
     def resumo_ufs(self):
         return self._consulta("SELECT * FROM v_resumo_uf ORDER BY uf")
+
+    # ---------- execucoes e chamadas ----------
+    def execucoes(self):
+        return self._consulta("""
+            SELECT e.run_id, e.comando, e.status, e.iniciado_em, e.finalizado_em, e.run_origem, e.config_hash, e.commit_git,
+                   e.no_relatorio, e.motivo_exclusao,
+                   (SELECT COUNT(*) FROM chamadas c WHERE c.run_id=e.run_id) AS n_chamadas,
+                   (SELECT COUNT(*) FROM chamadas c WHERE c.run_id=e.run_id AND c.sucesso=0) AS n_falhas,
+                   (SELECT COALESCE(SUM(custo_usd), 0) FROM chamadas c WHERE c.run_id=e.run_id) AS custo_usd
+            FROM execucoes e ORDER BY e.iniciado_em DESC, e.run_id DESC""")
+
+    def execucao(self, run_id):
+        e = self._um("""SELECT run_id, comando, status, iniciado_em, finalizado_em, run_origem, config_hash, config_json,
+                               commit_git, metricas_json, ambiente_json, no_relatorio, motivo_exclusao, excluida_em
+                        FROM execucoes WHERE run_id=?""", (run_id,))
+        if e is None:
+            return None
+        e["funil"] = self._um("SELECT * FROM v_funil WHERE run_id=?", (run_id,)) or {}
+        e["custos"] = self._consulta("SELECT * FROM v_custos WHERE run_id=? ORDER BY etapa, provedor", (run_id,))
+        e["falhas"] = self._consulta("SELECT etapa, provedor, erro, n FROM v_falhas WHERE run_id=? ORDER BY n DESC", (run_id,))
+        e["descartes"] = self._consulta("SELECT motivo, n FROM v_descartes WHERE run_id=? ORDER BY n DESC", (run_id,))
+        e["saldos"] = self._consulta("SELECT * FROM v_saldos WHERE run_id=? ORDER BY provedor, passada", (run_id,))
+        e["retomadas"] = self._consulta("SELECT retomado_em, commit_git FROM execucoes_retomadas WHERE run_id=? ORDER BY retomada_id", (run_id,))
+        e["falhas_download"] = self._consulta("""SELECT COALESCE(motivo_falha, 'ok') AS motivo, COUNT(*) AS n FROM paginas
+                                                 WHERE run_id=? AND extracao_ok=0 GROUP BY motivo_falha ORDER BY n DESC""", (run_id,))
+        e["run_destino"] = [l["run_id"] for l in self._consulta("SELECT run_id FROM execucoes WHERE run_origem=? ORDER BY iniciado_em", (run_id,))]
+        return e
+
+    def opcoes_chamadas(self):
+        return {"etapas": [l["etapa"] for l in self._consulta("SELECT DISTINCT etapa FROM chamadas ORDER BY etapa")],
+                "provedores": [l["provedor"] for l in self._consulta("SELECT DISTINCT provedor FROM chamadas ORDER BY provedor")],
+                "runs": [l["run_id"] for l in self._consulta("SELECT run_id FROM execucoes ORDER BY iniciado_em DESC")]}
+
+    def chamadas(self, filtros, pagina=1, por_pagina=50):
+        por_pagina = min(max(int(por_pagina), 1), LIMITE_POR_PAGINA)
+        cond, args = [], []
+        for chave, coluna in (("run", "run_id"), ("etapa", "etapa"), ("provedor", "provedor"), ("uf", "uf")):
+            if filtros.get(chave) not in (None, ""):
+                cond.append(f"{coluna} = ?")
+                args.append(filtros[chave])
+        if filtros.get("resultado") in ("ok", "falha"):
+            cond.append("sucesso = ?")
+            args.append(1 if filtros["resultado"] == "ok" else 0)
+        q = (filtros.get("q") or "").strip()
+        if q:
+            cond.append("(erro LIKE ? ESCAPE '\\' OR alvo_id LIKE ? ESCAPE '\\')")
+            args += ["%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"] * 2
+        onde = (" WHERE " + " AND ".join(cond)) if cond else ""
+        total = self._um(f"SELECT COUNT(*) AS n FROM chamadas{onde}", args)["n"]
+        itens = self._consulta(
+            f"""SELECT chamada_id, run_id, etapa, provedor, operacao, alvo_tipo, alvo_id, uf, sucesso, http_status, tentativas,
+                       latencia_ms, custo_usd, tokens_entrada, tokens_saida, erro, requisitado_em
+                FROM chamadas{onde} ORDER BY chamada_id DESC LIMIT ? OFFSET ?""", args + [por_pagina, (pagina - 1) * por_pagina])
+        return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": itens}
+
+    def chamada(self, chamada_id):
+        c = self._um("SELECT * FROM chamadas WHERE chamada_id=?", (chamada_id,))
+        if c is None:
+            return None
+        c["classificacao"] = self._um("""SELECT classificacao_id, uf, cidade, origem_texto, texto_truncado, n_chars_enviados, relevante,
+                                                json_valido, n_achados, n_achados_invalidos, resposta_texto, prompt_versao
+                                         FROM classificacoes WHERE chamada_id=?""", (chamada_id,))
+        c["achados"] = self._consulta("""SELECT a.achado_id, a.tecnologia, a.status_reportado, a.confianca, a.evidencia_confere
+                                         FROM achados a JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
+                                         WHERE k.chamada_id=? ORDER BY a.achado_id""", (chamada_id,)) if c["classificacao"] else []
+        c["pagina"] = self._um("""SELECT pagina_id, url_final, http_status, content_type, n_bytes, truncado, texto_path, n_chars,
+                                         extrator, extracao_ok, motivo_falha FROM paginas WHERE chamada_id=?""", (chamada_id,))
+        return c
 
     # ---------- achados ----------
     @staticmethod
@@ -97,6 +171,11 @@ class LeituraPainelSQLite:
         simples("status", "status_reportado")
         simples("confianca", "confianca")
         simples("origem", "origem_texto")
+        simples("cidade", "cidade")
+        if filtros.get("esfera") == "estadual":
+            cond.append("cidade IS NULL")
+        elif filtros.get("esfera") == "municipal":
+            cond.append("cidade IS NOT NULL")
         if filtros.get("evidencia") in ("0", "1"):
             cond.append("COALESCE(evidencia_confere, 0) = ?")
             args.append(int(filtros["evidencia"]))
@@ -138,7 +217,7 @@ class LeituraPainelSQLite:
                    a.evidencia_confere, a.confianca, a.confianca_original, a.evidencia_cita_tecnologia,
                    a.evidencia_cita_lgpd, a.verificado, a.status_final, a.verificado_por, a.verificado_em, a.observacao,
                    k.classificacao_id, k.run_id, k.url_id, k.pagina_id, k.origem_texto, k.texto_truncado,
-                   k.n_chars_enviados, k.classificador, k.prompt_versao, k.relevante, k.n_achados,
+                   k.n_chars_enviados, k.classificador, k.prompt_versao, k.cidade, k.relevante, k.n_achados,
                    u.url_original AS url, u.dominio, u.fonte_oficial,
                    p.url_final, p.texto_path, p.extracao_ok, p.dominio_final, p.fonte_oficial_final, p.http_status,
                    e.no_relatorio, e.config_hash
@@ -163,5 +242,9 @@ class LeituraPainelSQLite:
                                  FROM achados_revisoes WHERE achado_id=? ORDER BY revisao_id DESC""", (achado_id,))
 
     def tem_decisao_para_desfazer(self, achado_id):
-        return self._um("""SELECT 1 AS x FROM achados_revisoes WHERE achado_id=? AND anterior_json IS NOT NULL
-                           AND desfeita=0 LIMIT 1""", (achado_id,)) is not None
+        """Ha uma decisao do painel nao desfeita E o achado ainda esta como ela o deixou (senao o desfazer seria recusado)."""
+        l = self._um("""SELECT posterior_json FROM achados_revisoes WHERE achado_id=? AND anterior_json IS NOT NULL
+                        AND posterior_json IS NOT NULL AND desfeita=0 ORDER BY revisao_id DESC LIMIT 1""", (achado_id,))
+        atual = self._um("""SELECT verificado, status_final, verificado_por, verificado_em, observacao FROM achados
+                            WHERE achado_id=?""", (achado_id,))
+        return l is not None and atual is not None and json.loads(l["posterior_json"]) == atual

@@ -1,0 +1,13 @@
+{
+  "search_metadata": {"id": "sintetico-scholar-0001", "status": "Success", "total_time_taken": 1.23},
+  "search_information": {"total_results": 1234, "time_taken_displayed": 0.04},
+  "organic_results": [
+    {"position": 1, "title": "Reconhecimento facial na segurança pública", "link": "https://exemplo.edu/a",
+     "snippet": "Resumo do artigo sintetico A.", "publication_info": {"summary": "A Silva, B Souza - Revista X, 2019 - exemplo.edu"},
+     "inline_links": {"cited_by": {"total": 42, "link": "https://exemplo.edu/citacoes"}}},
+    {"position": 2, "title": "Policiamento preditivo no Brasil", "link": "https://exemplo.edu/b",
+     "snippet": "Resumo do artigo sintetico B.", "publication_info": {"summary": "C Lima - Anais do Congresso, 2021, republicado em 2023 - exemplo.edu"}},
+    {"position": 3, "title": "   ", "link": "https://exemplo.edu/sem-titulo", "snippet": "Sem titulo: deve ser ignorado."},
+    {"position": 4, "title": "Artigo sem resumo de publicacao", "snippet": "Sem link nem publication_info.", "inline_links": {"cited_by": {}}}
+  ]
+}

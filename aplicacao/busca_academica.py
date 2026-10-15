@@ -13,6 +13,11 @@ def executar(repo, bruto, academico, run_id, termos, filtros, max_paginas, segre
             chave = hash_chave("busca_academica", academico.nome, termo.id,
                                json.dumps(asdict(filtros), sort_keys=True), inicio)
             if repo.ja_feito(run_id, chave):
+                # C8: a pagina ja feita segue a mesma regra de parada; se ela veio incompleta nao ha proxima pagina,
+                # e pedi-la na retomada gastaria um credito a toa. Sem o n_retornados guardado, segue para a proxima.
+                feito = repo.resultado_chamada(run_id, chave)
+                if feito is not None and feito[1] is not None and feito[1] < filtros.por_pagina:
+                    break
                 continue
             pag = academico.buscar_pagina(termo, inicio, filtros)
             chamada_id, _ = registrar_chamada(repo, bruto, run_id, "busca_academica", "termo", termo.id,

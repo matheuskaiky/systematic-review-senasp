@@ -83,7 +83,7 @@ def estimar(args):
     print(f"Classifications (ceiling): {C.POLITICA_DOWNLOAD.max_urls_por_uf * len(C.UFS)} (cost depends on the model and text sizes)")
     fab = Fabrica(simulado=args.simulado)
     # C9: sem chave (ou sem adaptador) a estimativa continua valendo; so o saldo fica indisponivel.
-    # TODO(verificar): se o endpoint de conta da SerpApi (saldo) consome creditos
+    # O endpoint de conta da SerpApi e gratuito e nao conta na cota (documentacao, consultada em 14/10/2026).
     try:
         saldo = getattr(fab.academico, "saldo", lambda: None)()
         print(f"Academic provider balance: {saldo}")

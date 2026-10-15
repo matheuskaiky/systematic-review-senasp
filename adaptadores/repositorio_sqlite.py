@@ -134,6 +134,13 @@ class RepositorioSQLite:
         return self.conn.execute("SELECT 1 FROM chamadas WHERE run_id=? AND chave_idempotencia=? AND sucesso=1",
                                  (run_id, chave)).fetchone() is not None
 
+    def resultado_chamada(self, run_id, chave):
+        """C8: resultado guardado de uma chamada ja concluida (sucesso, n_retornados); None se ela nao foi concluida."""
+        linha = self.conn.execute(
+            "SELECT sucesso, n_retornados FROM chamadas WHERE run_id=? AND chave_idempotencia=? AND sucesso=1",
+            (run_id, chave)).fetchone()
+        return None if linha is None else (linha["sucesso"], linha["n_retornados"])
+
     def salvar_chamada(self, run_id, etapa, alvo_tipo, alvo_id, chave, registro, raw_path, raw_sha256,
                        uf=None, pagina=None):
         return self._inserir(

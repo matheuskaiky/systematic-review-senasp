@@ -79,7 +79,7 @@ OPCOES = {
     },
     "sqlite": {"caminho": DATA_DIR / "busca.db"},
     "local": {"raiz": DATA_DIR / "raw"},
-    "excel": {},
+    "excel": {"pasta": OUT_DIR},
 }
 
 # adapter name -> environment variable holding the key

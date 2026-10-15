@@ -364,6 +364,18 @@ LEFT JOIN paginas p ON p.pagina_id=k.pagina_id
 LEFT JOIN execucoes e ON e.run_id=k.run_id
 ORDER BY a.verificado, a.evidencia_confere, a.evidencia_cita_tecnologia, a.uf;
 
+DROP VIEW IF EXISTS v_secretarias_confirmadas;
+CREATE VIEW v_secretarias_confirmadas AS      -- C4: achados verificados e nao descartados, por UF e tecnologia
+SELECT a.uf, a.tecnologia, a.status_final, a.fornecedor, a.menciona_lgpd, a.evidencia,
+       u.url_original AS url, f.dominio_efetivo AS dominio, f.fonte_oficial_efetiva AS fonte_oficial,
+       a.achado_id, a.verificado_por, a.verificado_em
+FROM r_achados a
+JOIN r_classificacoes k ON k.classificacao_id=a.classificacao_id
+JOIN urls u ON u.url_id=k.url_id
+JOIN v_fonte_da_classificacao f ON f.classificacao_id=k.classificacao_id
+WHERE a.verificado=1 AND COALESCE(a.status_final,'')<>'descartado'
+ORDER BY a.uf, a.tecnologia, a.achado_id;
+
 DROP VIEW IF EXISTS v_resumo_uf;
 CREATE VIEW v_resumo_uf AS
 SELECT a.uf,

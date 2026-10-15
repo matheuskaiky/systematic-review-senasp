@@ -34,5 +34,6 @@ def ambiente_cli(tmp_path, monkeypatch, raiz_limpa):
     monkeypatch.setattr(S, "DATA_DIR", tmp_path / "data")
     monkeypatch.setattr(S, "LOG_DIR", tmp_path / "logs")
     monkeypatch.setattr(S, "OUT_DIR", tmp_path / "outputs")
+    monkeypatch.setitem(S.OPCOES["excel"], "pasta", tmp_path / "outputs")
     monkeypatch.setattr(S, "PAUSAS", {k: 0 for k in S.PAUSAS})
     return tmp_path

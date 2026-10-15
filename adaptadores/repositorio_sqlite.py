@@ -307,6 +307,7 @@ class RepositorioSQLite:
             "Busca_web": "SELECT * FROM v_metricas_busca_web",
             "Achados": "SELECT * FROM v_achados_revisao",
             "Resumo_UF_bruto": "SELECT * FROM v_resumo_uf",
+            "Secretarias": "SELECT * FROM v_secretarias_confirmadas",
             "Chamadas": "SELECT * FROM chamadas ORDER BY chamada_id",
             "Metricas_termo": "SELECT * FROM v_metricas_por_termo",
             "Artigos": "SELECT * FROM artigos ORDER BY citacoes DESC",
@@ -364,16 +365,28 @@ class RepositorioSQLite:
         return {k: pd.read_sql_query(v, self.conn) for k, v in consultas.items()}
 
     def importar_buscas_manuais(self, df):
-        n = 0
-        for _, r in df[df["n_resultados"].notna()].iterrows():
-            self._inserir("buscas_manuais", base=r["base"], termo_id=r["termo_id"], string_base=_v(r["string_base"]),
-                          filtros=_v(r["filtros"]), n_resultados=int(r["n_resultados"]),
-                          n_apos_filtro=None if pd.isna(r["n_apos_filtro"]) else int(r["n_apos_filtro"]),
-                          n_selecionados=None if pd.isna(r["n_selecionados"]) else int(r["n_selecionados"]),
-                          data_busca=_v(r["data_busca"]), observacao=_v(r["observacao"]))
-            n += 1
-        self.conn.commit()
-        return n
+        """C7: reimportar o mesmo arquivo nao duplica nada. Uma busca e identificada por (base, termo_id, data_busca);
+        a linha nova substitui a anterior de mesma chave, tudo na mesma transacao."""
+        linhas = df[df["n_resultados"].notna()]
+        chaves = [(r["base"], r["termo_id"], _v(r["data_busca"])) for _, r in linhas.iterrows()]
+        repetidas = sorted({k for k in chaves if chaves.count(k) > 1}, key=str)
+        if repetidas:
+            raise SystemExit("Mais de uma linha com a mesma chave (base, termo_id, data_busca) no arquivo: "
+                             + "; ".join(f"{b}/{t}/{d or 'sem data'}" for b, t, d in repetidas))
+        try:
+            for (_, r), (base, termo_id, data) in zip(linhas.iterrows(), chaves):
+                self.conn.execute("DELETE FROM buscas_manuais WHERE base=? AND termo_id=? AND data_busca IS ?",
+                                  (base, termo_id, data))
+                self._inserir("buscas_manuais", base=base, termo_id=termo_id, string_base=_v(r["string_base"]),
+                              filtros=_v(r["filtros"]), n_resultados=int(r["n_resultados"]),
+                              n_apos_filtro=None if pd.isna(r["n_apos_filtro"]) else int(r["n_apos_filtro"]),
+                              n_selecionados=None if pd.isna(r["n_selecionados"]) else int(r["n_selecionados"]),
+                              data_busca=data, observacao=_v(r["observacao"]))
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        return len(linhas)
 
     def _registrar_revisao_triagem(self, artigo_id, revisor, decisao, motivo, tc, motivo_tc, independente):
         """Historico: so grava se algo mudou em relacao a ultima revisao do mesmo revisor, do mesmo tipo

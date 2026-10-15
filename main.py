@@ -187,7 +187,7 @@ def main():
     elif a.cmd == "exportar":
         tabelas = exportacao.montar_tabelas(fab.repo, C.UFS)
         # C6: com --simulado o arquivo padrao ganha o prefixo "simulado_"
-        saida = a.saida or S.OUT_DIR / f"{'simulado_' if a.simulado else ''}resultado_{datetime.now():%Y%m%d_%H%M}.xlsx"
+        saida = a.saida or S.OPCOES["excel"]["pasta"] / f"{'simulado_' if a.simulado else ''}resultado_{datetime.now():%Y%m%d_%H%M}.xlsx"
         print("Generated:", fab.exportador.exportar(tabelas, saida))
     elif a.cmd == "manual-modelo":
         S.OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -212,7 +212,7 @@ def main():
         ocorrencias, novos = fab.repo.importar_artigos_manuais(df)
         print(f"Ocorrências novas: {ocorrencias} | artigos novos: {novos} | linhas no arquivo: {len(df)}")
     elif a.cmd == "manual-importar":
-        df = pd.read_csv(a.arquivo)
+        df = pd.read_csv(a.arquivo, encoding="utf-8-sig")        # C7: o modelo e gravado com BOM
         manual.validar_manuais(df[df["n_resultados"].notna()], C.TERMOS, C.BASES_MANUAIS)
         print("Rows imported:", fab.repo.importar_buscas_manuais(df))
     elif a.cmd == "triagem-importar":

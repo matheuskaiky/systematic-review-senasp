@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}Painel{% endblock %} · IA na Segurança Pública</title>
+<link rel="stylesheet" href="/static/painel.css">
+</head>
+<body>
+{% set banco_rotulo = {"real": "BANCO REAL", "simulado": "SIMULADO", "demo": "DEMONSTRAÇÃO (dados fictícios)"} %}
+<header class="banner banner-{{ ctx.banco }}" role="banner">
+  <strong>{{ banco_rotulo[ctx.banco] }}</strong>
+  <span class="banner-detalhe">{{ ctx.nome_banco }}{% if ctx.somente_leitura %} · somente leitura{% endif %}</span>
+</header>
+<div class="layout">
+  <nav class="menu" aria-label="Principal">
+    <a class="marca" href="/">Levantamento<br><small>IA na Segurança Pública</small></a>
+    {% macro item(href, texto, prefixo) %}<a href="{{ href }}"{% if caminho == href or (prefixo and caminho.startswith(prefixo)) %} aria-current="page"{% endif %}>{{ texto }}</a>{% endmacro %}
+    {{ item("/", "Visão geral", None) }}
+    {{ item("/estados", "Estados", "/estados") }}
+    {{ item("/achados", "Achados", "/achados") }}
+    {{ item("/revisao/achados", "Revisar achados", "/revisao") }}
+  </nav>
+  <main id="conteudo">{% block conteudo %}{% endblock %}</main>
+</div>
+<script src="/static/painel.js" defer></script>
+</body>
+</html>

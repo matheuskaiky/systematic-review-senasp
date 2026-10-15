@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "_selos.html" as s %}
+{% block titulo %}Visão geral{% endblock %}
+{% block conteudo %}
+<h1>Visão geral</h1>
+<p class="sub">Levantamento nas secretarias estaduais de segurança pública. Os números consideram só as execuções marcadas para o relatório.</p>
+
+{% if alertas %}
+<section class="aviso aviso-lista" aria-label="Pontos de atenção"><strong>Pontos de atenção</strong>
+  <ul>{% for nivel, texto, link, rotulo_link in alertas %}<li>{{ texto }}{% if link %} <a href="{{ link }}">{{ rotulo_link }}</a>{% endif %}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="kpis" aria-label="Indicadores">
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.consultas_web) }}</span><span class="kpi-rotulo">Consultas web</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.urls_unicas) }}</span><span class="kpi-rotulo">URLs únicas</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.paginas_com_texto) }}</span><span class="kpi-rotulo">Páginas com texto</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.classificacoes) }}</span><span class="kpi-rotulo">Classificações</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.achados) }}</span><span class="kpi-rotulo">Achados</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.evidencia_ok, r.achados) }}</span><span class="kpi-rotulo">Evidência confere</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.verificados, r.achados) }}</span><span class="kpi-rotulo">Verificados</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ r.ufs_confirmadas }} <small>de {{ n_ufs }}</small></span><span class="kpi-rotulo">UFs com achado confirmado</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}</span><span class="kpi-rotulo">Gasto real (todas as execuções)</span></div>
+</section>
+
+<div class="duas-colunas funil-progresso">
+  <section class="cartao">
+    <h2>Funil</h2>
+    {{ funil|safe }}
+  </section>
+  <section class="cartao">
+    <h2>Progresso da revisão</h2>
+    {% set pend = rev.total - rev.verificados %}
+    {{ barra|safe }}
+    <ul class="legenda">
+      <li><span class="selo ok">✔ Confirmados</span> {{ fmt.numero(rev.confirmados) }}</li>
+      <li><span class="selo st-descartado">✕ Descartados</span> {{ fmt.numero(rev.descartados) }}</li>
+      <li><span class="selo neutro">○ Pendentes</span> {{ fmt.numero(pend) }}</li>
+    </ul>
+    {% if pend %}<a class="botao" href="/revisao/achados">Continuar a revisão ({{ pend }})</a>{% else %}<p>Nada pendente.</p>{% endif %}
+  </section>
+</div>
+
+<section class="cartao">
+  <h2>Últimas execuções</h2>
+  {% if execucoes %}
+  <div class="tabela-rolavel"><table>
+    <thead><tr><th>Execução</th><th>Comando</th><th>Situação</th><th>Início</th><th class="num">Custo</th><th>Relatório</th></tr></thead>
+    <tbody>{% for e in execucoes %}
+      <tr><td><code>{{ e.run_id }}</code></td><td>{{ e.comando }}</td><td>{{ e.status }}</td><td>{{ fmt.data_hora(e.iniciado_em) }}</td>
+          <td class="num">{{ fmt.moeda_usd(e.custo_usd) }}</td><td>{{ "dentro" if e.no_relatorio else "fora" }}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<p class="vazio">Nenhuma execução registrada ainda. Rode <code>python main.py pipeline-uf --ufs PI --limite 5</code>.</p>{% endif %}
+</section>
+{% endblock %}

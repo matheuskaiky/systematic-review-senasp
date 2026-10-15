@@ -16,4 +16,8 @@ class BrutoLocal:
         return str(caminho.relative_to(self.raiz)), hashlib.sha256(dados).hexdigest()   # RELATIVE path
 
     def ler(self, caminho):
-        return (self.raiz / caminho).read_bytes()
+        """Le um arquivo guardado. O caminho vem do banco, mas um caminho que escapa da raiz (`..`, absoluto) e recusado."""
+        alvo = (self.raiz / caminho).resolve()
+        if not alvo.is_relative_to(self.raiz.resolve()):
+            raise ValueError(f"Caminho fora da pasta de arquivos brutos: {caminho!r}")
+        return alvo.read_bytes()

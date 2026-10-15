@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Estados{% endblock %}
+{% block conteudo %}
+<h1>Estados</h1>
+<p class="sub">O que já se sabe de cada UF. Clique em um estado para ver os achados.</p>
+<div class="duas-colunas mapa-tabela">
+  <section class="cartao">
+    <h2>Mapa</h2>
+    {{ mapa|safe }}
+    <ul class="legenda">
+      <li><span class="selo ok">✔ Confirmado</span> pelo menos um achado verificado</li>
+      <li><span class="selo alerta">◐ Classificado</span> achados ainda sem confirmação</li>
+      <li><span class="selo neutro">○ Sem achados</span></li>
+    </ul>
+  </section>
+  <section class="cartao">
+    <h2>Tabela</h2>
+    <div class="tabela-rolavel"><table>
+      <thead><tr><th>UF</th><th>Estado</th><th class="num">Achados</th><th class="num">Verificados</th><th class="num">Confirmados</th></tr></thead>
+      <tbody>{% for l in linhas %}
+        <tr><td><a href="/estados/{{ l.uf }}">{{ l.uf }}</a></td><td>{{ l.nome }}</td><td class="num">{{ fmt.numero(l.n_achados) }}</td>
+            <td class="num">{{ fmt.numero(l.n_verificados) }}</td><td class="num">{{ fmt.numero(l.n_confirmados) }}</td></tr>
+      {% endfor %}</tbody></table></div>
+  </section>
+</div>
+{% endblock %}

@@ -150,6 +150,26 @@ def rodar(args, etapas):
         logging.info("Run %s: %s", run_id, status)
 
 
+def abrir_painel(a, fab):
+    """Liga o painel aos adaptadores e o serve em 127.0.0.1. Importa o servidor so aqui: as demais etapas nao precisam dele."""
+    if a.host not in ("127.0.0.1", "localhost", "::1"):
+        raise SystemExit("O painel só aceita conexões locais (127.0.0.1): ele não tem autenticação.")
+    import uvicorn
+    from painel.app import Contexto, criar_app
+    banco = "demo" if a.demo else "simulado" if a.simulado else "real"
+    contexto = Contexto(
+        banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
+        pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
+        status_definicoes=dict(V.STATUS),
+        comando_criar_banco="python main.py painel-demo" if a.demo else
+        "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5")
+    if not fab.caminho_banco.exists() and a.demo:
+        raise SystemExit("O banco de demonstração não existe. Rode antes: python main.py painel-demo")
+    app = criar_app(fab.leitura_painel(), fab.novo_repositorio, fab.bruto, contexto)
+    print(f"Painel ({banco}): http://{a.host}:{a.porta}   (Ctrl+C para encerrar)")
+    uvicorn.run(app, host=a.host, port=a.porta, log_level="warning")
+
+
 def main():
     p = argparse.ArgumentParser(description="Survey automation (AI in Public Security)")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -172,6 +192,11 @@ def main():
     s = sub.add_parser("execucao-incluir", help="devolve uma execucao as views agregadas do relatorio")
     s.add_argument("run_id"); s.add_argument("--simulado", action="store_true")
     sub.add_parser("manual-artigos-modelo")
+    sub.add_parser("painel-demo", help="cria data/demo.db com dados ficticios para conhecer o painel")
+    s = sub.add_parser("painel", help="abre o painel de resultados e de revisao no navegador")
+    s.add_argument("--simulado", action="store_true"); s.add_argument("--demo", action="store_true")
+    s.add_argument("--porta", type=int, default=8000); s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--somente-leitura", action="store_true", help="nenhuma decisao pode ser gravada")
     for nome in ("manual-importar", "manual-artigos-importar", "triagem-importar", "achados-importar"):
         s = sub.add_parser(nome); s.add_argument("arquivo"); s.add_argument("--simulado", action="store_true")
         if nome == "triagem-importar":
@@ -179,7 +204,7 @@ def main():
                            help="revisao independente: so entra no historico, nao altera a decisao final")
 
     a = p.parse_args()
-    fab = Fabrica(simulado=getattr(a, "simulado", False))
+    fab = Fabrica(simulado=getattr(a, "simulado", False), demo=getattr(a, "demo", False))
     if a.cmd == "estimar":
         estimar(a)
     elif a.cmd in ETAPAS:
@@ -195,6 +220,11 @@ def main():
         pd.DataFrame(manual.gerar_modelo_manual(C.TERMOS, C.BASES_MANUAIS)).to_csv(
             caminho, index=False, encoding="utf-8-sig")
         print("Generated:", caminho)
+    elif a.cmd == "painel-demo":
+        import painel_demo
+        print("Generated:", painel_demo.construir(S.DATA_DIR))
+    elif a.cmd == "painel":
+        abrir_painel(a, fab)
     elif a.cmd == "execucao-excluir":
         fab.repo.definir_no_relatorio(a.run_id, False, a.motivo or None)
         print(f"Execução {a.run_id} fora do relatório (os dados continuam no banco; reverta com execucao-incluir).")

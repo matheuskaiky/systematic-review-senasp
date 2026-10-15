@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}Banco não encontrado{% endblock %}
+{% block conteudo %}
+<h1>Banco de dados não encontrado</h1>
+<p>O arquivo <code>{{ ctx.nome_banco }}</code> ainda não existe. Ele é criado pela primeira execução do pipeline:</p>
+<pre class="comando">{{ ctx.comando_criar_banco }}</pre>
+{% endblock %}

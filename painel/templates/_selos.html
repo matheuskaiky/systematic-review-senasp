@@ -1,0 +1,21 @@
+{% macro status(chave) -%}
+{% set icones = {"em_uso": "●", "piloto": "◐", "licitacao": "▣", "anunciado": "◇", "em_estudo": "?", "apenas_citado": "…", "descartado": "✕"} %}
+<span class="selo st-{{ chave }}"><span aria-hidden="true">{{ icones.get(chave, "•") }}</span> {{ rotulos.rotulo(rotulos.STATUS, chave) }}</span>
+{%- endmacro %}
+{% macro confianca(chave) -%}
+<span class="selo cf-{{ chave }}">Confiança {{ rotulos.rotulo(rotulos.CONFIANCA, chave)|lower }}</span>
+{%- endmacro %}
+{% macro evidencia(confere) -%}
+{% if confere %}<span class="selo ok"><span aria-hidden="true">✔</span> Evidência confere</span>{% else %}<span class="selo alerta"><span aria-hidden="true">⚠</span> Evidência não localizada</span>{% endif %}
+{%- endmacro %}
+{% macro fonte(oficial, curto=false) -%}
+{% if oficial %}<span class="selo ok"><span aria-hidden="true">◆</span> {{ "Oficial" if curto else "Fonte oficial (.gov.br)" }}</span>{% else %}<span class="selo neutro">{{ "Não oficial" if curto else "Fonte não oficial" }}</span>{% endif %}
+{%- endmacro %}
+{% macro origem(chave, sempre=true) -%}
+{% if chave == "snippet" %}<span class="selo alerta">Somente snippet</span>{% elif sempre %}<span class="selo neutro">Texto da página</span>{% endif %}
+{%- endmacro %}
+{% macro verificacao(a) -%}
+{% if a.verificado and a.status_final == "descartado" %}<span class="selo st-descartado"><span aria-hidden="true">✕</span> Descartado</span>
+{% elif a.verificado %}<span class="selo ok"><span aria-hidden="true">✔</span> Verificado: {{ rotulos.rotulo(rotulos.STATUS, a.status_final) }}</span>
+{% else %}<span class="selo neutro"><span aria-hidden="true">○</span> Não verificado</span>{% endif %}
+{%- endmacro %}

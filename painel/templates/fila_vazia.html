@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Fila de revisão{% endblock %}
+{% block conteudo %}
+<h1>Fila de revisão</h1>
+{% if rev.total == 0 %}
+<p class="vazio">Ainda não há achados para revisar. Rode a classificação (<code>python main.py classificar --de &lt;run_id&gt; --ufs PI --limite 5</code>).</p>
+{% elif filtros %}
+<p class="vazio">Nenhum achado pendente com estes filtros. <a href="/revisao/achados">Ver a fila completa</a>.</p>
+{% else %}
+<div class="aviso ok" role="status">Tudo revisado: {{ fmt.numero(rev.confirmados) }} confirmado(s) e {{ fmt.numero(rev.descartados) }} descartado(s).</div>
+<p><a class="botao" href="/achados">Ver todos os achados</a> <a class="botao secundario" href="/estados">Ver por estado</a></p>
+{% endif %}
+{% endblock %}

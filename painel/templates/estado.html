@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% import "_selos.html" as s %}
+{% block titulo %}{{ nome }}{% endblock %}
+{% block conteudo %}
+<p class="trilha"><a href="/estados">Estados</a> › {{ uf }}</p>
+<h1>{{ nome }} <small>({{ uf }})</small></h1>
+{% if not grupos %}
+<p class="vazio">Nenhum achado para este estado nas execuções do relatório.</p>
+{% else %}
+<p class="sub">{{ total }} achado(s), agrupados por tecnologia.</p>
+{% for tec, itens in grupos.items() %}
+<section class="cartao">
+  <h2>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, tec) }}</h2>
+  <ul class="lista-achados">{% for a in itens %}
+    <li>
+      <a class="achado-link" href="/achados/{{ a.achado_id }}">
+        {{ s.status(a.status_reportado) }}
+        <span class="fornecedor">{{ a.fornecedor or "fornecedor não informado" }}</span>
+      </a>
+      <span class="selos">{{ s.verificacao(a) }} {{ s.evidencia(a.evidencia_confere) }} {{ s.fonte(a.fonte_oficial_final if a.fonte_oficial_final is not none else a.fonte_oficial) }}{% if a.menciona_lgpd %} <span class="selo neutro">LGPD</span>{% endif %}</span>
+      <blockquote class="trecho">{{ a.evidencia }}</blockquote>
+    </li>{% endfor %}
+  </ul>
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

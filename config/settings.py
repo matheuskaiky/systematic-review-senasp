@@ -93,7 +93,9 @@ EMAIL_PESQUISADOR_ENV = "RESEARCHER_EMAIL"
 
 PAUSAS = {"busca_academica": 1.0, "busca_web": 0.5, "download": 1.0, "classificacao": 0.5}
 
-CLASSIFICACAO = {"max_chars_texto": 60_000, "usar_snippet_se_falhar": True}
+# max_falhas_por_item: apos N chamadas com falha para o mesmo item na mesma execucao, o item e abandonado (evita pagar
+# de novo, a cada --retomar, uma resposta que falha sempre igual, como a truncada por MAX_TOKENS)
+CLASSIFICACAO = {"max_chars_texto": 60_000, "usar_snippet_se_falhar": True, "max_falhas_por_item": 3}
 
 
 def _plano(obj):

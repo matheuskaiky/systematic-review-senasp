@@ -129,3 +129,27 @@ def escolher_auditoria(decisoes, n, semente):
     descartados = [d for d in decisoes if d[2] == "prefiltro_palavras"]
     descartados.sort(key=lambda d: hash_chave(semente, d[0].url_id, d[0].uf))
     return descartados[:n]
+
+
+_PALAVRAS_VAZIAS = {"de", "da", "do", "das", "dos", "para", "com", "em", "por", "uma", "como"}
+_LGPD = re.compile(r"\blgpd\b|lei geral de protecao de dados|protecao de dados|dados pessoais")
+
+
+def palavras_chave_tecnologia(rotulo):
+    """Palavras do rotulo de uma tecnologia (config/vocabulario.TECNOLOGIAS), normalizadas e sem o plural final.
+
+    Heuristica de priorizacao da revisao, nao decisao: e o que o proprio vocabulario da pesquisa diz sobre a tecnologia.
+    """
+    palavras = {w for w in normalizar_texto(rotulo).split() if len(w) >= 4 and w not in _PALAVRAS_VAZIAS}
+    return {w[:-1] if len(w) > 4 and w.endswith("s") else w for w in palavras}
+
+
+def evidencia_cita_termo(evidencia, palavras):
+    """True se o trecho citado pelo modelo contem alguma das palavras (comparacao normalizada, sem acento)."""
+    e = normalizar_texto(evidencia)
+    return any(p in e for p in palavras)
+
+
+def evidencia_cita_lgpd(evidencia):
+    """True se o trecho cita LGPD, a lei geral de protecao de dados ou protecao de dados (o criterio do prompt)."""
+    return bool(_LGPD.search(normalizar_texto(evidencia)))

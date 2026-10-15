@@ -225,6 +225,8 @@ CREATE TABLE IF NOT EXISTS achados (
     evidencia_confere INTEGER,                       -- 1 = the excerpt exists in the text that was sent
     confianca         TEXT,
     confianca_original TEXT,                         -- confianca devolvida pelo modelo, antes do rebaixamento
+    evidencia_cita_tecnologia INTEGER,               -- 1 = o trecho cita um termo da tecnologia (heuristica, sem LLM)
+    evidencia_cita_lgpd INTEGER,                     -- 1 = o trecho cita LGPD ou protecao de dados (heuristica)
     verificado        INTEGER NOT NULL DEFAULT 0,
     status_final      TEXT,                          -- human decision
     verificado_por    TEXT,
@@ -353,13 +355,14 @@ SELECT a.achado_id, k.run_id, a.uf, a.tecnologia, a.status_reportado, a.forneced
        u.url_original AS url, u.dominio, u.fonte_oficial,
        a.verificado, a.status_final, a.verificado_por, a.observacao,
        EXISTS (SELECT 1 FROM v_pares_auditoria pa WHERE pa.url_id = k.url_id AND pa.uf = k.uf) AS auditoria,
-       p.dominio_final, p.fonte_oficial_final, e.no_relatorio
+       p.dominio_final, p.fonte_oficial_final, e.no_relatorio,
+       a.evidencia_cita_tecnologia, a.evidencia_cita_lgpd
 FROM achados a
 JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
 JOIN urls u ON u.url_id=k.url_id
 LEFT JOIN paginas p ON p.pagina_id=k.pagina_id
 LEFT JOIN execucoes e ON e.run_id=k.run_id
-ORDER BY a.verificado, a.evidencia_confere, a.uf;
+ORDER BY a.verificado, a.evidencia_confere, a.evidencia_cita_tecnologia, a.uf;
 
 DROP VIEW IF EXISTS v_resumo_uf;
 CREATE VIEW v_resumo_uf AS
@@ -981,3 +984,17 @@ SELECT k.classificacao_id, k.run_id, k.url_id, k.uf, k.classificador, k.prompt_v
 FROM r_classificacoes k JOIN chamadas c ON c.chamada_id = k.chamada_id
 WHERE k.json_valido = 0
   AND NOT EXISTS (SELECT 1 FROM r_classificacoes v WHERE v.url_id = k.url_id AND v.uf = k.uf AND v.json_valido = 1);
+
+-- A evidencia citada sustenta o achado? `evidencia_confere` so mede se o trecho existe no texto; estas duas checagens
+-- (sem LLM) medem se ele cita um termo da tecnologia e se o flag de LGPD do modelo tem respaldo no proprio trecho.
+DROP VIEW IF EXISTS v_consistencia_evidencia;
+CREATE VIEW v_consistencia_evidencia AS
+SELECT k.classificador, k.prompt_versao, COUNT(*) AS n_achados,
+       COALESCE(SUM(a.evidencia_cita_tecnologia = 1), 0) AS n_evidencia_cita_tecnologia,
+       ROUND(100.0 * SUM(a.evidencia_cita_tecnologia = 1) / NULLIF(SUM(a.evidencia_cita_tecnologia IS NOT NULL), 0), 1) AS pct_evidencia_cita_tecnologia,
+       COALESCE(SUM(a.menciona_lgpd = 1), 0) AS n_lgpd_modelo,
+       COALESCE(SUM(a.menciona_lgpd = 1 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_modelo_com_respaldo,
+       COALESCE(SUM(a.menciona_lgpd = 1 AND COALESCE(a.evidencia_cita_lgpd, 0) = 0), 0) AS n_lgpd_modelo_sem_respaldo,
+       COALESCE(SUM(COALESCE(a.menciona_lgpd, 0) = 0 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_no_trecho_sem_flag
+FROM r_achados a JOIN r_classificacoes k ON k.classificacao_id = a.classificacao_id
+GROUP BY k.classificador, k.prompt_versao;

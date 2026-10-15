@@ -95,6 +95,7 @@ class ParametrosClassificacao:
     status: tuple
     max_chars: int = 60_000
     usar_snippet_se_falhar: bool = True
+    palavras_tecnologia: dict = field(default_factory=dict)   # tecnologia -> palavras do rotulo (checagem da evidencia)
 
 
 # ----- results returned by the adapters -----
@@ -169,6 +170,8 @@ class Achado:
     confianca: str
     evidencia_confere: Optional[bool] = None
     confianca_original: Optional[str] = None     # confianca devolvida pelo modelo, antes de qualquer ajuste
+    evidencia_cita_tecnologia: Optional[bool] = None   # o trecho cita um termo da tecnologia? (heuristica, sem LLM)
+    evidencia_cita_lgpd: Optional[bool] = None         # o trecho cita a LGPD ou protecao de dados? (heuristica)
 
 
 @dataclass

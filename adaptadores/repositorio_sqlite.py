@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 from dominio.modelos import CandidatoDownload, ItemClassificacao
-from dominio.servicos import normalizar_url, dominio_de, eh_oficial, chave_dedup_titulo
+from dominio.servicos import (normalizar_url, dominio_de, eh_oficial, chave_dedup_titulo, palavras_chave_tecnologia,
+                              evidencia_cita_termo, evidencia_cita_lgpd)
 from infra.util import agora
 
 
@@ -24,7 +25,7 @@ _COLUNAS_NOVAS = {
                   "excluida_em": "TEXT"},
     "paginas": {"dominio_final": "TEXT", "fonte_oficial_final": "INTEGER"},
     "selecao_download": {"auditoria": "INTEGER NOT NULL DEFAULT 0"},
-    "achados": {"confianca_original": "TEXT"},
+    "achados": {"confianca_original": "TEXT", "evidencia_cita_tecnologia": "INTEGER", "evidencia_cita_lgpd": "INTEGER"},
     "triagem": {"decisao_texto_completo": "TEXT", "motivo_texto_completo": "TEXT"},
     "triagem_revisoes": {"independente": "INTEGER NOT NULL DEFAULT 0"},
 }
@@ -51,7 +52,32 @@ class RepositorioSQLite:
             dom = dominio_de(linha["url_final"])
             self.conn.execute("UPDATE paginas SET dominio_final=?, fonte_oficial_final=? WHERE pagina_id=?",
                               (dom, int(eh_oficial(dom)), linha["pagina_id"]))
+        self._preencher_checagens_de_evidencia()
         self.conn.commit()
+
+    def _preencher_checagens_de_evidencia(self):
+        """Achados gravados antes das checagens de evidencia: calcula a partir da evidencia guardada e do vocabulario
+        da propria execucao (config_json). Determinístico, sem LLM."""
+        configs = {}
+        for l in self.conn.execute(
+                """SELECT a.achado_id, a.tecnologia, a.evidencia, k.run_id FROM achados a
+                   JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
+                   WHERE a.evidencia_cita_tecnologia IS NULL OR a.evidencia_cita_lgpd IS NULL""").fetchall():
+            if l["run_id"] not in configs:
+                bruto = self.conn.execute("SELECT config_json FROM execucoes WHERE run_id=?", (l["run_id"],)).fetchone()
+                try:
+                    configs[l["run_id"]] = json.loads(bruto[0]).get("tecnologias") or {}
+                except (TypeError, ValueError):
+                    configs[l["run_id"]] = {}
+            rotulo = configs[l["run_id"]].get(l["tecnologia"])
+            cita = int(evidencia_cita_termo(l["evidencia"], palavras_chave_tecnologia(rotulo))) if rotulo else None
+            self.conn.execute("UPDATE achados SET evidencia_cita_tecnologia=?, evidencia_cita_lgpd=? WHERE achado_id=?",
+                              (cita, int(evidencia_cita_lgpd(l["evidencia"])), l["achado_id"]))
+
+    def contar_falhas(self, run_id, chave):
+        """Quantas chamadas com essa chave de idempotencia falharam nesta execucao."""
+        return self.conn.execute("SELECT COUNT(*) FROM chamadas WHERE run_id=? AND chave_idempotencia=? AND sucesso=0",
+                                 (run_id, chave)).fetchone()[0]
 
     def definir_no_relatorio(self, run_id, no_relatorio, motivo=None):
         """Marca uma execucao como dentro (1) ou fora (0) das views agregadas do relatorio. Nada e apagado."""
@@ -256,7 +282,9 @@ class RepositorioSQLite:
                           status_reportado=a.status, fornecedor=a.fornecedor or None,
                           menciona_lgpd=int(a.menciona_lgpd), evidencia=a.evidencia,
                           evidencia_confere=None if a.evidencia_confere is None else int(a.evidencia_confere),
-                          confianca=a.confianca, confianca_original=a.confianca_original)
+                          confianca=a.confianca, confianca_original=a.confianca_original,
+                          evidencia_cita_tecnologia=None if a.evidencia_cita_tecnologia is None else int(a.evidencia_cita_tecnologia),
+                          evidencia_cita_lgpd=None if a.evidencia_cita_lgpd is None else int(a.evidencia_cita_lgpd))
         return cid
 
     def salvar_achados_descartados(self, classificacao_id, descartados):
@@ -313,6 +341,7 @@ class RepositorioSQLite:
             "Extracao": "SELECT * FROM v_extracao",
             "Eficiencia": "SELECT * FROM v_eficiencia",
             "Classif_invalidas": "SELECT * FROM v_classificacoes_invalidas",
+            "Consistencia_evidencia": "SELECT * FROM v_consistencia_evidencia",
             "Gasto_real": "SELECT * FROM v_gasto_real",
             "Saldos": "SELECT * FROM v_saldos",
             "Metricas_run": "SELECT * FROM metricas_run",

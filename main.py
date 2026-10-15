@@ -12,7 +12,7 @@ from config import consultas as C, prompts as P, vocabulario as V
 from composicao import Fabrica
 from dominio.esquemas import esquema_classificacao
 from dominio.modelos import ParametrosClassificacao
-from dominio.servicos import gerar_consultas_web
+from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia
 from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao
 from infra.log import iniciar_log
 from infra.util import coletar_ambiente
@@ -71,7 +71,8 @@ def _params_classificacao():
         versao_prompt=P.PROMPT_VERSAO, sistema=P.SYSTEM_PROMPT, usuario_template=P.USER_PROMPT,
         esquema=esquema, tecnologias=tuple(V.TECNOLOGIAS), status=tuple(V.STATUS),
         max_chars=S.CLASSIFICACAO["max_chars_texto"],
-        usar_snippet_se_falhar=S.CLASSIFICACAO["usar_snippet_se_falhar"])
+        usar_snippet_se_falhar=S.CLASSIFICACAO["usar_snippet_se_falhar"],
+        palavras_tecnologia={k: tuple(sorted(palavras_chave_tecnologia(v))) for k, v in V.TECNOLOGIAS.items()})
 
 
 def estimar(args):
@@ -132,7 +133,8 @@ def rodar(args, etapas):
                               auditoria=args.auditoria or 0, semente=run_id)
         if "classificacao" in etapas:
             classificacao.executar(repo, fab.bruto, fab.classificador, run_id, origem_cl, _params_classificacao(),
-                                   C.UFS, fab.segredos, S.PAUSAS["classificacao"], args.limite, set(ufs))
+                                   C.UFS, fab.segredos, S.PAUSAS["classificacao"], args.limite, set(ufs),
+                                   max_falhas_por_item=S.CLASSIFICACAO["max_falhas_por_item"])
     except KeyboardInterrupt:
         status = "interrompida"
         logging.warning("Interrupted. Resume with: python main.py %s --retomar %s", args.cmd, run_id)

@@ -175,4 +175,4 @@ def test_execucao_grava_o_resumo_de_metricas(ambiente_cli, monkeypatch):
     assert m["latencia_media_ms"] == 1
     metricas = {l["chave"]: l["valor"] for l in _banco(ambiente_cli).execute("SELECT * FROM metricas_run")}
     assert metricas == {"download_candidatos": 6, "download_selecionados": 6, "download_auditoria_amostra": 0,
-                        "classificacao_ignorados_sem_texto": 0}
+                        "classificacao_ignorados_sem_texto": 0, "classificacao_desistencias": 0}

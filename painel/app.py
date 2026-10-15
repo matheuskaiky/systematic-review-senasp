@@ -4,6 +4,7 @@ import hmac
 import json
 import secrets
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from pathlib import Path
 from urllib.parse import quote, unquote, urlencode, urlsplit
 
@@ -388,7 +389,13 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         fases = {}
         for c in d["caixas"]:
             fases.setdefault(c["fase"], []).append(c)
-        return pagina(request, "prisma.html", d=d, fases=fases)
+        valores = {c["metrica"]: c["valor"] for c in d["caixas"]}
+        informados = valores.get("buscas manuais: selecionados (contagem informada)")
+        importados = valores.get("buscas manuais: artigos importados (por base)")
+        aviso_manual = None
+        if d["n_buscas_manuais"] and informados is not None and importados is not None and informados != importados:
+            aviso_manual = (informados, importados)
+        return pagina(request, "prisma.html", d=d, fases=fases, aviso_manual=aviso_manual)
 
     # ---------- achados ----------
     @app.get("/achados", response_class=HTMLResponse)
@@ -554,4 +561,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
         return resposta
 
+    from painel import rotas_extras
+    rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos,
+                                                 pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita))
     return app

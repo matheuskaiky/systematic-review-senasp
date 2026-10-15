@@ -3,11 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>{% block titulo %}Painel{% endblock %} · IA na Segurança Pública</title>
 <link rel="stylesheet" href="/static/painel.css">
 {% block extra_head %}{% endblock %}
 </head>
 <body>
+<a class="pular" href="#conteudo">Ir para o conteúdo</a>
 {% set banco_rotulo = {"real": "BANCO REAL", "simulado": "SIMULADO", "demo": "DEMONSTRAÇÃO (dados fictícios)"} %}
 <header class="banner banner-{{ ctx.banco }}" role="banner">
   <strong>{{ banco_rotulo[ctx.banco] }}</strong>
@@ -29,8 +31,12 @@
     <span class="menu-grupo">Pipeline</span>
     {{ item("/execucoes", "Execuções", "/execucoes") }}
     {{ item("/chamadas", "Chamadas", "/chamadas") }}
+    {{ item("/classificadores", "Classificadores", "/classificadores") }}
+    <span class="menu-grupo">Relatório</span>
+    {{ item("/metodologia", "Metodologia", "/metodologia") }}
+    {{ item("/sobre", "Sobre os dados", "/sobre") }}
   </nav>
-  <main id="conteudo">{% block conteudo %}{% endblock %}</main>
+  <main id="conteudo" tabindex="-1">{% block conteudo %}{% endblock %}</main>
 </div>
 <script src="/static/painel.js" defer></script>
 </body>

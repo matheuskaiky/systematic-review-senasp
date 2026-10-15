@@ -150,6 +150,15 @@ def rodar(args, etapas):
         logging.info("Run %s: %s", run_id, status)
 
 
+def _avisar_conflitos(repo, rotulo):
+    """Linhas ignoradas porque o banco mudou depois da exportacao (painel ou outra planilha): nada foi sobrescrito."""
+    conflitos = getattr(repo, "conflitos_importacao", [])
+    if conflitos:
+        print(f"CONFLITOS: {len(conflitos)} linha(s) ignorada(s), pois o {rotulo} mudou no banco depois que a planilha foi exportada. "
+              f"Nada foi sobrescrito; exporte de novo e refaça essas linhas. {rotulo.capitalize()} (linha da planilha): "
+              + ", ".join(f"{i} (linha {l})" for i, l in conflitos))
+
+
 def abrir_painel(a, fab):
     """Liga o painel aos adaptadores e o serve em 127.0.0.1. Importa o servidor so aqui: as demais etapas nao precisam dele."""
     if a.host not in ("127.0.0.1", "localhost"):
@@ -168,6 +177,29 @@ def abrir_painel(a, fab):
     app = criar_app(fab.leitura_painel(), fab.novo_repositorio, fab.bruto, contexto)
     print(f"Painel ({banco}): http://{a.host}:{a.porta}   (Ctrl+C para encerrar)")
     uvicorn.run(app, host=a.host, port=a.porta, log_level="warning")
+
+
+def gerar_relatorio(a, fab):
+    """Gera UM arquivo HTML autocontido (CSS e SVG embutidos, sem scripts) com os resultados do banco escolhido.
+    Importa o painel so aqui: as demais etapas nao precisam dele."""
+    from painel import relatorio
+    if a.simulado and a.demo:
+        raise SystemExit("Use --simulado ou --demo, não os dois.")
+    if not fab.caminho_banco.exists():
+        raise SystemExit(f"O banco {fab.caminho_banco.name} ainda não existe: não há o que relatar. "
+                         + ("Rode antes: python main.py painel-demo" if a.demo else "Rode antes o pipeline (por exemplo, python main.py pipeline-uf --ufs PI --limite 5)."))
+    banco = "demo" if a.demo else "simulado" if a.simulado else "real"
+    agora = datetime.now()
+    dados = relatorio.coletar_dados(fab.leitura_painel(), dict(C.UFS), {t.id: t.query for t in C.TERMOS}, tuple(C.BASES_MANUAIS),
+                                    banco, fab.caminho_banco.name, agora.isoformat(timespec="seconds"), a.incluir_nao_verificados)
+    estaticos = Path(relatorio.__file__).parent / "static"
+    css = "\n".join((estaticos / nome).read_text(encoding="utf-8") for nome in ("painel.css", "metodologia.css"))
+    html = relatorio.montar_relatorio(dados, a.incluir_nao_verificados, css)
+    prefixo = "demo_" if a.demo else "simulado_" if a.simulado else ""
+    saida = Path(a.saida) if a.saida else S.OUT_DIR / f"{prefixo}relatorio_{agora:%Y%m%d_%H%M}.html"
+    saida.parent.mkdir(parents=True, exist_ok=True)
+    saida.write_text(html, encoding="utf-8")
+    print("Generated:", saida)
 
 
 def main():
@@ -197,6 +229,11 @@ def main():
     s.add_argument("--simulado", action="store_true"); s.add_argument("--demo", action="store_true")
     s.add_argument("--porta", type=int, default=8000); s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--somente-leitura", action="store_true", help="nenhuma decisao pode ser gravada")
+    s = sub.add_parser("painel-relatorio", help="gera um arquivo HTML unico (sem scripts) com os resultados do banco")
+    s.add_argument("--simulado", action="store_true"); s.add_argument("--demo", action="store_true")
+    s.add_argument("--saida", help="arquivo .html de saida (padrao: outputs/relatorio_AAAAMMDD_HHMM.html)")
+    s.add_argument("--incluir-nao-verificados", action="store_true",
+                   help="acrescenta, em secao separada e marcados, os achados ainda nao verificados por humano")
     for nome in ("manual-importar", "manual-artigos-importar", "triagem-importar", "achados-importar"):
         s = sub.add_parser(nome); s.add_argument("arquivo"); s.add_argument("--simulado", action="store_true")
         if nome == "triagem-importar":
@@ -225,6 +262,8 @@ def main():
         print("Generated:", painel_demo.construir(S.DATA_DIR))
     elif a.cmd == "painel":
         abrir_painel(a, fab)
+    elif a.cmd == "painel-relatorio":
+        gerar_relatorio(a, fab)
     elif a.cmd == "execucao-excluir":
         fab.repo.definir_no_relatorio(a.run_id, False, a.motivo or None)
         print(f"Execução {a.run_id} fora do relatório (os dados continuam no banco; reverta com execucao-incluir).")
@@ -248,10 +287,12 @@ def main():
     elif a.cmd == "triagem-importar":
         print("Rows imported:", fab.repo.importar_triagem(pd.read_excel(a.arquivo, sheet_name="Triagem"),
                                                     so_historico=a.independente))
+        _avisar_conflitos(fab.repo, "artigo")
     elif a.cmd == "achados-importar":
         permitidos = set(V.STATUS) | set(V.STATUS_FINAL_EXTRA)
         print("Findings verified:", fab.repo.importar_verificacao_achados(
             pd.read_excel(a.arquivo, sheet_name="Achados"), permitidos))
+        _avisar_conflitos(fab.repo, "achado")
 
 
 if __name__ == "__main__":

@@ -2,10 +2,13 @@
 Nunca toca `busca.db` nem `simulado.db`. Hosts ficticios: `*.exemplo.gov.br` (oficial) e `*.example` (nao oficial).
 Fica na raiz, como `composicao.py`: liga `aplicacao/` a `adaptadores/`, o que o painel proprio nao pode fazer."""
 import hashlib
+import json
 import logging
 import random
 import shutil
+import sqlite3
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import config.settings as S
@@ -257,3 +260,198 @@ def construir(pasta_dados=None):
     finally:
         logging.disable(logging.NOTSET)
     return banco
+
+
+# ============================== banco grande, so para medir desempenho ==============================
+GRANDE = {"resultados": 3000, "classificacoes": 1000, "achados": 2000, "artigos": 1500, "textos_reais": 24}
+
+
+def _inserir_lote(conn, tabela, colunas, linhas):
+    conn.executemany(f"INSERT INTO {tabela} ({', '.join(colunas)}) VALUES ({', '.join('?' * len(colunas))})", linhas)
+
+
+def construir_grande(pasta_dados=None):
+    """Recria `demo_grande.db` e `raw_demo_grande/` (mesmos dados sempre) e devolve o caminho do banco.
+
+    Banco ficticio em escala de uma coleta completa (cerca de 3.000 resultados web, 1.000 classificacoes, 2.000 achados,
+    1.500 artigos e mais de 2.000 chamadas), gravado em lote direto no SQLite: existe so para medir o tempo das paginas.
+    Nunca toca `busca.db`, `simulado.db` nem `demo.db`. Hosts ficticios: `*.exemplo.gov.br` e `*.example`."""
+    pasta = Path(pasta_dados or S.DATA_DIR)
+    banco, raw = pasta / "demo_grande.db", pasta / "raw_demo_grande"
+    for alvo in (banco, Path(str(banco) + "-wal"), Path(str(banco) + "-shm")):
+        alvo.unlink(missing_ok=True)
+    shutil.rmtree(raw, ignore_errors=True)
+    RepositorioSQLite(banco).fechar()                              # aplica o schema
+    bruto, rnd = BrutoLocal(raw), random.Random(SEMENTE + 7)
+    snap = S.snapshot_config()
+    conn = sqlite3.connect(banco)
+    try:
+        _povoar_grande(conn, bruto, rnd, snap)
+        conn.commit()
+        conn.execute("ANALYZE")
+        conn.commit()
+    finally:
+        conn.close()
+    return banco
+
+
+def _povoar_grande(conn, bruto, rnd, snap):
+    tecs, ufs, termos = list(V.TECNOLOGIAS), list(C.UFS), [t.id for t in C.TERMOS]
+    inicio = datetime(2026, 10, 1, 9, 0, tzinfo=timezone.utc)
+
+    def quando(n):
+        return (inicio + timedelta(seconds=7 * n)).isoformat(timespec="seconds")
+
+    runs = {k: f"20261001_{9 + i:02d}0000_g{i:05d}" for i, k in enumerate(["web", "baixar", "classif", "classif_b", "acad", "parada", "falha"])}
+    comandos = {"web": "busca-web", "baixar": "baixar", "classif": "classificar", "classif_b": "classificar", "acad": "academico",
+                "parada": "busca-web", "falha": "busca-web"}
+    status = {"parada": "interrompida", "falha": "falhou"}
+    cols_exec = ["run_id", "iniciado_em", "finalizado_em", "comando", "config_hash", "config_json", "commit_git", "status", "metricas_json",
+                 "run_origem", "no_relatorio", "motivo_exclusao"]
+    origem = {"baixar": "web", "classif": "baixar", "classif_b": "baixar"}
+    fora = {"classif_b": "comparação de classificadores (demonstração)", "parada": "execução interrompida (demonstração)",
+            "falha": "execução com falha (demonstração)"}
+    _inserir_lote(conn, "execucoes", cols_exec, [
+        (runs[k], quando(i * 1000), quando(i * 1000 + 600), comandos[k], snap["hash"], snap["json"], "demo", status.get(k, "concluida"),
+         json.dumps({"itens": 1000 + i}), runs.get(origem.get(k)), 0 if k in fora else 1, fora.get(k)) for i, k in enumerate(runs)])
+
+    # ---- chamadas (id explicito para ligar as demais tabelas) ----
+    cols_ch = ["chamada_id", "run_id", "etapa", "provedor", "operacao", "alvo_tipo", "alvo_id", "uf", "pagina", "parametros_json",
+               "chave_idempotencia", "requisitado_em", "http_status", "sucesso", "tentativas", "latencia_ms", "total_reportado",
+               "n_retornados", "n_novos", "tokens_entrada", "tokens_saida", "custo_usd", "erro", "raw_path", "raw_sha256", "extras_json"]
+    chamadas, proximo = [], [1]
+
+    def chamada(run, etapa, prov, op, tipo, alvo, uf=None, pagina=None, ok=True, erro=None, **kw):
+        cid = proximo[0]
+        proximo[0] += 1
+        chamadas.append((cid, runs[run], etapa, prov, op, tipo, alvo, uf, pagina, "{}", f"{etapa}:{alvo}:{pagina}:{cid}", quando(cid), 200 if ok else 503,
+                         int(ok), 1, 100 + (cid * 37) % 2400, kw.get("total"), kw.get("n"), kw.get("novos"), kw.get("te"), kw.get("ts"),
+                         kw.get("custo"), erro, kw.get("raw"), kw.get("sha"), "{}"))
+        return cid
+
+    # busca web: 27 UFs x 5 tecnologias
+    consultas = [(f"M01-{uf}-{t}", uf, t) for uf in ufs for t in tecs]
+    cham_web = {c[0]: chamada("web", "busca_web", "demo_busca", "buscar", "consulta_web", c[0], c[1], custo=0.005, n=22) for c in consultas}
+    bruto_ids = []
+    for cid, run, etapa, *_ in list(chamadas)[:12]:                  # alguns arquivos brutos reais, para a tela de uma chamada
+        caminho, sha = bruto.salvar("web", runs["web"], f"c{cid}", json.dumps({"demo": True, "chamada": cid}).encode(), "json")
+        chamadas[cid - 1] = chamadas[cid - 1][:23] + (caminho, sha, "{}")
+        bruto_ids.append(cid)
+
+    # urls e resultados (3.000, com repeticao de URLs entre consultas)
+    n_urls = 2400
+    urls = []
+    for i in range(1, n_urls + 1):
+        oficial = i % 5 < 2
+        uf_u = ufs[i % len(ufs)].lower()
+        host = f"ssp.{uf_u}.exemplo.gov.br" if oficial else f"noticias-{i % 90}.example"
+        u = f"https://{host}/materia/{i}"
+        urls.append((i, u, u, host, int(oficial), runs["web"], quando(i)))
+    _inserir_lote(conn, "urls", ["url_id", "url_normalizada", "url_original", "dominio", "fonte_oficial", "primeira_vez_run", "primeira_vez_em"], urls)
+    resultados, pares = [], {}
+    for n in range(GRANDE["resultados"]):
+        cons = consultas[n % len(consultas)]
+        url_id = 1 + (n * 7 + rnd.randrange(n_urls)) % n_urls
+        tec = cons[2]
+        resultados.append((cham_web[cons[0]], runs["web"], cons[0], cons[1], tec, "oficial", url_id, 1 + n // len(consultas),
+                           f"{tec.replace('_', ' ').capitalize()} em {cons[1]} (matéria {n})", f"A secretaria {FRASES[tec]}.",
+                           None, None if n % 25 else "Vila Modelo"))
+        pares.setdefault((url_id, cons[1]), tec)
+    _inserir_lote(conn, "resultados_web", ["chamada_id", "run_id", "consulta_id", "uf", "tecnologia", "perfil", "url_id", "posicao", "titulo",
+                                           "snippet", "data_pub", "cidade"], resultados)
+
+    # selecao (todas as decisoes) e paginas das selecionadas
+    selecionadas, selecao = [], []
+    for k, ((url_id, uf), tec) in enumerate(sorted(pares.items())):
+        oficial = urls[url_id - 1][4]
+        sel = bool(oficial) and len(selecionadas) < GRANDE["classificacoes"] and k % 2 == 0
+        if sel:
+            selecionadas.append((url_id, uf, tec))
+        motivo = None if sel else (("dominio_excluido" if k % 7 == 0 else "nao_oficial") if not oficial
+                                   else ("prefiltro_palavras" if k % 3 else "limite_por_uf"))
+        selecao.append((runs["baixar"], url_id, uf, int(sel), motivo))
+    _inserir_lote(conn, "selecao_download", ["run_id", "url_id", "uf", "selecionada", "motivo"], selecao)
+    while len(selecionadas) < GRANDE["classificacoes"]:                 # garante o numero pedido de classificacoes
+        url_id = 1 + len(selecionadas) % n_urls
+        selecionadas.append((url_id, ufs[len(selecionadas) % len(ufs)], tecs[len(selecionadas) % len(tecs)]))
+    selecionadas = selecionadas[:GRANDE["classificacoes"]]
+
+    paginas, cham_pag, textos_reais = [], {}, {}
+    for i, (url_id, uf, tec) in enumerate(selecionadas, start=1):
+        sorteio = i % 20
+        ok = sorteio >= 3
+        cid = chamada("baixar", "download", "demo_fetcher", "baixar", "url", str(url_id), uf, ok=sorteio != 0, erro=None if sorteio else "HTTP 404", n=4000)
+        texto_path = None
+        if ok and len(textos_reais) < GRANDE["textos_reais"]:
+            corpo = (PREAMBULO.format(a=f"A Secretaria do estado {FRASES[tec]}.") + f"Contexto: {FRASES[tec]}, segundo nota oficial de {uf}. "
+                     + "Texto de preenchimento para dar volume à página. " * 400 + POSFACIO)
+            texto_path, _ = bruto.salvar("texto", runs["baixar"], f"p{i}", corpo.encode(), "txt")
+            textos_reais[i] = corpo
+        paginas.append((i, runs["baixar"], url_id, cid, urls[url_id - 1][1], 200 if sorteio else 404, "text/html", 4000, 0, texto_path,
+                        4000 if ok else 0, "demo", int(ok), None if ok else ("texto_insuficiente" if sorteio == 1 else "tipo_nao_suportado:application/zip" if sorteio == 2 else None),
+                        urls[url_id - 1][3], urls[url_id - 1][4]))
+        cham_pag[i] = cid
+    _inserir_lote(conn, "paginas", ["pagina_id", "run_id", "url_id", "chamada_id", "url_final", "http_status", "content_type", "n_bytes", "truncado",
+                                    "texto_path", "n_chars", "extrator", "extracao_ok", "motivo_falha", "dominio_final", "fonte_oficial_final"], paginas)
+
+    # classificacoes e achados
+    cls, achados = [], []
+    for i, (url_id, uf, tec) in enumerate(selecionadas, start=1):
+        com_texto = (i % 20) >= 3
+        origem_t = "pagina" if com_texto else "snippet"
+        cid = chamada("classif", "classificacao", "demo:modelo-a", "classificar", "item", f"{url_id}:{uf}", uf, ok=i % 40 != 0,
+                      erro=None if i % 40 else "HTTP 503: modelo indisponível (demonstração)", te=900 + i % 800, ts=120 + i % 200,
+                      custo=(900 + i % 800) * 0.3e-6 + (120 + i % 200) * 2.5e-6)
+        n_ach = [0, 2, 2, 3, 2, 2, 3, 2][i % 8]
+        cls.append((i, cid, runs["classif"], url_id, i, uf, origem_t, 0, 3000, "demo:modelo-a", None if i % 30 else "Vila Modelo", "v3-demo",
+                    int(n_ach > 0), 1, n_ach, 0, "{}"))
+        for j in range(n_ach):
+            t = tecs[(tecs.index(tec) + j) % len(tecs)]
+            conf = "baixa" if origem_t == "snippet" else ("alta", "media", "baixa")[(i + j) % 3]
+            confere = int((i + j) % 5 != 0)
+            if i in textos_reais:
+                evidencia = FRASES[tec] if confere and t == tec else "informou que usa tecnologia de IA em diversas frentes"
+            else:
+                evidencia = FRASES[t]
+            ver = int((i * 3 + j) % 10 < 3)
+            achados.append((i, uf, t, list(V.STATUS)[(i + j) % 6], FORNECEDORES[(i + j) % 5], 0, evidencia, confere, conf, conf, int(confere), 0,
+                            ver, list(V.STATUS)[(i + j) % 6] if ver else None, "Revisora Demo" if ver else None, quando(i) if ver else None))
+    _inserir_lote(conn, "classificacoes", ["classificacao_id", "chamada_id", "run_id", "url_id", "pagina_id", "uf", "origem_texto", "texto_truncado",
+                                           "n_chars_enviados", "classificador", "cidade", "prompt_versao", "relevante", "json_valido", "n_achados",
+                                           "n_achados_invalidos", "resposta_texto"], cls)
+    _inserir_lote(conn, "achados", ["classificacao_id", "uf", "tecnologia", "status_reportado", "fornecedor", "menciona_lgpd", "evidencia",
+                                    "evidencia_confere", "confianca", "confianca_original", "evidencia_cita_tecnologia", "evidencia_cita_lgpd",
+                                    "verificado", "status_final", "verificado_por", "verificado_em"], achados)
+
+    # literatura: 1.500 artigos, ocorrencias do Scholar e das bases manuais, triagem
+    arts = [(n, hashlib.sha1(f"grande-{n}".encode()).hexdigest(), _titulo(n), f"https://revista-{n % 9}.example/artigo/{n}",
+             f"Autora {n % 11} et al. - Revista Exemplo, {2019 + n % 8}", 2019 + n % 8, f"Resumo fictício do estudo {n}.",
+             None if n % 6 == 0 else (n * 37) % 400, runs["acad"], quando(n)) for n in range(1, GRANDE["artigos"] + 1)]
+    _inserir_lote(conn, "artigos", ["artigo_id", "chave_dedup", "titulo", "link", "autores_publicacao", "ano", "snippet", "citacoes",
+                                    "primeira_vez_run", "primeira_vez_em"], arts)
+    cham_ac = {t: [chamada("acad", "busca_academica", "demo_scholar", "buscar_pagina", "termo", t, pagina=p, total=60, n=20, novos=10) for p in (1, 2, 3)]
+               for t in termos}
+    ocorr = []
+    for n in range(1, GRANDE["artigos"] + 1):
+        for k in range(1 + n % 3):                                      # 1 a 3 termos por artigo: ha sobreposicao entre termos
+            t = termos[(n * 5 + k * 13) % len(termos)]
+            ocorr.append((cham_ac[t][n % 3], n, t, runs["acad"], 1 + n % 20, None if n % 6 == 0 else (n * 37) % 400))
+    _inserir_lote(conn, "ocorrencias", ["chamada_id", "artigo_id", "termo_id", "run_id", "posicao", "citacoes_no_momento"], ocorr)
+    bases = list(C.BASES_MANUAIS)
+    _inserir_lote(conn, "ocorrencias_manuais", ["artigo_id", "base", "termo_id", "data_busca", "posicao", "importado_em"],
+                  [(n, bases[n % 4], termos[n % 8], "2026-10-02", n, quando(n)) for n in range(1, 301)])
+    _inserir_lote(conn, "buscas_manuais", ["base", "termo_id", "string_base", "filtros", "n_resultados", "n_apos_filtro", "n_selecionados", "data_busca"],
+                  [(bases[i % 4], termos[i % 8], f'"{termos[i % 8]}"', "2019-2026", 100 + i, 50 + i, 10 + i, "2026-10-02") for i in range(12)])
+    triagem = []
+    for n in range(1, GRANDE["artigos"] + 1):
+        d = "pendente" if n % 100 >= 45 else ("incluir" if n % 2 else "excluir")
+        tf = "incluir" if d == "incluir" and n % 4 == 1 else None
+        triagem.append((n, d, None if d != "excluir" else "fora do escopo (não trata de segurança pública)", None, None,
+                        "Revisora Demo" if d != "pendente" else None, quando(n) if d != "pendente" else None, tf, None))
+    _inserir_lote(conn, "triagem", ["artigo_id", "decisao", "motivo", "confirmado_em_base", "link_confirmado", "revisor", "revisado_em",
+                                    "decisao_texto_completo", "motivo_texto_completo"], triagem)
+    _inserir_lote(conn, "triagem_revisoes", ["artigo_id", "revisor", "decisao", "motivo", "importado_em", "independente"],
+                  [(n, r, "incluir" if (n + k) % 3 else "excluir", None, quando(n), 1) for n in range(1, 401) for k, r in enumerate(["Revisora A", "Revisora B"])])
+    _inserir_lote(conn, "saldos", ["run_id", "provedor", "momento", "valor", "registrado_em"],
+                  [(runs["web"], "demo_busca", "inicio", 1000, quando(1)), (runs["web"], "demo_busca", "fim", 1000 - 135 * 0.005 * 200, quando(2))])
+    _inserir_lote(conn, "chamadas", cols_ch, chamadas)

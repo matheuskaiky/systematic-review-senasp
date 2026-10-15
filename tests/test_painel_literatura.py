@@ -256,3 +256,17 @@ def test_repositorio_registrar_triagem_valida_e_nao_deixa_transacao_aberta(ctx):
     assert not r.conn.in_transaction
     r.registrar_triagem(_pendente(copia), "incluir", "Ana", versao="nao-triado")
     assert not r.conn.in_transaction
+
+
+def test_prisma_avisa_quando_selecionados_informados_nao_batem_com_os_importados(ctx):
+    cli, copia, _ = ctx
+    selecionados = _um(copia, "SELECT COALESCE(SUM(n_selecionados), 0) FROM buscas_manuais")
+    importados = _um(copia, "SELECT COUNT(DISTINCT artigo_id || '|' || base) FROM ocorrencias_manuais")
+    assert selecionados != importados                                    # na demonstracao a divergencia e proposital
+    h = cli.get("/literatura/prisma").text
+    assert "Confira as buscas manuais" in h and f"{selecionados}" in h and f"{importados}" in h
+    c = sqlite3.connect(copia)
+    c.execute("UPDATE buscas_manuais SET n_selecionados = 0")
+    c.execute("UPDATE buscas_manuais SET n_selecionados = ? WHERE id = (SELECT MIN(id) FROM buscas_manuais)", (importados,))
+    c.commit()
+    assert "Confira as buscas manuais" not in cli.get("/literatura/prisma").text

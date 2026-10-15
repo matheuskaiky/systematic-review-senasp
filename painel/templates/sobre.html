@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Sobre os dados{% endblock %}
+{% block conteudo %}
+<h1>Sobre os dados</h1>
+<p class="sub">O que cada número, status e motivo desta ferramenta significa, em linguagem simples. Os mesmos termos aparecem nas telas e na planilha Excel exportada.</p>
+
+<nav class="cartao sumario" aria-labelledby="sumario-titulo">
+  <h2 id="sumario-titulo">Neste glossário</h2>
+  <ol class="sumario-lista">
+    {% for s in secoes %}
+    <li><a href="#{{ s.id }}">{{ s.titulo }}</a>
+      <span class="sumario-termos">{% for e in s.entradas %}<a href="#{{ e.id }}">{{ e.termo }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</span></li>
+    {% endfor %}
+  </ol>
+</nav>
+
+{% for s in secoes %}
+<section class="cartao glossario" aria-labelledby="{{ s.id }}">
+  <h2 id="{{ s.id }}">{{ s.titulo }}</h2>
+  <p class="sub">{{ s.intro }}</p>
+  {% for e in s.entradas %}
+  <div class="verbete">
+    <h3 id="{{ e.id }}">{{ e.termo }}</h3>
+    <p>{{ e.texto }}</p>
+    {% if e.status and ctx.status_definicoes.get(e.status) %}<p class="oficial"><span class="rotulo-mini">Definição oficial (enviada ao modelo, em inglês)</span><q lang="en">{{ ctx.status_definicoes[e.status] }}</q></p>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endfor %}
+<p><a href="#conteudo">Voltar ao topo</a></p>
+{% endblock %}

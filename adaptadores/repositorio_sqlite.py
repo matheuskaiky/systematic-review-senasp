@@ -330,7 +330,7 @@ class RepositorioSQLite:
             "Sobreposicao": "SELECT * FROM v_sobreposicao_termos",
             "Triagem": """SELECT a.artigo_id, a.titulo, a.ano, a.link, a.citacoes,
                                  COALESCE(t.decisao,'pendente') AS decisao, t.motivo,
-                                 t.confirmado_em_base, t.link_confirmado, t.revisor,
+                                 t.confirmado_em_base, t.link_confirmado, t.revisor, t.revisado_em,
                                  t.decisao_texto_completo, t.motivo_texto_completo
                           FROM artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id
                           ORDER BY COALESCE(a.citacoes,0) DESC, a.artigo_id""",
@@ -415,6 +415,12 @@ class RepositorioSQLite:
                       decisao_texto_completo=tc, motivo_texto_completo=motivo_tc, importado_em=agora(),
                       independente=independente)
 
+    @staticmethod
+    def _carimbo(valor):
+        """Carimbo de tempo de uma celula da planilha como texto ('' se vazia)."""
+        v = _v(valor)
+        return "" if v is None else str(v).strip()
+
     def _ids_validos(self, pares, coluna, tabela, chave, rotulo):
         """Confere, antes de gravar qualquer coisa, que todo identificador da planilha e um inteiro que existe.
         `pares` = [(linha da planilha, valor)], com o cabecalho na linha 1. Devolve os inteiros na mesma ordem."""
@@ -440,6 +446,11 @@ class RepositorioSQLite:
         validos = {"pendente", "incluir", "excluir"}
         tem_tc = "decisao_texto_completo" in df.columns
         ids = self._ids_validos([(pos + 2, v) for pos, v in enumerate(df["artigo_id"])], "artigo_id", "artigos", "artigo_id", "Artigo")
+        self.conflitos_importacao = []
+        confere_versao = "revisado_em" in df.columns and not so_historico
+        atuais = {}
+        if confere_versao:
+            atuais = {r[0]: (r[1] or "") for r in self.conn.execute("SELECT artigo_id, revisado_em FROM triagem")}
         linhas = []
         for pos, (_, r) in enumerate(df.iterrows()):
             dec = str(_v(r["decisao"]) or "pendente").strip().lower()
@@ -452,6 +463,9 @@ class RepositorioSQLite:
                     raise SystemExit(f"Invalid full-text decision for article {ids[pos]}: {tc} (linha {pos + 2})")
                 if "motivo_texto_completo" in df.columns:
                     motivo_tc = _v(r["motivo_texto_completo"])
+            if confere_versao and self._carimbo(r["revisado_em"]) != atuais.get(ids[pos], ""):
+                self.conflitos_importacao.append((ids[pos], pos + 2))        # o banco mudou depois da exportacao
+                continue                                                      # (o erro de digitacao acima ja foi pego)
             linhas.append((ids[pos], r, dec, tc, motivo_tc))
         for artigo_id, r, dec, tc, motivo_tc in linhas:
             motivo = _v(r["motivo"])
@@ -470,7 +484,7 @@ class RepositorioSQLite:
                 self.conn.execute("UPDATE triagem SET decisao_texto_completo=?, motivo_texto_completo=? WHERE artigo_id=?",
                                   (tc, motivo_tc, artigo_id))
         self.conn.commit()
-        return len(df)
+        return len(df) - len(self.conflitos_importacao)
 
     def _estado_achado(self, achado_id):
         l = self.conn.execute("""SELECT verificado, status_final, verificado_por, verificado_em, observacao FROM achados
@@ -656,13 +670,19 @@ class RepositorioSQLite:
                 selecionadas.append((pos, r))
         ids = self._ids_validos([(pos + 2, r["achado_id"]) for pos, r in selecionadas], "achado_id", "achados",
                                 "achado_id", "Achado")
+        self.conflitos_importacao = []
         registros = []
+        confere_versao = "verificado_em" in df.columns
+        atuais = {r[0]: (r[1] or "") for r in self.conn.execute("SELECT achado_id, verificado_em FROM achados")} if confere_versao else {}
         for (pos, r), achado_id in zip(selecionadas, ids):
             bruto_final = _v(r["status_final"])
             final = normalizar_status_final(bruto_final, status_permitidos)
             if final is None:
                 raise SystemExit(f"Invalid status_final for finding {achado_id}: "
                                  f"{None if bruto_final is None else str(bruto_final).strip()!r} (linha {pos + 2})")
+            if confere_versao and self._carimbo(r["verificado_em"]) != atuais.get(achado_id, ""):
+                self.conflitos_importacao.append((achado_id, pos + 2))       # verificado por outra pessoa depois da exportacao
+                continue
             registros.append((achado_id, final, _v(r["verificado_por"]), _v(r["observacao"])))
         if registros:
             marcas = ",".join("?" for _ in registros)

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% import "_selos.html" as s %}
+{% block titulo %}Classificadores{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/classificadores.css">{% endblock %}
+{% macro nd(v, formatar) -%}{% if v is none %}<span class="nao-calculado">não calculado</span>{% else %}{{ formatar(v) }}{% endif %}{%- endmacro %}
+{% macro valor(tipo, v) -%}
+  {%- if tipo == "relevancia" -%}{{ "relevante" if v else "não relevante" }}
+  {%- elif tipo == "status" -%}{{ s.status(v) }}
+  {%- elif tipo == "confianca" -%}{{ s.confianca(v) }}
+  {%- else -%}{% if v %}encontrou {{ s.status(v) }}{% else %}<span class="nao-calculado">não encontrou</span>{% endif %}
+  {%- endif -%}
+{%- endmacro %}
+{% block conteudo %}
+<h1>Classificadores</h1>
+<p class="sub">Dois modelos de linguagem leram as mesmas páginas e chegaram às mesmas conclusões? Escolha duas execuções do comando <code>classificar</code>; o painel compara só as páginas que as duas classificaram (mesma URL e mesma UF). Não importa se a execução está dentro ou fora do relatório.</p>
+
+<form class="filtros escolha" method="get" action="/classificadores">
+  <label for="exec-a">Execução A
+    <select id="exec-a" name="a" required><option value="">Escolha…</option>{% for e in execucoes %}<option value="{{ e.run_id }}"{% if e.run_id == a %} selected{% endif %}>{{ e.run_id }} · {{ e.classificador or "sem classificações" }}</option>{% endfor %}</select></label>
+  <label for="exec-b">Execução B
+    <select id="exec-b" name="b" required><option value="">Escolha…</option>{% for e in execucoes %}<option value="{{ e.run_id }}"{% if e.run_id == b %} selected{% endif %}>{{ e.run_id }} · {{ e.classificador or "sem classificações" }}</option>{% endfor %}</select></label>
+  <button class="botao" type="submit">Comparar</button>
+</form>
+
+{% if aviso %}<p class="aviso aviso-forte" role="status">{{ aviso }}</p>{% endif %}
+
+{% if not r %}
+  {% if not execucoes %}
+  <p class="vazio">Nenhuma execução de classificação registrada. Rode <code>python main.py classificar --de &lt;run_id&gt; --ufs PI --limite 5</code>.</p>
+  {% else %}
+  {% if execucoes|length < 2 %}<p class="vazio">Só há uma execução de classificação. Para comparar dois modelos, troque o classificador em <code>PROVEDORES</code> e rode <code>python main.py classificar --de &lt;run_id_do_download&gt;</code> de novo sobre as mesmas páginas.</p>{% endif %}
+  <section class="cartao"><h2>Execuções de classificação</h2>
+  <div class="tabela-rolavel"><table>
+    <thead><tr><th scope="col">Execução</th><th scope="col">Classificador</th><th scope="col">Versão do prompt</th><th scope="col" class="num">Classificações</th><th scope="col">Início</th><th scope="col">Relatório</th></tr></thead>
+    <tbody>{% for e in execucoes %}
+      <tr><td><a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a></td><td>{{ e.classificador or "—" }}</td><td>{{ e.prompt_versao or "—" }}</td>
+        <td class="num">{{ fmt.numero(e.n_classificacoes) }}</td><td>{{ fmt.data_hora(e.iniciado_em) }}</td>
+        <td>{% if e.no_relatorio %}dentro{% else %}<span class="selo neutro" title="{{ e.motivo_exclusao or '' }}">fora</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div></section>
+  {% endif %}
+{% else %}
+{% set ea_m = r.execucoes.a %}{% set eb_m = r.execucoes.b %}
+
+<section class="cartao"><h2>Execuções comparadas</h2>
+<div class="tabela-rolavel"><table>
+  <thead><tr><th scope="col">Lado</th><th scope="col">Execução</th><th scope="col">Classificador</th><th scope="col">Versão do prompt</th><th scope="col" class="num">Classificações</th><th scope="col">Início</th><th scope="col">Relatório</th></tr></thead>
+  <tbody>{% for lado, e in (("A", ea), ("B", eb)) %}
+    <tr><th scope="row">{{ lado }}</th><td><a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a></td><td>{{ e.classificador or "—" }}</td><td>{{ e.prompt_versao or "—" }}</td>
+      <td class="num">{{ fmt.numero(e.n_classificacoes) }}</td><td>{{ fmt.data_hora(e.iniciado_em) }}</td>
+      <td>{% if e.no_relatorio %}dentro{% else %}<span class="selo neutro" title="{{ e.motivo_exclusao or '' }}">fora</span>{% endif %}</td></tr>
+  {% endfor %}</tbody></table></div>
+<div class="kpis kpis-pares">
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.pares.ambas) }}</span><span class="kpi-rotulo">páginas nas duas execuções</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.pares.so_a) }}</span><span class="kpi-rotulo">só em A (ficam de fora da comparação)</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.pares.so_b) }}</span><span class="kpi-rotulo">só em B (ficam de fora da comparação)</span></div>
+</div></section>
+
+{% if r.pares.ambas %}
+{% set rel = r.relevancia %}
+<section class="cartao" aria-labelledby="h-rel"><h2 id="h-rel">1. Relevância: a página tem ou não uma aplicação de IA?</h2>
+<p class="explica">Concordância é a parcela de páginas em que A e B deram a mesma resposta (relevante ou não). O kappa de Cohen desconta a concordância que aconteceria por puro acaso: 1 é concordância perfeita, 0 é o que o acaso daria e valores negativos indicam que os modelos discordam mais do que o acaso.</p>
+<div class="kpis">
+  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(rel.concordam, rel.n) }}</span><span class="kpi-rotulo">concordância ({{ fmt.numero(rel.concordam) }} de {{ fmt.numero(rel.n) }} páginas)</span></div>
+  <div class="kpi"><span class="kpi-valor">{% if rel.kappa is none %}indefinido{% else %}{{ fmt.decimal(rel.kappa, 2) }}{% endif %}</span>
+    <span class="kpi-rotulo">kappa de Cohen{% if rel.interpretacao %}: concordância {{ rel.interpretacao }}{% endif %}</span></div>
+</div>
+{% if rel.kappa_motivo == "sem_variacao" %}<p class="aviso">O kappa não existe neste caso: as duas execuções deram a mesma resposta em todas as páginas (todas relevantes ou todas não relevantes), e a conta vira zero dividido por zero. A concordância de 100% continua valendo, mas não há como separá-la do acaso.</p>{% endif %}
+<div class="tabela-rolavel"><table class="matriz">
+  <caption>Quantas páginas cada combinação de respostas reuniu</caption>
+  <thead><tr><td></td><th scope="col" class="num">B: relevante</th><th scope="col" class="num">B: não relevante</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">A: relevante</th><td class="num acerto">{{ fmt.numero(rel.tabela.ambas_sim) }}</td><td class="num erro">{{ fmt.numero(rel.tabela.so_a) }}</td></tr>
+    <tr><th scope="row">A: não relevante</th><td class="num erro">{{ fmt.numero(rel.tabela.so_b) }}</td><td class="num acerto">{{ fmt.numero(rel.tabela.ambas_nao) }}</td></tr>
+  </tbody></table></div>
+<p class="explica">As células em destaque na diagonal são as concordâncias. As demais são as páginas listadas como divergência de relevância abaixo.</p>
+</section>
+
+<section class="cartao" aria-labelledby="h-tec"><h2 id="h-tec">2. Tecnologias e achados nas páginas relevantes para os dois</h2>
+<p class="explica">Considera só as páginas que A e B marcaram como relevantes. “Mesmo conjunto” é a parcela de páginas em que os dois citaram exatamente as mesmas tecnologias. O índice de Jaccard mede a sobreposição em cada página (tecnologias em comum dividido pelas citadas por pelo menos um) e aqui aparece a média das páginas: 100% é igualdade, 0% é nada em comum. Um mesmo achado é a mesma tecnologia na mesma página; para esses pares, comparam-se o status e a confiança.</p>
+<div class="kpis">
+  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.tecnologias.iguais, r.tecnologias.n) }}</span><span class="kpi-rotulo">mesmo conjunto de tecnologias ({{ fmt.numero(r.tecnologias.iguais) }} de {{ fmt.numero(r.tecnologias.n) }} páginas)</span></div>
+  <div class="kpi"><span class="kpi-valor">{% if r.tecnologias.jaccard_medio is none %}—{% else %}{{ fmt.pct(r.tecnologias.jaccard_medio, 1) }}{% endif %}</span><span class="kpi-rotulo">Jaccard médio</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.achados.status_iguais, r.achados.pareados) }}</span><span class="kpi-rotulo">mesmo status ({{ fmt.numero(r.achados.status_iguais) }} de {{ fmt.numero(r.achados.pareados) }} achados em comum)</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.achados.confianca_iguais, r.achados.pareados) }}</span><span class="kpi-rotulo">mesma confiança ({{ fmt.numero(r.achados.confianca_iguais) }} de {{ fmt.numero(r.achados.pareados) }} achados em comum)</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.achados.so_a) }}</span><span class="kpi-rotulo">achados só em A</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.achados.so_b) }}</span><span class="kpi-rotulo">achados só em B</span></div>
+</div></section>
+{% endif %}
+
+<section class="cartao" aria-labelledby="h-qual"><h2 id="h-qual">{{ "3" if r.pares.ambas else "1" }}. Qualidade e custo de cada execução</h2>
+<p class="explica">Estes números olham cada execução inteira, não só as páginas em comum, por isso o custo por página compara execuções de tamanhos diferentes. “Evidência confere” é a parcela de achados cujo trecho citado existe de fato no texto enviado ao modelo. “JSON válido” é a parcela de respostas que o programa conseguiu ler. O custo só aparece quando todas as chamadas da execução têm custo registrado; os preços dos modelos são preenchidos pelo pesquisador na configuração.</p>
+<div class="tabela-rolavel"><table>
+  <thead><tr><th scope="col">Medida</th><th scope="col" class="num">A</th><th scope="col" class="num">B</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Páginas classificadas</th><td class="num">{{ fmt.numero(ea_m.n_paginas) }}</td><td class="num">{{ fmt.numero(eb_m.n_paginas) }}</td></tr>
+    <tr><th scope="row">Respostas com JSON válido</th><td class="num">{{ fmt.pct(ea_m.n_json_valido, ea_m.n_paginas) }} <small>({{ fmt.numero(ea_m.n_json_valido) }})</small></td><td class="num">{{ fmt.pct(eb_m.n_json_valido, eb_m.n_paginas) }} <small>({{ fmt.numero(eb_m.n_json_valido) }})</small></td></tr>
+    <tr><th scope="row">Páginas relevantes</th><td class="num">{{ fmt.numero(ea_m.n_relevantes) }}</td><td class="num">{{ fmt.numero(eb_m.n_relevantes) }}</td></tr>
+    <tr><th scope="row">Achados</th><td class="num">{{ fmt.numero(ea_m.n_achados) }}</td><td class="num">{{ fmt.numero(eb_m.n_achados) }}</td></tr>
+    <tr><th scope="row">Evidência confere (execução inteira)</th><td class="num">{{ fmt.pct(ea_m.n_evidencia_confere, ea_m.n_evidencia_avaliada) }} <small>({{ fmt.numero(ea_m.n_evidencia_confere) }} de {{ fmt.numero(ea_m.n_evidencia_avaliada) }})</small></td><td class="num">{{ fmt.pct(eb_m.n_evidencia_confere, eb_m.n_evidencia_avaliada) }} <small>({{ fmt.numero(eb_m.n_evidencia_confere) }} de {{ fmt.numero(eb_m.n_evidencia_avaliada) }})</small></td></tr>
+    {% if r.pares.ambas %}{% set ca = r.evidencia_em_comum.a %}{% set cb = r.evidencia_em_comum.b %}
+    <tr><th scope="row">Evidência confere (só páginas em comum)</th><td class="num">{{ fmt.pct(ca.n_evidencia_confere, ca.n_evidencia_avaliada) }} <small>({{ fmt.numero(ca.n_evidencia_confere) }} de {{ fmt.numero(ca.n_evidencia_avaliada) }})</small></td><td class="num">{{ fmt.pct(cb.n_evidencia_confere, cb.n_evidencia_avaliada) }} <small>({{ fmt.numero(cb.n_evidencia_confere) }} de {{ fmt.numero(cb.n_evidencia_avaliada) }})</small></td></tr>{% endif %}
+    <tr><th scope="row">Custo total</th><td class="num">{{ nd(ea_m.custo_total, fmt.moeda_usd) }}</td><td class="num">{{ nd(eb_m.custo_total, fmt.moeda_usd) }}</td></tr>
+    <tr><th scope="row">Custo por página</th><td class="num">{{ nd(ea_m.custo_por_pagina, fmt.moeda_usd) }}</td><td class="num">{{ nd(eb_m.custo_por_pagina, fmt.moeda_usd) }}</td></tr>
+    <tr><th scope="row">Custo por achado</th><td class="num">{{ nd(ea_m.custo_por_achado, fmt.moeda_usd) }}</td><td class="num">{{ nd(eb_m.custo_por_achado, fmt.moeda_usd) }}</td></tr>
+    <tr><th scope="row">Tokens por página (entrada + saída)</th><td class="num">{{ nd(ea_m.tokens_por_pagina, fmt.numero) }}</td><td class="num">{{ nd(eb_m.tokens_por_pagina, fmt.numero) }}</td></tr>
+  </tbody></table></div>
+</section>
+
+{% if r.pares.ambas %}
+{% set n_div = r.divergencias|length %}
+<section class="cartao" aria-labelledby="h-div"><h2 id="h-div">4. Divergências</h2>
+<p class="explica">Cada linha é um ponto em que A e B diferem. Quando os dois discordam sobre a relevância da página, só essa divergência é listada (as tecnologias seguem dela). Abra o achado para ver o trecho citado e o texto da página.</p>
+{% if not n_div %}<p class="aviso ok">Nenhuma divergência: nas páginas em comum, A e B responderam o mesmo em relevância, tecnologias, status e confiança.</p>
+{% else %}
+<p class="selos">{% for t, rotulo in (("relevancia", "relevância"), ("tecnologia", "tecnologia"), ("status", "status"), ("confianca", "confiança")) %}<span class="selo neutro">{{ fmt.numero(r.divergencias_por_tipo[t]) }} de {{ rotulo }}</span>{% endfor %}</p>
+<p class="contagem">{% if n_div > limite %}Mostrando as primeiras {{ fmt.numero(limite) }} de {{ fmt.numero(n_div) }} divergências.{% else %}{{ fmt.numero(n_div) }} divergência(s).{% endif %}</p>
+<div class="tabela-rolavel"><table class="divergencias">
+  <thead><tr><th scope="col">Tipo</th><th scope="col">UF</th><th scope="col">Página</th><th scope="col">Tecnologia</th><th scope="col">A</th><th scope="col">B</th><th scope="col">O que difere</th><th scope="col">Achados</th></tr></thead>
+  <tbody>{% for d in r.divergencias[:limite] %}
+    <tr><td>{{ {"relevancia": "Relevância", "tecnologia": "Tecnologia", "status": "Status", "confianca": "Confiança"}[d.tipo] }}</td>
+      <td>{{ d.uf }}</td>
+      <td class="quebra">{% if d.url %}<a href="{{ d.url|url_segura }}" rel="noopener noreferrer" target="_blank">{{ d.url|truncate(60, true) }}</a>{% else %}<small>página nº {{ d.url_id }}</small>{% endif %}</td>
+      <td>{% if d.tecnologia %}{{ rotulos.rotulo(rotulos.TECNOLOGIAS, d.tecnologia) }}{% else %}—{% endif %}</td>
+      <td>{{ valor(d.tipo, d.valor_a) }}</td><td>{{ valor(d.tipo, d.valor_b) }}</td>
+      <td>{% if d.tipo == "relevancia" %}{{ "Só A viu aplicação de IA na página." if d.valor_a else "Só B viu aplicação de IA na página." }}
+        {% elif d.tipo == "tecnologia" %}{{ "Só A encontrou esta tecnologia na página." if d.valor_a else "Só B encontrou esta tecnologia na página." }}
+        {% elif d.tipo == "status" %}Mesma tecnologia, situação diferente.
+        {% else %}Mesma tecnologia, grau de confiança diferente.{% endif %}</td>
+      <td class="achados-links">{% if d.achado_id_a %}<a href="/achados/{{ d.achado_id_a }}">A nº {{ d.achado_id_a }}</a>{% endif %}{% if d.achado_id_a and d.achado_id_b %}<br>{% endif %}{% if d.achado_id_b %}<a href="/achados/{{ d.achado_id_b }}">B nº {{ d.achado_id_b }}</a>{% endif %}{% if not d.achado_id_a and not d.achado_id_b %}—{% endif %}</td></tr>
+  {% endfor %}</tbody></table></div>
+{% endif %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

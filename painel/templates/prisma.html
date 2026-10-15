@@ -5,6 +5,7 @@
 <h1>Fluxo PRISMA</h1>
 <p class="sub">Cada número vem direto do banco (view <code>v_prisma</code>). Contagens das buscas manuais são as que <strong>você informou</strong> no CSV; o que ainda não foi informado aparece como “não informado”, nunca como zero inventado.</p>
 {% set nomes = {"identificacao": "Identificação", "triagem": "Triagem (título e resumo)", "elegibilidade": "Elegibilidade (texto completo)", "inclusao": "Inclusão"} %}
+{% if aviso_manual %}<div class="aviso aviso-forte" role="status"><strong>Confira as buscas manuais:</strong> você informou {{ fmt.numero(aviso_manual[0]) }} registro(s) selecionado(s), mas há {{ fmt.numero(aviso_manual[1]) }} artigo(s) importado(s) por base. Importe os artigos que faltam (<code>manual-artigos-importar</code>) ou corrija a contagem no CSV (<code>manual-importar</code>).</div>{% endif %}
 <div class="prisma">
 {% for fase, caixas in fases.items() %}
   <section class="cartao prisma-fase" aria-label="{{ nomes.get(fase, fase) }}"><h2>{{ nomes.get(fase, fase) }}</h2>

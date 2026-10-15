@@ -74,6 +74,9 @@ CREATE TABLE IF NOT EXISTS chamadas (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_chamadas_idem
     ON chamadas(run_id, chave_idempotencia) WHERE sucesso = 1;
+-- v_gasto_real pergunta, para cada chamada sem custo, se o provedor registra custo em alguma outra (EXISTS por provedor):
+-- sem este indice cada pergunta varre a tabela inteira (medido: 533 ms -> poucos ms com 2.300 chamadas)
+CREATE INDEX IF NOT EXISTS ix_chamadas_provedor_custo ON chamadas(provedor, custo_usd);
 
 -- ===== Task 2: literature =====
 CREATE TABLE IF NOT EXISTS artigos (
@@ -358,7 +361,7 @@ CREATE VIEW v_achados_revisao AS
 SELECT a.achado_id, k.run_id, a.uf, a.tecnologia, a.status_reportado, a.fornecedor, a.menciona_lgpd,
        a.evidencia, a.evidencia_confere, a.confianca, k.origem_texto, k.classificador,
        u.url_original AS url, u.dominio, u.fonte_oficial,
-       a.verificado, a.status_final, a.verificado_por, a.observacao,
+       a.verificado, a.status_final, a.verificado_por, a.verificado_em, a.observacao,
        EXISTS (SELECT 1 FROM v_pares_auditoria pa WHERE pa.url_id = k.url_id AND pa.uf = k.uf) AS auditoria,
        p.dominio_final, p.fonte_oficial_final,
        a.evidencia_cita_tecnologia, a.evidencia_cita_lgpd, k.cidade

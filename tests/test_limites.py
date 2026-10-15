@@ -18,7 +18,7 @@ from dados_metricas import (BuscaSemPalavraChave, _consulta_pi, _id_artigo, _nov
 from dominio.modelos import CandidatoDownload, PoliticaDownload, Termo
 from dominio.servicos import escolher_auditoria, selecionar_candidatos, termo_composto
 
-STATUS_PERMITIDOS = {"em_uso", "piloto", "licitacao", "anunciado", "apenas_citado", "descartado"}
+STATUS_PERMITIDOS = {"em_uso", "piloto", "licitacao", "anunciado", "em_estudo", "apenas_citado", "descartado"}
 
 
 def _linhas(repo, view, where=""):

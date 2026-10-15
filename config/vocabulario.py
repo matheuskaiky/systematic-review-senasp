@@ -14,6 +14,7 @@ STATUS = {
     "piloto": "test, pilot project or partial deployment",
     "licitacao": "tender, auction, contract or acquisition in progress or signed",
     "anunciado": "announcement or future plan, with no proven contract or operation",
+    "em_estudo": "technology under study, feasibility assessment or internal development, with no deployment, pilot, procurement or announced date",
     "apenas_citado": "generic mention, with no indication of deployment by the agency",
 }
 

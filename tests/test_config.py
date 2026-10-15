@@ -98,3 +98,26 @@ def test_snapshot_config_muda_quando_a_configuracao_muda(monkeypatch):
     antes = S.snapshot_config()["hash"]
     monkeypatch.setitem(S.PROVEDORES, "busca_web", "serpapi_google")
     assert S.snapshot_config()["hash"] != antes
+
+
+def test_vocabulario_de_status_tem_em_estudo_entre_anunciado_e_apenas_citado():
+    chaves = list(V.STATUS)
+    assert chaves == ["em_uso", "piloto", "licitacao", "anunciado", "em_estudo", "apenas_citado"]
+    assert "under study" in V.STATUS["em_estudo"] and "no deployment" in V.STATUS["em_estudo"]
+    assert "- em_estudo: " in P.SYSTEM_PROMPT
+
+
+def test_prompt_exige_trecho_que_nomeie_a_tecnologia_e_lgpd_so_no_trecho():
+    s = P.SYSTEM_PROMPT
+    assert "itself names or describes the technology" in s
+    assert "look ONLY at the 'evidencia' excerpt" in s and "even when other parts of the page mention them" in s
+
+
+def test_esquema_aceita_o_novo_status():
+    from dominio.esquemas import esquema_classificacao
+    e = esquema_classificacao(tuple(V.TECNOLOGIAS), tuple(V.STATUS), V.CONFIANCA)
+    assert "em_estudo" in e["properties"]["achados"]["items"]["properties"]["status"]["enum"]
+
+
+def test_status_final_permitido_inclui_em_estudo_e_descartado():
+    assert {"em_estudo", "descartado"} <= set(V.STATUS) | set(V.STATUS_FINAL_EXTRA)

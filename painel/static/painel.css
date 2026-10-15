@@ -183,3 +183,17 @@ pre.comando { white-space: pre-wrap; }
 .ficha { margin-bottom: 1.25rem; }
 summary.titulo-recolhivel { cursor: pointer; font-size: 1.1rem; font-weight: 700; }
 summary.titulo-recolhivel small { font-weight: 400; color: var(--texto-suave); }
+
+ol.numerada { list-style: decimal; padding-left: 1.4rem; }
+svg.calor { width: 100%; max-width: 900px; height: auto; display: block; }
+.gr-calor-rot { fill: var(--texto-suave); font-size: 8px; }
+.gr-eixo { fill: var(--texto-suave); font-size: 12px; }
+.calor-0 { fill: var(--superficie); stroke: var(--borda); stroke-width: .5; } .calor-1 { fill: #c9def0; } .calor-2 { fill: #8fbbe0; }
+.calor-3 { fill: #4f8fc4; } .calor-4 { fill: #1f5f8b; } .calor-diag { fill: var(--borda); }
+@media (prefers-color-scheme: dark) { .calor-1 { fill: #25445c; } .calor-2 { fill: #2f6a94; } .calor-3 { fill: #4b94c6; } .calor-4 { fill: #8fcbf0; } }
+span.amostra { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--borda); vertical-align: middle; border-radius: 3px; }
+span.amostra.calor-diag { background: var(--borda); } span.amostra.calor-1 { background: #c9def0; } span.amostra.calor-4 { background: #1f5f8b; }
+.prisma { display: grid; gap: .25rem; max-width: 760px; }
+.seta-prisma { text-align: center; color: var(--texto-suave); }
+.caixa-prisma { display: grid; grid-template-columns: 7rem 1fr; gap: 1rem; align-items: center; padding: .5rem 0; border-bottom: 1px solid var(--borda); }
+.num-prisma { font-size: 1.5rem; font-weight: 700; text-align: right; } .num-prisma .nd { font-size: .8rem; font-weight: 600; color: var(--alerta); }

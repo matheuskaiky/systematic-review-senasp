@@ -160,7 +160,7 @@ def abrir_painel(a, fab):
     contexto = Contexto(
         banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
         pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
-        status_definicoes=dict(V.STATUS),
+        status_definicoes=dict(V.STATUS), termos={t.id: t.query for t in C.TERMOS}, bases=tuple(C.BASES_MANUAIS),
         comando_criar_banco="python main.py painel-demo" if a.demo else
         "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5")
     if not fab.caminho_banco.exists() and a.demo:

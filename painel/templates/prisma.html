@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block titulo %}Fluxo PRISMA{% endblock %}
+{% block conteudo %}
+<p class="trilha"><a href="/literatura">Literatura</a> › PRISMA</p>
+<h1>Fluxo PRISMA</h1>
+<p class="sub">Cada número vem direto do banco (view <code>v_prisma</code>). Contagens das buscas manuais são as que <strong>você informou</strong> no CSV; o que ainda não foi informado aparece como “não informado”, nunca como zero inventado.</p>
+{% set nomes = {"identificacao": "Identificação", "triagem": "Triagem (título e resumo)", "elegibilidade": "Elegibilidade (texto completo)", "inclusao": "Inclusão"} %}
+<div class="prisma">
+{% for fase, caixas in fases.items() %}
+  <section class="cartao prisma-fase" aria-label="{{ nomes.get(fase, fase) }}"><h2>{{ nomes.get(fase, fase) }}</h2>
+    <ul class="lista-simples">{% for c in caixas %}
+      {% set manual = "buscas manuais" in c.metrica %}{% set scholar = "Google Scholar" in c.metrica or "execucoes de busca" in c.metrica %}
+      <li class="caixa-prisma"><span class="num-prisma">{% if manual and d.n_buscas_manuais == 0 %}<span class="nd">não informado</span>{% elif scholar and d.n_buscas_scholar == 0 %}<span class="nd">não executado</span>{% else %}{{ fmt.numero(c.valor) }}{% endif %}</span>
+        <span>{{ c.metrica }}<br><small>origem: <code>v_prisma</code>{% if "contagem informada" in c.metrica %} · contagem informada por você{% endif %}</small></span></li>{% endfor %}</ul></section>
+  {% if not loop.last %}<div class="seta-prisma" aria-hidden="true">▼</div>{% endif %}
+{% endfor %}
+</div>
+{% if d.motivos %}<section class="cartao"><h2>Motivos de exclusão</h2><div class="tabela-rolavel"><table><thead><tr><th>Etapa</th><th>Motivo</th><th class="num">Artigos</th></tr></thead>
+  <tbody>{% for m in d.motivos %}<tr><td>{{ "Título e resumo" if m.etapa == "titulo_resumo" else "Texto completo" }}</td><td>{{ m.motivo }}</td><td class="num">{{ m.n }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+<p><small>O que o fluxo ainda não sabe: registros removidos antes da triagem dentro de cada base manual e relatórios não recuperados não vêm do banco; informe-os por fora se o seu protocolo exigir.</small></p>
+{% endblock %}

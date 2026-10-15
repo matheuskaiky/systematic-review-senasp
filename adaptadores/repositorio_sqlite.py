@@ -20,6 +20,7 @@ def _int(x):
     return None if pd.isna(x) else int(x)
 
 
+NAO_TRIADO = "nao-triado"              # valor de `versao` de um artigo sem decisao na triagem
 NAO_VERIFICADO = "nao-verificado"      # valor de `versao` de um achado ainda sem verificacao
 
 
@@ -525,6 +526,56 @@ class RepositorioSQLite:
         try:
             self._iniciar_escrita(achado_id, versao)
             self._gravar_verificacao(achado_id, final, revisor, (observacao or "").strip() or None, com_desfazer=True)
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
+
+    def registrar_triagem(self, artigo_id, decisao, revisor, motivo=None, confirmado_em_base=None, link_confirmado=None,
+                          etapa="titulo_resumo", versao=None):
+        """Decisao humana sobre um artigo (painel), uma por vez. `etapa`: 'titulo_resumo' ou 'texto_completo' (so para
+        artigo incluido). Entra no historico (`triagem_revisoes`) e, com `versao`, recusa a decisao se a triagem do artigo
+        mudou desde que a pagina foi aberta (`NAO_TRIADO` se nao havia decisao)."""
+        validos = {"pendente", "incluir", "excluir"}
+        decisao = str(decisao or "").strip().lower()
+        revisor = str(revisor or "").strip()
+        if decisao not in validos:
+            raise SystemExit(f"Invalid decision for article {artigo_id}: {decisao}")
+        if not revisor:
+            raise SystemExit("Informe o nome do revisor")
+        if etapa not in ("titulo_resumo", "texto_completo"):
+            raise SystemExit(f"Etapa invalida: {etapa}")
+        motivo = (motivo or "").strip() or None
+        try:
+            if not self.conn.in_transaction:
+                self.conn.execute("BEGIN IMMEDIATE")
+            if not self.conn.execute("SELECT 1 FROM artigos WHERE artigo_id=?", (artigo_id,)).fetchone():
+                raise SystemExit(f"Artigo inexistente: {artigo_id}")
+            atual = self.conn.execute("SELECT * FROM triagem WHERE artigo_id=?", (artigo_id,)).fetchone()
+            if versao is not None and ((atual["revisado_em"] if atual else None) or NAO_TRIADO) != versao:
+                quem = f" (por {atual['revisor']})" if atual and atual["revisor"] else ""
+                raise SystemExit(f"A triagem do artigo {artigo_id} mudou depois que a página foi aberta{quem}: "
+                                 "recarregue a página e decida de novo")
+            quando = agora()
+            if etapa == "titulo_resumo":
+                tc = atual["decisao_texto_completo"] if atual else None
+                motivo_tc = atual["motivo_texto_completo"] if atual else None
+                self.conn.execute(
+                    """INSERT INTO triagem (artigo_id, decisao, motivo, confirmado_em_base, link_confirmado, revisor, revisado_em)
+                       VALUES (?,?,?,?,?,?,?)
+                       ON CONFLICT(artigo_id) DO UPDATE SET decisao=excluded.decisao, motivo=excluded.motivo,
+                         confirmado_em_base=excluded.confirmado_em_base, link_confirmado=excluded.link_confirmado,
+                         revisor=excluded.revisor, revisado_em=excluded.revisado_em""",
+                    (artigo_id, decisao, motivo, (confirmado_em_base or "").strip() or None,
+                     (link_confirmado or "").strip() or None, revisor, quando))
+            else:
+                if not atual or atual["decisao"] != "incluir":
+                    raise SystemExit(f"O artigo {artigo_id} precisa estar incluído por título e resumo antes da etapa de texto completo")
+                tc, motivo_tc = decisao, motivo
+                self.conn.execute("""UPDATE triagem SET decisao_texto_completo=?, motivo_texto_completo=?, revisor=?, revisado_em=?
+                                     WHERE artigo_id=?""", (tc, motivo_tc, revisor, quando, artigo_id))
+                decisao, motivo = atual["decisao"], atual["motivo"]
+            self._registrar_revisao_triagem(artigo_id, revisor, decisao, motivo, tc, motivo_tc, 0)
             self.conn.commit()
         except BaseException:
             self.conn.rollback()

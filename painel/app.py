@@ -17,12 +17,13 @@ from fastapi.templating import Jinja2Templates
 from aplicacao import revisao
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import formatacao as fmt, rotulos
-from painel.graficos import barra_empilhada, barras_horizontais, mapa_de_blocos
+from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_de_blocos, mapa_de_calor
 
 AQUI = Path(__file__).parent
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 FILTROS_CHAMADAS = ("run", "etapa", "provedor", "uf", "resultado", "q")
+FILTROS_ARTIGOS = ("q", "decisao", "multi", "termo", "base", "ano_de", "ano_ate")
 FILTROS = ("uf", "esfera", "cidade", "tecnologia", "status", "confianca", "evidencia", "oficial", "origem", "verificacao", "q")
 JANELA_CONTEXTO = 2500            # caracteres de cada lado da evidencia na visao resumida
 LIMITE_TEXTO = 200_000            # o visor nunca mostra mais que isto
@@ -52,6 +53,8 @@ class Contexto:
     status_permitidos: set
     status_definicoes: dict                   # chave -> definicao (vem de config/vocabulario)
     comando_criar_banco: str = "python main.py pipeline-uf --ufs PI --limite 5"
+    termos: dict = field(default_factory=dict)      # id -> consulta (so para exibir)
+    bases: tuple = ()                               # bases das buscas manuais
     hosts_permitidos: tuple = ("127.0.0.1", "localhost")   # DNS rebinding: qualquer outro Host e recusado
     backup_feito: bool = field(default=False)
 
@@ -63,6 +66,7 @@ def _filtros(params):
 def criar_app(leitura, repositorio_fabrica, bruto, contexto):
     app = FastAPI(title="Painel de resultados", docs_url=None, redoc_url=None, openapi_url=None)
     modelos = Jinja2Templates(directory=str(AQUI / "templates"))
+    modelos.env.filters["url_segura"] = lambda u: u if str(u or "").lower().startswith(("http://", "https://")) else "#"
     modelos.env.globals.update(fmt=fmt, rotulos=rotulos, ctx=contexto, quote=quote, urlencode=urlencode)
     app.mount("/static", StaticFiles(directory=str(AQUI / "static")), name="static")
 
@@ -292,6 +296,99 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
             return erro(request, 404, "Arquivo não encontrado", "O arquivo bruto não foi encontrado em data/raw.")
         return Response(dados, media_type="application/octet-stream",
                         headers={"Content-Disposition": f'attachment; filename="chamada_{chamada_id}.{_extensao(c)}"'})
+
+    # ---------- literatura ----------
+    def _filtros_artigos(params):
+        return {k: str(params[k])[:MAX_BUSCA] for k in FILTROS_ARTIGOS if params.get(k) not in (None, "")}
+
+    @app.get("/literatura", response_class=HTMLResponse)
+    def literatura_geral(request: Request):
+        if not leitura.existe():
+            return sem_banco(request)
+        d = leitura.literatura()
+        anos = [(str(l["ano"]), l["n_artigos"]) for l in d["por_ano"]]
+        grafico_anos = colunas(anos, "Artigos por ano", "Quantidade de artigos únicos encontrados, por ano de publicação", "ano", "artigos")
+        termos = [l["termo_id"] for l in d["por_termo"]]
+        valores = {(l["termo_a"], l["termo_b"]): l["n_em_comum"] for l in d["sobreposicao"]}
+        valores.update({(l["termo_id"], l["termo_id"]): l["n_artigos"] for l in d["por_termo"]})
+        calor = mapa_de_calor(termos, valores, "Artigos em comum entre termos", "Cada célula é o número de artigos encontrados pelos dois termos",
+                              {t: contexto.termos.get(t, "") for t in termos})
+        return pagina(request, "literatura.html", d=d, grafico_anos=grafico_anos, calor=calor, tri=leitura.contagem_triagem())
+
+    @app.get("/literatura/artigos", response_class=HTMLResponse)
+    def artigos(request: Request):
+        if not leitura.existe():
+            return sem_banco(request)
+        filtros = _filtros_artigos(request.query_params)
+        n = _inteiro(request.query_params.get("p"), 1)
+        if n is None:
+            return erro(request, 404, "Página inválida", "O número da página não é válido.")
+        res = leitura.artigos(filtros, n, 50)
+        paginas = max((res["total"] + res["por_pagina"] - 1) // res["por_pagina"], 1)
+        return pagina(request, "artigos.html", res=res, filtros=filtros, n=n, paginas=paginas, base=urlencode(filtros))
+
+    def _query_triagem(request):
+        return urlencode({k: v for k, v in request.query_params.items() if k in FILTROS_ARTIGOS or k == "fila"})
+
+    @app.get("/literatura/artigos/{artigo_id}", response_class=HTMLResponse)
+    def artigo(request: Request, artigo_id: int, ok: int = 0):
+        if not leitura.existe():
+            return sem_banco(request)
+        a = leitura.artigo(artigo_id)
+        if a is None:
+            return erro(request, 404, "Artigo não encontrado", f"Não existe o artigo nº {artigo_id} nas buscas do relatório.")
+        em_fila = "fila" in request.query_params
+        ids = leitura.ids_fila_triagem(_filtros_artigos(request.query_params)) if em_fila else []
+        proximo = next((i for i in ids if i != artigo_id), None)
+        return pagina(request, "artigo.html", a=a, em_fila=em_fila, restantes=len(ids), proximo=proximo, tri=leitura.contagem_triagem(),
+                      query=_query_triagem(request), ok=ok if 0 <= ok <= MAX_PAGINA * 1000 else 0)
+
+    @app.get("/literatura/triagem", response_class=HTMLResponse)
+    def fila_triagem(request: Request):
+        if not leitura.existe():
+            return sem_banco(request)
+        filtros = _filtros_artigos(request.query_params)
+        ids = leitura.ids_fila_triagem(filtros)
+        if ids:
+            return RedirectResponse("/literatura/artigos/%d?%s" % (ids[0], urlencode({**filtros, "fila": 1})), status_code=303)
+        return pagina(request, "triagem_vazia.html", tri=leitura.contagem_triagem(), filtros=filtros)
+
+    @app.post("/literatura/artigos/{artigo_id}/triar")
+    def triar(request: Request, artigo_id: int, decisao: str = Form(""), revisor: str = Form(""), motivo: str = Form(""),
+              base: str = Form(""), link: str = Form(""), etapa: str = Form("titulo_resumo"), versao: str = Form(None),
+              csrf: str = Form("")):
+        bloqueio = checar_escrita(request, csrf)
+        if bloqueio:
+            return bloqueio
+        if leitura.artigo(artigo_id) is None:
+            return erro(request, 404, "Artigo não encontrado", f"Não existe o artigo nº {artigo_id}.")
+        if base and contexto.bases and base not in contexto.bases:
+            return erro(request, 400, "Decisão não gravada", f"Base desconhecida: {base[:60]}")
+        try:
+            _escrever(lambda repo: revisao.decidir_triagem(repo, artigo_id, decisao, revisor, motivo, base, link, etapa, versao))
+        except SystemExit as e:
+            return erro(request, 409 if _conflito(str(e)) else 400, "Artigo alterado" if _conflito(str(e)) else "Decisão não gravada", str(e))
+        if "fila" in request.query_params:
+            filtros = _filtros_artigos(request.query_params)
+            ids = leitura.ids_fila_triagem(filtros)
+            proximo = next((i for i in ids if i != artigo_id), None)
+            destino = ("/literatura/artigos/%d?%s&ok=%d" % (proximo, urlencode({**filtros, "fila": 1}), artigo_id) if proximo
+                       else "/literatura/triagem?" + urlencode(filtros))
+        else:
+            destino = "/literatura/artigos/%d?ok=%d" % (artigo_id, artigo_id)
+        resposta = RedirectResponse(destino, status_code=303)
+        resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
+        return resposta
+
+    @app.get("/literatura/prisma", response_class=HTMLResponse)
+    def prisma(request: Request):
+        if not leitura.existe():
+            return sem_banco(request)
+        d = leitura.prisma()
+        fases = {}
+        for c in d["caixas"]:
+            fases.setdefault(c["fase"], []).append(c)
+        return pagina(request, "prisma.html", d=d, fases=fases)
 
     # ---------- achados ----------
     @app.get("/achados", response_class=HTMLResponse)

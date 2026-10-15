@@ -26,7 +26,7 @@
       <dt>Fornecedor</dt><dd>{{ a.fornecedor or "não informado" }}</dd>
       <dt>Menciona LGPD</dt><dd>{{ "sim" if a.menciona_lgpd else "não" }}{% if a.menciona_lgpd %} <small>({{ "o trecho cita LGPD" if a.evidencia_cita_lgpd else "mas o trecho citado não fala de LGPD" }})</small>{% endif %}</dd>
       <dt>Trecho cita a tecnologia</dt><dd>{{ "sim" if a.evidencia_cita_tecnologia else "não" }}</dd>
-      <dt>Fonte</dt><dd><a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.url }}</a>
+      <dt>Fonte</dt><dd><a href="{{ a.url|url_segura }}" target="_blank" rel="noopener noreferrer">{{ a.url }}</a>
         {% if a.url_final and a.url_final != a.url %}<br><small>após redirecionamento: {{ a.url_final }}</small>{% endif %}</dd>
       <dt>Classificador</dt><dd>{{ a.classificador }} · prompt {{ a.prompt_versao }}</dd>
       <dt>Execução</dt><dd><code>{{ a.run_id }}</code> · configuração <code>{{ a.config_hash }}</code></dd>

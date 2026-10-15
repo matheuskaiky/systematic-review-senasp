@@ -52,3 +52,54 @@ def barra_empilhada(segmentos, total, descricao):
             x += w
     partes.append("</svg>")
     return "".join(partes)
+
+
+def colunas(itens, titulo, descricao, rotulo_x="", rotulo_y=""):
+    """itens = [(rotulo, valor)]: colunas verticais com o valor em cima de cada uma."""
+    if not itens:
+        return ""
+    maximo = max((v or 0) for _, v in itens) or 1
+    largura_col, folga, altura, margem_base, margem_topo, margem_esq = 46, 14, 180, 40, 22, 44
+    larg = margem_esq + len(itens) * (largura_col + folga) + 10
+    h = altura + margem_base + margem_topo
+    partes = [f'<svg class="grafico" viewBox="0 0 {larg} {h}" role="img" aria-labelledby="ct cd"><title id="ct">{escape(titulo)}</title>'
+              f'<desc id="cd">{escape(descricao)}</desc>',
+              f'<text class="gr-eixo" x="12" y="{margem_topo + altura / 2}" transform="rotate(-90 12 {margem_topo + altura / 2})" text-anchor="middle">{escape(rotulo_y)}</text>']
+    for i, (rot, valor) in enumerate(itens):
+        x = margem_esq + i * (largura_col + folga)
+        alt = (valor or 0) / maximo * altura
+        y = margem_topo + altura - alt
+        partes.append(f'<rect class="gr-barra" x="{x}" y="{y:.1f}" width="{largura_col}" height="{alt:.1f}" rx="3"><title>{escape(str(rot))}: {valor}</title></rect>'
+                      f'<text class="gr-valor" x="{x + largura_col / 2}" y="{y - 5:.1f}" text-anchor="middle">{valor}</text>'
+                      f'<text class="gr-rotulo" x="{x + largura_col / 2}" y="{margem_topo + altura + 18}" text-anchor="middle">{escape(str(rot))}</text>')
+    partes.append(f'<text class="gr-eixo" x="{larg / 2}" y="{h - 4}" text-anchor="middle">{escape(rotulo_x)}</text></svg>')
+    return "".join(partes)
+
+
+def mapa_de_calor(rotulos, valores, titulo, descricao, dicas=None):
+    """Matriz simetrica de contagens. `valores` = {(a, b): n} com a != b; a diagonal usa {(a, a): n}. Cinco niveis de cor por classe."""
+    if not rotulos:
+        return ""
+    lado, margem = 17, 34
+    maximo = max([v for (a, b), v in valores.items() if a != b] or [1]) or 1
+    n = len(rotulos)
+    tam = margem + n * lado + 4
+    partes = [f'<svg class="calor" viewBox="0 0 {tam} {tam}" role="img" aria-labelledby="ht hd"><title id="ht">{escape(titulo)}</title><desc id="hd">{escape(descricao)}</desc>']
+    for i, r in enumerate(rotulos):
+        partes.append(f'<text class="gr-calor-rot" x="{margem - 4}" y="{margem + i * lado + 12}" text-anchor="end">{escape(r)}</text>'
+                      f'<text class="gr-calor-rot" x="{margem + i * lado + lado / 2}" y="{margem - 6}" text-anchor="start" '
+                      f'transform="rotate(-90 {margem + i * lado + lado / 2} {margem - 6})">{escape(r)}</text>')
+    for i, a in enumerate(rotulos):
+        for j, b in enumerate(rotulos):
+            v = valores.get((a, b), valores.get((b, a), 0))
+            if i == j:
+                classe = "calor-diag"
+            else:
+                nivel = 0 if v == 0 else min(1 + int(4 * (v - 1) / max(maximo - 1, 1)), 4) if maximo > 1 else 4
+                classe = f"calor-{nivel}"
+            dica = f"{a} × {b}: {v}" if i != j else f"{a}: {v} artigos"
+            if dicas and i == j and a in dicas:
+                dica += f" ({dicas[a]})"
+            partes.append(f'<rect class="{classe}" x="{margem + j * lado}" y="{margem + i * lado}" width="{lado - 1}" height="{lado - 1}"><title>{escape(dica)}</title></rect>')
+    partes.append("</svg>")
+    return "".join(partes)

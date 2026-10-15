@@ -11,10 +11,11 @@ from pathlib import Path
 import config.settings as S
 from adaptadores.bruto_local import BrutoLocal
 from adaptadores.repositorio_sqlite import RepositorioSQLite
-from aplicacao import busca_web, classificacao, download
+from aplicacao import busca_academica, busca_web, classificacao, download
+import pandas as pd
 from config import consultas as C, vocabulario as V
 from dominio.esquemas import esquema_classificacao
-from dominio.modelos import (Achado, ModeloConsultaWeb, ArquivoBaixado, ParametrosClassificacao, RegistroChamada, ResultadoClassificacao,
+from dominio.modelos import (Achado, ArtigoAcademico, ModeloConsultaWeb, PaginaAcademica, ArquivoBaixado, ParametrosClassificacao, RegistroChamada, ResultadoClassificacao,
                              ResultadoWeb, RespostaBusca, TextoExtraido)
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia
 from infra.util import agora
@@ -135,6 +136,67 @@ class ClassificadorDemo:
         return ResultadoClassificacao(bool(achados), achados, True, "{}", reg)
 
 
+N_ARTIGOS = 140
+TEMAS = ["policiamento", "câmeras urbanas", "biometria", "análise de dados criminais", "atendimento ao cidadão", "ética e viés"]
+
+
+def _titulo(n):
+    return f"Estudo demonstrativo {n:03d} sobre {TEMAS[n % len(TEMAS)]}"
+
+
+def _artigo(n, posicao):
+    ano = 2019 + n % 8
+    return ArtigoAcademico(_titulo(n), f"https://revista-{n % 9}.example/artigo/{n}", f"Autora {n % 11} et al. - Revista Exemplo, {ano}", ano,
+                           f"Resumo fictício do estudo {n}: discute {TEMAS[n % len(TEMAS)]} no contexto da segurança pública.",
+                           None if n % 6 == 0 else (n * 37) % 400, posicao)
+
+
+class AcademicoDemo:
+    """Artigos tem chance diferente de aparecer em cada termo: ha os achados por um so termo e os achados por varios."""
+    nome = "demo_scholar"
+
+    def saldo(self):
+        return 200
+
+    def buscar_pagina(self, termo, inicio, filtros):
+        k = int(termo.id[1:])
+        achados = [n for n in range(1, N_ARTIGOS + 1) if _h(f"{n}-{k}", 100) < 1 + (n % 6) * 2]
+        pagina = achados[inicio:inicio + filtros.por_pagina]
+        return PaginaAcademica([_artigo(n, i + 1) for i, n in enumerate(pagina)], len(achados),
+                               _reg(self.nome, "buscar_pagina", raw=b'{"demo": true}', latencia_ms=1500 + _h(termo.id, 1500)))
+
+
+def _literatura(repo, bruto, rnd):
+    run = _run(repo, "academico")
+    repo.registrar_saldo(run, "demo_scholar", "inicio", 200)
+    busca_academica.executar(repo, bruto, AcademicoDemo(), run, C.TERMOS, C.FILTROS_ACADEMICOS, 3, [], 0)
+    feitas = repo.conn.execute("SELECT COUNT(*) FROM chamadas WHERE run_id=? AND sucesso=1", (run,)).fetchone()[0]
+    repo.registrar_saldo(run, "demo_scholar", "fim", 200 - feitas)
+    repo.finalizar_execucao(run, "concluida")
+    # buscas manuais (SBC OpenLib fica sem informar de proposito: o PRISMA mostra o que falta)
+    cols = ["base", "termo_id", "string_base", "filtros", "n_resultados", "n_apos_filtro", "n_selecionados", "data_busca", "observacao"]
+    repo.importar_buscas_manuais(pd.DataFrame([("IEEE", "T01", '"reconhecimento facial"', "2019-2026", 212, 80, 12, "2026-10-02", None),
+                                               ("IEEE", "T03", '"biometria facial"', "2019-2026", 95, 40, 6, "2026-10-02", None),
+                                               ("ACM", "T01", '"reconhecimento facial"', "2019-2026", 150, 60, 9, "2026-10-03", None),
+                                               ("Scopus", "T05", '"videomonitoramento inteligente"', "", 41, 41, 5, "2026-10-04", "sem filtro")], columns=cols))
+    novos = [(b, "T01" if i % 2 else "T05", _titulo(n), f"https://revista-{n % 9}.example/artigo/{n}", f"Autora {n % 11} et al.", 2019 + n % 8, None, i + 1, "2026-10-02")
+             for i, (b, n) in enumerate([("IEEE", 3), ("IEEE", 10), ("ACM", 17), ("ACM", 24), ("Scopus", 31), ("Scopus", 38)])]
+    novos += [(b, "T01", f"Estudo manual {i} (fictício, só nas bases)", f"https://base-{b.lower()}.example/{i}", "Autor Demo et al.", 2023, 5 * i, i + 1, "2026-10-03")
+              for i, b in enumerate(["IEEE", "ACM", "Scopus", "ACM"], start=1)]
+    repo.importar_artigos_manuais(pd.DataFrame(novos, columns=["base", "termo_id", "titulo", "link", "autores_publicacao", "ano", "citacoes", "posicao", "data_busca"]))
+    # triagem em andamento: ~45% dos artigos decididos, alguns incluidos ja com texto completo
+    ids = [r[0] for r in repo.conn.execute("""SELECT a.artigo_id FROM r_artigos a ORDER BY (SELECT COUNT(*) FROM r_ocorrencias o WHERE o.artigo_id=a.artigo_id) DESC,
+                                              COALESCE(a.citacoes, 0) DESC, a.artigo_id""")]
+    motivos = ["fora do escopo (não trata de segurança pública)", "sem IA", "texto indisponível", "duplicata de outro estudo"]
+    for i in ids[: int(len(ids) * 0.45)]:
+        if rnd.random() < 0.5:
+            repo.registrar_triagem(i, "incluir", "Revisora Demo", None, "IEEE" if rnd.random() < 0.3 else None, None)
+            if rnd.random() < 0.5:
+                repo.registrar_triagem(i, rnd.choice(["incluir", "excluir"]), "Revisora Demo", rnd.choice(motivos), etapa="texto_completo")
+        else:
+            repo.registrar_triagem(i, "excluir", "Revisora Demo", rnd.choice(motivos))
+
+
 def _params():
     return ParametrosClassificacao(
         versao_prompt="v3-demo", sistema="(demonstração)", usuario_template="{nome} {uf} {url} {titulo} {origem} {texto}",
@@ -180,6 +242,7 @@ def construir(pasta_dados=None):
         run_f = _run(repo, "busca-web")
         repo.finalizar_execucao(run_f, "falhou")
         repo.definir_no_relatorio(run_f, False, "execução com falha (demonstração)")
+        _literatura(repo, bruto, random.Random(SEMENTE + 1))
         # verificacao humana de parte dos achados, para a revisao ja comecar andando
         permitidos = set(V.STATUS) | set(V.STATUS_FINAL_EXTRA)
         rnd = random.Random(SEMENTE)

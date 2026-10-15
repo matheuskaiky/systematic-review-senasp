@@ -19,3 +19,8 @@
 {% elif a.verificado %}<span class="selo ok"><span aria-hidden="true">✔</span> Verificado: {{ rotulos.rotulo(rotulos.STATUS, a.status_final) }}</span>
 {% else %}<span class="selo neutro"><span aria-hidden="true">○</span> Não verificado</span>{% endif %}
 {%- endmacro %}
+{% macro triagem(decisao, etapa="titulo e resumo") -%}
+{% if decisao == "incluir" %}<span class="selo ok"><span aria-hidden="true">✔</span> Incluído ({{ etapa }})</span>
+{% elif decisao == "excluir" %}<span class="selo st-descartado"><span aria-hidden="true">✕</span> Excluído ({{ etapa }})</span>
+{% else %}<span class="selo neutro"><span aria-hidden="true">○</span> Pendente ({{ etapa }})</span>{% endif %}
+{%- endmacro %}

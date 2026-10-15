@@ -156,6 +156,97 @@ class LeituraPainelSQLite:
                                          extrator, extracao_ok, motivo_falha FROM paginas WHERE chamada_id=?""", (chamada_id,))
         return c
 
+    # ---------- literatura ----------
+    _ORDEM_ARTIGOS = "(n_termos + n_bases_manuais) DESC, COALESCE(citacoes, 0) DESC, artigo_id"
+    _BASE_ARTIGOS = """
+        SELECT a.artigo_id, a.titulo, a.ano, a.citacoes, a.link, a.autores_publicacao, a.snippet,
+               (SELECT COUNT(DISTINCT o.termo_id) FROM r_ocorrencias o WHERE o.artigo_id=a.artigo_id) AS n_termos,
+               (SELECT COUNT(DISTINCT m.base) FROM ocorrencias_manuais m WHERE m.artigo_id=a.artigo_id) AS n_bases_manuais,
+               COALESCE(t.decisao, 'pendente') AS decisao, t.motivo, t.revisor, t.revisado_em,
+               COALESCE(t.decisao_texto_completo, 'pendente') AS decisao_texto_completo, t.motivo_texto_completo,
+               t.confirmado_em_base, t.link_confirmado
+        FROM r_artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id"""
+
+    @staticmethod
+    def _onde_artigos(filtros):
+        cond, args = [], []
+        if filtros.get("decisao") in ("pendente", "incluir", "excluir"):
+            cond.append("decisao = ?")
+            args.append(filtros["decisao"])
+        if filtros.get("multi") == "1":
+            cond.append("(n_termos + n_bases_manuais) >= 2")
+        if filtros.get("termo"):
+            cond.append("artigo_id IN (SELECT artigo_id FROM r_ocorrencias WHERE termo_id = ?)")
+            args.append(filtros["termo"])
+        if filtros.get("base"):
+            cond.append("artigo_id IN (SELECT artigo_id FROM ocorrencias_manuais WHERE base = ?)")
+            args.append(filtros["base"])
+        for chave, op in (("ano_de", ">="), ("ano_ate", "<=")):
+            if str(filtros.get(chave, "")).isdigit():
+                cond.append(f"ano {op} ?")
+                args.append(int(filtros[chave]))
+        q = (filtros.get("q") or "").strip()
+        if q:
+            cond.append("(titulo LIKE ? ESCAPE '\\' OR snippet LIKE ? ESCAPE '\\' OR autores_publicacao LIKE ? ESCAPE '\\')")
+            args += ["%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"] * 3
+        return (" WHERE " + " AND ".join(cond)) if cond else "", args
+
+    def artigos(self, filtros, pagina=1, por_pagina=50):
+        por_pagina = min(max(int(por_pagina), 1), LIMITE_POR_PAGINA)
+        onde, args = self._onde_artigos(filtros)
+        base = f"SELECT * FROM ({self._BASE_ARTIGOS}){onde}"
+        total = self._um(f"SELECT COUNT(*) AS n FROM ({base})", args)["n"]
+        itens = self._consulta(f"{base} ORDER BY {self._ORDEM_ARTIGOS} LIMIT ? OFFSET ?", args + [por_pagina, (pagina - 1) * por_pagina])
+        return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": itens}
+
+    def ids_fila_triagem(self, filtros):
+        onde, args = self._onde_artigos({**filtros, "decisao": "pendente"})
+        return [l["artigo_id"] for l in self._consulta(
+            f"SELECT artigo_id FROM (SELECT * FROM ({self._BASE_ARTIGOS}){onde}) ORDER BY {self._ORDEM_ARTIGOS}", args)]
+
+    def artigo(self, artigo_id):
+        a = self._um(f"SELECT * FROM ({self._BASE_ARTIGOS}) WHERE artigo_id=?", (artigo_id,))
+        if a is None:
+            return None
+        a["ocorrencias"] = self._consulta("""SELECT o.termo_id, o.run_id, o.posicao, o.citacoes_no_momento, c.pagina
+                                             FROM r_ocorrencias o LEFT JOIN chamadas c ON c.chamada_id=o.chamada_id
+                                             WHERE o.artigo_id=? ORDER BY o.termo_id, o.ocorrencia_id""", (artigo_id,))
+        a["manuais"] = self._consulta("""SELECT base, termo_id, data_busca, posicao FROM ocorrencias_manuais
+                                         WHERE artigo_id=? ORDER BY base, termo_id""", (artigo_id,))
+        a["historico"] = self._consulta("""SELECT revisor, decisao, motivo, decisao_texto_completo, motivo_texto_completo, importado_em,
+                                                  independente FROM triagem_revisoes WHERE artigo_id=? ORDER BY revisao_id DESC""", (artigo_id,))
+        return a
+
+    def contagem_triagem(self):
+        return self._um("""SELECT COUNT(*) AS total,
+                                  COALESCE(SUM(decisao='incluir'), 0) AS incluidos, COALESCE(SUM(decisao='excluir'), 0) AS excluidos,
+                                  COALESCE(SUM(decisao='pendente'), 0) AS pendentes
+                           FROM (SELECT COALESCE(t.decisao, 'pendente') AS decisao FROM r_artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id)""")
+
+    def literatura(self):
+        return {
+            "por_ano": self._consulta("SELECT ano, n_artigos FROM v_artigos_por_ano WHERE ano IS NOT NULL ORDER BY ano"),
+            "sem_ano": (self._um("SELECT COALESCE(SUM(n_artigos), 0) AS n FROM v_artigos_por_ano WHERE ano IS NULL") or {}).get("n", 0),
+            "por_termo": self._consulta("""SELECT termo_id, COUNT(DISTINCT artigo_id) AS n_artigos FROM r_ocorrencias
+                                           GROUP BY termo_id ORDER BY termo_id"""),
+            "sobreposicao": self._consulta("SELECT termo_a, termo_b, n_em_comum FROM v_sobreposicao_termos"),
+            "mais_citados": self._consulta("""SELECT artigo_id, titulo, ano, citacoes FROM r_artigos WHERE citacoes IS NOT NULL
+                                              ORDER BY citacoes DESC, artigo_id LIMIT 10"""),
+            "manuais": self._consulta("SELECT * FROM v_manuais_resumo ORDER BY base"),
+            "n_artigos": self._um("SELECT COUNT(*) AS n FROM r_artigos")["n"],
+            "n_multi": self._um("SELECT COUNT(*) AS n FROM v_artigos_multi_termo WHERE n_termos >= 2")["n"],
+            "sem_citacoes": self._um("SELECT COUNT(*) AS n FROM r_artigos WHERE citacoes IS NULL")["n"],
+        }
+
+    def prisma(self):
+        return {"caixas": self._consulta("SELECT ordem, fase, metrica, valor FROM v_prisma ORDER BY ordem"),
+                "motivos": self._consulta("SELECT etapa, motivo, n FROM v_motivos_exclusao"),
+                "n_buscas_manuais": self._um("SELECT COUNT(*) AS n FROM buscas_manuais")["n"],
+                "n_buscas_scholar": self._um("SELECT COUNT(*) AS n FROM r_chamadas WHERE etapa='busca_academica'")["n"]}
+
+    def historico_triagem_existe(self, artigo_id):
+        return self._um("SELECT 1 AS x FROM triagem_revisoes WHERE artigo_id=? LIMIT 1", (artigo_id,)) is not None
+
     # ---------- achados ----------
     @staticmethod
     def _onde(filtros):

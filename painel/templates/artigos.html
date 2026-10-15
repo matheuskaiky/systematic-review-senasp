@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "_selos.html" as s %}
+{% block titulo %}Artigos{% endblock %}
+{% block conteudo %}
+<p class="trilha"><a href="/literatura">Literatura</a> › artigos</p>
+<h1>Artigos</h1>
+<p class="sub">Ordenados como na triagem: os achados por mais de um termo ou base primeiro, depois os mais citados.</p>
+<form class="filtros" method="get" action="/literatura/artigos">
+  <label>Decisão <select name="decisao"><option value="">todas</option>{% for k, v in {"pendente": "pendente", "incluir": "incluído", "excluir": "excluído"}.items() %}<option value="{{ k }}"{% if filtros.decisao == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Termo <select name="termo"><option value="">todos</option>{% for tid, q in ctx.termos.items() %}<option value="{{ tid }}"{% if filtros.termo == tid %} selected{% endif %}>{{ tid }} · {{ q|replace('"', '') }}</option>{% endfor %}</select></label>
+  <label>Base manual <select name="base"><option value="">todas</option>{% for b in ctx.bases %}<option value="{{ b }}"{% if filtros.base == b %} selected{% endif %}>{{ b }}</option>{% endfor %}</select></label>
+  <label>Ano de <input type="number" name="ano_de" value="{{ filtros.ano_de or '' }}" min="1900" max="2100"></label>
+  <label>Ano até <input type="number" name="ano_ate" value="{{ filtros.ano_ate or '' }}" min="1900" max="2100"></label>
+  <label>Mais de um termo <select name="multi"><option value="">não importa</option><option value="1"{% if filtros.multi == "1" %} selected{% endif %}>só os que sim</option></select></label>
+  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="título, resumo ou autores"></label>
+  <button class="botao" type="submit">Filtrar</button>{% if filtros %}<a href="/literatura/artigos">Limpar</a>{% endif %}
+</form>
+<p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> artigo(s) · <a href="/literatura/triagem?{{ base }}">triar os pendentes desta lista</a></p>
+{% if not res.itens and res.total %}
+<p class="vazio">Não há artigos nesta página: são {{ fmt.numero(res.total) }} em {{ paginas }} página(s). <a href="/literatura/artigos?{{ base }}{{ '&' if base }}p=1">Ir para a primeira</a>.</p>
+{% elif not res.itens %}
+<p class="vazio">Nenhum artigo com estes filtros.{% if filtros %} <a href="/literatura/artigos">Limpar filtros</a>.{% else %} Rode <code>python main.py academico --termos T01 --paginas 1</code>.{% endif %}</p>
+{% else %}
+<div class="tabela-rolavel"><table>
+  <thead><tr><th>Título</th><th>Ano</th><th class="num">Citações</th><th class="num">Termos</th><th>Triagem</th><th></th></tr></thead>
+  <tbody>{% for a in res.itens %}
+    <tr><td><a href="/literatura/artigos/{{ a.artigo_id }}">{{ a.titulo }}</a><br><small class="fornecedor">{{ a.autores_publicacao or "" }}</small></td>
+      <td>{{ a.ano or "—" }}</td><td class="num">{{ fmt.numero(a.citacoes) }}</td>
+      <td class="num">{{ a.n_termos }}{% if a.n_bases_manuais %} <small>+ {{ a.n_bases_manuais }} base(s)</small>{% endif %}</td>
+      <td>{{ s.triagem(a.decisao) }}{% if a.decisao == "incluir" and a.decisao_texto_completo != "pendente" %}<br>{{ s.triagem(a.decisao_texto_completo, "texto completo") }}{% endif %}</td>
+      <td><a class="botao pequeno" href="/literatura/artigos/{{ a.artigo_id }}">Abrir</a></td></tr>
+  {% endfor %}</tbody></table></div>
+<nav class="paginacao" aria-label="Páginas">
+  {% if n > 1 %}<a href="/literatura/artigos?{{ base }}{{ '&' if base }}p={{ n - 1 }}">← Anterior</a>{% endif %}
+  <span>Página {{ n }} de {{ paginas }}</span>
+  {% if n < paginas %}<a href="/literatura/artigos?{{ base }}{{ '&' if base }}p={{ n + 1 }}">Próxima →</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

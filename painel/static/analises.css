@@ -1,0 +1,488 @@
+/* Gráficos da página /analises (analises.py). Só classes: a política de segurança do painel proíbe `style=`.
+   Os tokens `--an-*` reaproveitam os de painel.css; as cores de dados têm versão clara, escura e de impressão (que fica sempre clara).
+   Cor nunca é a única pista: os padrões (<pattern> dentro de cada SVG) e os glifos/textos fazem o resto em escala de cinza. */
+:root {
+  --an-texto: var(--texto, #1c2430);
+  --an-suave: var(--texto-suave, #5b6675);
+  --an-borda: var(--borda, #d9dee6);
+  --an-fundo: var(--superficie, #ffffff);
+  --an-acento: var(--acento, #1f5f8b);
+  --an-perigo: var(--perigo, #a3262a);
+  --an-ok: var(--ok, #1b7a4b);
+  --an-ok-fundo: var(--ok-fundo, #e3f4ea);
+  --an-perigo-fundo: var(--perigo-fundo, #fbe6e6);
+  --an-alerta: var(--alerta, #9a5b00);
+  --an-alerta-fundo: var(--alerta-fundo, #fdf0d9);
+  --an-em_uso: #12306b;
+  --an-em_uso-ln: #2f5aa8;
+  --an-em_uso-tx: #ffffff;
+  --an-piloto: #9cc7ee;
+  --an-piloto-ln: #4f86c0;
+  --an-piloto-tx: #0b2540;
+  --an-licitacao: #237a4b;
+  --an-licitacao-ln: #5fb88a;
+  --an-licitacao-tx: #ffffff;
+  --an-anunciado: #f2c14e;
+  --an-anunciado-ln: #b8860b;
+  --an-anunciado-tx: #3b2a00;
+  --an-em_estudo: #b5bcc6;
+  --an-em_estudo-ln: #7d8795;
+  --an-em_estudo-tx: #1c2430;
+  --an-apenas_citado: #eceff3;
+  --an-apenas_citado-ln: #6b7686;
+  --an-apenas_citado-tx: #3d4756;
+  --an-descartado: #f6d5d6;
+  --an-descartado-ln: #a3262a;
+  --an-descartado-tx: #7a1a1d;
+  --an-s0: #0072B2;
+  --an-s1: #D55E00;
+  --an-s2: #009E73;
+  --an-s3: #CC79A7;
+  --an-s4: #E69F00;
+  --an-s5: #56B4E9;
+  --an-s6: #6a4c93;
+  --an-s7: #6b7280;
+  --an-pad-ln: rgba(255,255,255,.62);
+  --an-f1: #b85400;
+  --an-f1-ln: rgba(255,255,255,.62);
+  --an-k-fraca: #e7a3a5;
+  --an-k-fraca-ln: #a3262a;
+  --an-k-moderada: #f2c14e;
+  --an-k-moderada-ln: #8a6410;
+  --an-k-substancial: #8fcfa8;
+  --an-k-substancial-ln: #1b7a4b;
+  --an-k-quase: #1b7a4b;
+  --an-k-quase-ln: rgba(255,255,255,.55);
+  --an-cal-alta: #1b7a4b;
+  --an-cal-alta-ln: rgba(255,255,255,.55);
+  --an-cal-media: #e0a526;
+  --an-cal-media-ln: #6b4a00;
+  --an-cal-baixa: #c9494d;
+  --an-cal-baixa-ln: rgba(255,255,255,.7);
+  --an-res-mais3: #1f5f8b;
+  --an-res-mais3-ln: rgba(255,255,255,.55);
+  --an-res-mais2: #7fb0dc;
+  --an-res-mais2-ln: rgba(0,0,0,.3);
+  --an-res-zero: #e8ecf1;
+  --an-res-zero-ln: #e8ecf1;
+  --an-res-menos2: #f5b97a;
+  --an-res-menos2-ln: rgba(0,0,0,.3);
+  --an-res-menos3: #b85400;
+  --an-res-menos3-ln: rgba(255,255,255,.55);
+  --an-fx: #d1383d;
+  --an-fx-ln: rgba(255,255,255,.7);
+  --an-ic: rgba(31,95,139,.16);
+  --an-ic-ln: rgba(31,95,139,.75);
+  --an-nv-aberto: #2e8b57;
+  --an-nv-aberto-ln: rgba(255,255,255,.5);
+  --an-nv-parcial: #e0a526;
+  --an-nv-parcial-ln: #6b4a00;
+  --an-nv-fechado: #b3282d;
+  --an-nv-fechado-ln: rgba(255,255,255,.7);
+  --an-calor0: #ffffff;
+  --an-calor1: #c9def0;
+  --an-calor2: #8fbbe0;
+  --an-calor3: #4f8fc4;
+  --an-calor4: #1f5f8b;
+  --an-calor-tx0: #1c2430;
+  --an-calor-tx1: #0b1620;
+  --an-calor-tx2: #0b1620;
+  --an-calor-tx3: #0b1620;
+  --an-calor-tx4: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --an-em_uso: #a9d1fa;
+    --an-em_uso-ln: #7fb0e6;
+    --an-em_uso-tx: #0a1f38;
+    --an-piloto: #6fa8dc;
+    --an-piloto-ln: #3f78b4;
+    --an-piloto-tx: #0a1f38;
+    --an-licitacao: #3f9f6e;
+    --an-licitacao-ln: #1d6b43;
+    --an-licitacao-tx: #04170d;
+    --an-anunciado: #d9a73a;
+    --an-anunciado-ln: #8a6410;
+    --an-anunciado-tx: #2b1f00;
+    --an-em_estudo: #5f6a78;
+    --an-em_estudo-ln: #8a96a6;
+    --an-em_estudo-tx: #ffffff;
+    --an-apenas_citado: #222a35;
+    --an-apenas_citado-ln: #7b8594;
+    --an-apenas_citado-tx: #c3cbd6;
+    --an-descartado: #4a2326;
+    --an-descartado-ln: #f08a8d;
+    --an-descartado-tx: #f5b5b8;
+    --an-s0: #56a8e0;
+    --an-s1: #f08a4b;
+    --an-s2: #3fc79a;
+    --an-s3: #e39bc3;
+    --an-s4: #f2b84a;
+    --an-s5: #7fcaf0;
+    --an-s6: #a58bd1;
+    --an-s7: #a8a8a8;
+    --an-pad-ln: rgba(0,0,0,.45);
+    --an-f1: #f0a35e;
+    --an-f1-ln: rgba(0,0,0,.45);
+    --an-k-fraca: #8a3a3d;
+    --an-k-fraca-ln: #f5b5b8;
+    --an-k-moderada: #d9a73a;
+    --an-k-moderada-ln: #2b1f00;
+    --an-k-substancial: #3f9f6e;
+    --an-k-substancial-ln: #04170d;
+    --an-k-quase: #62c28e;
+    --an-k-quase-ln: rgba(0,0,0,.4);
+    --an-cal-alta: #62c28e;
+    --an-cal-alta-ln: rgba(0,0,0,.4);
+    --an-cal-media: #e8b45a;
+    --an-cal-media-ln: #2b1f00;
+    --an-cal-baixa: #f08a8d;
+    --an-cal-baixa-ln: rgba(0,0,0,.45);
+    --an-res-mais3: #8fc0ea;
+    --an-res-mais3-ln: rgba(0,0,0,.4);
+    --an-res-mais2: #3f6f9c;
+    --an-res-mais2-ln: rgba(255,255,255,.35);
+    --an-res-zero: #2a323d;
+    --an-res-zero-ln: #2a323d;
+    --an-res-menos2: #8f5a24;
+    --an-res-menos2-ln: rgba(255,255,255,.35);
+    --an-res-menos3: #f0a35e;
+    --an-res-menos3-ln: rgba(0,0,0,.4);
+    --an-fx: #f08a8d;
+    --an-fx-ln: rgba(0,0,0,.45);
+    --an-ic: rgba(143,192,234,.16);
+    --an-ic-ln: rgba(143,192,234,.8);
+    --an-nv-aberto: #62c28e;
+    --an-nv-aberto-ln: rgba(0,0,0,.4);
+    --an-nv-parcial: #e8b45a;
+    --an-nv-parcial-ln: #2b1f00;
+    --an-nv-fechado: #f08a8d;
+    --an-nv-fechado-ln: rgba(0,0,0,.45);
+    --an-calor0: #1b212a;
+    --an-calor1: #25445c;
+    --an-calor2: #2f6a94;
+    --an-calor3: #4b94c6;
+    --an-calor4: #8fcbf0;
+    --an-calor-tx0: #e6eaf0;
+    --an-calor-tx1: #e6eaf0;
+    --an-calor-tx2: #ffffff;
+    --an-calor-tx4: #0b1620;
+  }
+}
+@media print {
+  :root {
+    --an-texto: #1c2430;
+    --an-suave: #4a5462;
+    --an-borda: #9aa3b0;
+    --an-fundo: #ffffff;
+    --an-acento: #1f5f8b;
+    --an-perigo: #a3262a;
+    --an-ok: #1b7a4b;
+    --an-ok-fundo: #e3f4ea;
+    --an-perigo-fundo: #fbe6e6;
+    --an-alerta: #9a5b00;
+    --an-alerta-fundo: #fdf0d9;
+    --an-em_uso: #12306b;
+    --an-em_uso-ln: #2f5aa8;
+    --an-em_uso-tx: #ffffff;
+    --an-piloto: #9cc7ee;
+    --an-piloto-ln: #4f86c0;
+    --an-piloto-tx: #0b2540;
+    --an-licitacao: #237a4b;
+    --an-licitacao-ln: #5fb88a;
+    --an-licitacao-tx: #ffffff;
+    --an-anunciado: #f2c14e;
+    --an-anunciado-ln: #b8860b;
+    --an-anunciado-tx: #3b2a00;
+    --an-em_estudo: #b5bcc6;
+    --an-em_estudo-ln: #7d8795;
+    --an-em_estudo-tx: #1c2430;
+    --an-apenas_citado: #eceff3;
+    --an-apenas_citado-ln: #6b7686;
+    --an-apenas_citado-tx: #3d4756;
+    --an-descartado: #f6d5d6;
+    --an-descartado-ln: #a3262a;
+    --an-descartado-tx: #7a1a1d;
+    --an-s0: #0072B2;
+    --an-s1: #D55E00;
+    --an-s2: #009E73;
+    --an-s3: #CC79A7;
+    --an-s4: #E69F00;
+    --an-s5: #56B4E9;
+    --an-s6: #6a4c93;
+    --an-s7: #6b7280;
+    --an-pad-ln: rgba(255,255,255,.62);
+    --an-f1: #b85400;
+    --an-f1-ln: rgba(255,255,255,.62);
+    --an-k-fraca: #e7a3a5;
+    --an-k-fraca-ln: #a3262a;
+    --an-k-moderada: #f2c14e;
+    --an-k-moderada-ln: #8a6410;
+    --an-k-substancial: #8fcfa8;
+    --an-k-substancial-ln: #1b7a4b;
+    --an-k-quase: #1b7a4b;
+    --an-k-quase-ln: rgba(255,255,255,.55);
+    --an-cal-alta: #1b7a4b;
+    --an-cal-alta-ln: rgba(255,255,255,.55);
+    --an-cal-media: #e0a526;
+    --an-cal-media-ln: #6b4a00;
+    --an-cal-baixa: #c9494d;
+    --an-cal-baixa-ln: rgba(255,255,255,.7);
+    --an-res-mais3: #1f5f8b;
+    --an-res-mais3-ln: rgba(255,255,255,.55);
+    --an-res-mais2: #7fb0dc;
+    --an-res-mais2-ln: rgba(0,0,0,.3);
+    --an-res-zero: #e8ecf1;
+    --an-res-zero-ln: #e8ecf1;
+    --an-res-menos2: #f5b97a;
+    --an-res-menos2-ln: rgba(0,0,0,.3);
+    --an-res-menos3: #b85400;
+    --an-res-menos3-ln: rgba(255,255,255,.55);
+    --an-fx: #d1383d;
+    --an-fx-ln: rgba(255,255,255,.7);
+    --an-ic: rgba(31,95,139,.16);
+    --an-ic-ln: rgba(31,95,139,.75);
+    --an-nv-aberto: #2e8b57;
+    --an-nv-aberto-ln: rgba(255,255,255,.5);
+    --an-nv-parcial: #e0a526;
+    --an-nv-parcial-ln: #6b4a00;
+    --an-nv-fechado: #b3282d;
+    --an-nv-fechado-ln: rgba(255,255,255,.7);
+    --an-calor0: #ffffff;
+    --an-calor1: #c9def0;
+    --an-calor2: #8fbbe0;
+    --an-calor3: #4f8fc4;
+    --an-calor4: #1f5f8b;
+    --an-calor-tx0: #1c2430;
+    --an-calor-tx1: #0b1620;
+    --an-calor-tx2: #0b1620;
+    --an-calor-tx3: #0b1620;
+    --an-calor-tx4: #ffffff;
+  }
+}
+
+/* ---------- base ---------- */
+.an-svg { width: 100%; height: auto; display: block; max-width: 760px; font-size: 12px; }
+.an-svg text { font-family: inherit; }
+.an-vazio { margin: .25rem 0; }
+.an-rot { fill: var(--an-texto); font-size: 12.5px; }
+.an-rot-forte { font-weight: 600; }
+.an-centro { font-weight: 600; }
+.an-cab { fill: var(--an-texto); font-size: 12px; font-weight: 600; }
+.an-grupo { fill: var(--an-suave); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.an-sep { stroke: var(--an-borda); stroke-width: 1; }
+.an-ct { font-size: 11.5px; font-weight: 600; }
+.an-leg { fill: var(--an-suave); font-size: 11.5px; }
+.an-val { fill: var(--an-texto); font-size: 12.5px; font-weight: 600; }
+.an-halo, .an-val-dentro { fill: var(--an-texto); paint-order: stroke; stroke: var(--an-fundo); stroke-width: 3px; stroke-linejoin: round; font-weight: 700; font-size: 11.5px; }
+.an-val-dentro { font-size: 12.5px; }
+.an-eixo-val { fill: var(--an-suave); font-size: 11px; }
+.an-eixo-tit { fill: var(--an-suave); font-size: 12px; }
+.an-eixo { stroke: var(--an-suave); stroke-width: 1; }
+.an-grade { stroke: var(--an-borda); stroke-width: 1; stroke-dasharray: 2 3; }
+.an-rotulo-linha { fill: var(--an-texto); font-size: 11.5px; font-weight: 600; paint-order: stroke; stroke: var(--an-fundo); stroke-width: 3px; stroke-linejoin: round; }
+.an-valor-grande { fill: var(--an-texto); font-size: 15px; font-weight: 700; paint-order: stroke; stroke: var(--an-fundo); stroke-width: 3px; stroke-linejoin: round; }
+.an-texto-med { fill: var(--an-texto); font-size: 13.5px; }
+.an-forte { font-weight: 700; }
+a.an-link { cursor: pointer; }
+a.an-link:hover .an-c, a.an-link:hover .an-seg, a.an-link:hover .an-col, a.an-link:hover .an-area-s,
+a.an-link:hover .an-bar-parte, a.an-link:hover .an-fn0, a.an-link:hover .an-fn1, a.an-link:hover .an-marca, a.an-link:hover .an-ponto { stroke: var(--an-acento); stroke-width: 2; }
+a.an-link:hover .an-fluxo { fill-opacity: .6; }
+a.an-link:focus-visible { outline: 3px solid var(--an-acento); outline-offset: 2px; }
+
+/* ---------- padrões de preenchimento (dentro do <pattern>): fundo `an-bg-X` e traço `an-ln-X` ---------- */
+.an-ln { fill: none; }
+.an-ln-s0, .an-ln-s1, .an-ln-s2, .an-ln-s3, .an-ln-s4, .an-ln-s5, .an-ln-s6, .an-ln-s7 { stroke: var(--an-pad-ln); }
+.an-bg-em_uso { fill: var(--an-em_uso); }
+.an-ln-em_uso { stroke: var(--an-em_uso-ln); }
+.an-bg-piloto { fill: var(--an-piloto); }
+.an-ln-piloto { stroke: var(--an-piloto-ln); }
+.an-bg-licitacao { fill: var(--an-licitacao); }
+.an-ln-licitacao { stroke: var(--an-licitacao-ln); }
+.an-bg-anunciado { fill: var(--an-anunciado); }
+.an-ln-anunciado { stroke: var(--an-anunciado-ln); }
+.an-bg-em_estudo { fill: var(--an-em_estudo); }
+.an-ln-em_estudo { stroke: var(--an-em_estudo-ln); }
+.an-bg-apenas_citado { fill: var(--an-apenas_citado); }
+.an-ln-apenas_citado { stroke: var(--an-apenas_citado-ln); }
+.an-bg-descartado { fill: var(--an-descartado); }
+.an-ln-descartado { stroke: var(--an-descartado-ln); }
+.an-bg-s0 { fill: var(--an-s0); }
+.an-bg-s1 { fill: var(--an-s1); }
+.an-bg-s2 { fill: var(--an-s2); }
+.an-bg-s3 { fill: var(--an-s3); }
+.an-bg-s4 { fill: var(--an-s4); }
+.an-bg-s5 { fill: var(--an-s5); }
+.an-bg-s6 { fill: var(--an-s6); }
+.an-bg-s7 { fill: var(--an-s7); }
+.an-bg-f1 { fill: var(--an-f1); }
+.an-ln-f1 { stroke: var(--an-f1-ln); }
+.an-bg-k-fraca { fill: var(--an-k-fraca); }
+.an-ln-k-fraca { stroke: var(--an-k-fraca-ln); }
+.an-bg-k-moderada { fill: var(--an-k-moderada); }
+.an-ln-k-moderada { stroke: var(--an-k-moderada-ln); }
+.an-bg-k-substancial { fill: var(--an-k-substancial); }
+.an-ln-k-substancial { stroke: var(--an-k-substancial-ln); }
+.an-bg-k-quase { fill: var(--an-k-quase); }
+.an-ln-k-quase { stroke: var(--an-k-quase-ln); }
+.an-bg-cal-alta { fill: var(--an-cal-alta); }
+.an-ln-cal-alta { stroke: var(--an-cal-alta-ln); }
+.an-bg-cal-media { fill: var(--an-cal-media); }
+.an-ln-cal-media { stroke: var(--an-cal-media-ln); }
+.an-bg-cal-baixa { fill: var(--an-cal-baixa); }
+.an-ln-cal-baixa { stroke: var(--an-cal-baixa-ln); }
+.an-bg-res-mais3 { fill: var(--an-res-mais3); }
+.an-ln-res-mais3 { stroke: var(--an-res-mais3-ln); }
+.an-bg-res-mais2 { fill: var(--an-res-mais2); }
+.an-ln-res-mais2 { stroke: var(--an-res-mais2-ln); }
+.an-bg-res-zero { fill: var(--an-res-zero); }
+.an-ln-res-zero { stroke: var(--an-res-zero-ln); }
+.an-bg-res-menos2 { fill: var(--an-res-menos2); }
+.an-ln-res-menos2 { stroke: var(--an-res-menos2-ln); }
+.an-bg-res-menos3 { fill: var(--an-res-menos3); }
+.an-ln-res-menos3 { stroke: var(--an-res-menos3-ln); }
+.an-bg-fx { fill: var(--an-fx); }
+.an-ln-fx { stroke: var(--an-fx-ln); }
+.an-bg-ic { fill: var(--an-ic); }
+.an-ln-ic { stroke: var(--an-ic-ln); }
+.an-bg-nv-aberto { fill: var(--an-nv-aberto); }
+.an-ln-nv-aberto { stroke: var(--an-nv-aberto-ln); }
+.an-bg-nv-parcial { fill: var(--an-nv-parcial); }
+.an-ln-nv-parcial { stroke: var(--an-nv-parcial-ln); }
+.an-bg-nv-fechado { fill: var(--an-nv-fechado); }
+.an-ln-nv-fechado { stroke: var(--an-nv-fechado-ln); }
+
+/* ---------- matriz de maturidade ---------- */
+.an-c { stroke: var(--an-borda); stroke-width: 1; }
+.an-c-sem { fill: none; stroke: var(--an-suave); stroke-dasharray: 2 3; stroke-width: 1; }
+.an-t-sem { fill: var(--an-suave); }
+.an-gl { fill: none; }
+.an-c-em_uso { stroke: var(--an-em_uso-ln); } .an-t-em_uso { fill: var(--an-em_uso-tx); } .an-gl-em_uso { stroke: var(--an-em_uso-tx); fill: none; }
+.an-c-piloto { stroke: var(--an-piloto-ln); } .an-t-piloto { fill: var(--an-piloto-tx); } .an-gl-piloto { stroke: var(--an-piloto-tx); fill: none; }
+.an-c-licitacao { stroke: var(--an-licitacao-ln); } .an-t-licitacao { fill: var(--an-licitacao-tx); } .an-gl-licitacao { stroke: var(--an-licitacao-tx); fill: none; }
+.an-c-anunciado { stroke: var(--an-anunciado-ln); } .an-t-anunciado { fill: var(--an-anunciado-tx); } .an-gl-anunciado { stroke: var(--an-anunciado-tx); fill: none; }
+.an-c-em_estudo { stroke: var(--an-em_estudo-ln); } .an-t-em_estudo { fill: var(--an-em_estudo-tx); } .an-gl-em_estudo { stroke: var(--an-em_estudo-tx); fill: none; }
+.an-c-apenas_citado { stroke: var(--an-apenas_citado-ln); } .an-t-apenas_citado { fill: var(--an-apenas_citado-tx); } .an-gl-apenas_citado { stroke: var(--an-apenas_citado-tx); fill: none; }
+.an-c-descartado { stroke: var(--an-descartado-ln); } .an-t-descartado { fill: var(--an-descartado-tx); } .an-gl-descartado { stroke: var(--an-descartado-tx); fill: none; }
+.an-gl-em_uso { fill: var(--an-em_uso-tx); }
+.an-c-apenas_citado { stroke-dasharray: 3 2; }
+
+/* ---------- barras de proporção ---------- */
+.an-bar-fundo { fill: var(--an-borda); }
+.an-bar-parte { fill: var(--an-ok); }
+
+/* ---------- funil ---------- */
+.an-fn0 { fill: var(--an-acento); }
+.an-fn1 { stroke: var(--an-f1); stroke-width: 1; }
+.an-conv { fill: var(--an-suave); font-size: 11.5px; font-weight: 600; }
+.an-conv-baixa { fill: var(--an-perigo); font-weight: 700; }
+
+/* ---------- linha com corte, dispersão ---------- */
+.an-area { fill: var(--an-acento); fill-opacity: .12; }
+.an-linha { fill: none; stroke: var(--an-acento); stroke-width: 2.2; stroke-linejoin: round; }
+.an-pt { fill: var(--an-fundo); stroke: var(--an-acento); stroke-width: 1.6; }
+.an-teto { stroke: var(--an-ok); stroke-width: 2; stroke-dasharray: 7 4; }
+.an-corte { stroke: var(--an-perigo); stroke-width: 2; stroke-dasharray: 3 4; }
+.an-ponto { fill: var(--an-acento); fill-opacity: .55; stroke: var(--an-acento); stroke-width: .6; }
+.an-curva { fill: none; stroke: var(--an-perigo); stroke-width: 2.4; stroke-linejoin: round; }
+
+/* ---------- áreas empilhadas, mosaico ---------- */
+.an-area-s, .an-seg { stroke: var(--an-fundo); stroke-width: 1.2; }
+
+/* ---------- régua de kappa ---------- */
+.an-faixa { stroke: var(--an-suave); stroke-width: 1; }
+.an-faixa-atual { stroke: var(--an-texto); stroke-width: 2.5; }
+.an-faixa-rot { fill: var(--an-suave); font-size: 12px; font-weight: 600; }
+.an-faixa-rot.an-faixa-atual { fill: var(--an-texto); stroke: none; font-weight: 700; }
+.an-ponteiro { fill: var(--an-texto); }
+.an-ponteiro-haste { stroke: var(--an-texto); stroke-width: 2; }
+.an-ic-halo { stroke: var(--an-fundo); stroke-width: 5; stroke-linecap: round; }
+.an-ic-linha { stroke: var(--an-texto); stroke-width: 2; stroke-linecap: round; }
+
+/* ---------- semáforo do limite ---------- */
+.an-faixa-fundo { fill: var(--an-borda); }
+.an-obs-barra { fill: var(--an-acento); }
+.an-ic-sombra { stroke: var(--an-ic-ln); stroke-width: 1; stroke-dasharray: 3 2; }
+.an-limite { stroke: var(--an-perigo); stroke-width: 3; }
+.an-limite-rot { fill: var(--an-perigo); font-size: 12.5px; font-weight: 700; }
+.an-veredito-caixa { stroke-width: 2; }
+.an-veredito-glifo { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.an-veredito-texto { fill: var(--an-texto); font-size: 13.5px; font-weight: 600; }
+.an-veredito-ok .an-veredito-caixa { fill: var(--an-ok-fundo); stroke: var(--an-ok); }
+.an-veredito-ok .an-veredito-glifo { stroke: var(--an-ok); }
+.an-veredito-incerto .an-veredito-caixa { fill: var(--an-alerta-fundo); stroke: var(--an-alerta); stroke-dasharray: 6 3; }
+.an-veredito-incerto .an-veredito-glifo { stroke: var(--an-alerta); }
+.an-veredito-acima .an-veredito-caixa { fill: var(--an-perigo-fundo); stroke: var(--an-perigo); stroke-width: 3; }
+.an-veredito-acima .an-veredito-glifo { stroke: var(--an-perigo); }
+
+/* ---------- calibração ---------- */
+.an-col { stroke: var(--an-texto); stroke-width: 1; }
+.an-col-vazia { fill: none; stroke: var(--an-suave); stroke-width: 1.5; stroke-dasharray: 5 4; }
+
+/* ---------- floresta de odds ---------- */
+.an-ref { stroke: var(--an-texto); stroke-width: 1.5; }
+.an-marca { stroke: var(--an-texto); stroke-width: 1; }
+.an-or-mais .an-marca { fill: var(--an-acento); }
+.an-or-menos .an-marca { fill: var(--an-res-menos3); }
+.an-or-neutro .an-marca { fill: var(--an-fundo); stroke-width: 2; }
+.an-or-texto { fill: var(--an-texto); font-size: 12px; font-weight: 600; }
+.an-or-mais .an-ic-linha { stroke: var(--an-acento); }
+.an-or-menos .an-ic-linha { stroke: var(--an-res-menos3); }
+.an-or-neutro .an-ic-linha { stroke: var(--an-suave); }
+
+/* ---------- mapa de calor ---------- */
+.an-calor-0 { fill: var(--an-calor0); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-0 { fill: var(--an-calor-tx0); }
+.an-calor-1 { fill: var(--an-calor1); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-1 { fill: var(--an-calor-tx1); }
+.an-calor-2 { fill: var(--an-calor2); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-2 { fill: var(--an-calor-tx2); }
+.an-calor-3 { fill: var(--an-calor3); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-3 { fill: var(--an-calor-tx3); }
+.an-calor-4 { fill: var(--an-calor4); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-4 { fill: var(--an-calor-tx4); }
+
+/* ---------- fluxo ---------- */
+/* o preenchimento do fluxo em alerta vem do atributo fill (padrão); por isso a regra abaixo exclui `an-fluxo-alerta` */
+.an-fluxo:not(.an-fluxo-alerta) { fill: var(--an-acento); fill-opacity: .28; stroke: none; }
+.an-fluxo-alerta { fill-opacity: 1; stroke: var(--an-perigo); stroke-width: 1.5; }
+.an-no { fill: var(--an-texto); }
+
+/* ---------- ranking de bloqueios ---------- */
+.an-ranking th[scope="row"] { font-weight: 600; text-transform: none; letter-spacing: 0; font-size: .93rem; color: var(--an-texto); white-space: normal; overflow-wrap: break-word; min-width: 13rem; }
+tr.an-nivel-fechado th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-perigo); }
+tr.an-nivel-parcial th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-alerta); }
+tr.an-nivel-aberto th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-ok); }
+.an-celula-barra { min-width: 130px; }
+.an-barra-semaforo { width: 120px; max-width: none; height: 12px; display: block; }
+.an-barra-nivel { stroke: var(--an-texto); stroke-width: .6; }
+.an-situacao { display: inline-flex; align-items: center; gap: .3em; padding: .1em .55em; border-radius: 999px; font-size: .8rem; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.an-situacao::before { font-size: .9em; }
+.an-situacao-aberto { color: var(--an-ok); } .an-situacao-aberto::before { content: "\2713"; }
+.an-situacao-parcial { color: var(--an-alerta); } .an-situacao-parcial::before { content: "\25D0"; }
+.an-situacao-fechado { color: var(--an-perigo); } .an-situacao-fechado::before { content: "\2715"; }
+
+/* ---------- selos estatísticos (selos_estatisticos.py); combinam com `.selo` de painel.css ---------- */
+.selo.ev-forte { color: var(--an-ok); background: var(--an-ok-fundo); border-color: var(--an-ok); }
+.selo.ev-moderada { color: var(--an-alerta); background: var(--an-alerta-fundo); border-color: var(--an-alerta); }
+.selo.ev-insuficiente { color: var(--an-suave); background: var(--an-fundo); border-color: var(--an-borda); border-style: dashed; }
+.selo.ev-sem { color: var(--an-suave); background: var(--an-fundo); border-color: var(--an-borda); border-style: dotted; }
+
+@media print {
+  .an-svg { max-width: none; }
+  a.an-link { color: inherit; }
+}
+
+/* cabeçalhos longos das colunas da matriz */
+.an-matriz .an-cab { font-size: 11px; }
+
+/* ---- pagina /analises (abas, cartoes, blocos) ---- */
+.an-abas { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0; }
+.an-abas a { padding: .35rem .8rem; border: 1px solid var(--borda, #c8ccd2); border-radius: 999px; text-decoration: none; }
+.an-abas a[aria-current="page"] { font-weight: 700; border-width: 2px; }
+.an-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; margin: 1rem 0; }
+.an-cartoes .cartao { display: flex; flex-direction: column; padding: .75rem; border: 1px solid var(--borda, #c8ccd2); border-radius: 8px; }
+.an-cartoes .cartao strong { font-size: 1.5rem; }
+.an-bloco { margin: 2rem 0; padding-bottom: 1rem; border-bottom: 1px solid var(--borda, #c8ccd2); }
+.an-bloco h2 { margin-bottom: .2rem; }
+.an-subtitulo { margin-top: 0; font-size: .85rem; opacity: .8; }
+.an-grafico { overflow-x: auto; margin: .75rem 0; }
+.an-memoria { margin-top: .75rem; }
+.an-pares { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; }
+.an-pares dt { font-weight: 600; }
+.an-pares dd { margin: 0; }

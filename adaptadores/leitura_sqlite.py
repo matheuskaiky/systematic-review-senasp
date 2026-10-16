@@ -13,13 +13,14 @@ ORDEM_FILA = ("verificado, COALESCE(evidencia_confere, 0), COALESCE(evidencia_ci
               "COALESCE(fonte_oficial_final, fonte_oficial, 0), uf, achado_id")
 
 
+from adaptadores.leitura_analises import LeituraAnalises
 from adaptadores.leitura_classificadores import LeituraClassificadores
 from adaptadores.leitura_metodologia import LeituraMetodologia
 from adaptadores.leitura_triagem_escopo import LeituraTriagemEscopo
 from dominio.relevancia import NIVEIS, pontuar_relevancia
 
 
-class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTriagemEscopo):
+class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTriagemEscopo, LeituraAnalises):
     def __init__(self, caminho):
         self._caminho = Path(caminho)
 

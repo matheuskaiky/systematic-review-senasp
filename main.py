@@ -301,12 +301,14 @@ def abrir_painel(a, fab):
     if a.host not in ("127.0.0.1", "localhost"):
         raise SystemExit("O painel só aceita conexões locais (127.0.0.1): ele não tem autenticação.")
     import uvicorn
+    from config.solucoes_conhecidas import SOLUCOES_CONHECIDAS
     from painel.app import Contexto, criar_app
     banco = "demo" if a.demo else "simulado" if a.simulado else "real"
     contexto = Contexto(
         banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
         pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
         status_definicoes=dict(V.STATUS), termos={t.id: t.query for t in C.TERMOS}, bases=tuple(C.BASES_MANUAIS),
+        solucoes_conhecidas=tuple(SOLUCOES_CONHECIDAS),
         comando_criar_banco="python main.py painel-demo" if a.demo else
         "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5")
     if not fab.caminho_banco.exists() and a.demo:

@@ -57,6 +57,7 @@ class Contexto:
     comando_criar_banco: str = "python main.py pipeline-uf --ufs PI --limite 5"
     termos: dict = field(default_factory=dict)      # id -> consulta (so para exibir)
     bases: tuple = ()                               # bases das buscas manuais
+    solucoes_conhecidas: tuple = ()                 # SolucaoConhecida (config/solucoes_conhecidas.py), para a pagina /solucoes
     hosts_permitidos: tuple = ("127.0.0.1", "localhost")   # DNS rebinding: qualquer outro Host e recusado
     backup_feito: bool = field(default=False)
 

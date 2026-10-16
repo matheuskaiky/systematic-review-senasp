@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "_selos.html" as s %}
+{% block titulo %}Soluções conhecidas{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/solucoes.css">{% endblock %}
+{% block conteudo %}
+<h1>Soluções conhecidas</h1>
+<p class="sub">Uma lista, feita por você, de sistemas de IA de segurança pública que você sabe que existem. A tela mostra, para cada um, <strong>até onde a coleta o levou</strong>:
+  apareceu nos resultados da busca? Está no texto de alguma página baixada? Algum achado o cita? É a medida de revocação da coleta web. Nada aqui grava dados.</p>
+<div class="aviso aviso-forte" role="note">
+  <strong>Uma solução ausente dos resultados não prova que ela não é usada.</strong> A busca devolve poucos resultados por consulta, o ranking muda a cada execução e só parte das
+  páginas foi baixada (veja <code>docs/CASO_BO_FACIL.md</code>). A lista fica em <code>config/solucoes_conhecidas.py</code>; para acrescentar uma solução, edite esse arquivo.
+</div>
+
+{% if sem_lista %}
+<p class="vazio">Nenhuma solução conhecida foi informada. Acrescente nomes (e apelidos) em <code>config/solucoes_conhecidas.py</code> e abra esta página de novo.</p>
+{% else %}
+<section class="cartao" aria-labelledby="h-resumo"><h2 id="h-resumo">Resumo</h2>
+  <div class="tabela-rolavel"><table>
+    <caption class="so-leitor">Situação de cada solução conhecida</caption>
+    <thead><tr><th scope="col">Solução</th><th scope="col">UF</th><th scope="col" class="num">Resultados de busca</th><th scope="col" class="num">Páginas baixadas</th><th scope="col" class="num">Achados</th><th scope="col">Situação</th></tr></thead>
+    <tbody>{% for k in cartoes %}
+      <tr><th scope="row"><a href="#sol-{{ loop.index }}">{{ k.solucao.nome }}</a></th><td>{{ k.solucao.uf }}</td>
+        <td class="num">{{ k.resultados|length }}</td><td class="num">{{ k.paginas|length }}</td><td class="num">{{ k.achados|length }}</td><td class="quebra">{{ k.rotulo }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="explica">“Resultados de busca” conta os resultados da busca web da UF cujo título ou resumo cita o nome; “Páginas baixadas”, as páginas cujo <strong>texto extraído</strong> o cita;
+    “Achados”, os achados cuja evidência (ou nome da solução) o cita. Cada número é a etapa seguinte do funil; um número zero depois de um positivo é onde a coleta perdeu a solução.
+    A comparação ignora acentos e maiúsculas e exige a palavra inteira (“spia” não acha “espiando”).</p>
+</section>
+
+{% for k in cartoes %}
+<section class="cartao cartao-solucao" aria-labelledby="sol-{{ loop.index }}-h" id="sol-{{ loop.index }}">
+  <h2 id="sol-{{ loop.index }}-h">{{ k.solucao.nome }} <small>({{ k.solucao.uf }})</small></h2>
+  {% if k.solucao.observacao %}<p class="explica">{{ k.solucao.observacao }}</p>{% endif %}
+  <p class="explica">Nomes procurados: {% for v in k.variantes %}<code>{{ v }}</code>{% if not loop.last %}, {% endif %}{% endfor %} (sem acento, em minúsculas).</p>
+  <p class="veredito" role="status">Situação: {{ k.rotulo }}.</p>
+  <p>{{ k.explicacao }}</p>
+  <p><a href="/buscar-texto?q={{ k.solucao.nome|urlencode }}&amp;uf={{ k.solucao.uf|urlencode }}&amp;inteira=1">Buscar “{{ k.solucao.nome }}” no texto das páginas da UF</a></p>
+
+  <h3>1. Nos resultados da busca ({{ k.resultados|length }})</h3>
+  {% if k.resultados %}
+    <p class="explica">{{ k.n_urls_resultados }} endereço(s) diferente(s){% if k.n_urls_nunca_baixadas %}; <strong>{{ k.n_urls_nunca_baixadas }} nunca foi baixado</strong>{% endif %}.
+      {% if k.so_fora_do_relatorio %}Todos vieram de execuções fora do relatório (testes ou pilotos).{% endif %}
+      {% if k.resultados|length > max_links %}Mostrando os {{ max_links }} primeiros.{% endif %}</p>
+    <ul>{% for r in k.resultados[:max_links] %}
+      <li>{% if r.url|url_segura != "#" %}<a href="{{ r.url|url_segura }}" rel="noopener noreferrer">{{ r.titulo or r.url }}</a>{% else %}{{ r.titulo or "endereço não é http/https" }}{% endif %}
+        <br><small class="fornecedor">execução <a href="/execucoes/{{ r.run_id|urlencode }}"><code>{{ r.run_id }}</code></a> · consulta <code>{{ r.consulta_id }}</code> · posição {{ r.posicao if r.posicao is not none else "?" }}
+        {% if not r.no_relatorio %} · <strong>só em execução fora do relatório</strong>{% endif %}
+        {% if not r.n_paginas %} · <strong>página nunca baixada</strong>{% if r.selecionada %} (foi selecionada para download){% endif %}{% elif not r.n_paginas_com_texto %} · baixada, mas sem texto extraído{% endif %}</small></li>{% endfor %}</ul>
+  {% else %}<p class="nao-avaliado">Nenhum título ou resumo de resultado da UF cita o nome.</p>{% endif %}
+
+  <h3>2. No texto de páginas baixadas ({{ k.paginas|length }})</h3>
+  {% if k.paginas %}
+    <ul>{% for p in k.paginas[:max_links] %}
+      <li>{% if p.link_externo|url_segura != "#" %}<a href="{{ p.link_externo|url_segura }}" rel="noopener noreferrer">{{ p.dominio_final or p.url }}</a>{% else %}{{ p.dominio_final or "endereço não é http/https" }}{% endif %}
+        <small class="fornecedor">· execução <a href="/execucoes/{{ p.run_id|urlencode }}"><code>{{ p.run_id }}</code></a></small>
+        {% if p.achados_sem_nome %}<br>Achados desta página que não citam o nome: {% for a in p.achados_sem_nome %}<a href="/achados/{{ a.achado_id }}">{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} ({{ rotulos.rotulo(rotulos.STATUS, a.status_reportado) }})</a>{% if a.n > 1 %} <small class="fornecedor">×{{ a.n }}</small>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}<br><small class="fornecedor">nenhum achado foi extraído desta página</small>{% endif %}</li>{% endfor %}</ul>
+    {% if k.paginas|length > max_links %}<p class="explica">Mostrando as {{ max_links }} primeiras de {{ k.paginas|length }}.</p>{% endif %}
+  {% else %}<p class="nao-avaliado">Nenhuma página baixada cita o nome.</p>{% endif %}
+
+  <h3>3. Nos achados ({{ k.achados|length }})</h3>
+  {% if k.achados %}
+    <ul>{% for a in k.achados[:max_links] %}
+      <li><a href="/achados/{{ a.achado_id }}">Achado {{ a.achado_id }}</a>: {{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} · {{ rotulos.rotulo(rotulos.STATUS, a.status_reportado) }}
+        <small class="fornecedor">· citado {{ "no nome da solução" if a.citado_em == "nome_solucao" else "na evidência" }}</small></li>{% endfor %}</ul>
+    {% if k.achados|length > max_links %}<p class="explica">Mostrando os {{ max_links }} primeiros de {{ k.achados|length }}.</p>{% endif %}
+  {% else %}<p class="nao-avaliado">Nenhum achado cita o nome na evidência{% if k.paginas %}; veja acima os achados das páginas que o citam{% endif %}.</p>{% endif %}
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

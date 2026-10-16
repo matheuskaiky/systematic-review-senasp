@@ -17,6 +17,7 @@ ORDEM_FILA = ("verificado, COALESCE(evidencia_confere, 0), COALESCE(evidencia_ci
 from adaptadores.leitura_analises import LeituraAnalises
 from adaptadores.leitura_classificadores import LeituraClassificadores
 from adaptadores.leitura_metodologia import LeituraMetodologia
+from adaptadores.leitura_solucoes import LeituraSolucoes
 from adaptadores.leitura_termos_cobertura import LeituraTermosCobertura
 from adaptadores.leitura_termos_ruido import LeituraTermosRuido
 from adaptadores.leitura_triagem_escopo import LeituraTriagemEscopo
@@ -24,7 +25,7 @@ from dominio.relevancia import NIVEIS, pontuar_relevancia
 
 
 class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTriagemEscopo, LeituraAnalises, LeituraTermosCobertura,
-                          LeituraTermosRuido):
+                          LeituraTermosRuido, LeituraSolucoes):
     def __init__(self, caminho):
         self._caminho = Path(caminho)
 

@@ -295,6 +295,18 @@ _ESCOPO_LLM = [
 ]
 
 
+_SOLUCOES = [
+    _e("solucao-conhecida", "Solução conhecida",
+       "Sistema de IA de segurança pública que o pesquisador sabe que existe e informa em config/solucoes_conhecidas.py (nome, UF e, se quiser, "
+       "apelidos). A página Soluções conhecidas mostra se a coleta o encontrou nos resultados da busca, no texto das páginas baixadas e nos achados. "
+       "É uma medida de revocação da coleta, não um resultado da pesquisa; a lista é sua e não entra na configuração das execuções."),
+    _e("busca-no-texto", "Busca no texto",
+       "Procura de um nome ou frase em todo o texto extraído das páginas já baixadas, e não só na evidência dos achados. Ignora acentos e maiúsculas "
+       "e, com a opção de palavra inteira, não acha o nome dentro de outra palavra. Só enxerga páginas baixadas: não achar o nome não prova "
+       "que a solução não é usada."),
+]
+
+
 def _por_chave(tabela, nome, textos, extra=None):
     prefixo = PREFIXOS[nome]
     return [_e(f"{prefixo}-{k}", tabela[k], textos[k], **({"status": k} if extra and k in extra else {})) for k in tabela if k in textos]
@@ -340,6 +352,8 @@ SECOES = [
     {"id": "triagem-escopo-llm", "titulo": "Triagem de escopo pelo modelo",
      "intro": "O modelo opina, item a item, se o resultado serve ao escopo; a pesquisa usa a opinião para refinar as consultas, sem apagar nem decidir nada.",
      "entradas": _ESCOPO_LLM},
+    {"id": "solucoes-conhecidas", "titulo": "Soluções conhecidas e busca no texto",
+     "intro": "Duas telas para conferir se a coleta encontra o que o pesquisador já conhece.", "entradas": _SOLUCOES},
 ]
 
 

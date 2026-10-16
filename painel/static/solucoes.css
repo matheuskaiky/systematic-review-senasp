@@ -1,0 +1,19 @@
+/* Solucoes conhecidas e Buscar no texto: usa os tokens de painel.css (claro e escuro). A marca do trecho nunca e so cor: tem fundo e contorno. */
+.explica { color: var(--texto-suave); max-width: 85ch; margin: 0 0 1rem; font-size: .93rem; }
+.trecho { margin: 0 0 .5rem; overflow-wrap: anywhere; max-width: 90ch; }
+.trecho mark { background: var(--marca); color: inherit; box-shadow: 0 0 0 2px var(--marca-borda); border-radius: 3px; padding: 0 .1em; }
+.form-busca { display: grid; grid-template-columns: minmax(14rem, 2fr) minmax(8rem, 1fr) auto auto; gap: .75rem; align-items: end; margin: 0 0 1rem; }
+.form-busca label { display: flex; flex-direction: column; font-size: .85rem; color: var(--texto-suave); gap: .2rem; }
+.form-busca label.marcar { flex-direction: row; align-items: center; gap: .4rem; color: var(--texto); }
+.cartao-solucao { margin-bottom: 1.25rem; }
+.cartao-solucao h3 { margin: 1rem 0 .35rem; font-size: 1rem; }
+.cartao-solucao ul { margin: 0 0 .5rem; padding-left: 1.2rem; }
+.cartao-solucao li { margin-bottom: .3rem; overflow-wrap: anywhere; }
+.veredito { font-weight: 600; margin: .25rem 0; }
+td.quebra { overflow-wrap: anywhere; min-width: 11rem; max-width: 26rem; }
+@media (max-width: 640px) {
+  .form-busca { grid-template-columns: 1fr; }
+}
+.nao-avaliado { color: var(--texto-suave); font-style: italic; font-size: .93rem; }
+.lista-colateral { margin: 0; padding-left: 1rem; }
+.lista-colateral li { margin-bottom: .2rem; }

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% import "_selos.html" as s %}
+{% block titulo %}Buscar no texto{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/solucoes.css">{% endblock %}
+{% block conteudo %}
+<h1>Buscar no texto das páginas</h1>
+<p class="sub">Procura um nome ou uma frase em <strong>todo o texto extraído</strong> das páginas já baixadas, e não só na evidência dos achados. É assim que se descobre se o nome de uma
+  solução aparece em alguma página, mesmo quando o classificador a descreveu sem citar o nome. Sem acento e sem diferença entre maiúsculas e minúsculas. Nada aqui grava dados e nenhuma busca na internet é feita.</p>
+
+<form class="form-busca" method="get" action="/buscar-texto" role="search">
+  <label for="q">Nome ou frase ({{ q_min }} a {{ q_max }} caracteres)
+    <input type="search" id="q" name="q" value="{{ q }}" minlength="{{ q_min }}" maxlength="{{ q_max }}" required placeholder="por exemplo: BO Fácil"></label>
+  <label for="uf">UF
+    <select id="uf" name="uf"><option value="">todas</option>{% for sigla in ufs %}<option value="{{ sigla }}"{% if uf == sigla %} selected{% endif %}>{{ sigla }}</option>{% endfor %}</select></label>
+  <label class="marcar" for="inteira"><input type="checkbox" id="inteira" name="inteira" value="1"{% if inteira %} checked{% endif %}> Só palavra inteira</label>
+  <button class="botao" type="submit">Buscar</button>
+</form>
+
+{% if aviso %}<div class="aviso aviso-forte" role="alert">{{ aviso }}</div>{% endif %}
+
+{% if resultados is none %}
+<section class="cartao" aria-labelledby="h-como"><h2 id="h-como">Como ler</h2>
+  <ul>
+    <li>Escreva o nome como o conhece; maiúsculas, acentos e pontuação não importam (“bo-facil” acha “BO Fácil”).</li>
+    <li>Com <strong>só palavra inteira</strong>, “spia” acha “SPiA” mas não “espiando”. Sem a opção, qualquer trecho serve, e “spia” acharia as duas.</li>
+    <li>Cada resultado é uma página baixada de que se extraiu texto. Páginas que não foram baixadas, ou de que não saiu texto, <strong>não são pesquisadas</strong>.</li>
+    <li>Não achar o nome aqui <strong>não prova</strong> que a solução não é usada: a busca na web é incompleta e só uma parte das páginas foi baixada.
+      Veja o caso do BO Fácil em <code>docs/CASO_BO_FACIL.md</code> e a conferência por solução em <a href="/solucoes">Soluções conhecidas</a>.</li>
+  </ul>
+</section>
+{% else %}
+<p class="contagem" role="status">Foram pesquisadas <strong>{{ n_paginas }}</strong> página(s){% if uf %} da UF {{ uf }}{% endif %}.
+  <strong>{{ n_achadas }}</strong> citam “{{ q }}”{% if truncado %}; mostrando as {{ max_resultados }} com mais ocorrências (refine a busca ou escolha uma UF para ver as demais){% endif %}.
+  {% if sem_arquivo %}{{ sem_arquivo }} página(s) ficaram de fora porque o arquivo de texto não foi encontrado em data/raw.{% endif %}
+  <a href="{{ link_achados }}">Buscar o mesmo texto nas evidências dos achados</a>{% if link_achados_uf %} · <a href="{{ link_achados_uf }}">só na UF {{ uf }}</a>{% endif %}.</p>
+{% if not resultados %}
+<p class="vazio">Nenhuma página baixada cita “{{ q }}”. Isto <strong>não prova</strong> que a solução não existe: ela pode estar em uma página que a busca não trouxe ou que não foi baixada.</p>
+{% else %}
+<div class="tabela-rolavel"><table class="tabela-busca-texto">
+  <caption class="so-leitor">Páginas cujo texto cita a busca, das mais para as menos citadas</caption>
+  <thead><tr><th scope="col">UF</th><th scope="col">Página</th><th scope="col" class="num">Citações</th><th scope="col">Trechos</th><th scope="col">Achados dessa página</th></tr></thead>
+  <tbody>{% for r in resultados %}
+    <tr>
+      <td>{{ r.uf }}</td>
+      <td class="quebra">{% if r.link_externo|url_segura != "#" %}<a href="{{ r.link_externo|url_segura }}" rel="noopener noreferrer">{{ r.dominio or r.url }}</a>{% else %}{{ r.dominio or "endereço não é http/https" }}{% endif %}
+        <br><small class="fornecedor">execução <a href="/execucoes/{{ r.run_id|urlencode }}"><code>{{ r.run_id }}</code></a>{% if not r.no_relatorio %} · fora do relatório{% endif %}</small></td>
+      <td class="num">{{ r.n_ocorrencias }}</td>
+      <td>{% for antes, achado, depois in r.trechos %}<p class="trecho">{{ antes }}<mark>{{ achado }}</mark>{{ depois }}</p>{% endfor %}</td>
+      <td>{% if r.achados %}<ul class="lista-colateral">{% for a in r.achados %}<li><a href="/achados/{{ a.achado_id }}">{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }}</a> · {{ rotulos.rotulo(rotulos.STATUS, a.status_reportado) }}{% if a.n > 1 %} <small class="fornecedor">×{{ a.n }}</small>{% endif %}</li>{% endfor %}</ul>
+        {% else %}<small class="fornecedor">nenhum achado nesta página</small>{% endif %}</td>
+    </tr>{% endfor %}</tbody></table></div>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -341,3 +341,33 @@ def test_estagio_extracao_agrupada_por_classe_de_erro(estagio):
     e = {(l["resultado"], l["motivo"]): l["n_urls"] for l in repo.conn.execute("SELECT * FROM v_extracao")}
     assert e[("ok", "ok")] == 1 and e[("falha_download", "http_404")] == 1 and e[("falha_download", "erro_de_leitura")] == 1
     assert sum(1 for k in e if k[0] == "falha_extracao") == 1 and all("(" not in k[1] for k in e)
+
+
+def test_download_extrai_antes_de_gravar_para_nao_segurar_o_banco(tmp_path):
+    """A extracao (lenta em PDFs grandes) nao pode rodar com uma transacao de gravacao aberta."""
+    import logging
+    from dataclasses import replace
+    from adaptadores.bruto_local import BrutoLocal
+    from adaptadores.repositorio_sqlite import RepositorioSQLite
+    from adaptadores.simulados import BuscaSimulada, ExtratorSimulado, FetcherSimulado
+    from aplicacao import busca_web, download
+    from config import consultas as C
+    from dados_metricas import _consulta_pi, _novo_run
+    repo, bruto = RepositorioSQLite(tmp_path / "x.db"), BrutoLocal(tmp_path / "raw")
+    run = _novo_run(repo, "pipeline-uf")
+    logging.disable(logging.CRITICAL)
+    try:
+        busca_web.executar(repo, bruto, BuscaSimulada(), run, _consulta_pi(), C.PERFIS_BUSCA_WEB, [], 0)
+        abertas = []
+
+        class ExtratorQueConfereTransacao(ExtratorSimulado):
+            def extrair(self, conteudo, content_type, url):
+                abertas.append(repo.conn.in_transaction)           # True = o banco esta bloqueado enquanto extrai
+                return super().extrair(conteudo, content_type, url)
+
+        download.executar(repo, bruto, FetcherSimulado(), ExtratorQueConfereTransacao(), run, run,
+                          replace(C.POLITICA_DOWNLOAD, palavras_chave=()), [], 0, ufs={"PI"})
+    finally:
+        logging.disable(logging.NOTSET)
+    assert abertas and not any(abertas)
+    assert repo.conn.execute("SELECT COUNT(*) FROM paginas").fetchone()[0] == len(abertas)

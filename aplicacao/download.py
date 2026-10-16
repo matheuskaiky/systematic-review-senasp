@@ -26,13 +26,17 @@ def executar(repo, bruto, fetcher, extrator, run_id, run_origem, politica, segre
         if repo.ja_feito(run_id, chave):
             continue
         arq = fetcher.baixar(url)
+        # O trabalho lento (extracao de PDFs grandes leva dezenas de segundos) acontece ANTES de qualquer gravacao: assim a
+        # chamada e a pagina entram juntas numa transacao curta e o banco nao fica bloqueado para o painel e para as outras
+        # etapas (16/10/2026: uma extracao longa segurava o banco e outro processo morria com "database is locked").
+        texto = texto_path = None
+        if arq.chamada.sucesso:
+            texto = extrator.extrair(arq.conteudo, arq.content_type, arq.url_final)
+            if texto.ok:
+                texto_path, _ = bruto.salvar("texto", run_id, chave, texto.texto.encode("utf-8"), "txt")
         chamada_id, _ = registrar_chamada(repo, bruto, run_id, "download", "url", str(url_id), chave,
                                           arq.chamada, segredos)
         if arq.chamada.sucesso:
-            texto = extrator.extrair(arq.conteudo, arq.content_type, arq.url_final)
-            texto_path = None
-            if texto.ok:
-                texto_path, _ = bruto.salvar("texto", run_id, chave, texto.texto.encode("utf-8"), "txt")
             repo.salvar_pagina(run_id, url_id, chamada_id, arq, texto, texto_path)
         repo.confirmar()
         feitos += 1

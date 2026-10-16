@@ -240,6 +240,10 @@ CREATE TABLE IF NOT EXISTS achados (
     observacao        TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_achados_classificacao ON achados(classificacao_id);
+-- as consultas de candidatos e de itens a classificar buscam por (url_id, uf) e (url_id, run_id) em subconsultas correlacionadas:
+-- sem estes indices `itens_para_classificar` levava 8,5 s numa copia local e minutos no banco real em /mnt/c (16/10/2026)
+CREATE INDEX IF NOT EXISTS ix_resultados_web_url_uf ON resultados_web(url_id, uf, resultado_id);
+CREATE INDEX IF NOT EXISTS ix_paginas_url_run ON paginas(url_id, run_id);
 -- achados que o modelo devolveu fora do vocabulario controlado: descartados, mas guardados para auditoria
 CREATE TABLE IF NOT EXISTS achados_descartados (
     descartado_id    INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -267,3 +267,14 @@ def test_esquema_atualizado_so_le_e_detecta_banco_desatualizado(tmp_path):
     assert RepositorioSQLite.esquema_atualizado(velho) is False
     RepositorioSQLite(banco).fechar()                                      # abrir de novo aplica o esquema e regrava a assinatura
     assert RepositorioSQLite.esquema_atualizado(banco) is True
+
+
+def test_indices_das_consultas_de_candidatos_existem_e_sao_usados(tmp_path):
+    """Sem estes indices as subconsultas correlacionadas de `itens_para_classificar` levavam minutos no banco real."""
+    repo = RepositorioSQLite(tmp_path / "i.db")
+    nomes = {r[0] for r in repo.conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    assert {"ix_resultados_web_url_uf", "ix_paginas_url_run"} <= nomes
+    plano = " ".join(str(r[3]) for r in repo.conn.execute(
+        "EXPLAIN QUERY PLAN SELECT titulo FROM resultados_web r WHERE r.url_id=1 AND r.uf='PI' ORDER BY r.resultado_id DESC LIMIT 1"))
+    assert "ix_resultados_web_url_uf" in plano
+    repo.fechar()

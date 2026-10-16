@@ -84,7 +84,7 @@ def test_lotes_chamadas_e_linhas(academico):
     assert _n(repo, "SELECT COUNT(*) FROM triagem_escopo WHERE run_id=?", run) == 12
     assert _n(repo, "SELECT COUNT(*) FROM triagem_escopo WHERE valido=1") == 12
     linha = repo.conn.execute("SELECT * FROM triagem_escopo WHERE item_id=1").fetchone()
-    assert linha["prompt_versao"] == "t1" and linha["fonte"] == "artigo" and linha["uf"] == ""
+    assert linha["prompt_versao"] == CONFIG.versao and linha["fonte"] == "artigo" and linha["uf"] == ""
     assert json.loads(linha["termos_consulta"]) == ['"reconhecimento facial"', '"reconhecimento facial em tempo real"', '"facial recognition"']
     ch = repo.conn.execute("SELECT * FROM chamadas WHERE etapa='triagem_escopo' ORDER BY chamada_id").fetchall()
     assert [c["alvo_tipo"] for c in ch] == ["lote"] * 3 and len({c["chave_idempotencia"] for c in ch}) == 3
@@ -119,9 +119,9 @@ def test_prompt_com_outra_versao_nao_pula_itens(academico):
     _exec(repo, bruto, run, TriadorSimulado())
     from dataclasses import replace
     outra = _novo_run(repo, "triar-escopo")
-    r = triagem_escopo.executar(repo, bruto, TriadorSimulado(), outra, "artigo", MAPAS, replace(CONFIG, versao="t2"),
+    r = triagem_escopo.executar(repo, bruto, TriadorSimulado(), outra, "artigo", MAPAS, replace(CONFIG, versao="t-outra"),
                                 PRECOS, [], 0, lote=5)
-    assert r["chamadas"] == 3 and _n(repo, "SELECT COUNT(*) FROM triagem_escopo WHERE prompt_versao='t2'") == 12
+    assert r["chamadas"] == 3 and _n(repo, "SELECT COUNT(*) FROM triagem_escopo WHERE prompt_versao='t-outra'") == 12
 
 
 def test_retomada_depois_de_lote_com_falha_so_repete_o_lote_que_falhou(academico):

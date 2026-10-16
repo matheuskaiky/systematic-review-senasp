@@ -9,7 +9,7 @@ O texto do prompt e em ingles e a saida em portugues (convencao D1 do projeto). 
 """
 from dominio.triagem_escopo import ConfigTriagem, SEM_CATEGORIA
 
-PROMPT_TRIAGEM_VERSAO = "t1"
+PROMPT_TRIAGEM_VERSAO = "t2"   # t2 (16/10/2026): a excecao dos anos antigos passou a ser usada (ver docs/ESTRATEGIA_TRIAGEM_ESCOPO_LLM.md)
 
 # ----- vocabularios fechados (os valores do enum sao em portugues) -----
 STATUS = ("elegivel", "quarentena", "excluido")
@@ -65,9 +65,13 @@ DECISION RULE (asymmetric, important):
   Then "confianca" must be "alta".
 - "quarentena": anything else, including missing, truncated or ambiguous information. WHEN IN DOUBT, "quarentena".
 - TEMPORAL RULE: an article with a known publication year before 2022 is out of scope by default: status "excluido",
-  categoria_motivo FORA_DO_RECORTE_TEMPORAL, confianca "alta". EXCEPTION: if the title and snippet show that the item is
-  clearly useful for the scope anyway (for example a foundational Brazilian study), answer "elegivel" or "quarentena"
-  and say why in "justificativa". Unknown year: no temporal rule.
+  categoria_motivo FORA_DO_RECORTE_TEMPORAL, confianca "alta". EXCEPTION, which you MUST apply when it fits: if the
+  article is directly about AI or automated data analysis applied to public security, policing, forensics or criminal
+  justice (Brazilian or not), or is a Brazilian study that is clearly useful for the scope, do NOT exclude it by date:
+  answer "quarentena" with categoria_motivo FORA_DO_RECORTE_TEMPORAL (the date is the only reason it is not "elegivel"),
+  or "elegivel" if it is clearly foundational or highly pertinent, and say in "justificativa" why it may still be useful.
+  Articles before 2022 that are off-topic, generic or only tangentially related stay "excluido". Unknown year: no
+  temporal rule.
 - A non-Brazilian item is NOT excluded for that reason alone (it may be useful background). Record it
   in "escopo_geografico". Exclude it only if it is also off-topic.
 

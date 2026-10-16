@@ -108,7 +108,7 @@ def test_simulado_com_amostra_grava_triagem_e_registra_execucao(simulado, monkey
     ex = _banco(simulado).execute("SELECT * FROM execucoes WHERE comando LIKE 'triar-escopo%'").fetchone()
     assert ex["comando"] == "triar-escopo [simulado]" and ex["status"] == "concluida" and ex["run_origem"] is None
     cfg = json.loads(ex["config_json"])
-    assert cfg["triagem_escopo"]["versao"] == "t1" and cfg["triagem_escopo"]["lote"] == 10
+    assert cfg["triagem_escopo"]["versao"] == TE.PROMPT_TRIAGEM_VERSAO and cfg["triagem_escopo"]["lote"] == 10
     assert "elegivel" in cfg["triagem_escopo"]["status"] and "TEMPORAL RULE" in cfg["triagem_escopo"]["sistema_artigo"]
     assert "termos" in cfg and ex["config_hash"] != S.snapshot_config()["hash"] and len(ex["config_hash"]) == 12
     assert {t: _n(simulado, f"SELECT COUNT(*) FROM {t}") for t in antes} == antes

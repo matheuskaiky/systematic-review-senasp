@@ -30,9 +30,9 @@
     {{ rotulos.rotulo(rotulos.ORIGEM_TEXTO, c.classificacao.origem_texto) }}{% if c.classificacao.texto_truncado %} (texto cortado){% endif %} · {{ fmt.numero(c.classificacao.n_chars_enviados) }} caracteres · prompt {{ c.classificacao.prompt_versao }}{% if not c.classificacao.json_valido %} · <span class="selo alerta">JSON inválido</span>{% endif %}</p>
   {% if c.achados %}<ul class="lista-simples">{% for a in c.achados %}<li><a href="/achados/{{ a.achado_id }}">nº {{ a.achado_id }}</a> · {{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} · {{ s.status(a.status_reportado) }} {{ s.evidencia(a.evidencia_confere) }}</li>{% endfor %}</ul>{% endif %}
 </section>{% endif %}
-{% if c.pagina %}<section class="cartao"><h2>Página baixada</h2>
-  <dl class="ficha"><dt>Endereço final</dt><dd>{{ c.pagina.url_final }}</dd><dt>Tipo</dt><dd>{{ c.pagina.content_type }}</dd><dt>Tamanho</dt><dd>{{ fmt.numero(c.pagina.n_bytes) }} bytes{% if c.pagina.truncado %} (cortado no limite){% endif %}</dd>
-    <dt>Texto extraído</dt><dd>{% if c.pagina.extracao_ok %}{{ fmt.numero(c.pagina.n_chars) }} caracteres ({{ c.pagina.extrator }}){% else %}<span class="selo alerta">falhou</span> {{ rotulos.motivo_falha(c.pagina.motivo_falha) }}{% endif %}</dd></dl></section>{% endif %}
+{% if c.pagina_baixada %}<section class="cartao"><h2>Página baixada</h2>
+  <dl class="ficha"><dt>Endereço final</dt><dd>{{ c.pagina_baixada.url_final }}</dd><dt>Tipo</dt><dd>{{ c.pagina_baixada.content_type }}</dd><dt>Tamanho</dt><dd>{{ fmt.numero(c.pagina_baixada.n_bytes) }} bytes{% if c.pagina_baixada.truncado %} (cortado no limite){% endif %}</dd>
+    <dt>Texto extraído</dt><dd>{% if c.pagina_baixada.extracao_ok %}{{ fmt.numero(c.pagina_baixada.n_chars) }} caracteres ({{ c.pagina_baixada.extrator }}){% else %}<span class="selo alerta">falhou</span> {{ rotulos.motivo_falha(c.pagina_baixada.motivo_falha) }}{% endif %}</dd></dl></section>{% endif %}
 
 <section class="cartao"><h2>Resposta bruta</h2>
   {% if not bruto.existe %}<p class="vazio">{{ bruto.aviso or "Esta chamada não guardou resposta (falha antes de haver resposta)." }}</p>

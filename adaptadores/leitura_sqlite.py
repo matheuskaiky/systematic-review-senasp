@@ -162,7 +162,7 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         c["achados"] = self._consulta("""SELECT a.achado_id, a.tecnologia, a.status_reportado, a.confianca, a.evidencia_confere
                                          FROM achados a JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
                                          WHERE k.chamada_id=? ORDER BY a.achado_id""", (chamada_id,)) if c["classificacao"] else []
-        c["pagina"] = self._um("""SELECT pagina_id, url_final, http_status, content_type, n_bytes, truncado, texto_path, n_chars,
+        c["pagina_baixada"] = self._um("""SELECT pagina_id, url_final, http_status, content_type, n_bytes, truncado, texto_path, n_chars,
                                          extrator, extracao_ok, motivo_falha FROM paginas WHERE chamada_id=?""", (chamada_id,))
         return c
 

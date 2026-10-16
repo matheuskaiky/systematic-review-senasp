@@ -18,8 +18,8 @@ from fastapi.templating import Jinja2Templates
 from aplicacao import revisao
 from dominio import relevancia as relev
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
-from painel import formatacao as fmt, rotulos
-from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_de_blocos, mapa_de_calor
+from painel import formatacao as fmt, mapa_ufs, rotulos
+from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_do_brasil, mapa_de_calor
 
 AQUI = Path(__file__).parent
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
@@ -171,8 +171,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
                 blocos[l["uf"]] = ("classificado", f"{l['n_achados']} achado(s), nenhum confirmado ainda")
             else:
                 blocos[l["uf"]] = ("sem-achados", "nenhum achado")
-        mapa = mapa_de_blocos(blocos, "Situação por estado", "Cada bloco é uma UF: confirmada, só classificada ou sem achados")
-        return pagina(request, "estados.html", linhas=linhas, mapa=mapa)
+        mapa = mapa_do_brasil(blocos, "Situação por estado", "Mapa do Brasil: cada estado é pintado conforme tenha achado confirmado, só classificado ou nenhum; clique abre a página da UF")
+        return pagina(request, "estados.html", linhas=linhas, mapa=mapa, credito_mapa=mapa_ufs.CREDITO)
 
     @app.get("/estados/{uf}", response_class=HTMLResponse)
     def estado(request: Request, uf: str):
@@ -181,11 +181,13 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
             return erro(request, 404, "Estado não encontrado", f"“{uf}” não é uma UF conhecida.")
         if not leitura.existe():
             return sem_banco(request)
-        itens = leitura.achados({"uf": uf}, 1, 200)["itens"]
+        res = leitura.achados({"uf": uf}, 1, 200)
+        itens = res["itens"]
         grupos = {}
         for a in itens:
             grupos.setdefault(a["tecnologia"], []).append(a)
-        return pagina(request, "estado.html", uf=uf, nome=contexto.ufs[uf], grupos=grupos, total=len(itens))
+        return pagina(request, "estado.html", uf=uf, nome=contexto.ufs[uf], grupos=grupos, total=res["total"],
+                      mostrados=len(itens))
 
     # ---------- execucoes ----------
     def _json(texto):

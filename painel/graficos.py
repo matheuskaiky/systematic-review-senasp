@@ -1,7 +1,7 @@
 """Graficos em SVG gerados no servidor: funcoes puras que devolvem texto. Cores e fontes vem do CSS (classes)."""
 from html import escape
 
-from painel.mapa_ufs import POSICOES
+from painel import mapa_ufs
 
 
 def barras_horizontais(itens, titulo, descricao, formatar=str):
@@ -24,17 +24,17 @@ def barras_horizontais(itens, titulo, descricao, formatar=str):
     return "".join(partes)
 
 
-def mapa_de_blocos(estados, titulo, descricao):
-    """estados = {uf: (classe_css, texto_do_tooltip)}. Uma celula por UF, na posicao de `mapa_ufs.POSICOES`."""
-    lado, folga = 56, 6
-    colunas, linhas = max(c for c, _ in POSICOES.values()) + 1, max(l for _, l in POSICOES.values()) + 1
-    partes = [f'<svg class="mapa" viewBox="0 0 {colunas * (lado + folga)} {linhas * (lado + folga)}" role="img" '
-              f'aria-labelledby="mt md"><title id="mt">{escape(titulo)}</title><desc id="md">{escape(descricao)}</desc>']
-    for uf, (col, lin) in POSICOES.items():
+def mapa_do_brasil(estados, titulo, descricao):
+    """estados = {uf: (classe_css, texto_do_tooltip)}. O contorno de cada UF vem de `mapa_ufs.CAMINHOS` (cada UF e um link para
+    /estados/{uf}). O credito do mapa (`mapa_ufs.CREDITO`) deve aparecer junto, na pagina que o mostra."""
+    partes = [f'<svg class="mapa" viewBox="{mapa_ufs.VIEWBOX}" role="img" aria-labelledby="mt md">'
+              f'<title id="mt">{escape(titulo)}</title><desc id="md">{escape(descricao)}</desc>']
+    for uf, caminho in mapa_ufs.CAMINHOS.items():
         classe, dica = estados.get(uf, ("sem-dados", "sem dados"))
-        x, y = col * (lado + folga), lin * (lado + folga)
-        partes.append(f'<a href="/estados/{uf}"><g class="bloco {escape(classe)}"><rect x="{x}" y="{y}" width="{lado}" '
-                      f'height="{lado}" rx="8"/><text x="{x + lado / 2}" y="{y + lado / 2 + 6}" text-anchor="middle">{uf}</text>'
+        x, y, fonte, ancora, guia = mapa_ufs.ROTULOS[uf]
+        linha = (f'<line class="bloco-guia" x1="{guia[0]}" y1="{guia[1]}" x2="{x - 2}" y2="{y}"/>' if guia else "")
+        partes.append(f'<a href="/estados/{uf}"><g class="bloco {escape(classe)}"><path d="{caminho}"/>{linha}'
+                      f'<text x="{x}" y="{y}" text-anchor="{ancora}" dominant-baseline="central" font-size="{fonte}">{uf}</text>'
                       f'<title>{uf}: {escape(dica)}</title></g></a>')
     partes.append("</svg>")
     return "".join(partes)

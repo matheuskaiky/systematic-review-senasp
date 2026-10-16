@@ -7,8 +7,8 @@ Por padrao entram so achados confirmados por humano (regra 7.7 do plano do paine
 import re
 from html import escape
 
-from painel import formatacao as fmt, rotulos
-from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_de_blocos, mapa_de_calor
+from painel import formatacao as fmt, mapa_ufs, rotulos
+from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_do_brasil, mapa_de_calor
 from painel.metodologia_texto import gerar_metodologia, para_texto
 
 AVISO_NAO_VERIFICADO = "Não verificado por humano"
@@ -144,8 +144,8 @@ def _mapa(d):
             blocos[uf] = ("classificado", f"{l['n_achados']} achado(s), nenhum confirmado ainda")
         else:
             blocos[uf] = ("sem-achados", "nenhum achado")
-    mapa = _sem_links_do_painel(mapa_de_blocos(blocos, "Situação por estado", "Cada bloco é uma UF: confirmada, só classificada ou sem achados"))
-    return (f'<section class="cartao" id="mapa"><h2>Situação por estado</h2><div class="mapa-caixa">{mapa}</div>'
+    mapa = _sem_links_do_painel(mapa_do_brasil(blocos, "Situação por estado", "Mapa do Brasil: cada estado é pintado conforme tenha achado confirmado, só classificado ou nenhum"))
+    return (f'<section class="cartao" id="mapa"><h2>Situação por estado</h2><div class="mapa-caixa">{mapa}</div><p class="mapa-credito">{mapa_ufs.CREDITO}</p>'
             '<ul class="legenda"><li><span class="selo ok">✔ Confirmado</span> pelo menos um achado verificado por humano</li>'
             '<li><span class="selo alerta">◐ Classificado</span> achados só do modelo, sem confirmação humana (não é resultado)</li>'
             '<li><span class="selo neutro">○ Sem achados</span> nenhum achado classificado</li></ul></section>')

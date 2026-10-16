@@ -56,7 +56,7 @@ h3 { font-size: .95rem; margin: 0 0 .5rem; }
 .cartao { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 1.1rem 1.25rem; box-shadow: var(--sombra); margin-bottom: 1.25rem; }
 .duas-colunas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; align-items: start; }
 .duas-colunas.funil-progresso { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
-.duas-colunas.mapa-tabela { grid-template-columns: minmax(0, 4fr) minmax(0, 5fr); }
+.duas-colunas.mapa-tabela { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
 .duas-colunas.assimetricas { grid-template-columns: minmax(0, 1fr) 340px; }
 .decisao { position: sticky; top: 1rem; }
 
@@ -156,12 +156,16 @@ svg.barra-empilhada { height: 22px; margin: .25rem 0 .75rem; }
 .be-fundo { fill: var(--borda); } .be-conf { fill: var(--ok); } .be-desc { fill: var(--perigo); }
 .gr-rotulo { fill: var(--texto); font-size: 13px; } .gr-valor { fill: var(--texto-suave); font-size: 13px; font-weight: 600; }
 .gr-barra { fill: var(--acento); }
-.bloco rect { stroke: var(--borda); stroke-width: 1; } .bloco text { font-size: 15px; font-weight: 700; fill: var(--texto); pointer-events: none; }
-.bloco.confirmado rect { fill: var(--ok-fundo); stroke: var(--ok); stroke-width: 2; }
-.bloco.classificado rect { fill: var(--alerta-fundo); stroke: var(--alerta); stroke-width: 2; stroke-dasharray: 5 3; }
-.bloco.sem-achados rect, .bloco.sem-dados rect { fill: var(--superficie); }
+.bloco path { stroke: var(--borda-controle); stroke-width: .8; stroke-linejoin: round; fill: var(--superficie); }
+.bloco text { font-weight: 700; fill: var(--texto); pointer-events: none; paint-order: stroke; stroke: var(--superficie); stroke-width: 3px; stroke-linejoin: round; }
+.bloco.confirmado path { fill: var(--ok-fundo); stroke: var(--ok); stroke-width: 1.6; }
+.bloco.classificado path { fill: var(--alerta-fundo); stroke: var(--alerta); stroke-width: 1.6; stroke-dasharray: 5 3; }
+.bloco.sem-achados path, .bloco.sem-dados path { fill: var(--superficie); }
 .bloco.sem-achados text, .bloco.sem-dados text { fill: var(--texto-suave); font-weight: 400; }
-.bloco:hover rect { filter: brightness(.95); }
+.bloco:hover path { filter: brightness(.92); }
+.bloco-guia { stroke: var(--texto-suave); stroke-width: .8; pointer-events: none; }
+.bloco:focus-within path { stroke-width: 2.4; }
+.mapa-credito { margin: .4rem 0 0; font-size: .75rem; color: var(--texto-suave); }
 .legenda { list-style: none; padding: 0; margin: .5rem 0 1rem; display: grid; gap: .35rem; font-size: .9rem; }
 
 @media (max-width: 900px) {
@@ -170,7 +174,7 @@ svg.barra-empilhada { height: 22px; margin: .25rem 0 .75rem; }
   .menu .marca { padding: .25rem .5rem; flex-basis: 100%; }
   .menu-grupo { flex-basis: 100%; margin: .5rem .5rem 0; }
   .duas-colunas, .duas-colunas.funil-progresso { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
-.duas-colunas.mapa-tabela { grid-template-columns: minmax(0, 4fr) minmax(0, 5fr); }
+.duas-colunas.mapa-tabela { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
 .duas-colunas.assimetricas { grid-template-columns: 1fr; }
   .decisao { position: static; }
   .filtros .larga { grid-column: auto; }

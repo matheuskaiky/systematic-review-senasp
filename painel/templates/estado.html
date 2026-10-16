@@ -7,7 +7,7 @@
 {% if not grupos %}
 <p class="vazio">Nenhum achado para este estado nas execuções do relatório.</p>
 {% else %}
-<p class="sub">{{ total }} achado(s), agrupados por tecnologia.</p>
+<p class="sub">{{ total }} achado(s), agrupados por tecnologia.{% if mostrados < total %} Abaixo, os {{ mostrados }} primeiros; veja todos em <a href="/achados?uf={{ uf }}">Achados</a>.{% endif %}</p>
 {% for tec, itens in grupos.items() %}
 <section class="cartao">
   <h2>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, tec) }}</h2>

@@ -49,7 +49,7 @@ _NUMEROS = [
     _e("kpi-confirmados", "Confirmados",
        "Achados verificados por uma pessoa e mantidos (com o status reportado ou outro, corrigido por ela). Os descartados não entram."),
     _e("kpi-ufs-confirmadas", "UFs com achado confirmado",
-       "Em quantos estados há ao menos um achado confirmado de secretaria estadual. É o número que vai para o texto da pesquisa, "
+       "Em quantos estados há ao menos um achado confirmado (a conta também incluiria achados municipais, que ainda não existem). É o número que vai para o texto da pesquisa, "
        "por isso depende da verificação humana."),
     _e("kpi-gasto-real", "Gasto real (todas as execuções)",
        "Soma do custo gravado em todas as chamadas externas, inclusive as de execuções fora do relatório (testes e pilotos custam "
@@ -103,7 +103,7 @@ _VERIFICACAO = {
 _DESCARTE = {
     "dominio_excluido": "A página é de um site que a pesquisa decidiu ignorar (por exemplo, redes sociais ou vídeos). "
                         "Foi encontrada, mas não será baixada.",
-    "nao_oficial": "O endereço não é de um órgão público (não termina em .gov.br ou equivalente) e a configuração aceita só fontes "
+    "nao_oficial": "O endereço não é de um órgão público (aqui só vale quem termina em .gov.br) e a configuração aceita só fontes "
                    "oficiais nesta etapa.",
     "prefiltro_palavras": "Nem o título nem o trecho do buscador contêm alguma das palavras-chave da pesquisa, então a página foi "
                           "considerada improvável e não foi baixada. A auditoria do pré-filtro mede se isso perde achados.",

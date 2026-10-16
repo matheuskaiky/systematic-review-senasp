@@ -50,7 +50,10 @@ class LeituraTriagemEscopo:
     def fontes_com_triagem_escopo(self):
         if not self.tem_triagem_escopo():
             return {}
-        return {l["fonte"]: l["n"] for l in self._consulta("SELECT fonte, COUNT(*) AS n FROM triagem_escopo GROUP BY fonte")}
+        # itens distintos (o veredito atual de cada um), nao as linhas gravadas: pilotos e repeticoes inflariam a conta
+        return {l["fonte"]: l["n"] for l in self._consulta(
+            "SELECT te.fonte, COUNT(*) AS n FROM triagem_escopo te WHERE te.id IN "
+            "(SELECT MAX(id) FROM triagem_escopo GROUP BY fonte, item_id, uf) GROUP BY te.fonte")}
 
     # ---------- vereditos ----------
     def veredictos(self, fonte, run=None):

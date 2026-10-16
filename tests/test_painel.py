@@ -13,7 +13,7 @@ from config import consultas as C, vocabulario as V
 from dados_metricas import construir_classificacao_mista
 from painel import rotulos
 from painel.app import Contexto, criar_app
-from painel.mapa_ufs import POSICOES
+from painel import mapa_ufs
 
 
 def _app(banco, raw, tmp_path, somente_leitura=False, nome="demo"):
@@ -309,20 +309,43 @@ def test_todo_codigo_do_vocabulario_tem_rotulo():
     assert rotulos.motivo_falha("texto_insuficiente") == "Texto insuficiente na página"
 
 
-def test_mapa_tem_as_27_ufs_uma_vez_cada_sem_sobreposicao():
-    assert set(POSICOES) == set(C.UFS) and len(POSICOES) == 27 and len(set(POSICOES.values())) == 27
-    (gc, gl), (dc, dl) = POSICOES["GO"], POSICOES["DF"]
-    assert abs(gc - dc) + abs(gl - dl) == 1                      # DF encostado em GO
+def test_mapa_tem_as_27_ufs_com_contorno_e_rotulo_dentro_da_area():
+    import re
+    assert set(mapa_ufs.CAMINHOS) == set(C.UFS) == set(mapa_ufs.ROTULOS) and len(mapa_ufs.CAMINHOS) == 27
+    x0, y0, larg, alt = (float(v) for v in mapa_ufs.VIEWBOX.split())
+    for uf, caminho in mapa_ufs.CAMINHOS.items():
+        assert caminho.startswith("M") and caminho.rstrip().endswith("Z"), uf
+        pares = [(float(a), float(b)) for a, b in re.findall(r"(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)", caminho)]
+        assert len(pares) >= 3 and all(x0 <= x <= x0 + larg and y0 <= y <= y0 + alt for x, y in pares), uf
+        x, y, fonte, ancora, guia = mapa_ufs.ROTULOS[uf]
+        assert ancora in ("middle", "start") and (guia is None) == (ancora == "middle"), uf
+        assert x0 <= x <= x0 + larg and y0 <= y <= y0 + alt and 6 <= fonte <= 24, uf
+    # geografia: o DF fica dentro da caixa de Goias, e o RS abaixo de SC
+    def caixa(uf):
+        p = [(float(a), float(b)) for a, b in re.findall(r"(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)", mapa_ufs.CAMINHOS[uf])]
+        return min(x for x, _ in p), min(y for _, y in p), max(x for x, _ in p), max(y for _, y in p)
+    df, go = caixa("DF"), caixa("GO")
+    assert go[0] <= df[0] and df[2] <= go[2] + 40 and go[1] <= df[1] <= go[3]
+    assert caixa("RS")[1] > caixa("SC")[1] and caixa("AM")[0] < caixa("PA")[0]
+
+
+def test_mapa_pinta_cada_uf_pela_classe_e_liga_para_a_pagina_da_uf():
+    from painel.graficos import mapa_do_brasil
+    svg = mapa_do_brasil({"PI": ("confirmado", "2 achados"), "CE": ("classificado", "1 achado")}, "T", "D")
+    assert svg.count("<path") == 27 and svg.count('<a href="/estados/') == 27
+    assert 'href="/estados/PI"><g class="bloco confirmado"' in svg and 'href="/estados/CE"><g class="bloco classificado"' in svg
+    assert 'href="/estados/SP"><g class="bloco sem-dados"' in svg
+    assert " style=" not in svg and "<script" not in svg
 
 
 def test_mapa_svg_e_bem_formado_e_acessivel(cliente_demo):
     import xml.etree.ElementTree as ET
-    from painel.graficos import barra_empilhada, barras_horizontais, mapa_de_blocos
-    for svg in (mapa_de_blocos({"PI": ("confirmado", "x")}, "T", "D"), barras_horizontais([("a", 3), ("b", 0)], "T", "D"),
+    from painel.graficos import barra_empilhada, barras_horizontais, mapa_do_brasil
+    for svg in (mapa_do_brasil({"PI": ("confirmado", "x")}, "T", "D"), barras_horizontais([("a", 3), ("b", 0)], "T", "D"),
                 barra_empilhada([(1, "be-conf", "x")], 4, "d")):
         raiz = ET.fromstring(svg)
         assert raiz.tag.endswith("svg")
-    assert "<title" in mapa_de_blocos({}, "T", "D") and "<desc" in barras_horizontais([("a", 1)], "T", "D")
+    assert "<title" in mapa_do_brasil({}, "T", "D") and "<desc" in barras_horizontais([("a", 1)], "T", "D")
 
 
 def test_painel_respeita_a_regra_de_dependencias():

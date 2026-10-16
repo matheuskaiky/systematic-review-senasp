@@ -145,6 +145,11 @@ _EXECUCOES = [
     _e("custo-estimado", "Custo estimado e custo real",
        "O custo gravado em cada chamada é calculado com os preços configurados e com os tokens informados pela API. É uma "
        "estimativa; o saldo do provedor, quando existe, é a conferência."),
+    _e("diferenca-saldo", "Diferença de créditos (execução)",
+       "Consumo de créditos do provedor (saldo no início menos o saldo no fim da passada) menos as chamadas bem-sucedidas "
+       "registradas. Zero: o provedor cobrou o que o sistema registrou. Negativa: cobrou menos (busca não cobrada, como uma "
+       "resposta em cache, ou saldo final lido antes de refletir a última busca). Positiva: créditos gastos fora da execução. "
+       "Não indica erro nos dados; o sistema guarda só o número do saldo, não a resposta da conta."),
     _e("chamada-bruta", "Resposta bruta",
        "Cópia exata do que o provedor devolveu, guardada em arquivo com impressão digital (hash). É a evidência de que o dado "
        "não foi alterado depois da coleta."),
@@ -193,9 +198,11 @@ _LITERATURA = [
     _e("termo-de-busca", "Termo de busca",
        "Cada termo é uma consulta própria, identificada por um código (T01, T02...). Os termos e suas versões em inglês ficam "
        "registrados com a execução."),
-    _e("achado-por-varios-termos", "Achado por 2 ou mais termos",
-       "Artigos que apareceram em pelo menos dois termos diferentes. Muita sobreposição entre dois termos indica que um deles "
-       "acrescenta pouco à busca."),
+    _e("achado-por-varios-termos", "Achado por 2 ou mais termos ou bases",
+       "Artigos achados por pelo menos dois termos do Google Scholar ou por pelo menos duas origens somadas: cada termo diferente do "
+       "Scholar conta uma vez e cada base manual (IEEE, ACM, Scopus, SBC OpenLib) conta uma vez. É o mesmo critério do número da "
+       "Visão da literatura e do filtro “Mais de um termo” da lista de artigos. Só os termos do Scholar aparecem na aba "
+       "Multi_termo e nas faixas da análise de termos. Muita sobreposição entre dois termos indica que um deles acrescenta pouco à busca."),
     _e("bases-manuais", "Buscas manuais (IEEE, ACM, Scopus, SBC OpenLib)",
        "Bases consultadas por uma pessoa no site da própria base. O sistema só conhece o que for informado por planilha: o "
        "número de resultados e os artigos importados. O que não foi informado aparece como “não informado”, nunca como zero."),
@@ -225,8 +232,16 @@ _LITERATURA = [
        "Diagrama padrão de revisões sistemáticas, que conta quantos registros entraram e saíram em cada etapa. Os números vêm "
        "direto do banco."),
     _e("prisma-identificacao", "PRISMA: identificação",
-       "Quantos registros as buscas trouxeram (Google Scholar e bases manuais) e quantos eram duplicados entre termos e entre bases."),
-    _e("prisma-triagem", "PRISMA: triagem", "Quantos artigos únicos foram lidos por título e resumo, e quantos foram incluídos, excluídos ou ficaram pendentes."),
+       "Quantos registros as buscas trouxeram (Google Scholar e bases manuais), quantos eram duplicados entre termos e entre bases e "
+       "quantos foram removidos por ferramenta automática antes da triagem humana."),
+    _e("prisma-removidos-automatico", "PRISMA: removidos por ferramenta automática",
+       "Artigos que a triagem de escopo do modelo excluiu (veredito atual válido) e sobre os quais nenhuma pessoa decidiu incluir ou "
+       "excluir. O PRISMA 2020 pede esse número à parte, sem decisão humana. Nada é apagado: se uma pessoa decidir sobre o artigo, "
+       "ele volta ao fluxo humano e deixa de contar aqui. É o que separa os artigos únicos do total da busca dos artigos que seguem "
+       "para a triagem por título e resumo."),
+    _e("prisma-triagem", "PRISMA: triagem",
+       "Quantos artigos únicos (já sem os removidos por ferramenta automática) foram lidos por título e resumo, e quantos foram "
+       "incluídos, excluídos ou ficaram pendentes."),
     _e("prisma-elegibilidade", "PRISMA: elegibilidade",
        "Quantos artigos incluídos na triagem foram avaliados pelo texto completo e com que resultado."),
     _e("prisma-inclusao", "PRISMA: inclusão", "Quantos artigos compõem o conjunto final da revisão."),

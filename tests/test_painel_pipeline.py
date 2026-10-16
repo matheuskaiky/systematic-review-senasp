@@ -42,6 +42,26 @@ def test_detalhe_da_execucao_traz_funil_custos_falhas_config_e_nao_mostra_json_c
     assert "Consultas web" in cli.get(f"/execucoes/{busca}").text and "Alimentou" in cli.get(f"/execucoes/{busca}").text
 
 
+def test_creditos_mostram_a_diferenca_com_nota_de_como_ler_e_travessao_se_interrompida(ctx):
+    cli, copia, _ = ctx
+    run = _um(copia, "SELECT run_id FROM execucoes WHERE status='concluida' LIMIT 1")
+    c = sqlite3.connect(copia)
+    c.execute("DELETE FROM saldos WHERE run_id=?", (run,))
+    c.executemany("INSERT INTO saldos (run_id, provedor, momento, valor, registrado_em) VALUES (?,?,?,?,?)",
+                  [(run, "serpapi_scholar", "inicio", 249, "2026-10-15T17:52:04+00:00"),
+                   (run, "serpapi_scholar", "fim", 169, "2026-10-15T17:56:41+00:00"),
+                   (run, "serpapi_scholar", "inicio", 169, "2026-10-16T09:00:00+00:00")])        # 2a passada interrompida
+    c.commit()
+    c.close()
+    h = cli.get(f"/execucoes/{run}").text.replace("\n", " ")
+    assert "Créditos antes e depois" in h and "Como ler:" in h and "negativa" in h and "positiva" in h
+    assert 'title="Consumo menos chamadas ok.' in h                                   # cabecalho da coluna explica a diferenca
+    linhas = re.findall(r"<tr><td>serpapi_scholar</td>(.*?)</tr>", h)
+    assert len(linhas) == 2
+    assert '<span class="selo alerta">80</span>' in linhas[0]            # consumo 80 sem chamadas ok registradas na janela: diferenca 80
+    assert linhas[1].split("</td>")[-2].endswith("—")                                                         # interrompida: sem diferenca
+
+
 def test_execucao_em_andamento_se_atualiza_sozinha_e_as_outras_nao(ctx):
     cli, copia, _ = ctx
     run = _um(copia, "SELECT run_id FROM execucoes WHERE status='concluida' LIMIT 1")

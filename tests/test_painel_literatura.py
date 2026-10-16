@@ -213,6 +213,72 @@ def test_prisma_numeros_batem_com_a_view(ctx):
         assert re.search(rf'<span class="num-prisma">{valor}</span>\s*<span>{re.escape(metrica)}', h), metrica
 
 
+def _kpi(h, rotulo):
+    return int(re.search(rf'<span class="kpi-valor">([\d.]+)</span><span class="kpi-rotulo">{rotulo}</span>', h.replace("\n", "")).group(1).replace(".", ""))
+
+
+def _veredito_escopo(copia, artigo_id, status="excluido", run="RUN_ESCOPO_TESTE"):
+    c = sqlite3.connect(copia)
+    c.execute("INSERT OR IGNORE INTO execucoes (run_id, comando, status, iniciado_em, config_hash, config_json) VALUES (?,?,?,?,?,?)",
+              (run, "triar-escopo", "concluida", "2026-10-16T10:00:00+00:00", "h", "{}"))
+    c.execute("""INSERT INTO triagem_escopo (run_id, fonte, item_id, uf, status, valido, criado_em) VALUES (?,?,?,?,?,1,?)""",
+              (run, "artigo", artigo_id, "", status, "2026-10-16T10:00:00+00:00"))
+    c.commit()
+    c.close()
+
+
+def test_prisma_e_visao_geral_concordam_sobre_os_artigos_para_triagem(ctx):
+    cli, copia, _ = ctx
+    unicos = _um(copia, "SELECT COUNT(*) FROM r_artigos")
+    avaliados = _um(copia, "SELECT valor FROM v_prisma WHERE metrica='avaliados por titulo e resumo'")
+    # sem veredito do modelo: nada removido e os dois numeros iguais ao total
+    h = cli.get("/literatura/prisma").text.replace("\n", " ")
+    assert re.search(r'<span class="num-prisma">0</span>\s*<span>removidos por ferramenta automatica', h)
+    assert _kpi(cli.get("/literatura").text, "Artigos únicos") == unicos
+    # o modelo exclui 2 artigos pendentes e 1 artigo que uma pessoa ja decidiu
+    pendentes = [r[0] for r in sqlite3.connect(copia).execute(
+        "SELECT a.artigo_id FROM r_artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id WHERE COALESCE(t.decisao,'pendente')='pendente' ORDER BY 1 LIMIT 2")]
+    decidido = _um(copia, "SELECT artigo_id FROM triagem WHERE decisao IN ('incluir','excluir') ORDER BY artigo_id LIMIT 1")
+    for i in (*pendentes, decidido):
+        _veredito_escopo(copia, i)
+    h = cli.get("/literatura/prisma").text.replace("\n", " ")
+    assert re.search(r'<span class="num-prisma">2</span>\s*<span>removidos por ferramenta automatica \(triagem de escopo do modelo, sem decisao humana\)', h)
+    assert re.search(rf'<span class="num-prisma">{unicos - 2}</span>\s*<span>artigos unicos para triagem', h)
+    assert "decisão humana sempre vence" in h and "/triagem-escopo" in h
+    kpi = _kpi(cli.get("/literatura").text, "Artigos únicos")        # o KPI esconde os `llm_oculto` (mesma regra)
+    assert kpi == unicos - 2 == _um(copia, "SELECT valor FROM v_prisma WHERE metrica='artigos unicos para triagem'")
+    pend_prisma = _um(copia, "SELECT valor FROM v_prisma WHERE metrica='pendentes de titulo e resumo'")
+    assert pend_prisma == _kpi(cli.get("/literatura").text, "Pendentes")
+    # a decisao humana sempre vence: o artigo triado pela pessoa segue no fluxo humano (as avaliacoes nao mudam)
+    assert _um(copia, "SELECT valor FROM v_prisma WHERE metrica='avaliados por titulo e resumo'") == avaliados
+    assert _um(copia, "SELECT COUNT(*) FROM triagem WHERE artigo_id=? AND decisao IN ('incluir','excluir')", decidido) == 1
+
+
+def test_kpi_de_varios_termos_usa_a_mesma_regra_do_filtro_da_lista(ctx):
+    cli, copia, _ = ctx
+    h = cli.get("/literatura").text
+    assert "Achados por 2 ou mais termos ou bases" in h
+    kpi = _kpi(h, "Achados por 2 ou mais termos ou bases")
+    na_lista = int(re.search(r"<strong>([\d.]+)</strong> artigo", cli.get("/literatura/artigos?multi=1").text).group(1).replace(".", ""))
+    assert kpi == na_lista > 0
+    so_scholar = _um(copia, "SELECT COUNT(*) FROM v_artigos_multi_termo WHERE n_termos >= 2")
+    soma = _um(copia, """SELECT COUNT(*) FROM r_artigos a WHERE (SELECT COUNT(DISTINCT termo_id) FROM r_ocorrencias o WHERE o.artigo_id=a.artigo_id)
+                         + (SELECT COUNT(DISTINCT base) FROM ocorrencias_manuais m WHERE m.artigo_id=a.artigo_id) >= 2""")
+    assert kpi == soma
+    # um artigo achado por 1 termo do Scholar e por 1 base manual entra na regra nova e fica fora da antiga (so Scholar)
+    c = sqlite3.connect(copia)
+    i = c.execute("""SELECT a.artigo_id FROM r_artigos a WHERE (SELECT COUNT(DISTINCT termo_id) FROM r_ocorrencias o WHERE o.artigo_id=a.artigo_id) = 1
+                     AND (SELECT COUNT(DISTINCT base) FROM ocorrencias_manuais m WHERE m.artigo_id=a.artigo_id) = 0 LIMIT 1""").fetchone()[0]
+    c.execute("INSERT INTO ocorrencias_manuais (artigo_id, base, termo_id, data_busca, posicao) VALUES (?,?,?,?,?)", (i, "IEEE", "T01", "2026-10-16", 1))
+    c.commit()
+    c.close()
+    h2 = cli.get("/literatura").text
+    assert _kpi(h2, "Achados por 2 ou mais termos ou bases") == kpi + 1
+    assert _um(copia, "SELECT COUNT(*) FROM v_artigos_multi_termo WHERE n_termos >= 2") == so_scholar     # a view continua so do Scholar
+    na_lista2 = int(re.search(r"<strong>([\d.]+)</strong> artigo", cli.get("/literatura/artigos?multi=1").text).group(1).replace(".", ""))
+    assert na_lista2 == kpi + 1
+
+
 # ---------- seguranca ----------
 def test_link_do_artigo_com_esquema_perigoso_nao_vira_href(ctx):
     cli, copia, _ = ctx

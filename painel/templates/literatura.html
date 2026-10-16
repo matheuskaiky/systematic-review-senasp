@@ -11,7 +11,7 @@
 {% else %}
 <section class="kpis" aria-label="Indicadores">
   <div class="kpi"><span class="kpi-valor">{{ fmt.numero(d.n_artigos) }}</span><span class="kpi-rotulo">Artigos únicos</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(d.n_multi) }}</span><span class="kpi-rotulo">Achados por 2 ou mais termos</span></div>
+  <div class="kpi" title="Cada termo do Scholar e cada base manual conta uma vez; é o mesmo critério do filtro “Mais de um termo” da lista de artigos"><span class="kpi-valor">{{ fmt.numero(d.n_multi) }}</span><span class="kpi-rotulo">Achados por 2 ou mais termos ou bases</span></div>
   <div class="kpi"><span class="kpi-valor">{{ fmt.pct(tri.incluidos + tri.excluidos, tri.total) }}</span><span class="kpi-rotulo">Triados (título e resumo)</span></div>
   <div class="kpi"><span class="kpi-valor">{{ fmt.numero(tri.incluidos) }}</span><span class="kpi-rotulo">Incluídos</span></div>
   <div class="kpi"><span class="kpi-valor">{{ fmt.numero(tri.pendentes) }}</span><span class="kpi-rotulo">Pendentes</span></div>

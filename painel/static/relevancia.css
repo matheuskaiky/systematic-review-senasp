@@ -17,3 +17,6 @@ details.regra-relevancia .marcadores { color: var(--texto-suave); line-height: 1
 
 /* em tabelas, painel.css deixa o selo quebrar linha; o nivel de relevancia cabe numa linha so */
 td .selo.rel-alta, td .selo.rel-media, td .selo.rel-baixa { white-space: nowrap; }
+
+.ajuda-filtro { grid-column: 1 / -1; max-width: 70ch; }
+.ajuda-filtro summary { cursor: pointer; font-weight: 600; }

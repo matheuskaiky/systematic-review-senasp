@@ -46,7 +46,8 @@ def test_termos_pedidos_estao_explicados():
                      "evidencia-cita-tecnologia", "evidencia-cita-lgpd", "confianca-snippet", "fora-do-relatorio", "estadual",
                      "municipal", "triagem-titulo-resumo", "triagem-texto-completo", "prisma-identificacao", "prisma-inclusao",
                      "idempotencia", "config-hash", "execucao-concluida", "execucao-em_andamento", "execucao-interrompida",
-                     "execucao-falhou", "triagem-incluir", "triagem-excluir", "triagem-pendente"):
+                     "execucao-falhou", "triagem-incluir", "triagem-excluir", "triagem-pendente", "prisma-removidos-automatico", "diferenca-saldo",
+                     "achado-por-varios-termos"):
         assert esperado in ids, esperado
 
 

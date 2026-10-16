@@ -165,6 +165,9 @@ def test_numeros_do_relatorio_sao_os_das_views(banco_demo):
     for ordem, valor in sqlite3.connect(banco_demo).execute("SELECT ordem, valor FROM v_prisma").fetchall():
         assert f'<span class="num-prisma">{fmt.numero(valor)}</span>' in html, ordem
     assert f'<span class="kpi-valor">{fmt.numero(_sql(banco_demo, "SELECT COUNT(*) FROM r_artigos"))}</span><span class="kpi-rotulo">Artigos únicos' in html
+    assert "removidos por ferramenta automatica (triagem de escopo do modelo, sem decisao humana)" in html
+    assert "Removidos por ferramenta automática" in html and "PRISMA 2020" in html
+    assert 'kpi-rotulo">Achados por 2 ou mais termos ou bases<' in html
 
 
 def test_texto_de_metodologia_e_o_mesmo_da_pagina_e_traz_as_ressalvas(banco_demo):

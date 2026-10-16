@@ -197,7 +197,7 @@ def _literatura(d):
     lit, tri = d["literatura"], d["triagem"]
     if not lit["n_artigos"]:
         return '<section class="cartao" id="literatura"><h2>Literatura</h2><p class="vazio">Ainda não há artigos no banco.</p></section>'
-    kpis = "".join([_kpi(fmt.numero(lit["n_artigos"]), "Artigos únicos"), _kpi(fmt.numero(lit["n_multi"]), "Achados por 2 ou mais termos"),
+    kpis = "".join([_kpi(fmt.numero(lit["n_artigos"]), "Artigos únicos"), _kpi(fmt.numero(lit["n_multi"]), "Achados por 2 ou mais termos ou bases"),
                     _kpi(fmt.pct(tri["incluidos"] + tri["excluidos"], tri["total"]), "Triados (título e resumo)"),
                     _kpi(fmt.numero(tri["incluidos"]), "Incluídos"), _kpi(fmt.numero(tri["pendentes"]), "Pendentes")])
     anos = colunas([(str(l["ano"]), l["n_artigos"]) for l in lit["por_ano"]], "Artigos por ano",
@@ -245,6 +245,9 @@ def _prisma(d):
         if i < len(fases) - 1:
             partes.append('<div class="seta-prisma" aria-hidden="true">▼</div>')
     partes.append("</div>")
+    partes.append('<p class="sub">Removidos por ferramenta automática: artigos que a triagem de escopo do modelo excluiu e sobre os quais '
+                  'nenhuma pessoa decidiu; nada é apagado e uma decisão humana sempre os devolve ao fluxo humano. A triagem de escopo '
+                  'entra no fluxo como registros removidos por ferramenta de automação, como pede o PRISMA 2020.</p>')
     if p["motivos"]:
         partes.append("<h3>Motivos de exclusão</h3>" + _tabela(
             ["Etapa", "Motivo", "Artigos"], [[_e("Título e resumo" if m["etapa"] == "titulo_resumo" else "Texto completo"), _e(m["motivo"]),

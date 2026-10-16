@@ -3,7 +3,7 @@ import logging
 
 import pytest
 
-from dados_metricas import construir_academico, construir_web
+from dados_metricas import _id_artigo, _novo_run, construir_academico, construir_web
 
 
 @pytest.fixture(scope="module")
@@ -112,6 +112,95 @@ def test_prisma(ac):
     assert v["incluidos por titulo e resumo"] == 4 and v["pendentes de titulo e resumo"] == 4
     assert v["avaliados por texto completo"] == 0 and v["aguardando texto completo"] == 4
     assert v["incluidos no estudo (texto completo)"] == 0
+    assert v[REMOVIDOS] == 0                       # sem veredito da triagem de escopo nada e removido por ferramenta automatica
+
+
+# ---------- PRISMA: removidos por ferramenta automatica (triagem de escopo do modelo) ----------
+REMOVIDOS = "removidos por ferramenta automatica (triagem de escopo do modelo, sem decisao humana)"
+
+
+@pytest.fixture
+def fluxo(tmp_path):
+    """Banco do Scholar com 12 artigos unicos: 4 incluidos, 4 excluidos e 1 pendente por pessoa; 3 sem linha de triagem."""
+    repo, run_id = construir_academico(tmp_path / "fluxo.db")
+    return repo, run_id
+
+
+def _veredito(repo, run_id, n, status, valido=1, fonte="artigo"):
+    item = _id_artigo(repo, n) if fonte == "artigo" else n
+    repo.salvar_triagem_escopo(run_id, None, "v-teste", [{"fonte": fonte, "item_id": item, "uf": "", "status": status, "valido": valido}])
+    repo.confirmar()
+
+
+def _fluxo(repo):
+    return {r["metrica"]: r["valor"] for r in _linhas(repo, "v_prisma")}
+
+
+def _confere_aritmetica(v):
+    """O fluxo fecha: unicos = removidos + para triagem; para triagem = avaliados + pendentes; avaliados = incluidos + excluidos."""
+    assert v["registros (artigo x fonte) apos remover duplicatas entre termos"] - v["duplicatas entre fontes removidas"] == \
+        v[REMOVIDOS] + v["artigos unicos para triagem"]
+    assert v["artigos unicos para triagem"] == v["avaliados por titulo e resumo"] + v["pendentes de titulo e resumo"]
+    assert v["avaliados por titulo e resumo"] == v["incluidos por titulo e resumo"] + v["excluidos por titulo e resumo"]
+
+
+def test_prisma_sem_veredito_do_modelo_nao_remove_ninguem(fluxo):
+    v = _fluxo(fluxo[0])
+    assert v[REMOVIDOS] == 0 and v["artigos unicos para triagem"] == 12 and v["pendentes de titulo e resumo"] == 4
+    _confere_aritmetica(v)
+
+
+def test_prisma_excluido_pelo_modelo_sem_decisao_humana_sai_da_base_da_triagem(fluxo):
+    repo, run_id = fluxo
+    for n in (7, 8, 6):                  # 7 e 8 sem linha de triagem; 6 com linha `pendente`: nenhuma decisao humana
+        _veredito(repo, run_id, n, "excluido")
+    v = _fluxo(repo)
+    assert v[REMOVIDOS] == 3
+    assert v["Google Scholar: artigos unicos"] == 12 and v["artigos unicos para triagem"] == 9
+    assert v["avaliados por titulo e resumo"] == 8 and v["pendentes de titulo e resumo"] == 1
+    _confere_aritmetica(v)
+    ordens = {r["metrica"]: r["ordem"] for r in _linhas(repo, "v_prisma")}
+    assert ordens["duplicatas entre fontes removidas"] < ordens[REMOVIDOS] < ordens["artigos unicos para triagem"]
+    fases = {r["metrica"]: r["fase"] for r in _linhas(repo, "v_prisma")}
+    assert fases[REMOVIDOS] == "identificacao" and fases["artigos unicos para triagem"] == "triagem"
+    assert sorted(ordens.values()) == list(range(1, 21))
+
+
+def test_prisma_excluido_pelo_modelo_com_decisao_humana_nao_e_removido(fluxo):
+    repo, run_id = fluxo
+    _veredito(repo, run_id, 1, "excluido")      # incluido por uma pessoa
+    _veredito(repo, run_id, 3, "excluido")      # excluido por uma pessoa
+    _veredito(repo, run_id, 7, "excluido")      # sem decisao humana
+    v = _fluxo(repo)
+    assert v[REMOVIDOS] == 1 and v["artigos unicos para triagem"] == 11
+    assert v["avaliados por titulo e resumo"] == 8 and v["incluidos por titulo e resumo"] == 4 and v["pendentes de titulo e resumo"] == 3
+    _confere_aritmetica(v)
+
+
+def test_prisma_so_vale_o_veredito_atual_valido_de_artigo(fluxo):
+    repo, run_id = fluxo
+    _veredito(repo, run_id, 7, "excluido", valido=0)        # conferencia falhou: nao vale
+    _veredito(repo, run_id, 8, "quarentena")
+    _veredito(repo, run_id, 11, "elegivel")
+    _veredito(repo, run_id, 5, "excluido", fonte="web")     # veredito de resultado web nao pertence a artigo
+    assert _fluxo(repo)[REMOVIDOS] == 0
+    # o veredito mais recente (maior id) vale: um artigo excluido que depois ficou elegivel volta
+    _veredito(repo, run_id, 7, "excluido")                  # mesma execucao: substitui a linha invalida
+    assert _fluxo(repo)[REMOVIDOS] == 1
+    outra = _novo_run(repo, "triar-escopo")
+    _veredito(repo, outra, 7, "elegivel")
+    assert _fluxo(repo)[REMOVIDOS] == 0
+    _confere_aritmetica(_fluxo(repo))
+
+
+def test_prisma_ignora_veredito_de_artigo_de_execucao_fora_do_relatorio(fluxo):
+    repo, run_id = fluxo
+    _veredito(repo, run_id, 7, "excluido")
+    assert _fluxo(repo)[REMOVIDOS] == 1
+    repo.conn.execute("UPDATE execucoes SET no_relatorio = 0 WHERE run_id = ?", (run_id,))
+    repo.confirmar()
+    v = _fluxo(repo)                                         # os artigos sumiram do relatorio: nada a remover
+    assert v[REMOVIDOS] == 0 and v["artigos unicos para triagem"] == 0
 
 
 def test_prisma_banco_vazio(tmp_path):

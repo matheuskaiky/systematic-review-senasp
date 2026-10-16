@@ -247,7 +247,8 @@ def bloco_temporal(d):
 def bloco_multitermo(d):
     faixas = d.get("faixas") or []
     itens = [{"rotulo": f"Achado por {x['faixa']} termo(s)", "total": x["n_triados"], "parte": x["n_elegiveis"],
-              "faixa": x["faixa"], "href": _href("/literatura/artigos", multi=x["n_termos_min"])} for x in faixas if x["n_triados"]]
+              "faixa": x["faixa"], "href": _href("/literatura/artigos", multi=1) if x["n_termos_min"] >= 2 else None}   # o filtro `multi` = 2 ou mais
+             for x in faixas if x["n_triados"]]
     if not itens:
         return _bloco("multitermo", "Sem triagem de escopo para comparar os artigos por número de termos",
                       aviso="Rode `triar-escopo --fonte artigos`.")

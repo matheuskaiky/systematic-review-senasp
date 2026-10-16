@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 
 LIMITE_POR_PAGINA = 200
+FILTRO_BRASIL = ("sim", "certo", "talvez", "fora", "sem")   # opcoes do filtro `brasil` de /literatura/artigos
 
 # ordem da fila de revisao (secao 17 da especificacao): nao verificados primeiro, depois evidencia que nao confere,
 # texto so de snippet, confianca baixa e fonte nao oficial
@@ -228,13 +229,28 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         itens = [self._pontuar(l) for l in linhas]
         if filtros.get("rel") in NIVEIS:
             itens = [i for i in itens if i["relevancia"]["nivel"] == filtros["rel"]]
+        if filtros.get("brasil") in FILTRO_BRASIL:
+            itens = [i for i in itens if self.relacao_com_o_brasil(i)[filtros["brasil"]]]
         if filtros.get("ordem") == "relevancia":
             itens.sort(key=lambda i: -i["relevancia"]["pontos"])
         return itens
 
     @staticmethod
+    def relacao_com_o_brasil(item):
+        """Dois indicios independentes de que o artigo tem a ver com o Brasil: o TEXTO cita o Brasil (marcadores no titulo, resumo,
+        autores ou link: `dominio/relevancia.py`) e a IA (veredito atual da triagem de escopo, so se valido) avaliou
+        `escopo_geografico = brasil`. As categorias abaixo NAO se sobrepoem, exceto `sim` (a uniao de `certo` e `talvez`):
+        certo = os dois indicios; talvez = so um; fora = a IA diz internacional e o texto nao cita o Brasil;
+        sem = nenhum indicio e a IA nao disse internacional (indeterminado ou sem avaliacao).
+        Devolve o valor de cada opcao do filtro `brasil` para este item."""
+        texto = bool(item["relevancia"]["brasil"])
+        ia = item.get("llm_escopo") == "brasil"
+        fora = item.get("llm_escopo") == "internacional" and not texto
+        return {"sim": texto or ia, "certo": texto and ia, "talvez": texto != ia, "fora": fora, "sem": not texto and not ia and not fora}
+
+    @staticmethod
     def _precisa_de_pontuacao(filtros):
-        return filtros.get("rel") in NIVEIS or filtros.get("ordem") == "relevancia"
+        return filtros.get("rel") in NIVEIS or filtros.get("brasil") in FILTRO_BRASIL or filtros.get("ordem") == "relevancia"
 
     def artigos(self, filtros, pagina=1, por_pagina=50):
         por_pagina = min(max(int(por_pagina), 1), LIMITE_POR_PAGINA)
@@ -309,8 +325,9 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
                                               ORDER BY citacoes DESC, artigo_id LIMIT 10"""),
             "manuais": self._consulta("SELECT * FROM v_manuais_resumo ORDER BY base"),
             "n_artigos": self._um(f"SELECT COUNT(*) AS n FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0")["n"],
-            "n_multi": self._um(f"""SELECT COUNT(*) AS n FROM v_artigos_multi_termo WHERE n_termos >= 2 AND artigo_id IN
-                                    (SELECT artigo_id FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0)""")["n"],
+            # mesma regra do filtro `multi=1` da lista: termos distintos do Scholar + bases manuais distintas >= 2
+            "n_multi": self._um(f"""SELECT COUNT(*) AS n FROM ({self._BASE_ARTIGOS})
+                                    WHERE llm_oculto = 0 AND (n_termos + n_bases_manuais) >= 2""")["n"],
             "n_ocultos_llm": self._um(f"SELECT COALESCE(SUM(llm_oculto), 0) AS n FROM ({self._BASE_ARTIGOS})")["n"],
             "sem_citacoes": self._um("SELECT COUNT(*) AS n FROM r_artigos WHERE citacoes IS NULL")["n"],
         }

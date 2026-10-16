@@ -24,7 +24,7 @@ def _fatos():
                     {"base": "ACM", "n_buscas": 1, "total_resultados": 90, "total_apos_filtro": 60, "total_selecionados": 12,
                      "primeira": "2026-02-10", "ultima": "2026-02-10", "n_artigos_importados": 11}],
         "literatura": {"n_artigos": 1000, "n_artigos_manuais": 55, "triagem": {"total": 1000, "incluidos": 140, "excluidos": 360, "pendentes": 500},
-                       "prisma": {19: 33}},
+                       "prisma": {11: 120, 12: 880, 20: 33}},
         "web": {"n_requisicoes": 700, "n_ok": 690, "n_falhas": 10, "primeira": "2026-03-02T10:00:00", "ultima": "2026-03-03T10:00:00",
                 "provedores": ["perplexity"], "run_ids": ["RUN_A"], "modelos_consulta": ["M01", "M02"], "urls_oficiais": 2100,
                 "descartes": [{"motivo": "nao_oficial", "n": 800}, {"motivo": "limite_por_uf", "n": 150}],
@@ -73,7 +73,7 @@ def test_fatos_completos_geram_todas_as_secoes_e_cada_numero_do_dado_aparece():
     texto = res["texto"]
     assert [s["id"] for s in res["secoes"]] == ["literatura", "web", "classificacao", "verificacao", "ufs", "custos", "reprodutibilidade"]
     for esperado in ("31", "29", "1.234", "987", "4", "321", "654", "450", "210", "55", "44", "90", "60", "12", "1.000", "140", "360", "500",
-                     "700", "690", "6.900", "4.321", "1.500", "1.400", "1.300", "2.100", "800", "150", "200", "17", "40", "25", "15", "33",
+                     "120", "880", "700", "690", "6.900", "4.321", "1.500", "1.400", "1.300", "2.100", "800", "150", "200", "17", "40", "25", "15", "33",
                      "US$ 1,50", "US$ 3,50", "US$ 7,25", "US$ 12,25"):
         assert esperado in texto, esperado
     for esperado in ("serpapi_scholar", "perplexity", "gemini:modelo-x", "v3", "RUN_A", "RUN_B", "RUN_FORA", "aaaabbbbcccc", "deadbeef", "M01", "M02",
@@ -90,7 +90,7 @@ def test_nenhum_numero_no_texto_vem_de_fora_dos_fatos():
     permitidos = {"31", "29", "2", "1.234", "987", "4", "7", "321", "8", "654", "450", "210", "55", "44", "90", "60", "12", "1.000", "140",
                   "360", "500", "700", "690", "10", "6.900", "4.321", "1.500", "1.400", "1.300", "1.290", "2.100", "800", "150", "200", "17",
                   "27", "40", "25", "15", "33", "9", "5", "13", "1", "3", "1,50", "3,50", "7,25", "12,25", "0,10", "50", "11",
-                  "3,60"}      # 3,60 = 3,50 + 0,10: soma do gasto real; 500 = 140 + 360: avaliados na triagem
+                  "3,60", "120", "880"}      # 120 e 880 = removidos por ferramenta automatica e seguiram para a triagem (prisma[11], prisma[12]); 3,60 = 3,50 + 0,10: soma do gasto real; 500 = 140 + 360: avaliados na triagem
     pcts = set(re.findall(r"\d+,\d%", limpo))
     achados = set(re.findall(r"\d+(?:\.\d{3})*(?:,\d+)?", re.sub(r"\d+,\d%", "", limpo)))
     assert achados - permitidos == set(), achados - permitidos
@@ -118,10 +118,30 @@ def test_cada_numero_aponta_para_a_pagina_que_o_justifica():
     assert "/chamadas?etapa=busca_academica" in por_texto["1.234"] and "/chamadas?etapa=busca_web&resultado=ok" in por_texto["690"]
     assert "/chamadas?etapa=busca_web&resultado=falha" in por_texto["10"]
     assert "/execucoes/RUN_A" in por_texto["RUN_A"]
+    assert "/literatura/prisma" in por_texto["120"] and "/literatura/prisma" in por_texto["880"]
     assert "/literatura/prisma" in por_texto["33"] and "/literatura/artigos?decisao=incluir" in por_texto["140"]
     assert "/literatura/artigos?base=IEEE" in por_texto["IEEE"] and "/literatura/artigos?termo=T01" in por_texto["T01"]
     assert "/achados?verificacao=confirmado&tecnologia=reconhecimento_facial" in por_texto["25"]
     assert all(h.startswith("/") for h in _hrefs(res))
+
+
+def test_removidos_por_ferramenta_automatica_aparecem_antes_da_triagem_humana():
+    t = _texto(_fatos())
+    assert "1.000 artigos únicos foram identificados" in t and "seguiram para triagem" not in t
+    assert ("Antes da triagem humana, 120 foram removidos por uma ferramenta automática (a triagem de escopo feita pelo modelo, "
+            "sem decisão humana") in t
+    assert "e 880 seguiram para a triagem por título e resumo." in t
+    assert t.index("120 foram removidos") < t.index("foram avaliados")
+
+
+def test_sem_removidos_automaticos_o_texto_diz_que_todos_seguiram_e_sem_dado_nao_afirma_nada():
+    f = _fatos()
+    f["literatura"]["prisma"] = {11: 0, 12: 1000, 20: 33}
+    t = _texto(f)
+    assert "Todos seguiram para a triagem por título e resumo." in t and "removidos por uma ferramenta automática" not in t
+    f["literatura"]["prisma"] = {}
+    t = _texto(f)
+    assert "Todos seguiram" not in t and "removidos por uma ferramenta automática" not in t
 
 
 def test_texto_puro_e_a_juncao_dos_segmentos_sem_links():

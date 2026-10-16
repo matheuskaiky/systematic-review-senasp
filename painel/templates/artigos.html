@@ -14,9 +14,15 @@
   <label>Ano até <input type="number" name="ano_ate" value="{{ filtros.ano_ate or '' }}" min="1900" max="2100"></label>
   <label>Mais de um termo <select name="multi"><option value="">não importa</option><option value="1"{% if filtros.multi == "1" %} selected{% endif %}>só os que sim</option></select></label>
   <label>Relevância <select name="rel"><option value="">todas</option>{% for k, v in {"alta": "alta", "media": "média", "baixa": "baixa"}.items() %}<option value="{{ k }}"{% if filtros.rel == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Brasil <select name="brasil">{% for k, v in {"": "não importa", "sim": "Qualquer indício", "certo": "Brasil com certeza", "talvez": "Talvez Brasil", "fora": "Fora do Brasil", "sem": "Sem indício"}.items() %}<option value="{{ k }}"{% if (filtros.brasil or "") == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
   <label>Triagem LLM <select name="llm">{% for k, v in {"": "padrão (sem os excluídos pelo modelo)", "todos": "todos (inclui excluídos)", "sem_avaliacao": "sem avaliação", "elegivel": "elegível", "quarentena": "quarentena", "excluido": "apenas excluídos pelo modelo"}.items() %}<option value="{{ k }}"{% if (filtros.llm or "") == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
   <label class="larga">Ordenar por <select name="ordem"><option value="">padrão da triagem</option><option value="relevancia"{% if filtros.ordem == "relevancia" %} selected{% endif %}>mais relevantes primeiro</option></select></label>
   <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="título, resumo ou autores"></label>
+  <details class="ajuda-filtro"><summary>Como o filtro Brasil decide</summary>
+    <p>Há dois indícios, independentes. <strong>Texto</strong>: o título, o resumo, os autores ou o link citam o Brasil (nome do país, estado, cidade conhecida, polícia ou instituição brasileira, endereço .br). <strong>IA</strong>: na triagem de escopo, o modelo avaliou que o artigo trata do Brasil.</p>
+    <ul><li><strong>Brasil, com certeza</strong>: os dois indícios.</li><li><strong>Talvez Brasil</strong>: só um dos dois.</li><li><strong>Fora do Brasil</strong>: a IA disse "internacional" e o texto não cita o Brasil.</li><li><strong>Sem nenhum indício</strong>: nem o texto cita o Brasil nem a IA disse Brasil ou internacional (inclui artigos ainda sem avaliação da IA).</li><li><strong>Qualquer indício</strong>: "com certeza" mais "talvez".</li></ul>
+    <p>É só um filtro: nada é excluído, e os indícios podem errar (um artigo brasileiro sem marcador no texto cai em "talvez" ou "sem indício").</p>
+  </details>
   <button class="botao" type="submit">Filtrar</button>{% if filtros %}<a href="/literatura/artigos">Limpar</a>{% endif %}
 </form>
 <details class="regra-relevancia" id="como-a-relevancia-e-calculada">
@@ -40,10 +46,11 @@
 <p class="vazio">Nenhum artigo com estes filtros.{% if filtros %} <a href="/literatura/artigos">Limpar filtros</a>.{% else %} Rode <code>python main.py academico --termos T01 --paginas 1</code>.{% endif %}</p>
 {% else %}
 <div class="tabela-rolavel"><table>
-  <thead><tr><th>Título</th><th>Relevância</th><th>Ano</th><th class="num">Citações</th><th class="num">Termos</th><th>Triagem</th><th>Triagem LLM</th><th></th></tr></thead>
+  <thead><tr><th>Título</th><th>Relevância</th><th>Brasil</th><th>Ano</th><th class="num">Citações</th><th class="num">Termos</th><th>Triagem</th><th>Triagem LLM</th><th></th></tr></thead>
   <tbody>{% for a in res.itens %}
     <tr><td><a href="/literatura/artigos/{{ a.artigo_id }}">{{ a.titulo }}</a><br><small class="fornecedor">{{ a.autores_publicacao or "" }}</small></td>
       <td>{{ s.relevancia(a.relevancia) }}</td>
+      <td>{% if a.relevancia.brasil %}<span class="selo ok" title="O texto cita o Brasil: {{ a.relevancia.sinais_brasil|join(', ') }}">texto</span> {% endif %}{% if a.llm_escopo == "brasil" %}<span class="selo ok" title="A IA (triagem de escopo) avaliou este artigo como sendo do Brasil">IA</span>{% endif %}{% if a.llm_escopo == "internacional" and not a.relevancia.brasil %}<span class="selo neutro" title="A IA avaliou como internacional e o texto não cita o Brasil">fora do Brasil</span>{% elif not a.relevancia.brasil and a.llm_escopo != "brasil" %}<span class="nao-avaliado" title="Nem o texto cita o Brasil nem a IA avaliou como Brasil">sem indício</span>{% endif %}</td>
       <td>{{ a.ano or "—" }}</td><td class="num">{{ fmt.numero(a.citacoes) }}</td>
       <td class="num">{{ a.n_termos }}{% if a.n_bases_manuais %} <small>+ {{ a.n_bases_manuais }} base(s)</small>{% endif %}</td>
       <td>{{ s.triagem(a.decisao) }}{% if a.decisao == "incluir" and a.decisao_texto_completo != "pendente" %}<br>{{ s.triagem(a.decisao_texto_completo, "texto completo") }}{% endif %}</td>

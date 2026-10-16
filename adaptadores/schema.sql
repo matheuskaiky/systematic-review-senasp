@@ -565,8 +565,18 @@ FROM r_chamadas c WHERE c.etapa = 'busca_academica' AND c.sucesso = 1;
 
 -- Numeros do fluxo PRISMA (identificacao, triagem por titulo e resumo, elegibilidade por texto completo, inclusao).
 -- Se houver mais de uma execucao de busca academica, os registros somam todas.
+-- `removidos_escopo` = artigos do relatorio que a triagem de escopo do modelo excluiu (veredito atual valido: a linha de maior
+-- `id` por artigo, com valido = 1 e status = 'excluido') E sobre os quais nenhuma pessoa decidiu incluir/excluir. Decisao humana
+-- sempre vence: artigo excluido pelo modelo e triado por uma pessoa continua no fluxo humano. E a mesma regra de `llm_oculto`
+-- da lista de artigos. O PRISMA 2020 pede os registros removidos por ferramenta de automacao antes da triagem.
 DROP VIEW IF EXISTS v_prisma;
 CREATE VIEW v_prisma AS
+WITH removidos_escopo AS (
+    SELECT COUNT(*) AS n FROM r_artigos a
+    WHERE EXISTS (SELECT 1 FROM triagem_escopo te
+                  WHERE te.id = (SELECT MAX(x.id) FROM triagem_escopo x WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '')
+                    AND te.valido = 1 AND te.status = 'excluido')
+      AND COALESCE((SELECT t.decisao FROM triagem t WHERE t.artigo_id = a.artigo_id), 'pendente') NOT IN ('incluir', 'excluir'))
 SELECT 1 AS ordem, 'identificacao' AS fase, 'execucoes de busca academica' AS metrica,
        (SELECT COUNT(DISTINCT run_id) FROM r_chamadas WHERE etapa = 'busca_academica') AS valor
 UNION ALL SELECT 2, 'identificacao', 'Google Scholar: registros retornados',
@@ -586,20 +596,22 @@ UNION ALL SELECT 9, 'identificacao', 'registros (artigo x fonte) apos remover du
        (SELECT COUNT(*) FROM (SELECT DISTINCT artigo_id, fonte FROM v_ocorrencias_fonte))
 UNION ALL SELECT 10, 'identificacao', 'duplicatas entre fontes removidas',
        (SELECT COUNT(*) FROM (SELECT DISTINCT artigo_id, fonte FROM v_ocorrencias_fonte)) - (SELECT COUNT(*) FROM r_artigos)
-UNION ALL SELECT 11, 'triagem', 'artigos unicos para triagem', (SELECT COUNT(*) FROM r_artigos)
-UNION ALL SELECT 12, 'triagem', 'avaliados por titulo e resumo',
+UNION ALL SELECT 11, 'identificacao', 'removidos por ferramenta automatica (triagem de escopo do modelo, sem decisao humana)',
+       (SELECT n FROM removidos_escopo)
+UNION ALL SELECT 12, 'triagem', 'artigos unicos para triagem', (SELECT COUNT(*) FROM r_artigos) - (SELECT n FROM removidos_escopo)
+UNION ALL SELECT 13, 'triagem', 'avaliados por titulo e resumo',
        (SELECT COUNT(*) FROM triagem WHERE decisao IN ('incluir', 'excluir'))
-UNION ALL SELECT 13, 'triagem', 'excluidos por titulo e resumo', (SELECT COUNT(*) FROM triagem WHERE decisao = 'excluir')
-UNION ALL SELECT 14, 'triagem', 'incluidos por titulo e resumo', (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir')
-UNION ALL SELECT 15, 'triagem', 'pendentes de titulo e resumo',
-       (SELECT COUNT(*) FROM r_artigos) - (SELECT COUNT(*) FROM triagem WHERE decisao IN ('incluir', 'excluir'))
-UNION ALL SELECT 16, 'elegibilidade', 'avaliados por texto completo',
+UNION ALL SELECT 14, 'triagem', 'excluidos por titulo e resumo', (SELECT COUNT(*) FROM triagem WHERE decisao = 'excluir')
+UNION ALL SELECT 15, 'triagem', 'incluidos por titulo e resumo', (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir')
+UNION ALL SELECT 16, 'triagem', 'pendentes de titulo e resumo',
+       (SELECT COUNT(*) FROM r_artigos) - (SELECT n FROM removidos_escopo) - (SELECT COUNT(*) FROM triagem WHERE decisao IN ('incluir', 'excluir'))
+UNION ALL SELECT 17, 'elegibilidade', 'avaliados por texto completo',
        (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND decisao_texto_completo IN ('incluir', 'excluir'))
-UNION ALL SELECT 17, 'elegibilidade', 'excluidos por texto completo',
+UNION ALL SELECT 18, 'elegibilidade', 'excluidos por texto completo',
        (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND decisao_texto_completo = 'excluir')
-UNION ALL SELECT 18, 'elegibilidade', 'aguardando texto completo',
+UNION ALL SELECT 19, 'elegibilidade', 'aguardando texto completo',
        (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND COALESCE(decisao_texto_completo, 'pendente') = 'pendente')
-UNION ALL SELECT 19, 'inclusao', 'incluidos no estudo (texto completo)',
+UNION ALL SELECT 20, 'inclusao', 'incluidos no estudo (texto completo)',
        (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND decisao_texto_completo = 'incluir');
 
 DROP VIEW IF EXISTS v_motivos_exclusao;

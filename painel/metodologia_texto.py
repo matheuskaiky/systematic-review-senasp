@@ -226,17 +226,26 @@ def _literatura(x):
         blocos.append(_p((f"Nenhuma busca manual nas bases{base} foi importada até agora.", None)))
 
     n_art = _g(x.lit, "n_artigos")
-    p = _P().t("Ao todo, ").n(n_art, "/literatura/artigos").t(" artigos únicos seguiram para triagem (")
+    p = _P().t("Ao todo, ").n(n_art, "/literatura/artigos").t(" artigos únicos foram identificados (")
     p.n(_g(ac, "n_artigos_scholar"), "/literatura/artigos").t(" do Scholar; ").n(_g(x.lit, "n_artigos_manuais"), "/literatura/artigos").t(
         " das bases manuais; os dois conjuntos podem se sobrepor).")
     if n_art:
+        # PRISMA 2020: registros removidos por ferramenta de automação antes da triagem (linhas 11 e 12 de `v_prisma`)
+        removidos = x.prisma.get(11)
+        if removidos:
+            p.t(" Antes da triagem humana, ").n(removidos, PROVA_LITERATURA).t(
+                " foram removidos por uma ferramenta automática (a triagem de escopo feita pelo modelo, sem decisão humana; os registros "
+                "continuam no banco e uma decisão humana sobre eles sempre prevalece), e ").n(
+                x.prisma.get(12, n_art - removidos), PROVA_LITERATURA).t(" seguiram para a triagem por título e resumo.")
+        elif removidos == 0:
+            p.t(" Todos seguiram para a triagem por título e resumo.")
         avaliados = _g(x.tri, "incluidos") + _g(x.tri, "excluidos")
         p.t(" Na triagem por título e resumo, ").n(avaliados, PROVA_LITERATURA).t(" foram avaliados: ")
         p.n(_g(x.tri, "incluidos"), _url("/literatura/artigos", decisao="incluir")).t(" incluídos e ")
         p.n(_g(x.tri, "excluidos"), _url("/literatura/artigos", decisao="excluir")).t(" excluídos; ")
         p.n(_g(x.tri, "pendentes"), _url("/literatura/artigos", decisao="pendente")).t(" aguardam decisão.")
-        if 19 in x.prisma:
-            p.t(" Incluídos no estudo após a leitura do texto completo: ").n(x.prisma[19], PROVA_LITERATURA).t(".")
+        if 20 in x.prisma:
+            p.t(" Incluídos no estudo após a leitura do texto completo: ").n(x.prisma[20], PROVA_LITERATURA).t(".")
     blocos.append(_bloco_p(p))
     return _secao("literatura", "Busca na literatura acadêmica", blocos)
 

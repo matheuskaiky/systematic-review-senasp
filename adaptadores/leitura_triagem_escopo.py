@@ -199,10 +199,11 @@ class LeituraTriagemEscopo:
         """(JOIN, colunas) que trazem o veredito atual de cada artigo `a` para as consultas de artigos. `llm_oculto` e 1 quando o
         modelo excluiu o artigo (conferencia valida) E nenhuma pessoa decidiu sobre ele: decisao humana sempre vence."""
         if not self.tem_triagem_escopo():
-            return "", ("NULL AS llm_status, NULL AS llm_categoria, NULL AS llm_valido, NULL AS llm_justificativa, 0 AS llm_oculto")
+            return "", ("NULL AS llm_status, NULL AS llm_categoria, NULL AS llm_valido, NULL AS llm_justificativa, NULL AS llm_escopo, 0 AS llm_oculto")
         return (
             "LEFT JOIN triagem_escopo te ON te.id = (SELECT MAX(x.id) FROM triagem_escopo x "
             "WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '')",
             "te.status AS llm_status, te.categoria_motivo AS llm_categoria, te.valido AS llm_valido, "
             "te.justificativa AS llm_justificativa, "
+            "CASE WHEN te.valido = 1 THEN te.escopo_geografico END AS llm_escopo, "
             "COALESCE(te.status = 'excluido' AND te.valido = 1 AND COALESCE(t.decisao, 'pendente') = 'pendente', 0) AS llm_oculto")

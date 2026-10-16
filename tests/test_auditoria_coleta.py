@@ -463,6 +463,26 @@ def test_v_saldos_provedor_sem_fim_e_chamadas_de_outro_provedor(tmp_path):
     assert len(v) == 1 and (v[0]["consumo"], v[0]["chamadas_ok"], v[0]["diferenca"]) == (2, 1, 1)   # divergencia visivel
 
 
+def test_v_saldos_diferenca_negativa_quando_o_provedor_cobra_menos_que_as_chamadas_ok(tmp_path):
+    """Caso real da execucao 20261015_175203_1c2090: 81 chamadas ok, saldo 249 -> 169 (consumo 80), diferenca -1.
+    A view conta so as chamadas da janela de cada execucao: chamadas de outra execucao (mesmo provedor) nao entram."""
+    from adaptadores.repositorio_sqlite import RepositorioSQLite
+    from dados_metricas import _novo_run
+    repo = RepositorioSQLite(tmp_path / "s.db")
+    antes, run_id = _novo_run(repo, "academico"), _novo_run(repo, "academico")
+    _saldo(repo, antes, "serpapi_scholar", "inicio", 250, "2026-10-15T01:06:53+00:00")
+    _chamada_ok(repo, antes, "2026-10-15T01:06:56+00:00")
+    _saldo(repo, antes, "serpapi_scholar", "fim", 249, "2026-10-15T01:06:57+00:00")
+    _saldo(repo, run_id, "serpapi_scholar", "inicio", 249, "2026-10-15T17:52:04+00:00")
+    for m in range(81):
+        _chamada_ok(repo, run_id, f"2026-10-15T17:{52 + (m + 5) // 60}:{(m + 5) % 60:02d}+00:00")
+    _saldo(repo, run_id, "serpapi_scholar", "fim", 169, "2026-10-15T17:59:59+00:00")
+    repo.confirmar()
+    v = {x["run_id"]: x for x in _linhas(repo, "v_saldos")}
+    assert (v[antes]["consumo"], v[antes]["chamadas_ok"], v[antes]["diferenca"]) == (1, 1, 0)
+    assert (v[run_id]["consumo"], v[run_id]["chamadas_ok"], v[run_id]["diferenca"]) == (80, 81, -1)
+
+
 # ---------- retomada: commit e ambiente de cada passada ----------
 def test_retomar_preserva_a_execucao_original_e_registra_a_passada(tmp_path):
     from adaptadores.repositorio_sqlite import RepositorioSQLite

@@ -86,7 +86,15 @@ def test_numeros_da_pagina_sao_os_do_sql(ctx):
     n_art = _sql(copia, "SELECT COUNT(*) FROM r_artigos")
     req = _sql(copia, "SELECT COUNT(*) FROM r_chamadas WHERE etapa='busca_academica'")
     ret = _sql(copia, "SELECT SUM(n_retornados) FROM r_chamadas WHERE etapa='busca_academica' AND sucesso=1")
-    assert f"Ao todo, {fmt.numero(n_art)} artigos únicos seguiram para triagem" in texto
+    assert f"Ao todo, {fmt.numero(n_art)} artigos únicos foram identificados" in texto
+    removidos = _sql(copia, "SELECT valor FROM v_prisma WHERE metrica LIKE 'removidos por ferramenta automatica%'")
+    para_triagem = _sql(copia, "SELECT valor FROM v_prisma WHERE metrica='artigos unicos para triagem'")
+    assert removidos + para_triagem == n_art
+    if removidos:
+        assert f"Antes da triagem humana, {fmt.numero(removidos)} foram removidos por uma ferramenta automática" in texto
+        assert f"e {fmt.numero(para_triagem)} seguiram para a triagem por título e resumo" in texto
+    else:
+        assert "Todos seguiram para a triagem por título e resumo." in texto
     assert f"em {fmt.numero(req)} requisições" in texto and f"retornaram {fmt.numero(ret)} registros" in texto
     ieee = sqlite3.connect(copia).execute("SELECT COUNT(*), SUM(n_resultados) FROM buscas_manuais WHERE base='IEEE'").fetchone()
     assert f"IEEE: {ieee[0]} buscas" in texto and f"{fmt.numero(ieee[1])} resultados informados" in texto

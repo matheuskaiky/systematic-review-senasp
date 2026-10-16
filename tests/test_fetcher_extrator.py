@@ -119,7 +119,7 @@ class _Robots:
 @pytest.fixture
 def robots(monkeypatch):
     """Substitui requests.get (so usado para o robots.txt); `chamadas` guarda o que foi pedido."""
-    estado = {"respostas": {}, "chamadas": [], "padrao": _Robots("", 404)}
+    estado = {"respostas": {}, "chamadas": [], "padrao": _Robots("", 404), "esperas": []}
 
     def falso(url, **kw):
         estado["chamadas"].append((url, kw))
@@ -129,6 +129,7 @@ def robots(monkeypatch):
         return r
 
     monkeypatch.setattr(fetcher_requests.requests, "get", falso)
+    monkeypatch.setattr(fetcher_requests, "_pausa", estado["esperas"].append)     # as esperas entre leituras do robots.txt nao sao reais
     return estado
 
 
@@ -164,7 +165,8 @@ def test_robots_bloqueia_e_a_pagina_nem_e_requisitada(robots, monkeypatch):
     a = FetcherRequests(UA).baixar("https://x.gov.br/privado/doc")
     assert a.chamada.erro == "bloqueado_por_robots" and not a.chamada.sucesso
     assert (a.conteudo, a.http_status, a.truncado) == (b"", None, False) and visto == {}
-    assert a.chamada.extras == {"robots_permitido": False, "robots_status": 200}
+    # alteracao deliberada: os extras ganharam `robots_inacessivel` e `robots_tentativas` (leitura 2xx = uma tentativa)
+    assert a.chamada.extras == {"robots_permitido": False, "robots_status": 200, "robots_inacessivel": False, "robots_tentativas": 1}
 
 
 def test_robots_permite_outros_caminhos_e_consulta_uma_vez_por_host(robots, monkeypatch):

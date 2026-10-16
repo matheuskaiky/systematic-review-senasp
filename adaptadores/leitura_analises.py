@@ -471,12 +471,15 @@ class LeituraAnalises:
     # ---------- 9. opacidade dos dominios ----------
     def analise_opacidade_dominios(self, limite=40):
         """Resultado do download por dominio final (`v_resultado_download`, execucoes do relatorio; uma pagina = uma URL por
-        execucao): tentadas, ok, bloqueadas por robots.txt, bloqueadas por HTTP 401/403/429 e outros erros (inclui falha de
-        extracao e 404). `pct_bloqueado` = (robots + HTTP de bloqueio) sobre as tentadas.
+        execucao): tentadas, ok, proibidas pelo robots.txt (lido e proibindo), proibidas por HTTP 401/403/429, com robots.txt
+        inacessivel (bloqueadas pela politica da RFC 9309, nao e proibicao do site) e outros erros (inclui falha de extracao
+        e 404). `pct_bloqueado` = (robots + HTTP de bloqueio) sobre as tentadas: so a proibicao real; `pct_inacessivel` conta
+        as de robots.txt inacessivel. O valor antigo `bloqueado_por_robots` (antes de `migrar-robots`) conta como proibicao.
 
-        Devolve {n_tentadas, n_ok, n_robots, n_http_bloqueio, n_outros, pct_bloqueado, motivos: [{motivo, n}], dominios:
-        [{dominio, n_tentadas, n_ok, n_robots, n_http_bloqueio, n_outros, pct_bloqueado, fonte_oficial, n_ufs}] (os com mais
-        bloqueios primeiro, ate `limite`), n_dominios, por_uf: [{uf, n_tentadas, ...}]}."""
+        Devolve {n_tentadas, n_ok, n_robots, n_http_bloqueio, n_robots_inacessivel, n_outros, pct_bloqueado, pct_inacessivel,
+        motivos: [{motivo, n}], dominios: [{dominio, n_tentadas, n_ok, n_robots, n_http_bloqueio, n_robots_inacessivel,
+        n_outros, pct_bloqueado, pct_inacessivel, fonte_oficial, n_ufs}] (os com mais proibicoes primeiro, ate `limite`),
+        n_dominios, por_uf: [{uf, n_tentadas, ...}]}."""
         limite = min(max(int(limite), 1), 500)
 
         # uma unica leitura da view (cara em disco lento); a agregacao por dominio, por UF e por motivo e feita aqui
@@ -486,7 +489,7 @@ class LeituraAnalises:
             FROM v_resultado_download WHERE no_relatorio = 1 AND resultado <> 'nao_tentada'""")
 
         def novo():
-            return {"paginas": set(), "ok": set(), "robots": set(), "http": set(), "ufs": set(), "oficial": None}
+            return {"paginas": set(), "ok": set(), "robots": set(), "http": set(), "inacessivel": set(), "ufs": set(), "oficial": None}
 
         por_dominio, por_uf, motivos = {}, {}, Counter()
         for l in linhas:
@@ -502,13 +505,17 @@ class LeituraAnalises:
                     a["ok"].add(pagina)
                 if l["motivo"] == "bloqueado_por_robots":
                     a["robots"].add(pagina)
+                elif l["motivo"] == "robots_inacessivel":
+                    a["inacessivel"].add(pagina)
                 elif l["motivo"] in _HTTP_BLOQUEIO:
                     a["http"].add(pagina)
 
         def fechar(a, **extra):
-            d = dict(extra, n_tentadas=len(a["paginas"]), n_ok=len(a["ok"]), n_robots=len(a["robots"]), n_http_bloqueio=len(a["http"]))
-            d["n_outros"] = max(d["n_tentadas"] - d["n_ok"] - d["n_robots"] - d["n_http_bloqueio"], 0)
+            d = dict(extra, n_tentadas=len(a["paginas"]), n_ok=len(a["ok"]), n_robots=len(a["robots"]), n_http_bloqueio=len(a["http"]),
+                     n_robots_inacessivel=len(a["inacessivel"]))
+            d["n_outros"] = max(d["n_tentadas"] - d["n_ok"] - d["n_robots"] - d["n_http_bloqueio"] - d["n_robots_inacessivel"], 0)
             d["pct_bloqueado"] = _pct(d["n_robots"] + d["n_http_bloqueio"], d["n_tentadas"])
+            d["pct_inacessivel"] = _pct(d["n_robots_inacessivel"], d["n_tentadas"])
             return d
 
         dominios = [fechar(a, dominio=k, fonte_oficial=a["oficial"], n_ufs=len(a["ufs"])) for k, a in por_dominio.items()]
@@ -516,7 +523,8 @@ class LeituraAnalises:
         total = fechar({"paginas": {p for a in por_dominio.values() for p in a["paginas"]},
                         "ok": {p for a in por_dominio.values() for p in a["ok"]},
                         "robots": {p for a in por_dominio.values() for p in a["robots"]},
-                        "http": {p for a in por_dominio.values() for p in a["http"]}})
+                        "http": {p for a in por_dominio.values() for p in a["http"]},
+                        "inacessivel": {p for a in por_dominio.values() for p in a["inacessivel"]}})
         total.update({"motivos": [{"motivo": m, "n": n} for m, n in sorted(motivos.items(), key=lambda kv: (-kv[1], str(kv[0])))],
                       "n_dominios": len(dominios), "dominios": dominios[:limite],
                       "por_uf": [fechar(a, uf=k) for k, a in sorted(por_uf.items())]})

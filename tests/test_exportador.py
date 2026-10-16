@@ -240,3 +240,38 @@ def test_c7_linhas_sem_n_resultados_sao_ignoradas(ambiente_cli, monkeypatch, cap
     _rodar(monkeypatch, "manual-modelo")
     _rodar(monkeypatch, "manual-importar", str(ambiente_cli / "outputs" / "buscas_manuais_modelo.csv"), "--simulado")
     assert "Rows imported: 0" in capsys.readouterr().out
+
+
+def test_planilha_de_download_traz_os_dois_motivos_de_bloqueio_do_robots(tmp_path):
+    """Aba Download_resultado: `bloqueado_por_robots` (robots.txt lido e proibindo) e `robots_inacessivel` aparecem como motivos
+    separados, com o erro original e o `http_status` vazio."""
+    from adaptadores.bruto_local import BrutoLocal
+    from aplicacao import busca_web, download, exportacao
+    from dados_metricas import Busca4Urls, _consulta_pi, _novo_run
+    from dominio.modelos import ArquivoBaixado
+    from adaptadores.simulados import ExtratorSimulado, FetcherSimulado
+
+    class Fetcher(FetcherSimulado):
+        def baixar(self, url):
+            base = super().baixar(url)
+            reg = base.chamada
+            if url.endswith("/pi/1"):
+                reg.erro, reg.http_status = "bloqueado_por_robots", None
+                reg.extras.update(robots_permitido=False, robots_status=200, robots_inacessivel=False, robots_tentativas=1)
+            elif url.endswith("/pi/2"):
+                reg.erro, reg.http_status = "robots_inacessivel", None
+                reg.extras.update(robots_permitido=False, robots_status=503, robots_inacessivel=True, robots_tentativas=3)
+            else:
+                return base
+            return ArquivoBaixado(url, None, "", b"", False, reg)
+
+    repo, bruto = RepositorioSQLite(tmp_path / "x.db"), BrutoLocal(tmp_path / "raw")
+    run_id = _novo_run(repo, "baixar")
+    busca_web.executar(repo, bruto, Busca4Urls(), run_id, _consulta_pi(), C.PERFIS_BUSCA_WEB, [], 0)
+    download.executar(repo, bruto, Fetcher(), ExtratorSimulado(), run_id, run_id, C.POLITICA_DOWNLOAD, [], 0, ufs={"PI"})
+    caminho = ExportadorExcel().exportar(exportacao.montar_tabelas(repo, C.UFS), tmp_path / "s.xlsx")
+    aba = pd.read_excel(caminho, sheet_name="Download_resultado")
+    por_motivo = {l["motivo"]: l for _, l in aba.iterrows() if l["resultado"] == "falha_download"}
+    assert set(por_motivo) == {"bloqueado_por_robots", "robots_inacessivel"}
+    assert por_motivo["bloqueado_por_robots"]["erro"] == "bloqueado_por_robots" and pd.isna(por_motivo["robots_inacessivel"]["http_status"])
+    assert por_motivo["robots_inacessivel"]["erro"] == "robots_inacessivel"

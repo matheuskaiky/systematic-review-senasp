@@ -327,3 +327,21 @@ def test_singular_e_plural():
     t = _texto(f)
     assert "com 1 termo de busca, em 1 requisição (1 bem-sucedida e 0 com falha)" in t
     assert "(75,0%)" not in t
+
+
+# ---------- robots.txt: proibicao do site x robots.txt inacessivel ----------
+def test_texto_separa_pagina_proibida_pelo_site_de_robots_txt_inacessivel():
+    f = _fatos()
+    f["web"]["bloqueios_robots"] = {"bloqueado_por_robots": 12, "robots_inacessivel": 7}
+    res = gerar_metodologia(f)
+    texto = res["texto"]
+    assert "12 páginas foram proibidas pelo site" in texto and "7" in texto
+    assert "robots.txt do site estava inacessível" in texto and "não é uma decisão do site" in texto
+    assert {"/chamadas?etapa=download&q=bloqueado_por_robots", "/chamadas?etapa=download&q=robots_inacessivel"} <= _hrefs(res)
+
+
+def test_texto_nao_menciona_robots_sem_bloqueios():
+    assert "robots" not in _texto(_fatos())
+    f = _fatos()
+    f["web"]["bloqueios_robots"] = {"bloqueado_por_robots": 1}
+    assert "1 página foi proibida pelo site" in _texto(f)

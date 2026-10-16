@@ -698,3 +698,12 @@ def test_css_so_usa_classes_nao_tem_import_url_externa_nem_expressao():
     for seletor in (".an-seg ", ".an-seg{", ".an-area-s ", ".an-c ", ".an-col "):
         for trecho in re.findall(re.escape(seletor) + r"[^}]*\}", css):
             assert "fill:" not in trecho.split("{", 1)[1].replace("fill-opacity", ""), trecho
+
+
+def test_ranking_semaforo_coluna_de_robots_inacessivel_so_aparece_quando_informada():
+    sem = ga.ranking_semaforo([{"dominio": "a.gov.br", "total": 10, "bloqueadas": 2}], "t")
+    assert "robots.txt inacessível" not in sem
+    com = ga.ranking_semaforo([{"dominio": "a.gov.br", "total": 10, "bloqueadas": 2, "inacessiveis": 5},
+                               {"dominio": "b.gov.br", "total": 4, "bloqueadas": 0, "inacessiveis": 0}], "t")
+    assert "robots.txt inacessível (bloqueado pela política)" in com and com.count("<td") == 2 * 6
+    assert "20% bloqueadas" in com                                            # a fatia/situacao conta so a proibicao real, nao as inacessiveis

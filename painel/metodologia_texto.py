@@ -283,6 +283,16 @@ def _web(x):
     p.t(". Foram baixadas ").n(_g(fu, "paginas"), _url("/chamadas", etapa="download")).t(" páginas, das quais ").n(
         _g(fu, "paginas_com_texto"), _url("/chamadas", etapa="download")).t(" tiveram texto extraído e puderam ser classificadas com base no texto.")
     blocos.append(_bloco_p(p))
+    robots = w.get("bloqueios_robots") or {}
+    proibidas, inacessiveis = _g(robots, "bloqueado_por_robots"), _g(robots, "robots_inacessivel")
+    if proibidas or inacessiveis:
+        p = _P().t("O download respeita o robots.txt de cada site (RFC 9309). ")
+        p.n(proibidas, _url("/chamadas", etapa="download", q="bloqueado_por_robots")).t(
+            " " + _pl(proibidas, "página foi proibida pelo site (o robots.txt foi lido e a proíbe)", "páginas foram proibidas pelo site (o robots.txt foi lido e as proíbe)"))
+        p.t("; outras ").n(inacessiveis, _url("/chamadas", etapa="download", q="robots_inacessivel")).t(
+            " não foram baixadas porque o robots.txt do site estava inacessível (erro do servidor, tempo esgotado ou falha de rede, mesmo depois de novas tentativas): "
+            "por política, a leitura impossível é tratada como proibição, mas isso não é uma decisão do site.")
+        blocos.append(_bloco_p(p))
     return _secao("web", "Levantamento nas secretarias (busca web)", blocos)
 
 

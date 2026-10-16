@@ -430,9 +430,12 @@ def test_falsa_exclusao_usa_so_o_veredito_atual(copia):
 # ============================== 9. opacidade ==============================
 def test_opacidade_demo(L):
     r = L.analise_opacidade_dominios()
-    assert r["n_tentadas"] == r["n_ok"] + r["n_robots"] + r["n_http_bloqueio"] + r["n_outros"] > 0
+    assert r["n_tentadas"] == r["n_ok"] + r["n_robots"] + r["n_http_bloqueio"] + r["n_robots_inacessivel"] + r["n_outros"] > 0
     assert sum(m["n"] for m in r["motivos"]) >= r["n_tentadas"] and r["n_dominios"] >= len(r["dominios"])
-    assert r["pct_bloqueado"] == 0.0 and r["n_robots"] == 0
+    # alteracao deliberada: a demonstracao agora tem downloads barrados pelo robots.txt (lido e proibindo / inacessivel)
+    assert r["n_robots"] == 4 and r["n_robots_inacessivel"] == 4 and r["n_http_bloqueio"] == 0
+    assert r["pct_bloqueado"] == round(100 * 4 / r["n_tentadas"], 1) and r["pct_inacessivel"] == round(100 * 4 / r["n_tentadas"], 1)
+    assert {m["motivo"] for m in r["motivos"]} >= {"bloqueado_por_robots", "robots_inacessivel"}
 
 
 def test_opacidade_robots_e_http_a_mao(minimo):
@@ -449,6 +452,7 @@ def test_opacidade_robots_e_http_a_mao(minimo):
     _sql(banco, "INSERT INTO selecao_download (run_id, url_id, uf, selecionada) VALUES (?,?,?,1)", ("R1", u, "PI"))   # nunca tentada
     r = LeituraPainelSQLite(banco).analise_opacidade_dominios()
     assert (r["n_tentadas"], r["n_ok"], r["n_robots"], r["n_http_bloqueio"], r["n_outros"]) == (6, 2, 1, 2, 1)
+    assert r["n_robots_inacessivel"] == 0
     assert r["pct_bloqueado"] == 50.0
     por = {d["dominio"]: d for d in r["dominios"]}
     assert por["a.gov.br"]["n_tentadas"] == 3 and por["a.gov.br"]["n_robots"] == 1 and por["a.gov.br"]["n_http_bloqueio"] == 1

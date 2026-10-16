@@ -5,7 +5,10 @@ from aplicacao.comum import registrar_chamada
 
 
 def executar(repo, bruto, fetcher, extrator, run_id, run_origem, politica, segredos, pausa,
-             limite=None, ufs=None, auditoria=0, semente=""):
+             limite=None, ufs=None, auditoria=0, semente="", max_falhas_por_pagina=None):
+    """`max_falhas_por_pagina`: depois de N chamadas com falha para a mesma pagina nesta execucao, a pagina e abandonada
+    (nao e baixada de novo a cada --retomar); o total de desistencias vai para a metrica `download_desistencias`.
+    Sucessos nunca sao limitados."""
     cands = [c for c in repo.candidatos_download(run_origem) if not ufs or c.uf in ufs]
     decisao = selecionar_candidatos(cands, politica)
     # auditoria do pre-filtro: amostra reprodutivel dos descartados por palavra-chave tambem e baixada e classificada
@@ -18,12 +21,17 @@ def executar(repo, bruto, fetcher, extrator, run_id, run_origem, politica, segre
     repo.confirmar()
     logging.info("Candidates: %d | selected: %d", len(cands), sum(1 for _, ok, _ in decisao if ok))
 
-    feitos = 0
+    feitos = desistencias = 0
     for url_id, url in repo.urls_selecionadas(run_id):
         if limite and feitos >= limite:
             break
         chave = hash_chave("download", fetcher.nome, url_id)
         if repo.ja_feito(run_id, chave):
+            continue
+        if max_falhas_por_pagina and repo.contar_falhas(run_id, chave) >= max_falhas_por_pagina:
+            desistencias += 1
+            logging.warning("[download %d] abandonada depois de %d falhas nesta execucao: %s", url_id, max_falhas_por_pagina, url)
+            repo.registrar_metrica(run_id, "download_desistencias", desistencias)       # ja gravada se a execucao for interrompida
             continue
         arq = fetcher.baixar(url)
         # O trabalho lento (extracao de PDFs grandes leva dezenas de segundos) acontece ANTES de qualquer gravacao: assim a
@@ -42,3 +50,5 @@ def executar(repo, bruto, fetcher, extrator, run_id, run_origem, politica, segre
         feitos += 1
         logging.info("[download %d] ok=%s status=%s", url_id, arq.chamada.sucesso, arq.http_status)
         time.sleep(pausa)
+    repo.registrar_metrica(run_id, "download_desistencias", desistencias)
+    repo.confirmar()

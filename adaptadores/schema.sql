@@ -791,6 +791,9 @@ SELECT
 -- ===== Auditoria da coleta: o que aconteceu com cada item selecionado =====
 
 -- Resultado de cada URL selecionada para download: ok, falha de download (com motivo), falha de extracao ou nao tentada.
+-- Motivos de bloqueio: `bloqueado_por_robots` = o robots.txt foi lido e proibe (proibido pelo site; tambem o valor antigo, de
+-- antes de `main.py migrar-robots`); `robots_inacessivel` = o robots.txt nao pode ser lido (5xx, tempo esgotado, rede) e a
+-- politica da RFC 9309 mandou bloquear.
 DROP VIEW IF EXISTS v_resultado_download;
 CREATE VIEW v_resultado_download AS
 WITH ultima AS (SELECT run_id, alvo_id, MAX(chamada_id) AS chamada_id FROM chamadas WHERE etapa = 'download' GROUP BY run_id, alvo_id)
@@ -803,6 +806,7 @@ SELECT s.run_id, s.url_id, s.uf, s.auditoria, u.dominio, u.fonte_oficial, p.domi
             ELSE 'falha_extracao' END AS resultado,
        CASE WHEN c.chamada_id IS NULL THEN 'limite_ou_interrompida'
             WHEN c.sucesso = 0 THEN CASE WHEN c.erro LIKE 'bloqueado_por_robots%' THEN 'bloqueado_por_robots'
+                                         WHEN c.erro LIKE 'robots_inacessivel%' THEN 'robots_inacessivel'
                                          WHEN c.erro LIKE 'erro_de_leitura%' THEN 'erro_de_leitura'
                                          WHEN c.erro LIKE 'HTTP %' AND c.http_status IS NOT NULL THEN 'http_' || c.http_status
                                          ELSE 'erro_de_rede' END

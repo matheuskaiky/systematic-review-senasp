@@ -11,7 +11,7 @@ from painel import rotulos, rotulos_escopo
 # prefixo da ancora para cada tabela de chaves (a chave vem depois do hifen)
 PREFIXOS = {
     "TECNOLOGIAS": "tecnologia", "STATUS": "status", "CONFIANCA": "confianca", "ORIGEM_TEXTO": "origem",
-    "VERIFICACAO": "verificacao", "MOTIVOS_DESCARTE": "descarte", "MOTIVOS_FALHA": "falha",
+    "VERIFICACAO": "verificacao", "MOTIVOS_DESCARTE": "descarte", "MOTIVOS_FALHA": "falha", "MOTIVOS_DOWNLOAD": "download",
 }
 
 
@@ -117,6 +117,15 @@ _FALHA = {
     "tipo_nao_suportado": "O arquivo não é de um tipo que o pipeline sabe ler (por exemplo, um arquivo compactado). "
                           "O tipo aparece entre parênteses.",
     "erro": "Houve um erro inesperado ao extrair o texto. O detalhe aparece entre parênteses e a resposta bruta continua guardada.",
+}
+
+_DOWNLOAD = {
+    "bloqueado_por_robots": "O robots.txt do site (arquivo em que o site diz o que os programas podem ler) foi lido com sucesso e proíbe "
+                            "esta página para o pipeline. É uma proibição do próprio site, e o pipeline a respeita; a página não foi requisitada.",
+    "robots_inacessivel": "Não foi possível ler o robots.txt do site (erro do servidor, tempo esgotado ou falha de rede), mesmo depois de "
+                          "algumas tentativas. Pela RFC 9309 e pela política do pesquisador, sem poder ler as regras o pipeline assume "
+                          "que tudo é proibido e não baixa a página. Não é uma proibição do site: costuma ser uma falha passageira, e "
+                          "a leitura é repetida quando passam alguns minutos.",
 }
 
 _EXECUCOES = [
@@ -320,6 +329,9 @@ SECOES = [
      "entradas": _por_chave(rotulos.MOTIVOS_DESCARTE, "MOTIVOS_DESCARTE", _DESCARTE)},
     {"id": "falhas", "titulo": "Motivos de falha na extração do texto",
      "intro": "Páginas baixadas de que não saiu texto utilizável.", "entradas": _por_chave(rotulos.MOTIVOS_FALHA, "MOTIVOS_FALHA", _FALHA)},
+    {"id": "download", "titulo": "Motivos de bloqueio no download",
+     "intro": "Páginas que o pipeline não baixou por causa do robots.txt do site. As duas situações são diferentes e aparecem separadas.",
+     "entradas": _por_chave(rotulos.MOTIVOS_DOWNLOAD, "MOTIVOS_DOWNLOAD", _DOWNLOAD)},
     {"id": "escopo", "titulo": "Escopo e fontes", "intro": "O que cada achado descreve e de onde veio.", "entradas": _ESCOPO},
     {"id": "execucoes", "titulo": "Execuções, reprodutibilidade e custos",
      "intro": "Cada passagem do pipeline é uma execução, com situação, configuração e gasto próprios.", "entradas": _EXECUCOES},

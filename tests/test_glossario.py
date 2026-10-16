@@ -22,6 +22,7 @@ def _ids():
 @pytest.mark.parametrize("prefixo,chaves", [
     ("tecnologia", V.TECNOLOGIAS), ("status", V.STATUS), ("status", V.STATUS_FINAL_EXTRA), ("confianca", V.CONFIANCA),
     ("status", rotulos.STATUS), ("descarte", rotulos.MOTIVOS_DESCARTE), ("falha", rotulos.MOTIVOS_FALHA),
+    ("download", rotulos.MOTIVOS_DOWNLOAD),
     ("origem", rotulos.ORIGEM_TEXTO), ("verificacao", rotulos.VERIFICACAO), ("confianca", rotulos.CONFIANCA),
     ("tecnologia", rotulos.TECNOLOGIAS)])
 def test_toda_chave_tem_entrada_no_glossario(prefixo, chaves):

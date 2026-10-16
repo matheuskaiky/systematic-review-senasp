@@ -784,20 +784,94 @@ class RepositorioSQLite:
             self.conn.rollback()
             raise
 
-    def copia_de_seguranca(self, pasta, manter=10):
-        """Copia consistente do banco (API de backup do SQLite) em `pasta`; mantem as `manter` mais recentes."""
+    def copia_de_seguranca(self, pasta, manter=10, sufixo="painel"):
+        """Copia consistente do banco (API de backup do SQLite) em `pasta`, chamada `<banco>_<sufixo>_<data>.db`; mantem as
+        `manter` mais recentes com esse sufixo (`manter=None` mantem todas)."""
         pasta = Path(pasta)
         pasta.mkdir(parents=True, exist_ok=True)
         nome = Path(self.conn.execute("PRAGMA database_list").fetchone()["file"]).stem
-        destino = pasta / f"{nome}_painel_{datetime.now():%Y%m%d_%H%M%S}.db"
+        destino = pasta / f"{nome}_{sufixo}_{datetime.now():%Y%m%d_%H%M%S}.db"
         copia = sqlite3.connect(destino)
         try:
             self.conn.backup(copia)
         finally:
             copia.close()
-        for antiga in sorted(pasta.glob(f"{nome}_painel_*.db"))[:-manter]:
-            antiga.unlink()
+        if manter is not None:
+            for antiga in sorted(pasta.glob(f"{nome}_{sufixo}_*.db"))[:-manter]:
+                antiga.unlink()
         return str(destino)
+
+    def reclassificar_bloqueios_robots(self, aplicar=False, pasta_backup=None):
+        """Separa, nas chamadas de download ja gravadas, a proibicao do site da falha de leitura do robots.txt.
+
+        Antes, `bloqueado_por_robots` valia para os dois casos. Cada chamada com `erro LIKE 'bloqueado_por_robots%'` e decidida
+        pelo status do robots.txt guardado em `extras_json` (`robots_status`; nas variantes de redirecionamento, o do
+        ultimo salto `robots_salto_N` cuja consulta proibiu): 2xx = o robots.txt foi lido e proibe, a chamada fica como esta;
+        >= 500 ou sem status (tempo esgotado, rede) = nao foi possivel le-lo, vira `robots_inacessivel` (ou
+        `robots_inacessivel_apos_redirecionamento: <url>`); qualquer outro status fica como esta e e contado a parte.
+
+        Sem `aplicar` so conta (nada e gravado). Com `aplicar` faz antes uma copia de seguranca (`pasta_backup`, padrao a pasta
+        `backups` ao lado do banco), atualiza `chamadas.erro` e `extras_json` (`robots_inacessivel = true`, `erro_anterior`)
+        numa unica transacao e registra os totais no log. Idempotente: as linhas ja migradas nao casam mais com o filtro.
+        Nao mexe nos arquivos brutos nem em outra tabela. Devolve {total, mantidas_proibido, para_inacessivel,
+        outro_status, atualizadas, backup, por_classe: {...}}."""
+        linhas = self.conn.execute("SELECT chamada_id, erro, extras_json FROM chamadas "
+                                   "WHERE etapa='download' AND erro LIKE 'bloqueado_por_robots%' ORDER BY chamada_id").fetchall()
+        res = {"total": len(linhas), "mantidas_proibido": 0, "para_inacessivel": 0, "outro_status": 0, "atualizadas": 0,
+               "backup": None, "por_classe": {"status_2xx": 0, "status_5xx": 0, "sem_status": 0, "outro_status": 0}}
+        mudancas = []
+        prefixo_salto = "bloqueado_por_robots_apos_redirecionamento"
+        for l in linhas:
+            try:
+                extras = json.loads(l["extras_json"] or "{}")
+            except ValueError:
+                extras = {}
+            erro = l["erro"]
+            salto = erro.startswith(prefixo_salto)
+            if salto:
+                saltos = sorted((int(k[len("robots_salto_"):-len("_permitido")]) for k, v in extras.items()
+                                 if k.startswith("robots_salto_") and k.endswith("_permitido") and v is False), reverse=True)
+                status = extras.get(f"robots_salto_{saltos[0]}_status") if saltos else None
+            else:
+                status = extras.get("robots_status")
+            if not isinstance(status, int) or isinstance(status, bool):
+                status = None
+            if status is None:
+                classe = "sem_status"
+            elif 200 <= status < 300:
+                classe = "status_2xx"
+            elif status >= 500:
+                classe = "status_5xx"
+            else:
+                classe = "outro_status"
+            res["por_classe"][classe] += 1
+            if classe == "status_2xx":
+                res["mantidas_proibido"] += 1
+            elif classe == "outro_status":
+                res["outro_status"] += 1
+            else:
+                res["para_inacessivel"] += 1
+                novo_erro = "robots_inacessivel" + erro[len("bloqueado_por_robots"):]
+                if salto:
+                    novo_erro = "robots_inacessivel_apos_redirecionamento" + erro[len(prefixo_salto):]
+                extras["robots_inacessivel"] = True
+                extras["erro_anterior"] = erro
+                mudancas.append((novo_erro, json.dumps(extras, ensure_ascii=False, default=str), l["chamada_id"]))
+        if not aplicar or not mudancas:
+            return res
+        res["backup"] = self.copia_de_seguranca(pasta_backup or Path(self.conn.execute("PRAGMA database_list").fetchone()["file"]).parent / "backups",
+                                                manter=None, sufixo="antes_migrar_robots")
+        try:
+            self.conn.executemany("UPDATE chamadas SET erro=?, extras_json=? WHERE chamada_id=?", mudancas)
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
+        res["atualizadas"] = len(mudancas)
+        logging.info("migrar-robots: %d chamadas de download com bloqueado_por_robots | mantidas como proibicao do site: %d | "
+                     "reclassificadas para robots_inacessivel: %d | outro status: %d | copia: %s", res["total"],
+                     res["mantidas_proibido"], res["para_inacessivel"], res["outro_status"], res["backup"])
+        return res
 
     def fechar(self):
         self.conn.close()

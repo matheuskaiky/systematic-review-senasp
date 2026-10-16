@@ -400,15 +400,28 @@ def bloco_hipoteses(resumo, funil, falsa_exclusao=None):
 # ---------------------------------------------------------------- operacao
 def bloco_opacidade(d):
     linhas = [{"dominio": x["dominio"], "total": x["n_tentadas"], "bloqueadas": x["n_robots"] + x["n_http_bloqueio"],
-               "href": _href("/chamadas", etapa="download", q=x["dominio"])} for x in (d.get("dominios") or [])[:40]]
+               "inacessiveis": x.get("n_robots_inacessivel", 0), "href": _href("/chamadas", etapa="download", q=x["dominio"])}
+              for x in (d.get("dominios") or [])[:40]]
     if not d.get("n_tentadas"):
         return _bloco("opacidade", "Sem downloads registrados", aviso="Nenhuma página foi baixada ainda.")
-    titulo = (f"{fmt.decimal(d['pct_bloqueado'], 0)}% das {fmt.numero(d['n_tentadas'])} páginas tentadas foram bloqueadas "
+    n_inacessivel = d.get("n_robots_inacessivel") or 0
+    titulo = (f"{fmt.decimal(d['pct_bloqueado'], 0)}% das {fmt.numero(d['n_tentadas'])} páginas tentadas foram proibidas pelo site "
               f"({fmt.numero(d['n_robots'])} pelo robots.txt, {fmt.numero(d['n_http_bloqueio'])} por erro 401/403/429)")
-    return _bloco("opacidade", titulo, g.ranking_semaforo(linhas, "Portais com mais bloqueios"),
-                  f"{fmt.numero(d.get('n_dominios'))} domínios; bloqueio = robots.txt ou HTTP 401/403/429",
-                  ["Um portal que bloqueia a coleta pública é, em si, um dado sobre transparência: a página pode existir e não ter sido lida."],
+    if n_inacessivel:
+        titulo += (f"; outras {fmt.numero(n_inacessivel)} não puderam ser baixadas porque o robots.txt do site estava inacessível")
+    texto = ["Uma proibição explícita do site (robots.txt ou erro 401/403/429) é, em si, um dado sobre transparência: a página pode "
+             "existir e não ter sido lida."]
+    if n_inacessivel:
+        texto.append("Já o robots.txt inacessível (erro do servidor, tempo esgotado ou falha de rede) não é decisão do site: por política "
+                     "(RFC 9309) o sistema trata como proibido, tenta de novo e só conclui depois de algumas leituras. Essas páginas "
+                     "ficam fora da fatia bloqueada.")
+    return _bloco("opacidade", titulo, g.ranking_semaforo(linhas, "Portais com mais páginas proibidas"),
+                  f"{fmt.numero(d.get('n_dominios'))} domínios; proibido pelo site = robots.txt ou HTTP 401/403/429; "
+                  f"{rotulos.MOTIVOS_DOWNLOAD['robots_inacessivel']}: {fmt.numero(n_inacessivel)} páginas",
+                  texto,
                   pares=[("Páginas tentadas", fmt.numero(d["n_tentadas"])), ("Lidas com sucesso", fmt.numero(d["n_ok"])),
+                         (rotulos.MOTIVOS_DOWNLOAD["bloqueado_por_robots"], fmt.numero(d["n_robots"] + d["n_http_bloqueio"])),
+                         (rotulos.MOTIVOS_DOWNLOAD["robots_inacessivel"], fmt.numero(n_inacessivel)),
                          ("Outros erros (404, extração…)", fmt.numero(d["n_outros"]))])
 
 

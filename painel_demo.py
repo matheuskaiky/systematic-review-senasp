@@ -85,6 +85,16 @@ class FetcherDemo:
     def baixar(self, url):
         sorteio = _h(url, 20)
         if sorteio == 0:
+            # das paginas que falham no download: algumas viram robots.txt (lido e proibindo, ou inacessivel), as outras HTTP 404
+            motivo = _h(url + "|robots", 3)
+            if motivo == 1:
+                return ArquivoBaixado(url, None, "", b"", False, _reg(
+                    self.nome, "baixar", http_status=None, erro="bloqueado_por_robots",
+                    extras={"robots_permitido": False, "robots_status": 200, "robots_inacessivel": False, "robots_tentativas": 1}))
+            if motivo == 2:
+                return ArquivoBaixado(url, None, "", b"", False, _reg(
+                    self.nome, "baixar", http_status=None, erro="robots_inacessivel",
+                    extras={"robots_permitido": False, "robots_status": 503, "robots_inacessivel": True, "robots_tentativas": 3}))
             return ArquivoBaixado(url, 404, "text/html", b"", False, _reg(self.nome, "baixar", http_status=404, erro="HTTP 404"))
         if sorteio == 1:
             return ArquivoBaixado(url, 200, "application/zip", b"PK", False, _reg(self.nome, "baixar", raw=b"PK", raw_ext="bin"))

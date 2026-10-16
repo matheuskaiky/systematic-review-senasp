@@ -143,7 +143,8 @@ def rodar(args, etapas):
         if "download" in etapas:
             download.executar(repo, fab.bruto, fab.fetcher, fab.extrator, run_id, origem_dl,
                               C.POLITICA_DOWNLOAD, fab.segredos, S.PAUSAS["download"], args.limite, set(ufs),
-                              auditoria=args.auditoria or 0, semente=run_id)
+                              auditoria=args.auditoria or 0, semente=run_id,
+                              max_falhas_por_pagina=S.DOWNLOAD["max_falhas_por_pagina"])
         if "classificacao" in etapas:
             classificacao.executar(repo, fab.bruto, fab.classificador, run_id, origem_cl, _params_classificacao(),
                                    C.UFS, fab.segredos, S.PAUSAS["classificacao"], args.limite, set(ufs),
@@ -338,6 +339,25 @@ def gerar_relatorio(a, fab):
     print("Generated:", saida)
 
 
+def migrar_robots(a, fab):
+    """Reclassifica `bloqueado_por_robots` em `robots_inacessivel` quando o robots.txt nao foi lido (so conta, sem --aplicar)."""
+    r = fab.repo.reclassificar_bloqueios_robots(aplicar=a.aplicar, pasta_backup=S.DATA_DIR / "backups")
+    c = r["por_classe"]
+    print(f"Chamadas de download com 'bloqueado_por_robots': {r['total']}")
+    print(f"  robots.txt lido (HTTP 2xx), proibição do site, ficam como estão: {c['status_2xx']}")
+    print(f"  robots.txt com erro 5xx, viram 'robots_inacessivel': {c['status_5xx']}")
+    print(f"  robots.txt sem resposta (tempo esgotado ou rede), viram 'robots_inacessivel': {c['sem_status']}")
+    if c["outro_status"]:
+        print(f"  outro status (ficam como estão): {c['outro_status']}")
+    if not a.aplicar:
+        print(f"Nada foi alterado. Para gravar ({r['para_inacessivel']} chamadas), rode: python main.py migrar-robots --aplicar")
+    elif r["atualizadas"]:
+        print(f"Cópia de segurança: {r['backup']}")
+        print(f"Chamadas atualizadas: {r['atualizadas']} (os arquivos brutos e as outras tabelas não foram tocados).")
+    else:
+        print("Nada a atualizar: o banco já está migrado.")
+
+
 def main():
     p = argparse.ArgumentParser(description="Survey automation (AI in Public Security)")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -372,6 +392,9 @@ def main():
     s.add_argument("run_id"); s.add_argument("--motivo", default=""); s.add_argument("--simulado", action="store_true")
     s = sub.add_parser("execucao-incluir", help="devolve uma execucao as views agregadas do relatorio")
     s.add_argument("run_id"); s.add_argument("--simulado", action="store_true")
+    s = sub.add_parser("migrar-robots", help="separa, nas chamadas de download ja gravadas, a proibicao do site da falha de leitura do robots.txt (por padrao so mostra os totais)")
+    s.add_argument("--aplicar", action="store_true", help="grava a mudanca (antes faz uma copia de seguranca em data/backups); sem isso nada e alterado")
+    s.add_argument("--simulado", action="store_true")
     sub.add_parser("manual-artigos-modelo")
     sub.add_parser("painel-demo", help="cria data/demo.db com dados ficticios para conhecer o painel")
     s = sub.add_parser("painel", help="abre o painel de resultados e de revisao no navegador")
@@ -421,6 +444,8 @@ def main():
     elif a.cmd == "execucao-incluir":
         fab.repo.definir_no_relatorio(a.run_id, True)
         print(f"Execução {a.run_id} dentro do relatório.")
+    elif a.cmd == "migrar-robots":
+        migrar_robots(a, fab)
     elif a.cmd == "manual-artigos-modelo":
         S.OUT_DIR.mkdir(parents=True, exist_ok=True)
         caminho = S.OUT_DIR / "artigos_manuais_modelo.csv"

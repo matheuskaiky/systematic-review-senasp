@@ -1267,6 +1267,9 @@ def ranking_semaforo(linhas, titulo, limiares=(0.2, 0.5)):
     """Tabela HTML de portais (domínios) ordenada pela fatia de páginas bloqueadas, com barra SVG, % e situação em texto.
 
     linhas = [{"dominio": "ssp.ba.gov.br", "total": 40, "bloqueadas": 28, "href": "/chamadas?q=ssp.ba.gov.br"}]
+    `bloqueadas` = proibidas pelo site. Opcional, `inacessiveis` = páginas não baixadas porque o robots.txt do site estava
+    inacessível (bloqueio pela política, não proibição do site): ganha uma coluna própria, que só aparece se alguma linha o trouxer;
+    não entra na fatia nem na situação.
     Situação por limiares (fração bloqueada): aberto < 20%, parcial < 50%, fechado >= 50% (classes an-nivel-aberto|parcial|fechado,
     cada uma com padrão e texto próprios). Ordem: maior fatia, depois maior total, depois nome (determinística).
     """
@@ -1276,12 +1279,13 @@ def ranking_semaforo(linhas, titulo, limiares=(0.2, 0.5)):
             continue
         total = int(_pos(r.get("total")))
         bloq = min(int(_pos(r.get("bloqueadas"))), total)
-        itens.append((str(r.get("dominio", "")), total, bloq, r.get("href")))
+        itens.append((str(r.get("dominio", "")), total, bloq, r.get("href"), int(_pos(r.get("inacessiveis")))))
     if not itens:
         return _vazio()
     itens.sort(key=lambda i: (-(i[2] / i[1] if i[1] else 0), -i[1], i[0]))
+    com_inacessiveis = any("inacessiveis" in r for r in linhas if isinstance(r, Mapping))
     linhas_html = []
-    for dominio, total, bloq, href in itens:
+    for dominio, total, bloq, href, inacessiveis in itens:
         taxa = bloq / total if total else 0.0
         nivel = nivel_bloqueio(taxa, limiares)
         uid = _uid("rank", dominio, total, bloq)
@@ -1294,10 +1298,13 @@ def ranking_semaforo(linhas, titulo, limiares=(0.2, 0.5)):
                          uid, _defs(uid, [("nv-" + nivel, _NIVEL_PADRAO[nivel])]))
         nome = f'<a href="{_t(_href_seguro(href))}">{_t(dominio)}</a>' if _href_seguro(href) else _t(dominio)
         linhas_html.append(f'<tr class="an-nivel-{nivel}"><th scope="row">{nome}</th><td class="num">{_t(fmt.numero(total))}</td>'
-                           f'<td class="num">{_t(fmt.numero(bloq))}</td><td class="an-celula-barra">{barra_svg}</td>'
+                           f'<td class="num">{_t(fmt.numero(bloq))}</td>'
+                           + (f'<td class="num">{_t(fmt.numero(inacessiveis))}</td>' if com_inacessiveis else "")
+                           + f'<td class="an-celula-barra">{barra_svg}</td>'
                            f'<td class="num">{_t(_pct_inteiro(bloq, total))}</td><td><span class="an-situacao an-situacao-{nivel}">'
                            f'{_t(_NIVEL_ROTULO[nivel])}</span></td></tr>')
     cab = ("<tr><th scope=\"col\">Domínio</th><th scope=\"col\" class=\"num\">Páginas</th><th scope=\"col\" class=\"num\">Bloqueadas</th>"
-           "<th scope=\"col\">Fatia bloqueada</th><th scope=\"col\" class=\"num\">%</th><th scope=\"col\">Situação</th></tr>")
+           + ("<th scope=\"col\" class=\"num\">robots.txt inacessível (bloqueado pela política)</th>" if com_inacessiveis else "")
+           + "<th scope=\"col\">Fatia bloqueada</th><th scope=\"col\" class=\"num\">%</th><th scope=\"col\">Situação</th></tr>")
     return (f'<div class="tabela-rolavel"><table class="an-ranking"><caption class="so-leitor">{_t(titulo)}</caption>'
             f'<thead>{cab}</thead><tbody>{"".join(linhas_html)}</tbody></table></div>')

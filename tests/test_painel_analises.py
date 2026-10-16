@@ -230,3 +230,15 @@ def test_titulos_nao_vazam_html_dos_dados():
          "share_top3": 1.0}
     bl = b.bloco_fornecedores(d)
     assert "<b>X</b>" not in str(bl["grafico"])
+
+
+def test_opacidade_chama_de_proibido_so_a_proibicao_real_e_mostra_o_robots_inacessivel_a_parte():
+    d = {"n_tentadas": 100, "n_ok": 40, "n_robots": 10, "n_http_bloqueio": 5, "n_robots_inacessivel": 30, "n_outros": 15, "pct_bloqueado": 15.0,
+         "pct_inacessivel": 30.0, "n_dominios": 2,
+         "dominios": [{"dominio": "ssp.xx.gov.br", "n_tentadas": 50, "n_robots": 10, "n_http_bloqueio": 5, "n_robots_inacessivel": 30}]}
+    bl = b.bloco_opacidade(d)
+    assert bl["titulo"].startswith("15% das 100 páginas tentadas foram proibidas pelo site")
+    assert "outras 30 não puderam ser baixadas porque o robots.txt do site estava inacessível" in bl["titulo"]
+    pares = dict(bl["pares"])
+    assert pares["Proibido pelo site"] == "15" and pares["robots.txt inacessível (bloqueado pela política)"] == "30"
+    assert "30 páginas" in bl["subtitulo"] and "robots.txt inacessível (bloqueado pela política)" in str(bl["grafico"])

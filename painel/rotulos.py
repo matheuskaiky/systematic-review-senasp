@@ -20,6 +20,11 @@ MOTIVOS_FALHA = {
     "texto_insuficiente": "Texto insuficiente na página", "tipo_nao_suportado": "Tipo de arquivo não suportado",
     "erro": "Erro na extração",
 }
+# Motivos de bloqueio do download (valores de `v_resultado_download.motivo` ligados ao robots.txt)
+MOTIVOS_DOWNLOAD = {
+    "bloqueado_por_robots": "Proibido pelo site",
+    "robots_inacessivel": "robots.txt inacessível (bloqueado pela política)",
+}
 VERIFICACAO = {"pendente": "Não verificado", "confirmado": "Verificado", "descartado": "Descartado"}
 
 

@@ -69,6 +69,9 @@ class LeituraMetodologia:
                                            JOIN urls u ON u.url_id=r.url_id WHERE u.fonte_oficial=1""")["n"]
         web["descartes"] = self._consulta("""SELECT COALESCE(motivo, 'sem_motivo') AS motivo, COUNT(*) AS n FROM r_selecao_download
                                              WHERE selecionada=0 GROUP BY 1 ORDER BY n DESC, motivo""")
+        web["bloqueios_robots"] = {l["motivo"]: l["n"] for l in self._consulta(
+            """SELECT motivo, COUNT(DISTINCT run_id || '|' || url_id) AS n FROM v_resultado_download
+               WHERE no_relatorio = 1 AND motivo IN ('bloqueado_por_robots', 'robots_inacessivel') GROUP BY motivo""")}
         web["funil"] = self.funil()
 
         # ---------- classificacao ----------

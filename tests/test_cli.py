@@ -174,5 +174,14 @@ def test_execucao_grava_o_resumo_de_metricas(ambiente_cli, monkeypatch):
     assert (m["tokens_entrada"], m["tokens_saida"], m["custo_usd"]) == (600, 120, 0.0)
     assert m["latencia_media_ms"] == 1
     metricas = {l["chave"]: l["valor"] for l in _banco(ambiente_cli).execute("SELECT * FROM metricas_run")}
+    # alteracao deliberada: o download agora registra `download_desistencias` (paginas abandonadas por excesso de falhas)
     assert metricas == {"download_candidatos": 6, "download_selecionados": 6, "download_auditoria_amostra": 0,
-                        "classificacao_ignorados_sem_texto": 0, "classificacao_desistencias": 0}
+                        "download_desistencias": 0, "classificacao_ignorados_sem_texto": 0, "classificacao_desistencias": 0}
+
+
+def test_migrar_robots_esta_na_ajuda_do_programa(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["main.py", "migrar-robots", "--help"])
+    with pytest.raises(SystemExit) as e:
+        main.main()
+    saida = capsys.readouterr().out
+    assert e.value.code == 0 and "--aplicar" in saida and "copia de seguranca" in saida

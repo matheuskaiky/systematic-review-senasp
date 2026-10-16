@@ -100,6 +100,12 @@ PAUSAS = {"busca_academica": 1.0, "busca_web": 0.5, "download": 1.0, "classifica
 # de novo, a cada --retomar, uma resposta que falha sempre igual, como a truncada por MAX_TOKENS)
 CLASSIFICACAO = {"max_chars_texto": 60_000, "usar_snippet_se_falhar": True, "max_falhas_por_item": 3}
 
+# max_falhas_por_pagina: apos N chamadas de download com falha para a mesma pagina na mesma execucao, a pagina e abandonada
+# nas retomadas (--retomar), sem insistir indefinidamente em um site fora do ar ou que recusa sempre.
+# Entra em `snapshot_config()`: muda o hash de configuracao das execucoes NOVAS; as execucoes antigas ja terminaram e
+# guardam o hash que tinham (nao ha retomada delas com esta versao).
+DOWNLOAD = {"max_falhas_por_pagina": 3}
+
 
 def _plano(obj):
     """Serializa o que o json nao conhece; caminhos saem relativos a RAIZ (C12)."""
@@ -127,6 +133,7 @@ def snapshot_config():
         "tecnologias": v.TECNOLOGIAS, "status": v.STATUS,
         "prompt_versao": p.PROMPT_VERSAO, "prompt_sistema": p.SYSTEM_PROMPT,
         "prompt_usuario": p.USER_PROMPT, "classificacao": CLASSIFICACAO,
+        "download": DOWNLOAD,
     }
     texto = json.dumps(conteudo, sort_keys=True, ensure_ascii=False, default=_plano)
     return {"json": texto, "hash": hashlib.sha256(texto.encode()).hexdigest()[:12]}

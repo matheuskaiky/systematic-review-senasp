@@ -76,7 +76,7 @@ class Robots:
 
 @pytest.fixture
 def robots(monkeypatch):
-    estado = {"respostas": {}, "padrao": Robots("", 404)}
+    estado = {"respostas": {}, "padrao": Robots("", 404), "esperas": []}
 
     def falso(url, **kw):
         r = estado["respostas"].get(url, estado["padrao"])
@@ -85,6 +85,7 @@ def robots(monkeypatch):
         return r
 
     monkeypatch.setattr(fetcher_requests.requests, "get", falso)
+    monkeypatch.setattr(fetcher_requests, "_pausa", estado["esperas"].append)     # as esperas entre leituras do robots.txt nao sao reais
     return estado
 
 
@@ -163,13 +164,15 @@ def test_robots_503_com_a_politica_bloquear_proibe(robots, monkeypatch):
     robots["respostas"]["https://a.gov.br/robots.txt"] = Robots("indisponivel", 503)
     rede = Rede(monkeypatch, {A: Resp()})
     a = FetcherRequests(UA, robots_se_inacessivel="bloquear").baixar(A)
-    assert a.chamada.erro == "bloqueado_por_robots" and rede.pedidos == [] and a.chamada.extras["robots_status"] == 503
+    # alteracao deliberada: robots.txt 5xx nao e proibicao do site; o motivo agora e `robots_inacessivel`
+    assert a.chamada.erro == "robots_inacessivel" and rede.pedidos == [] and a.chamada.extras["robots_status"] == 503
 
 
 def test_robots_ilegivel_por_erro_de_rede_com_bloquear_proibe(robots, monkeypatch):
     robots["respostas"]["https://a.gov.br/robots.txt"] = requests.ConnectionError("sem rede")
     rede = Rede(monkeypatch, {A: Resp()})
-    assert FetcherRequests(UA, robots_se_inacessivel="bloquear").baixar(A).chamada.erro == "bloqueado_por_robots" and rede.pedidos == []
+    # alteracao deliberada: robots.txt ilegivel por rede nao e proibicao do site; o motivo agora e `robots_inacessivel`
+    assert FetcherRequests(UA, robots_se_inacessivel="bloquear").baixar(A).chamada.erro == "robots_inacessivel" and rede.pedidos == []
 
 
 def test_robots_404_sempre_permite_mesmo_com_bloquear(robots, monkeypatch):

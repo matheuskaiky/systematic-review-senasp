@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_selos.html" as s %}
 {% block titulo %}Artigo {{ a.artigo_id }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/relevancia.css">{% endblock %}
 {% block conteudo %}
 {% set versao = a.revisado_em or 'nao-triado' %}
 <p class="trilha"><a href="/literatura">Literatura</a> › <a href="/literatura/artigos">artigos</a> › nº {{ a.artigo_id }}
@@ -11,7 +12,10 @@
   <article class="cartao">
     <h1>{{ a.titulo }}</h1>
     <p class="selos">{{ s.triagem(a.decisao) }}{% if a.decisao == "incluir" %} {{ s.triagem(a.decisao_texto_completo, "texto completo") }}{% endif %}
-      {% if a.n_termos + a.n_bases_manuais > 1 %}<span class="selo alerta">Achado {{ a.n_termos + a.n_bases_manuais }}× (prioridade)</span>{% endif %}</p>
+      {% if a.n_termos + a.n_bases_manuais > 1 %}<span class="selo alerta">Achado {{ a.n_termos + a.n_bases_manuais }}× (prioridade)</span>{% endif %}
+      {{ s.relevancia(a.relevancia) }}</p>
+    <p class="explica-relevancia"><small>Relevância (Brasil + tema){% if a.relevancia.sinais %} — sinais encontrados: <strong>{{ a.relevancia.sinais|join(", ") }}</strong>{% else %} — nenhum sinal encontrado{% endif %}.
+      É uma heurística de apoio à triagem, não uma decisão: <a href="/literatura/artigos#como-a-relevancia-e-calculada">veja as listas de marcadores</a>.</small></p>
     <dl class="ficha">
       <dt>Autores e publicação</dt><dd>{{ a.autores_publicacao or "não informado" }}</dd>
       <dt>Ano</dt><dd>{{ a.ano or "não informado" }}</dd>

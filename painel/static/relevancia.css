@@ -1,0 +1,19 @@
+/* Relevancia (Brasil + tema): usa os tokens de painel.css (claro e escuro). O nivel nunca e so cor: tem icone e texto. */
+.selo.rel-alta { color: var(--ok); background: var(--ok-fundo); border-color: transparent; }
+.selo.rel-media { color: var(--alerta); background: var(--alerta-fundo); border-color: transparent; }
+.selo.rel-baixa { color: var(--texto-suave); background: var(--superficie); border-color: var(--borda); }
+
+details.regra-relevancia { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: .6rem 1rem; margin-bottom: 1rem; }
+details.regra-relevancia summary { cursor: pointer; font-weight: 600; }
+details.regra-relevancia .subtitulo-marcadores { font-size: .95rem; margin: .8rem 0 .2rem; }
+details.regra-relevancia p { max-width: 90ch; font-size: .92rem; }
+details.regra-relevancia .marcadores { color: var(--texto-suave); line-height: 1.7; overflow-wrap: anywhere; }
+
+.explica-relevancia { color: var(--texto-suave); margin: .25rem 0 .75rem; max-width: 80ch; }
+
+.relevancia-contagem { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 1.25rem; }
+.relevancia-contagem a { text-decoration: none; display: inline-flex; align-items: center; gap: .5rem; }
+.relevancia-contagem strong { font-size: 1.4rem; color: var(--texto); }
+
+/* em tabelas, painel.css deixa o selo quebrar linha; o nivel de relevancia cabe numa linha so */
+td .selo.rel-alta, td .selo.rel-media, td .selo.rel-baixa { white-space: nowrap; }

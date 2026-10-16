@@ -15,6 +15,7 @@ ORDEM_FILA = ("verificado, COALESCE(evidencia_confere, 0), COALESCE(evidencia_ci
 
 from adaptadores.leitura_classificadores import LeituraClassificadores
 from adaptadores.leitura_metodologia import LeituraMetodologia
+from dominio.relevancia import NIVEIS, pontuar_relevancia
 
 
 class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
@@ -195,23 +196,58 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
             args += ["%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"] * 3
         return (" WHERE " + " AND ".join(cond)) if cond else "", args
 
+    @staticmethod
+    def _pontuar(item):
+        item["relevancia"] = pontuar_relevancia(item.get("titulo"), item.get("snippet"), item.get("autores_publicacao"), item.get("link"))
+        return item
+
+    def _artigos_em_memoria(self, filtros, onde, args):
+        """Todos os artigos dos filtros SQL, na ordem da triagem, ja com a relevancia, filtrados por `rel` e, se pedido,
+        reordenados por relevancia (ordenacao estavel: empates mantem a ordem da triagem). A relevancia e calculada em Python,
+        por isso este caminho le tudo e pagina na memoria; o acervo e de alguns milhares de artigos."""
+        linhas = self._consulta(f"SELECT * FROM ({self._BASE_ARTIGOS}){onde} ORDER BY {self._ORDEM_ARTIGOS}", args)
+        itens = [self._pontuar(l) for l in linhas]
+        if filtros.get("rel") in NIVEIS:
+            itens = [i for i in itens if i["relevancia"]["nivel"] == filtros["rel"]]
+        if filtros.get("ordem") == "relevancia":
+            itens.sort(key=lambda i: -i["relevancia"]["pontos"])
+        return itens
+
+    @staticmethod
+    def _precisa_de_pontuacao(filtros):
+        return filtros.get("rel") in NIVEIS or filtros.get("ordem") == "relevancia"
+
     def artigos(self, filtros, pagina=1, por_pagina=50):
         por_pagina = min(max(int(por_pagina), 1), LIMITE_POR_PAGINA)
         onde, args = self._onde_artigos(filtros)
+        if self._precisa_de_pontuacao(filtros):
+            todos = self._artigos_em_memoria(filtros, onde, args)
+            inicio = (pagina - 1) * por_pagina
+            return {"total": len(todos), "pagina": pagina, "por_pagina": por_pagina, "itens": todos[inicio:inicio + por_pagina]}
         base = f"SELECT * FROM ({self._BASE_ARTIGOS}){onde}"
         total = self._um(f"SELECT COUNT(*) AS n FROM ({base})", args)["n"]
         itens = self._consulta(f"{base} ORDER BY {self._ORDEM_ARTIGOS} LIMIT ? OFFSET ?", args + [por_pagina, (pagina - 1) * por_pagina])
-        return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": itens}
+        return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": [self._pontuar(i) for i in itens]}
 
     def ids_fila_triagem(self, filtros):
         onde, args = self._onde_artigos({**filtros, "decisao": "pendente"})
+        if self._precisa_de_pontuacao(filtros):
+            return [i["artigo_id"] for i in self._artigos_em_memoria(filtros, onde, args)]
         return [l["artigo_id"] for l in self._consulta(
             f"SELECT artigo_id FROM (SELECT * FROM ({self._BASE_ARTIGOS}){onde}) ORDER BY {self._ORDEM_ARTIGOS}", args)]
+
+    def contagem_relevancia(self):
+        """Quantos artigos do relatorio caem em cada nivel de relevancia (alta, media, baixa)."""
+        contagem = {n: 0 for n in NIVEIS}
+        for l in self._consulta("SELECT titulo, snippet, autores_publicacao, link FROM r_artigos"):
+            contagem[pontuar_relevancia(l["titulo"], l["snippet"], l["autores_publicacao"], l["link"])["nivel"]] += 1
+        return contagem
 
     def artigo(self, artigo_id):
         a = self._um(f"SELECT * FROM ({self._BASE_ARTIGOS}) WHERE artigo_id=?", (artigo_id,))
         if a is None:
             return None
+        self._pontuar(a)
         a["ocorrencias"] = self._consulta("""SELECT o.termo_id, o.run_id, o.posicao, o.citacoes_no_momento, c.pagina
                                              FROM r_ocorrencias o LEFT JOIN chamadas c ON c.chamada_id=o.chamada_id
                                              WHERE o.artigo_id=? ORDER BY o.termo_id, o.ocorrencia_id""", (artigo_id,))

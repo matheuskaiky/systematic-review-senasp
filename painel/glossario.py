@@ -199,6 +199,19 @@ _LITERATURA = [
     _e("bases-manuais", "Buscas manuais (IEEE, ACM, Scopus, SBC OpenLib)",
        "Bases consultadas por uma pessoa no site da própria base. O sistema só conhece o que for informado por planilha: o "
        "número de resultados e os artigos importados. O que não foi informado aparece como “não informado”, nunca como zero."),
+    _e("relevancia", "Relevância (Brasil + tema)",
+       "Ajuda para priorizar a triagem: o programa procura, no título, no resumo, nos autores e no link de cada artigo, sinais de "
+       "que ele é brasileiro (Brasil, estados, cidades, polícias, domínio .br) e de que trata de segurança pública (polícia, "
+       "crime, vigilância, perícia, sistema prisional). As listas de palavras ficam à vista na página de artigos. É uma "
+       "heurística: pode errar para os dois lados, não exclui nem esconde nada e não decide por você."),
+    _e("relevancia-alta", "Relevância alta",
+       "O artigo tem sinal de Brasil e sinal de tema. É o grupo a olhar primeiro, mas continua sujeito à decisão de quem faz a triagem."),
+    _e("relevancia-media", "Relevância média",
+       "O artigo tem só um dos dois sinais: ou parece brasileiro mas o tema não aparece (por exemplo, repositório .br com assunto "
+       "genérico), ou trata do tema mas sem sinal de Brasil (por exemplo, policiamento preditivo em outro país). Vale conferir caso a caso."),
+    _e("relevancia-baixa", "Relevância baixa",
+       "Nenhum dos marcadores foi encontrado. Não significa que o artigo seja irrelevante: o título e o resumo podem usar palavras "
+       "fora das listas. Por isso a triagem continua cobrindo todos os artigos."),
     _e("triagem-titulo-resumo", "Triagem por título e resumo",
        "Primeira leitura de cada artigo: uma pessoa decide, só pelo título e pelo resumo, se ele merece leitura completa."),
     _e("triagem-texto-completo", "Triagem por texto completo",

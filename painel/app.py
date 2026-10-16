@@ -16,6 +16,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.templating import Jinja2Templates
 
 from aplicacao import revisao
+from dominio import relevancia as relev
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import formatacao as fmt, rotulos
 from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_de_blocos, mapa_de_calor
@@ -24,7 +25,7 @@ AQUI = Path(__file__).parent
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 FILTROS_CHAMADAS = ("run", "etapa", "provedor", "uf", "resultado", "q")
-FILTROS_ARTIGOS = ("q", "decisao", "multi", "termo", "base", "ano_de", "ano_ate")
+FILTROS_ARTIGOS = ("q", "decisao", "multi", "termo", "base", "ano_de", "ano_ate", "rel", "ordem")
 FILTROS = ("uf", "esfera", "cidade", "tecnologia", "status", "confianca", "evidencia", "oficial", "origem", "verificacao", "q")
 JANELA_CONTEXTO = 2500            # caracteres de cada lado da evidencia na visao resumida
 LIMITE_TEXTO = 200_000            # o visor nunca mostra mais que isto
@@ -314,7 +315,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         valores.update({(l["termo_id"], l["termo_id"]): l["n_artigos"] for l in d["por_termo"]})
         calor = mapa_de_calor(termos, valores, "Artigos em comum entre termos", "Cada célula é o número de artigos encontrados pelos dois termos",
                               {t: contexto.termos.get(t, "") for t in termos})
-        return pagina(request, "literatura.html", d=d, grafico_anos=grafico_anos, calor=calor, tri=leitura.contagem_triagem())
+        return pagina(request, "literatura.html", d=d, grafico_anos=grafico_anos, calor=calor, tri=leitura.contagem_triagem(),
+                      rel=leitura.contagem_relevancia())
 
     @app.get("/literatura/artigos", response_class=HTMLResponse)
     def artigos(request: Request):
@@ -326,7 +328,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
             return erro(request, 404, "Página inválida", "O número da página não é válido.")
         res = leitura.artigos(filtros, n, 50)
         paginas = max((res["total"] + res["por_pagina"] - 1) // res["por_pagina"], 1)
-        return pagina(request, "artigos.html", res=res, filtros=filtros, n=n, paginas=paginas, base=urlencode(filtros))
+        return pagina(request, "artigos.html", res=res, filtros=filtros, n=n, paginas=paginas, base=urlencode(filtros),
+                      marcadores=relev.MARCADORES_BRASIL, marcadores_tema=relev.MARCADORES_TEMA, dominios_br=relev.DOMINIOS_BRASIL_SEM_BR)
 
     def _query_triagem(request):
         return urlencode({k: v for k, v in request.query_params.items() if k in FILTROS_ARTIGOS or k == "fila"})

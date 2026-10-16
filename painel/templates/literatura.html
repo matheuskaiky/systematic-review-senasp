@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block titulo %}Literatura{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/relevancia.css">{% endblock %}
 {% block conteudo %}
 <h1>Literatura</h1>
 <p class="sub">Artigos do Google Scholar e das buscas manuais (IEEE, ACM, Scopus, SBC OpenLib), já sem duplicatas.</p>
@@ -16,6 +17,13 @@
 <p>{% if tri.pendentes %}<a class="botao" href="/literatura/triagem">Continuar a triagem ({{ fmt.numero(tri.pendentes) }})</a>{% endif %}
   <a class="botao secundario" href="/literatura/artigos">Ver todos os artigos</a> <a class="botao secundario" href="/literatura/prisma">Fluxo PRISMA</a></p>
 
+<section class="cartao" aria-labelledby="rel-titulo"><h2 id="rel-titulo">Relevância para Brasil + segurança pública</h2>
+  <p class="sub">Ajuda para priorizar a triagem (não exclui nada): sinais de Brasil e de tema nos títulos, resumos, autores e links. <a href="/sobre#relevancia">Como é calculada</a>.</p>
+  <ul class="relevancia-contagem">
+    <li><a href="/literatura/artigos?rel=alta"><strong>{{ fmt.numero(rel.alta) }}</strong> <span class="selo rel-alta"><span aria-hidden="true">▲</span> Alta · Brasil + tema</span></a></li>
+    <li><a href="/literatura/artigos?rel=media"><strong>{{ fmt.numero(rel.media) }}</strong> <span class="selo rel-media"><span aria-hidden="true">◆</span> Média · só um dos dois</span></a></li>
+    <li><a href="/literatura/artigos?rel=baixa"><strong>{{ fmt.numero(rel.baixa) }}</strong> <span class="selo rel-baixa"><span aria-hidden="true">▽</span> Baixa</span></a></li>
+  </ul></section>
 <section class="cartao"><h2>Artigos por ano</h2>{{ grafico_anos|safe }}
   {% if d.sem_ano %}<p><small>{{ fmt.numero(d.sem_ano) }} artigo(s) sem ano identificado não aparecem no gráfico.</small></p>{% endif %}</section>
 <div class="duas-colunas">

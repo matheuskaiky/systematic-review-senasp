@@ -19,6 +19,11 @@
 {% elif a.verificado %}<span class="selo ok"><span aria-hidden="true">✔</span> Verificado: {{ rotulos.rotulo(rotulos.STATUS, a.status_final) }}</span>
 {% else %}<span class="selo neutro"><span aria-hidden="true">○</span> Não verificado</span>{% endif %}
 {%- endmacro %}
+{% macro relevancia(r) -%}
+{% if r.nivel == "alta" %}<span class="selo rel-alta"><span aria-hidden="true">▲</span> Alta · Brasil + tema</span>
+{% elif r.nivel == "media" %}<span class="selo rel-media"><span aria-hidden="true">◆</span> Média · {{ "só Brasil" if r.brasil else "só tema" }}</span>
+{% else %}<span class="selo rel-baixa"><span aria-hidden="true">▽</span> Baixa</span>{% endif %}
+{%- endmacro %}
 {% macro triagem(decisao, etapa="titulo e resumo") -%}
 {% if decisao == "incluir" %}<span class="selo ok"><span aria-hidden="true">✔</span> Incluído ({{ etapa }})</span>
 {% elif decisao == "excluir" %}<span class="selo st-descartado"><span aria-hidden="true">✕</span> Excluído ({{ etapa }})</span>

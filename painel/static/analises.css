@@ -47,6 +47,8 @@
   --an-f1-ln: rgba(255,255,255,.62);
   --an-k-fraca: #e7a3a5;
   --an-k-fraca-ln: #a3262a;
+  --an-k-razoavel: #f4b183;
+  --an-k-razoavel-ln: #8a4a10;
   --an-k-moderada: #f2c14e;
   --an-k-moderada-ln: #8a6410;
   --an-k-substancial: #8fcfa8;
@@ -126,6 +128,8 @@
     --an-f1-ln: rgba(0,0,0,.45);
     --an-k-fraca: #8a3a3d;
     --an-k-fraca-ln: #f5b5b8;
+    --an-k-razoavel: #b8733a;
+    --an-k-razoavel-ln: #2b1500;
     --an-k-moderada: #d9a73a;
     --an-k-moderada-ln: #2b1f00;
     --an-k-substancial: #3f9f6e;
@@ -216,6 +220,8 @@
     --an-f1-ln: rgba(255,255,255,.62);
     --an-k-fraca: #e7a3a5;
     --an-k-fraca-ln: #a3262a;
+    --an-k-razoavel: #f4b183;
+    --an-k-razoavel-ln: #8a4a10;
     --an-k-moderada: #f2c14e;
     --an-k-moderada-ln: #8a6410;
     --an-k-substancial: #8fcfa8;
@@ -319,6 +325,8 @@ a.an-link:focus-visible { outline: 3px solid var(--an-acento); outline-offset: 2
 .an-ln-f1 { stroke: var(--an-f1-ln); }
 .an-bg-k-fraca { fill: var(--an-k-fraca); }
 .an-ln-k-fraca { stroke: var(--an-k-fraca-ln); }
+.an-bg-k-razoavel { fill: var(--an-k-razoavel); }
+.an-ln-k-razoavel { stroke: var(--an-k-razoavel-ln); }
 .an-bg-k-moderada { fill: var(--an-k-moderada); }
 .an-ln-k-moderada { stroke: var(--an-k-moderada-ln); }
 .an-bg-k-substancial { fill: var(--an-k-substancial); }

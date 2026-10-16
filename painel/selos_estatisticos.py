@@ -6,10 +6,10 @@ e combinam com `.selo` de `painel.css` (`<span class="selo ev-forte">...</span>`
 import math
 
 _NIVEIS = {
-    "forte": ("ev-forte", "✔ Evidência forte (p < 0,01)", "Padrão estatisticamente comprovado (altíssima confiança)"),
-    "moderada": ("ev-moderada", "◐ Evidência moderada (0,01 ≤ p < 0,05)", "Diferença relevante detectada"),
+    "forte": ("ev-forte", "✔ Evidência forte (p < 0,01)", "Diferença muito improvável de ser acaso (p < 0,01)"),
+    "moderada": ("ev-moderada", "◐ Evidência moderada (0,01 ≤ p < 0,05)", "Diferença improvável de ser acaso (p < 0,05)"),
     "insuficiente": ("ev-insuficiente", "○ Sem evidência suficiente (p ≥ 0,05)",
-                     "Diferença dentro da margem do acaso (amostra ainda pequena ou comportamento igual)"),
+                     "Os dados não permitem afirmar diferença; isso não prova que os grupos sejam iguais"),
     None: ("ev-sem", "— Sem teste estatístico", "Ainda não há dados suficientes para o teste estatístico."),
 }
 
@@ -63,11 +63,25 @@ def _positivo(v):
     return x if x > 0 and not math.isnan(x) else None
 
 
-def frase_odds(rotulo, or_, ic_inf, ic_sup):
-    """Transforma uma razão de chances (odds ratio) com IC 95% em frase direta.
+NOTA_RAZAO_DE_CHANCES = "Razão de chances não é o mesmo que probabilidade."
 
+
+def _razao(v):
+    """Razão de chances em texto: abaixo de 1 usa duas casas (0,25 -> '0,25x'); de 1 para cima, como `_vezes`."""
+    if v < 1:
+        return f"{v:.2f}".replace(".", ",") + "x"
+    return _vezes(v)
+
+
+def frase_odds(rotulo, or_, ic_inf, ic_sup):
+    """Transforma uma razão de chances (odds ratio) com IC 95% em frase direta, sem dizer "N vezes mais provável".
+
+    Uma razão de chances compara ODDS (chance = p / (1 - p)), não probabilidades: só se aproxima de "vezes mais
+    provável" quando o evento é raro. Por isso a frase fala em "chance (odds)" e traz a nota
+    `NOTA_RAZAO_DE_CHANCES`.
     Ex.: frase_odds("citação literal verificada", 8.5, 6.0, 11.2) ->
-    "Achados com citação literal verificada têm entre 6x e 11x mais chance de serem confirmados pelo perito humano."
+    "Achados com citação literal verificada: a chance (odds) de serem confirmados pelo perito humano é entre 6x e 11x
+    a dos achados sem essa característica. Razão de chances não é o mesmo que probabilidade."
     Se o intervalo inclui 1 (sem efeito), a frase diz que não há evidência de diferença.
     """
     r = str(rotulo or "").strip()
@@ -78,11 +92,12 @@ def frase_odds(rotulo, or_, ic_inf, ic_sup):
     if sup is None:
         return f"{sujeito}: sem estimativa (dados insuficientes)."
     infinito = math.isinf(sup)
+    base = f"{sujeito}: a chance (odds) de serem confirmados pelo perito humano é"
     if inf > 1:
-        faixa = f"pelo menos {_vezes(inf)}" if infinito else f"entre {_vezes(inf)} e {_vezes(sup)}"
-        return f"{sujeito} têm {faixa} mais chance de serem confirmados pelo perito humano."
+        faixa = f"de pelo menos {_razao(inf)}" if infinito else f"entre {_razao(inf)} e {_razao(sup)}"
+        return f"{base} {faixa} a dos achados sem essa característica. {NOTA_RAZAO_DE_CHANCES}"
     if not infinito and sup < 1:
-        return f"{sujeito} têm entre {_vezes(1 / sup)} e {_vezes(1 / inf)} menos chance de serem confirmados pelo perito humano."
-    limites = f"de {_vezes(inf)} a {'mais' if infinito else _vezes(sup)}"
-    return (f"{sujeito}: não há evidência de que tenham mais ou menos chance de serem confirmados "
-            f"(o intervalo vai {limites} e inclui 1x, que significa sem efeito).")
+        return f"{base} entre {_razao(inf)} e {_razao(sup)} a dos achados sem essa característica (menor). {NOTA_RAZAO_DE_CHANCES}"
+    limites = f"de {_razao(inf)} a {'mais' if infinito else _razao(sup)}"
+    return (f"{sujeito}: não há evidência de diferença na chance (odds) de serem confirmados "
+            f"(o intervalo vai {limites} e inclui 1x, que significa sem efeito). {NOTA_RAZAO_DE_CHANCES}")

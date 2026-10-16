@@ -15,6 +15,7 @@ import math
 from collections.abc import Mapping
 from html import escape
 
+from dominio.concordancia import interpretar_kappa
 from painel import formatacao as fmt
 
 # ============================== utilidades comuns ==============================
@@ -589,26 +590,32 @@ def areas_empilhadas(anos, series, titulo, descricao):
 
 # ============================== 6. régua de kappa ==============================
 
-_FAIXAS_KAPPA = [("fraca", "Fraca", "< 0,40", 0.0, 0.40, "diag"), ("moderada", "Moderada", "0,40 a 0,60", 0.40, 0.60, "pontos"),
-                 ("substancial", "Substancial", "0,61 a 0,80", 0.60, 0.80, "horiz"),
+# Escala única do projeto (Landis e Koch, 1977), a mesma de `dominio.concordancia.interpretar_kappa`: 5 faixas positivas.
+# kappa < 0 não tem faixa na régua: ganha um marcador próprio e o rótulo "pior que o acaso".
+_FAIXAS_KAPPA = [("fraca", "Fraca", "0 a 0,20", 0.0, 0.20, "diag"), ("razoavel", "Razoável", "0,20 a 0,40", 0.20, 0.40, "xadrez"),
+                 ("moderada", "Moderada", "0,40 a 0,60", 0.40, 0.60, "pontos"),
+                 ("substancial", "Substancial", "0,60 a 0,80", 0.60, 0.80, "horiz"),
                  ("quase", "Quase perfeita", "> 0,80", 0.80, 1.0, "solido")]
+_CHAVE_KAPPA = {"pior que o acaso": "pior", "fraca": "fraca", "razoável": "razoavel", "moderada": "moderada",
+                "substancial": "substancial", "quase perfeita": "quase"}
 
 
 def faixa_kappa(valor):
-    """(chave, rótulo) da faixa de interpretação do kappa: fraca < 0,40; moderada até 0,60; substancial até 0,80; quase perfeita acima. None -> None."""
+    """(chave, rótulo) da faixa do kappa, pela MESMA escala de `dominio.concordancia.interpretar_kappa` (importada, não
+    duplicada): < 0 "pior que o acaso" (chave "pior"); até 0,20 fraca; até 0,40 razoável; até 0,60 moderada; até 0,80
+    substancial; acima quase perfeita (chave "quase"). None ou valor não numérico -> None."""
     v = _num(valor)
     if v is None:
         return None
-    for chave, rotulo, _, _, fim, _ in _FAIXAS_KAPPA[:-1]:
-        if v <= fim and (chave != "fraca" or v < 0.40):
-            return chave, rotulo
-    return "quase", "Quase perfeita"
+    texto = interpretar_kappa(v)
+    return _CHAVE_KAPPA[texto], texto.capitalize()
 
 
 def regua_kappa(valor, ic=None, titulo="Concordância (kappa de Cohen)"):
-    """Régua horizontal com as 4 faixas de interpretação, ponteiro no valor e, opcionalmente, bigode do IC 95%.
+    """Régua horizontal com as 5 faixas de interpretação, ponteiro no valor e, opcionalmente, bigode do IC 95%.
 
-    valor = kappa (float; abaixo de 0 o ponteiro fica no início, acima de 1 no fim; o texto mostra o valor real).
+    valor = kappa (float; abaixo de 0 o ponteiro fica no início, com marcador vermelho e o rótulo "pior que o acaso";
+    acima de 1 no fim; o texto mostra o valor real).
     ic    = (inferior, superior) ou None. `valor` None -> mensagem neutra "sem dados".
     """
     v = _num(valor)
@@ -622,6 +629,7 @@ def regua_kappa(valor, ic=None, titulo="Concordância (kappa de Cohen)"):
             intervalo = (min(a, b), max(a, b))
     uid = _uid("kappa", titulo, v, intervalo)
     X0, LARG_B, YB, ALT_B = 20, 600, 46, 26
+    negativo = v < 0
 
     def sx(k):
         return X0 + min(max(k, 0.0), 1.0) * LARG_B
@@ -639,7 +647,13 @@ def regua_kappa(valor, ic=None, titulo="Concordância (kappa de Cohen)"):
     corpo.append(f'<polygon class="an-ponteiro" points="{_f(px - 7)},{YB - 14} {_f(px + 7)},{YB - 14} {_f(px)},{YB - 2}"/>'
                  f'<line class="an-ponteiro-haste" x1="{_f(px)}" x2="{_f(px)}" y1="{YB - 2}" y2="{YB + ALT_B}"/>'
                  f'<text class="an-valor-grande" x="{_f(min(max(px, 44), X0 + LARG_B - 44))}" y="{YB - 20}" text-anchor="middle">{_t(texto)}</text>')
-    desc = f"Kappa de {fmt.decimal(v, 2)}: concordância {nome.lower()}."
+    if negativo:
+        corpo.append(f'<g><title>κ abaixo de zero: pior que o acaso</title>'
+                     f'<line class="an-limite" x1="{X0}" x2="{X0}" y1="{YB - 4}" y2="{YB + ALT_B + 4}"/></g>'
+                     f'<text class="an-limite-rot" x="{X0}" y="{YB + ALT_B + 52}">✕ pior que o acaso (κ &lt; 0): concordância abaixo da esperada ao acaso</text>')
+        desc = f"Kappa de {fmt.decimal(v, 2)}: concordância pior que o acaso (abaixo de zero); o ponteiro fica no início da régua."
+    else:
+        desc = f"Kappa de {fmt.decimal(v, 2)}: concordância {nome.lower()}."
     if intervalo:
         ym = YB + ALT_B / 2
         a, b = sx(intervalo[0]), sx(intervalo[1])
@@ -650,7 +664,7 @@ def regua_kappa(valor, ic=None, titulo="Concordância (kappa de Cohen)"):
                      f'<line class="an-ic-linha" x1="{_f(b)}" x2="{_f(b)}" y1="{ym - 6}" y2="{ym + 6}"/></g>')
         desc += f" Intervalo de confiança de 95%: de {fmt.decimal(intervalo[0], 2)} a {fmt.decimal(intervalo[1], 2)}."
     defs = _defs(uid, [("k-" + ch, tipo) for ch, _, _, _, _, tipo in _FAIXAS_KAPPA])
-    return _svg("an-kappa", 640, YB + ALT_B + 40, titulo, desc, "".join(corpo), uid, defs)
+    return _svg("an-kappa", 640, YB + ALT_B + (62 if negativo else 40), titulo, desc, "".join(corpo), uid, defs)
 
 
 # ============================== 7. semáforo do limite (escudo de 2%) ==============================
@@ -673,8 +687,11 @@ def veredito_limite(ic_inferior, ic_superior, limite):
 
 def semaforo_limite(taxa, ic_inferior, ic_superior, limite, titulo, rotulo_ok, rotulo_alerta,
                     rotulo_incerto="Resultado inconclusivo: o intervalo de confiança atravessa o limite. "
-                                   "A amostra ainda é pequena para garantir segurança.", n=None):
+                                   "A amostra ainda é pequena para garantir segurança.", n=None, unilateral=False):
     """Barra da taxa observada com a "margem de segurança" sombreada (IC de Wilson) e a linha vermelha do limite.
+
+    `unilateral=True`: o intervalo passado é (taxa observada, limite superior unilateral); a parte sombreada e os textos
+    dizem "até no máximo X" em vez de "intervalo de 95%: A a B" (o veredito é o mesmo cálculo: limite superior < limite).
 
     Todas as taxas em FRAÇÃO (0,004 = 0,4%): taxa, ic_inferior, ic_superior, limite (ex.: 0,02). `n` opcional (tamanho da amostra).
     Veredito: intervalo todo abaixo do limite -> `rotulo_ok` (classe an-veredito-ok); todo acima -> `rotulo_alerta`
@@ -686,7 +703,7 @@ def semaforo_limite(taxa, ic_inferior, ic_superior, limite, titulo, rotulo_ok, r
         return _vazio("Sem dados para avaliar o limite de segurança.")
     a, b = sorted((_num(ic_inferior), _num(ic_superior)))
     a, b, t = max(a, 0.0), max(b, 0.0), max(t, 0.0)
-    uid = _uid("semaforo", titulo, t, a, b, lim, rotulo_ok, rotulo_alerta, rotulo_incerto, n)
+    uid = _uid("semaforo", titulo, t, a, b, lim, rotulo_ok, rotulo_alerta, rotulo_incerto, n, *(("unilateral",) if unilateral else ()))
     X0, LARG_B = 20, 600
     vmax = max(lim * 2, b * 1.15, t * 1.15)
     ticks, passo = _ticks(0, vmax, 5)
@@ -702,12 +719,14 @@ def semaforo_limite(taxa, ic_inferior, ic_superior, limite, titulo, rotulo_ok, r
     corpo.append(f'<rect class="an-obs-barra" x="{X0}" y="56" width="{_f(max(sx(t) - X0, 2 if t > 0 else 0))}" height="18" rx="3">'
                  f'<title>Taxa observada: {_t(_pct_txt(t))}</title></rect>'
                  f'<rect class="an-ic-sombra" x="{_f(sx(a))}" y="44" width="{_f(max(sx(b) - sx(a), 2))}" height="42" fill="{_fill(uid, "ic")}">'
-                 f'<title>Margem de segurança (IC 95%): de {_t(_pct_txt(a))} a {_t(_pct_txt(b))}</title></rect>'
+                 f'<title>{_t(f"Até no máximo {_pct_txt(b)} (limite superior unilateral de 95%)" if unilateral else f"Margem de segurança (IC 95%): de {_pct_txt(a)} a {_pct_txt(b)}")}</title></rect>'
                  f'<line class="an-limite" x1="{_f(sx(lim))}" x2="{_f(sx(lim))}" y1="34" y2="96"/>'
                  f'<text class="an-limite-rot" x="{_f(sx(lim) + 6)}" y="30">Limite: {_t(_pct_txt(lim))}</text>')
     amostra = f" · amostra de {fmt.numero(n)}" if n is not None and _num(n) is not None else ""
+    faixa_txt = (f"até no máximo {_pct_txt(b)}, limite superior unilateral de 95%" if unilateral
+                 else f"intervalo de 95%: {_pct_txt(a)} a {_pct_txt(b)}")
     corpo.append(f'<text class="an-texto-med" x="{X0}" y="128">Taxa observada: <tspan class="an-forte">{_t(_pct_txt(t))}</tspan> '
-                 f'(intervalo de 95%: {_t(_pct_txt(a))} a {_t(_pct_txt(b))}){_t(amostra)}</text>')
+                 f'({_t(faixa_txt)}){_t(amostra)}</text>')
     texto = {"ok": rotulo_ok, "incerto": rotulo_incerto, "acima": rotulo_alerta}[veredito]
     linhas = _quebrar(texto, 62, 4) or [""]
     h_caixa = len(linhas) * 18 + 18
@@ -718,7 +737,7 @@ def semaforo_limite(taxa, ic_inferior, ic_superior, limite, titulo, rotulo_ok, r
                  f'height="{h_caixa}" rx="6"/><g class="an-veredito-glifo" transform="translate({X0 + 12} {142 + h_caixa / 2 - 10})">{glifo}</g>'
                  + "".join(f'<text class="an-veredito-texto" x="{X0 + 44}" y="{_f(142 + 22 + i * 18)}">{_t(l)}</text>' for i, l in enumerate(linhas))
                  + "</g>")
-    desc = (f"Taxa observada de {_pct_txt(t)} (intervalo de 95%: {_pct_txt(a)} a {_pct_txt(b)}) contra o limite de {_pct_txt(lim)}. "
+    desc = (f"Taxa observada de {_pct_txt(t)} ({faixa_txt}) contra o limite de {_pct_txt(lim)}. "
             f"{texto}")
     return _svg("an-semaforo", 640, 142 + h_caixa + 8, titulo, desc, "".join(corpo), uid, _defs(uid, [("ic", "diag")]))
 

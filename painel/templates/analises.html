@@ -30,6 +30,7 @@
   {% if bl.grafico %}<div class="an-grafico">{{ bl.grafico }}</div>{% endif %}
   {% if bl.selo %}<p><span class="selo {{ bl.selo.classe }}">{{ bl.selo.rotulo }}</span> {{ bl.selo.texto }}</p>{% endif %}
   {% for t in bl.texto %}{% if not (bl.selo and t == bl.selo.texto) %}<p>{{ t }}</p>{% endif %}{% endfor %}
+  {% if bl.link %}<p><a href="{{ bl.link.href }}">{{ bl.link.rotulo }}</a></p>{% endif %}
   {% if bl.pares or bl.tabela %}
   <details class="an-memoria">
     <summary>Memória de cálculo</summary>

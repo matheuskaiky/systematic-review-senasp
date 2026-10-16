@@ -361,18 +361,54 @@ def test_ponteiro_do_kappa_cresce_com_o_valor_e_fica_dentro_da_regua():
 
 
 def test_faixas_do_kappa():
-    esperado = {-0.2: "fraca", 0.0: "fraca", 0.39: "fraca", 0.40: "moderada", 0.60: "moderada", 0.61: "substancial",
-                0.80: "substancial", 0.81: "quase", 1.0: "quase"}
+    # escala unificada de 5 faixas positivas (mudança deliberada: antes eram 4, com fraca < 0,40)
+    esperado = {0.0: "fraca", 0.20: "fraca", 0.21: "razoavel", 0.39: "razoavel", 0.40: "razoavel", 0.41: "moderada",
+                0.60: "moderada", 0.61: "substancial", 0.80: "substancial", 0.81: "quase", 1.0: "quase"}
     for valor, faixa in esperado.items():
         assert ga.faixa_kappa(valor)[0] == faixa, valor
-    assert ga.faixa_kappa(None) is None
+    assert ga.faixa_kappa(-0.2) == ("pior", "Pior que o acaso")
+    assert ga.faixa_kappa(None) is None and ga.faixa_kappa(float("nan")) is None
     html = ga.regua_kappa(0.72, ic=(0.6, 0.83))
-    for nome in ("Fraca", "Moderada", "Substancial", "Quase perfeita"):
+    for nome in ("Fraca", "Razoável", "Moderada", "Substancial", "Quase perfeita"):
         assert nome in html
     assert html.count("an-faixa-atual") == 2 and "an-faixa-substancial an-faixa-atual" in html      # faixa + rótulo destacados
     assert "an-ic-linha" in html and "IC 95%" in html
     assert "an-ic-linha" not in ga.regua_kappa(0.72)
     assert "κ = 0,72" in html
+    assert "pior que o acaso" not in html
+
+
+def test_faixa_kappa_do_grafico_concorda_com_interpretar_kappa():
+    from dominio.concordancia import interpretar_kappa
+    for i in range(-100, 101):
+        v = i / 100
+        assert ga.faixa_kappa(v)[1].lower() == interpretar_kappa(v), v
+
+
+def test_regua_do_kappa_tem_cinco_faixas_com_padroes_distintos():
+    html = ga.regua_kappa(0.5)
+    padroes = re.findall(r'<pattern id="pt-[0-9a-f]+-k-(\w+)"[^>]*>(.*?)</pattern>', html)
+    assert [c for c, _ in padroes] == ["fraca", "razoavel", "moderada", "substancial", "quase"]
+    assert len({corpo for _, corpo in padroes}) == 5                       # cada faixa tem preenchimento diferente
+    assert html.count('class="an-faixa an-faixa-') == 5
+
+
+def test_semaforo_unilateral_diz_ate_no_maximo_e_o_padrao_continua_bilateral():
+    uni = ga.semaforo_limite(0.0, 0.0, 0.015, 0.02, "t", "ok", "alerta", unilateral=True)
+    assert "até no máximo 1,5%" in uni and "limite superior unilateral de 95%" in uni and "an-veredito-ok" in uni
+    assert "intervalo de 95%" not in uni
+    bi = ga.semaforo_limite(0.0, 0.0, 0.015, 0.02, "t", "ok", "alerta")
+    assert "intervalo de 95%" in bi and "unilateral" not in bi
+
+
+def test_kappa_negativo_tem_marcador_e_texto_pior_que_o_acaso():
+    html = ga.regua_kappa(-0.4)
+    assert "pior que o acaso" in html and "κ = -0,40" in html
+    assert 'class="an-limite"' in html                                       # marcador próprio no início da régua
+    assert "an-faixa-atual" not in html                                      # nenhuma das 5 faixas é a "atual"
+    assert "pior que o acaso" in re.search(r"<desc[^>]*>(.*?)</desc>", html).group(1)
+    assert _x_ponteiro(html) == _x_ponteiro(ga.regua_kappa(0))               # o ponteiro trava no início
+    assert "pior que o acaso" not in ga.regua_kappa(0.0)
 
 
 @pytest.mark.parametrize("args,veredito", [((0.004, 0.0, 0.014), "ok"), ((0.015, 0.008, 0.03), "incerto"),
@@ -528,15 +564,15 @@ def test_ranking_ordena_por_fatia_bloqueada_e_classifica_pelos_limiares():
 
 # ============================== selos estatísticos ==============================
 @pytest.mark.parametrize("p,classe,texto", [
-    (0.0, "ev-forte", "Padrão estatisticamente comprovado (altíssima confiança)"),
-    (0.0099, "ev-forte", "Padrão estatisticamente comprovado (altíssima confiança)"),
-    (0.01, "ev-moderada", "Diferença relevante detectada"),
-    (0.0499, "ev-moderada", "Diferença relevante detectada"),
-    (0.05, "ev-insuficiente", "Diferença dentro da margem do acaso (amostra ainda pequena ou comportamento igual)"),
-    (0.9, "ev-insuficiente", "Diferença dentro da margem do acaso (amostra ainda pequena ou comportamento igual)"),
-    ("forte", "ev-forte", "Padrão estatisticamente comprovado (altíssima confiança)"),
-    ("moderada", "ev-moderada", "Diferença relevante detectada"),
-    ("insuficiente", "ev-insuficiente", "Diferença dentro da margem do acaso (amostra ainda pequena ou comportamento igual)"),
+    (0.0, "ev-forte", "Diferença muito improvável de ser acaso (p < 0,01)"),
+    (0.0099, "ev-forte", "Diferença muito improvável de ser acaso (p < 0,01)"),
+    (0.01, "ev-moderada", "Diferença improvável de ser acaso (p < 0,05)"),
+    (0.0499, "ev-moderada", "Diferença improvável de ser acaso (p < 0,05)"),
+    (0.05, "ev-insuficiente", "Os dados não permitem afirmar diferença; isso não prova que os grupos sejam iguais"),
+    (0.9, "ev-insuficiente", "Os dados não permitem afirmar diferença; isso não prova que os grupos sejam iguais"),
+    ("forte", "ev-forte", "Diferença muito improvável de ser acaso (p < 0,01)"),
+    ("moderada", "ev-moderada", "Diferença improvável de ser acaso (p < 0,05)"),
+    ("insuficiente", "ev-insuficiente", "Os dados não permitem afirmar diferença; isso não prova que os grupos sejam iguais"),
 ])
 def test_selo_mapeia_p_valor_e_nivel_para_os_textos_do_plano(p, classe, texto):
     s = se.selo(p)
@@ -550,17 +586,34 @@ def test_selo_sem_dados_ou_invalido_e_neutro(p):
 
 
 def test_frase_odds_nos_tres_casos():
+    # mudança deliberada: razão de chances NÃO é "N vezes mais provável"; a frase fala em chance (odds) e traz a nota
     assert se.frase_odds("citação literal verificada", 8.5, 6.0, 11.2) == \
-        "Achados com citação literal verificada têm entre 6x e 11x mais chance de serem confirmados pelo perito humano."
-    assert "entre 1,2x e 4,2x mais chance" in se.frase_odds("fonte oficial", 2.2, 1.2, 4.2)
+        ("Achados com citação literal verificada: a chance (odds) de serem confirmados pelo perito humano é entre 6x e 11x "
+         "a dos achados sem essa característica. Razão de chances não é o mesmo que probabilidade.")
+    assert "entre 1,2x e 4,2x a dos achados sem essa característica" in se.frase_odds("fonte oficial", 2.2, 1.2, 4.2)
     menos = se.frase_odds("snippet", 0.25, 0.1, 0.5)
-    assert "entre 2x e 10x menos chance" in menos
+    assert "entre 0,10x e 0,50x a dos achados sem essa característica (menor)" in menos
     neutra = se.frase_odds("domínio .gov.br", 1.3, 0.8, 2.1)
     assert "não há evidência" in neutra and "inclui 1x" in neutra
-    assert "pelo menos 3x" in se.frase_odds("x", 9, 3, float("inf"))
+    assert "de pelo menos 3x a dos achados" in se.frase_odds("x", 9, 3, float("inf"))
     for ruim in ((None, 1, 2), (2, None, 3), (2, 1, None), ("a", "b", "c"), (0, 0, 0), (float("nan"), 1, 2)):
         assert "sem estimativa" in se.frase_odds("x", *ruim)
     assert se.frase_odds("", 3, 2, 4).startswith("Achados com essa característica")
+
+
+@pytest.mark.parametrize("args", [(8.5, 6.0, 11.2), (2.2, 1.2, 4.2), (0.25, 0.1, 0.5), (1.3, 0.8, 2.1), (9, 3, float("inf"))])
+def test_frase_odds_nunca_diz_vezes_mais_provavel_e_sempre_traz_a_nota(args):
+    f = se.frase_odds("x", *args)
+    assert "chance (odds)" in f and se.NOTA_RAZAO_DE_CHANCES in f
+    for proibido in ("mais chance", "menos chance", "mais provável", "mais provavel", "vezes mais"):
+        assert proibido not in f
+
+
+def test_textos_dos_selos_nao_superam_o_p_valor():
+    textos = " ".join(se.selo(p)["texto"] for p in (0.001, 0.03, 0.5))
+    for proibido in ("comprovado", "altíssima confiança", "margem do acaso"):
+        assert proibido not in textos
+    assert "isso não prova que os grupos sejam iguais" in se.selo(0.5)["texto"]
 
 
 # ============================== CSS (analises.css) ==============================

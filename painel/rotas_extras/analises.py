@@ -1,16 +1,17 @@
 """Pagina /analises: o plano de analise de dados e o plano de visualizacao no painel.
 
-Cinco abas (`?secao=`): visao, adocao, busca, literatura, auditoria, operacao. Cada aba so le o que mostra, para a pagina
+Oito abas (`?secao=`): visao, adocao, busca, literatura, termos, web, auditoria, operacao. Cada aba so le o que mostra, para a pagina
 abrir rapido mesmo com o banco em /mnt/c. So le o banco; nenhum numero daqui e gravado. Os blocos vem de
 `painel/analises_blocos.py` (funcoes puras)."""
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from painel import analises_blocos as b
+from painel import analises_blocos as b, analises_blocos_cobertura as bc, analises_blocos_ruido as br
 
 ABAS = (
     ("visao", "Visão geral"), ("adocao", "Adoção por UF"), ("busca", "Eficiência da busca"),
-    ("literatura", "Literatura"), ("auditoria", "Confiança na IA"), ("operacao", "Operação"),
+    ("literatura", "Literatura"), ("termos", "Termos dos artigos"), ("web", "Consultas e filtro da web"),
+    ("auditoria", "Confiança na IA"), ("operacao", "Operação"),
 )
 CHAVES = {chave for chave, _ in ABAS}
 
@@ -20,7 +21,7 @@ def montar(leitura, secao):
     resumo = leitura.analise_resumo() if secao in ("visao", "auditoria") else None
     if secao == "visao":
         funil = leitura.analise_funil_por_provedor()
-        return [b.bloco_hipoteses(resumo, funil)], resumo
+        return [b.bloco_hipoteses(resumo, funil, leitura.analise_falsa_exclusao())], resumo
     if secao == "adocao":
         m = leitura.analise_maturidade_uf_tecnologia()
         return [b.bloco_maturidade(m), b.bloco_regiao_tecnologia(m), b.bloco_lgpd(leitura.analise_lgpd_por_tecnologia()),
@@ -32,6 +33,15 @@ def montar(leitura, secao):
                 b.bloco_saturacao(leitura.analise_saturacao())], resumo
     if secao == "literatura":
         return [b.bloco_temporal(leitura.analise_literatura_temporal()), b.bloco_multitermo(leitura.analise_multitermo())], resumo
+    if secao == "termos":
+        cobertura = leitura.analise_cobertura_incremental()
+        return (bc.blocos_cobertura_termos(leitura.analise_cobertura_termos(), cobertura)
+                + bc.blocos_redundancia(leitura.analise_redundancia_termos(), cobertura)
+                + br.blocos_ruido_termos(leitura.analise_ruido_por_termo())
+                + br.blocos_simulacao(leitura.analise_simulacao_contexto())), resumo
+    if secao == "web":
+        return (bc.blocos_cobertura_web(leitura.analise_cobertura_web())
+                + br.blocos_prefiltro(leitura.analise_prefiltro_web())), resumo
     if secao == "auditoria":
         return [b.bloco_calibracao(leitura.analise_calibracao_confianca()),
                 b.bloco_falsa_exclusao(leitura.analise_falsa_exclusao())], resumo

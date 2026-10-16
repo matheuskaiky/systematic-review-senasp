@@ -455,11 +455,14 @@ def test_kappa_pesos_invalidos():
 
 
 def test_faixa_kappa():
+    # escala unificada com dominio.concordancia.interpretar_kappa (mudança deliberada da especificação)
     assert est.faixa_kappa(None) is None
-    assert est.faixa_kappa(-0.2) == "fraca"
+    assert est.faixa_kappa(-0.2) == "pior que o acaso"
     assert est.faixa_kappa(0.0) == "fraca"
-    assert est.faixa_kappa(0.39) == "fraca"
-    assert est.faixa_kappa(0.40) == "moderada"
+    assert est.faixa_kappa(0.20) == "fraca"
+    assert est.faixa_kappa(0.21) == "razoável"
+    assert est.faixa_kappa(0.40) == "razoável"
+    assert est.faixa_kappa(0.41) == "moderada"
     assert est.faixa_kappa(0.60) == "moderada"
     assert est.faixa_kappa(0.61) == "substancial"
     assert est.faixa_kappa(0.80) == "substancial"
@@ -467,6 +470,12 @@ def test_faixa_kappa():
     assert est.faixa_kappa(1.0) == "quase perfeita"
     with pytest.raises(ValueError):
         est.faixa_kappa("alto")
+
+
+def test_faixa_kappa_concorda_com_interpretar_kappa_em_toda_a_escala():
+    from dominio.concordancia import interpretar_kappa
+    for i in range(-100, 101):
+        assert est.faixa_kappa(i / 100) == interpretar_kappa(i / 100)
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -837,3 +846,113 @@ def test_selo_de_evidencia():
     for p in (-0.1, 1.1, "x", float("nan")):
         with pytest.raises(ValueError):
             est.selo_de_evidencia(p)
+
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Limite superior binomial exato (Clopper-Pearson unilateral)
+# ---------------------------------------------------------------------------------------------------------------
+def test_limite_superior_valores_conhecidos():
+    # 0 de n: 1 - 0,05^(1/n); regra dos três: perto de 3/n
+    assert est.limite_superior_binomial_exato(0, 149) == pytest.approx(1 - 0.05 ** (1 / 149), abs=1e-12)
+    assert est.limite_superior_binomial_exato(0, 149) == pytest.approx(0.0199, abs=5e-5)
+    assert est.limite_superior_binomial_exato(0, 30) == pytest.approx(1 - 0.05 ** (1 / 30), abs=1e-12)
+    for n in (60, 149, 300, 1000):
+        assert est.limite_superior_binomial_exato(0, n) == pytest.approx(3 / n, rel=0.05)
+    # 1 de 200 e 5 de 20 contra a relação com a beta (valor de referência: P(X <= k | p) = 0,05 refeito com frações)
+    for k, n in ((1, 200), (5, 20), (3, 50)):
+        u = est.limite_superior_binomial_exato(k, n)
+        assert _binomial_exata(k, n, u) == pytest.approx(0.05, abs=1e-6)
+    assert est.limite_superior_binomial_exato(1, 10, 0.90) < est.limite_superior_binomial_exato(1, 10, 0.99)
+
+
+def test_limite_superior_bordas_e_entradas_invalidas():
+    assert est.limite_superior_binomial_exato(7, 7) == 1.0
+    assert est.limite_superior_binomial_exato(0, 0) is None
+    assert 0.0 < est.limite_superior_binomial_exato(0, 1) < 1.0
+    for ruim in ((-1, 5), (6, 5), (1.5, 5), ("a", 5), (True, 5)):
+        with pytest.raises(ValueError):
+            est.limite_superior_binomial_exato(*ruim)
+    for conf in (0, 1, 1.2, "x"):
+        with pytest.raises(ValueError):
+            est.limite_superior_binomial_exato(1, 5, confianca=conf)
+
+
+def test_limite_superior_cresce_com_k_e_diminui_com_n():
+    assert [est.limite_superior_binomial_exato(k, 40) for k in range(41)] == sorted(
+        est.limite_superior_binomial_exato(k, 40) for k in range(41))
+    assert est.limite_superior_binomial_exato(2, 100) > est.limite_superior_binomial_exato(2, 400)
+
+
+@pytest.mark.parametrize("n", [1, 5, 20, 30, 149, 200, 400])
+def test_limite_superior_abaixo_de_p0_equivale_ao_teste_binomial_unilateral(n):
+    """Propriedade central: limite < p0  <=>  p_valor(H1: p < p0) < 1 - confianca, em grade e logo ao lado do limite."""
+    for confianca in (0.90, 0.95, 0.99):
+        alfa = 1 - confianca
+        for k in sorted({0, 1, 2, 3, 5, 10, n // 2, n} & set(range(n + 1))):
+            u = est.limite_superior_binomial_exato(k, n, confianca)
+            candidatos = [0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 0.9, 0.999]
+            if 0 < u < 1:
+                candidatos += [u * (1 - 1e-7), u * (1 + 1e-7)]
+            for p0 in candidatos:
+                if not 0 < p0 < 1:
+                    continue
+                p = est.teste_binomial_exato_unilateral(k, n, p0, "menor")["p_valor"]
+                if abs(p - alfa) < 1e-12:       # empate exato em aritmética de ponto flutuante (ex.: 0 de 1 com p0 = 0,9)
+                    continue
+                assert (u < p0) == (p < alfa), (k, n, confianca, p0, u, p)
+
+
+def test_limite_superior_e_o_p0_de_fronteira_do_teste_binomial():
+    u = est.limite_superior_binomial_exato(0, 149)
+    assert est.teste_binomial_exato_unilateral(0, 149, u, "menor")["p_valor"] == pytest.approx(0.05, abs=1e-9)
+    # com a meta de 2%, zero erros precisam de 149 conferidos (e 148 não bastam)
+    assert est.limite_superior_binomial_exato(0, 149) < 0.02 <= est.limite_superior_binomial_exato(0, 148)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Cenários de Brier e referência
+# ---------------------------------------------------------------------------------------------------------------
+def test_cenarios_de_probabilidade_sao_tres_mapeamentos_nomeados():
+    assert set(est.CENARIOS_PROBABILIDADE) == {"padrao", "otimista", "conservador"}
+    assert est.CENARIOS_PROBABILIDADE["padrao"] == est.PROBABILIDADE_POR_CONFIANCA
+    assert est.CENARIOS_PROBABILIDADE["otimista"] == {"alta": 0.95, "media": 0.8, "baixa": 0.5}
+    assert est.CENARIOS_PROBABILIDADE["conservador"] == {"alta": 0.8, "media": 0.6, "baixa": 0.4}
+    for mapa in est.CENARIOS_PROBABILIDADE.values():
+        assert mapa["alta"] > mapa["media"] > mapa["baixa"]
+
+
+def test_brier_referencia_e_taxa_geral():
+    assert est.brier_referencia([1, 1, 0, 0]) == pytest.approx(0.25)
+    assert est.brier_referencia([1, 1, 1, 0]) == pytest.approx(0.75 * 0.25)
+    assert est.brier_referencia([1, 1]) == 0.0
+    assert est.brier_referencia([]) is None
+    with pytest.raises(ValueError):
+        est.brier_referencia([2])
+
+
+def test_brier_por_cenario_conta_a_mao():
+    rotulos = ["alta", "alta", "media", "baixa"]
+    desfechos = [1, 0, 1, 0]
+    r = est.brier_por_cenario(rotulos, desfechos)
+    assert set(r) == {"padrao", "otimista", "conservador", "brier_referencia"}
+    assert r["padrao"] == pytest.approx(est.brier_score([0.9, 0.9, 0.5, 0.2], desfechos))
+    assert r["padrao"] == pytest.approx((0.01 + 0.81 + 0.25 + 0.04) / 4)
+    assert r["otimista"] == pytest.approx((0.0025 + 0.9025 + 0.04 + 0.25) / 4)
+    assert r["conservador"] == pytest.approx((0.04 + 0.64 + 0.16 + 0.16) / 4)
+    assert r["brier_referencia"] == pytest.approx(0.25)
+
+
+def test_brier_por_cenario_vazio_e_invalido():
+    assert est.brier_por_cenario([], []) == {"padrao": None, "otimista": None, "conservador": None, "brier_referencia": None}
+    with pytest.raises(ValueError):
+        est.brier_por_cenario(["alta"], [1, 0])
+    with pytest.raises(ValueError):
+        est.brier_por_cenario(["muito_alta"], [1])
+
+
+def test_bootstrap_padrao_tem_10000_repeticoes():
+    import inspect
+    assert inspect.signature(est.bootstrap_ic).parameters["repeticoes"].default == 10_000
+    r = est.bootstrap_ic(lambda d: sum(d) / len(d), [[1.0, 2.0, 3.0, 4.0]], semente=3)
+    assert r["repeticoes"] == 10_000 and r["repeticoes_validas"] == 10_000

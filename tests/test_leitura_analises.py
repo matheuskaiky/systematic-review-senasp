@@ -353,6 +353,7 @@ def test_calibracao_confianca_a_mao(minimo):
 def test_falsa_exclusao_sem_triagem_escopo_e_tudo_zero(L):
     r = L.analise_falsa_exclusao()
     assert r["n_humanos"] == 0 and r["n_falsas_exclusoes"] == 0 and r["taxa_falsa_exclusao"] is None and not r["tem_dados_humanos"]
+    assert r["n_excluidos"] == 0 and r["n_excluidos_checados"] == 0 and not r["tem_excluidos_checados"]
     assert all(v == 0 for linha in r["cruzamento"].values() for v in linha.values()) and r["falsas_exclusoes"] == []
 
 
@@ -375,9 +376,47 @@ def test_falsa_exclusao_cruzamento_e_lista(copia):
     r = LeituraPainelSQLite(copia).analise_falsa_exclusao()
     assert r["cruzamento"]["excluido"] == {"incluir": 1, "excluir": 1, "pendente": 0}
     assert r["cruzamento"]["elegivel"]["incluir"] == 1 and r["cruzamento"]["quarentena"]["pendente"] == 1
-    assert r["n_humanos"] == 3 and r["n_falsas_exclusoes"] == 1 and r["taxa_falsa_exclusao"] == round(1 / 3, 4) and r["tem_dados_humanos"]
+    # a taxa e sobre os excluidos conferidos por uma pessoa (2), nao sobre todos os triados por humano (3)
+    assert r["n_humanos"] == 3 and r["n_falsas_exclusoes"] == 1 and r["tem_dados_humanos"]
+    assert r["n_excluidos"] == 2 and r["n_excluidos_checados"] == 2 and r["taxa_falsa_exclusao"] == 0.5 and r["tem_excluidos_checados"]
     assert r["falsas_exclusoes"][0]["artigo_id"] == inc[0] and r["falsas_exclusoes"][0]["categoria_motivo"] == "FORA_DO_RECORTE_TEMPORAL"
     assert r["por_categoria_falsa"] == {"FORA_DO_RECORTE_TEMPORAL": 1}
+
+
+def _artigo_com_veredito(minimo, chave, status, decisao=None):
+    a = _sql(minimo.caminho, "INSERT INTO artigos (chave_dedup, titulo) VALUES (?, ?) RETURNING artigo_id", (chave, chave))[0][0]
+    if decisao:
+        _sql(minimo.caminho, "INSERT INTO triagem (artigo_id, decisao) VALUES (?, ?)", (a, decisao))
+    _te(minimo.caminho, "artigo", a, status, categoria="RUIDO_WEB" if status == "excluido" else None)
+    return a
+
+
+def test_falsa_exclusao_humano_so_triou_elegiveis_nao_mede_nada(minimo):
+    # fila humana feita so de elegiveis e quarentena: ha dados humanos, mas nenhum excluido conferido
+    _artigo_com_veredito(minimo, "e1", "elegivel", "incluir")
+    _artigo_com_veredito(minimo, "e2", "elegivel", "excluir")
+    _artigo_com_veredito(minimo, "q1", "quarentena", "incluir")
+    _artigo_com_veredito(minimo, "x1", "excluido")                      # excluido, sem decisao humana
+    _artigo_com_veredito(minimo, "x2", "excluido", "pendente")
+    r = LeituraPainelSQLite(minimo.caminho).analise_falsa_exclusao()
+    assert r["n_humanos"] == 3 and r["tem_dados_humanos"] is True
+    assert r["n_excluidos"] == 2 and r["n_excluidos_checados"] == 0 and r["tem_excluidos_checados"] is False
+    assert r["n_falsas_exclusoes"] == 0 and r["taxa_falsa_exclusao"] is None
+
+
+def test_falsa_exclusao_caso_misto_com_numeros_conhecidos(minimo):
+    # 10 excluidos: 4 conferidos (1 falsa exclusao, 3 corretos), 6 sem conferir; mais 5 elegiveis conferidos (nao entram na taxa)
+    _artigo_com_veredito(minimo, "f", "excluido", "incluir")
+    for i in range(3):
+        _artigo_com_veredito(minimo, f"c{i}", "excluido", "excluir")
+    for i in range(6):
+        _artigo_com_veredito(minimo, f"s{i}", "excluido")
+    for i in range(5):
+        _artigo_com_veredito(minimo, f"e{i}", "elegivel", "incluir")
+    r = LeituraPainelSQLite(minimo.caminho).analise_falsa_exclusao()
+    assert r["n_excluidos"] == 10 and r["n_excluidos_checados"] == 4 and r["n_falsas_exclusoes"] == 1
+    assert r["taxa_falsa_exclusao"] == 0.25 and r["n_humanos"] == 9 and r["tem_excluidos_checados"] is True
+    assert r["por_categoria_falsa"] == {"RUIDO_WEB": 1}
 
 
 def test_falsa_exclusao_usa_so_o_veredito_atual(copia):

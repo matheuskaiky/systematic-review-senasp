@@ -420,17 +420,25 @@ class LeituraAnalises:
     # ---------- 8. falsa exclusao ----------
     def analise_falsa_exclusao(self):
         """Tabela status do modelo (`triagem_escopo`, veredito atual valido de cada artigo) x decisao humana (`triagem.decisao`:
-        incluir, excluir, pendente). `n_humanos` = artigos com veredito e decisao incluir ou excluir. Falsa exclusao = o modelo
-        excluiu e a pessoa quis incluir. Sem decisoes humanas, tudo zero e `n_humanos` 0.
+        incluir, excluir, pendente). Falsa exclusao = o modelo excluiu e a pessoa quis incluir.
 
-        Devolve {n_artigos_com_veredito, n_invalidos, n_humanos, n_falsas_exclusoes, taxa_falsa_exclusao (sobre n_humanos, ou
-        None), tem_dados_humanos, cruzamento: {status: {incluir, excluir, pendente}}, por_categoria_falsa: {categoria: n},
+        A taxa de falsa exclusao e sobre os artigos que o MODELO EXCLUIU e que uma pessoa CONFERIU (`n_excluidos_checados`),
+        nao sobre todos os artigos triados por humano: o painel esconde por padrao os itens excluidos pelo modelo, entao uma
+        fila humana feita so de elegiveis e quarentena daria zero falsas exclusoes por construcao e nao mediria nada.
+        Sem excluidos conferidos, a taxa e None.
+
+        Devolve {n_artigos_com_veredito, n_invalidos, n_humanos (artigos com veredito e decisao incluir ou excluir, de
+        qualquer status; mantido por compatibilidade), n_excluidos (veredito valido atual 'excluido'), n_excluidos_checados
+        (desses, com decisao humana incluir ou excluir), n_falsas_exclusoes, taxa_falsa_exclusao (n_falsas_exclusoes /
+        n_excluidos_checados, ou None), tem_dados_humanos (n_humanos > 0), tem_excluidos_checados (n_excluidos_checados > 0),
+        cruzamento: {status: {incluir, excluir, pendente}}, por_categoria_falsa: {categoria: n},
         falsas_exclusoes: [{artigo_id, categoria_motivo, titulo, ano}]}."""
         status = ("elegivel", "quarentena", "excluido")
         decisoes = ("incluir", "excluir", "pendente")
         cruz = {s: {d: 0 for d in decisoes} for s in status}
-        vazio = {"n_artigos_com_veredito": 0, "n_invalidos": 0, "n_humanos": 0, "n_falsas_exclusoes": 0, "taxa_falsa_exclusao": None,
-                 "tem_dados_humanos": False, "cruzamento": cruz, "por_categoria_falsa": {}, "falsas_exclusoes": []}
+        vazio = {"n_artigos_com_veredito": 0, "n_invalidos": 0, "n_humanos": 0, "n_excluidos": 0, "n_excluidos_checados": 0,
+                 "n_falsas_exclusoes": 0, "taxa_falsa_exclusao": None, "tem_dados_humanos": False, "tem_excluidos_checados": False,
+                 "cruzamento": cruz, "por_categoria_falsa": {}, "falsas_exclusoes": []}
         if not self._tem_triagem_escopo():
             return vazio
         linhas = self._ler(f"""
@@ -450,9 +458,13 @@ class LeituraAnalises:
             n_hum += 1 if d in ("incluir", "excluir") else 0
             if l["status"] == "excluido" and d == "incluir":
                 falsas.append({"artigo_id": l["artigo_id"], "categoria_motivo": l["categoria_motivo"], "titulo": l["titulo"], "ano": l["ano"]})
+        n_exc = sum(cruz["excluido"].values())
+        n_exc_chec = cruz["excluido"]["incluir"] + cruz["excluido"]["excluir"]
         por_cat = Counter(f["categoria_motivo"] or "(sem motivo)" for f in falsas)
         return {"n_artigos_com_veredito": len(linhas) - n_inval, "n_invalidos": n_inval, "n_humanos": n_hum,
-                "n_falsas_exclusoes": len(falsas), "taxa_falsa_exclusao": _taxa(len(falsas), n_hum), "tem_dados_humanos": n_hum > 0,
+                "n_excluidos": n_exc, "n_excluidos_checados": n_exc_chec,
+                "n_falsas_exclusoes": len(falsas), "taxa_falsa_exclusao": _taxa(len(falsas), n_exc_chec), "tem_dados_humanos": n_hum > 0,
+                "tem_excluidos_checados": n_exc_chec > 0,
                 "cruzamento": cruz, "por_categoria_falsa": dict(sorted(por_cat.items(), key=lambda kv: (-kv[1], kv[0]))),
                 "falsas_exclusoes": falsas}
 

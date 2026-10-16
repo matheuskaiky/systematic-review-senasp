@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 import painel_demo
 from adaptadores.repositorio_sqlite import RepositorioSQLite
+from dominio import estatistica as est
 from painel import analises_blocos as b
 from painel.rotas_extras.analises import ABAS
 from test_painel import _app
@@ -131,11 +132,64 @@ def test_falsa_exclusao_sem_humano_nao_mostra_numero():
     assert bl["grafico"] is None and "Aguardando verificação humana" in bl["aviso"]
 
 
-def test_falsa_exclusao_com_humano_calcula_wilson_e_binomial():
-    bl = b.bloco_falsa_exclusao({"n_humanos": 200, "n_falsas_exclusoes": 1, "n_artigos_com_veredito": 883,
-                                 "cruzamento": {"excluido": {"incluir": 1, "excluir": 99}, "elegivel": {"incluir": 50, "excluir": 50}},
+def test_falsa_exclusao_com_humano_usa_so_os_excluidos_conferidos_e_o_limite_superior_exato():
+    # mudança deliberada: n vem de n_excluidos_checados (antes n_humanos), e o critério é o limite superior unilateral exato
+    bl = b.bloco_falsa_exclusao({"n_humanos": 500, "n_excluidos": 435, "n_excluidos_checados": 200, "n_falsas_exclusoes": 1,
+                                 "n_artigos_com_veredito": 883,
+                                 "cruzamento": {"excluido": {"incluir": 1, "excluir": 199, "pendente": 235},
+                                                "elegivel": {"incluir": 50, "excluir": 50, "pendente": 100}},
                                  "por_categoria_falsa": {"FORA_DO_RECORTE_TEMPORAL": 1}})
-    assert "1 de 200" in bl["titulo"] and bl["selo"] and "Wilson" in bl["subtitulo"]
+    assert "1 de 200" in bl["titulo"] and bl["selo"]
+    assert "limite superior unilateral de 95% (binomial exato)" in bl["subtitulo"] and "Wilson" not in bl["subtitulo"]
+    assert "meta de 2% definida para este projeto" in str(bl["grafico"])
+    assert "limite internacional" not in str(bl) and "internacional" not in str(bl["grafico"])
+    assert "só os artigos que uma pessoa triou" in str(bl["grafico"])           # legenda do fluxo
+    assert "Pendente" not in str(bl["grafico"])                                   # sem triagem humana não entra no fluxo
+
+
+def test_falsa_exclusao_sem_excluidos_conferidos_avisa_e_nao_desenha():
+    # humanos triaram só elegíveis/quarentena: há dados humanos, mas nenhum excluído conferido
+    bl = b.bloco_falsa_exclusao({"n_humanos": 120, "tem_dados_humanos": True, "n_excluidos": 435, "n_excluidos_checados": 0,
+                                 "n_falsas_exclusoes": 0, "n_artigos_com_veredito": 883})
+    assert bl["grafico"] is None and bl["selo"] is None
+    assert bl["aviso"] == ("O modelo excluiu 435 artigos e nenhum foi conferido por uma pessoa; a triagem automática só pode ser "
+                           "considerada segura depois de conferir uma amostra aleatória dos excluídos.")
+    n_zero = next(n for n in range(1, 10_000) if est.limite_superior_binomial_exato(0, n) < b.LIMITE_FALSA_EXCLUSAO)
+    assert n_zero == 149
+    texto = " ".join(bl["texto"])
+    assert f"cerca de {n_zero} artigos excluídos conferidos" in texto
+    sup30 = est.limite_superior_binomial_exato(0, 30)
+    assert "amostra de 30" in texto and "só descarta falhas grosseiras" in texto
+    assert f"{100 * sup30:.2f}".replace(".", ",") + "%" in texto                   # 9,50%
+    assert "meta de 2% definida para este projeto" in texto
+    assert dict(bl["pares"])["Excluídos conferidos por uma pessoa"] == "0"
+
+
+def test_n_minimo_sem_erros_e_calculado_nao_fixo():
+    assert b._n_minimo_sem_erros(0.02) == 149
+    assert b._n_minimo_sem_erros(0.05) == 59
+    assert b._n_minimo_sem_erros(0.01) > b._n_minimo_sem_erros(0.02)
+
+
+def _veredito_do_grafico(bl):
+    m = re.search(r"an-veredito-(ok|incerto|acima)", str(bl["grafico"]))
+    return m.group(1)
+
+
+def test_veredito_selo_e_limite_nunca_discordam_numa_grade_de_k_e_n():
+    """'ok' <=> limite superior exato < meta <=> p-valor binomial < 0,05 <=> selo forte ou moderado."""
+    for n in (1, 5, 10, 20, 30, 59, 60, 100, 149, 150, 200, 400):
+        for k in sorted({0, 1, 2, 3, 4, 5, 8, 10, 20, n} & set(range(n + 1))):
+            bl = b.bloco_falsa_exclusao({"n_excluidos": n + 10, "n_excluidos_checados": n, "n_falsas_exclusoes": k,
+                                         "cruzamento": {"excluido": {"incluir": k, "excluir": n - k, "pendente": 10}}})
+            sup = est.limite_superior_binomial_exato(k, n)
+            p = est.teste_binomial_exato_unilateral(k, n, b.LIMITE_FALSA_EXCLUSAO, "menor")["p_valor"]
+            seguro = sup < b.LIMITE_FALSA_EXCLUSAO
+            assert seguro == (p < 0.05), (k, n)
+            assert (_veredito_do_grafico(bl) == "ok") == seguro, (k, n, sup, p)
+            assert (bl["selo"]["classe"] in ("ev-forte", "ev-moderada")) == seguro, (k, n)
+            if k / n > b.LIMITE_FALSA_EXCLUSAO:
+                assert _veredito_do_grafico(bl) in ("acima", "incerto")
 
 
 def test_calibracao_sem_humano_e_com_humano():
@@ -157,7 +211,9 @@ def test_hipoteses_dependem_de_humano_e_de_dois_buscadores():
     assert situacao["H1"] == "pode ser feita" and situacao["H6"] == "pode ser feita"
     assert all(situacao[h].startswith("aguarda") for h in ("H2", "H3", "H4", "H5"))
     res = {"tem_dados_humanos_achados": True, "tem_dados_humanos_artigos": True}
-    bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]})
+    so_elegiveis = b.bloco_hipoteses(res, {"provedores": []}, {"tem_excluidos_checados": False})
+    assert {l[0][:2]: l[1] for l in so_elegiveis["tabela"]["linhas"]}["H4"].startswith("aguarda")
+    bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]}, {"tem_excluidos_checados": True})
     assert all(l[1] == "pode ser feita" for l in bl["tabela"]["linhas"])
 
 

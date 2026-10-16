@@ -293,36 +293,93 @@ def bloco_calibracao(d):
 CONF = rotulos.CONFIANCA
 
 
+def _n_minimo_sem_erros(limite, confianca=0.95):
+    """Menor n de artigos conferidos, SEM nenhuma falsa exclusão, para o limite superior unilateral ficar abaixo de `limite`.
+    Calculado com `limite_superior_binomial_exato(0, n)` (decrescente em n), por busca binária; nada fixo no código."""
+    baixo, alto = 1, 1_000_000
+    while baixo < alto:
+        meio = (baixo + alto) // 2
+        if est.limite_superior_binomial_exato(0, meio, confianca) < limite:
+            alto = meio
+        else:
+            baixo = meio + 1
+    return baixo
+
+
+def _pct_taxa(x):
+    """Fração -> texto em percentual com duas casas (0,0199 -> '1,99%'), para o limite não parecer igual à meta por arredondamento."""
+    return f"{fmt.decimal(100 * x, 2)}%"
+
+
 def bloco_falsa_exclusao(d):
-    n, k = d.get("n_humanos") or 0, d.get("n_falsas_exclusoes") or 0
+    """Falsa exclusão = o modelo excluiu e a pessoa quis incluir. A taxa é sobre os artigos EXCLUÍDOS PELO MODELO que uma pessoa
+    conferiu (`n_excluidos_checados`), não sobre todos os triados por humano. Um critério só de "seguro": o limite superior
+    unilateral de 95% (binomial exato) abaixo da meta; o selo vem do mesmo teste (p < 0,05 equivale a limite < meta)."""
+    n, k = d.get("n_excluidos_checados") or 0, d.get("n_falsas_exclusoes") or 0
+    n_exc = d.get("n_excluidos") or 0
+    meta = f"{100 * LIMITE_FALSA_EXCLUSAO:g}%"                                 # 0,02 -> '2%'
     if not n:
-        return _bloco("falsa_exclusao", "A triagem automática é segura? Ainda não dá para medir", aviso=AVISO_SEM_HUMANOS,
-                      texto=["Mede quantos artigos que o modelo excluiu uma pessoa incluiu. A meta do protocolo é ficar abaixo de 2%."],
-                      pares=[("Artigos com veredito do modelo", fmt.numero(d.get("n_artigos_com_veredito"))),
-                             ("Artigos triados por humano", "0")])
-    inf, sup = est.intervalo_wilson(k, n)
+        pares = [("Artigos com veredito do modelo", fmt.numero(d.get("n_artigos_com_veredito"))),
+                 ("Artigos excluídos pelo modelo", fmt.numero(n_exc)),
+                 ("Excluídos conferidos por uma pessoa", "0"),
+                 ("Artigos triados por humano (qualquer veredito)", fmt.numero(d.get("n_humanos")))]
+        base = ["Mede quantos artigos que o modelo excluiu uma pessoa incluiu. "
+                f"A meta de {meta} definida para este projeto vale para o limite superior unilateral de 95% (binomial exato)."]
+        if not n_exc:
+            return _bloco("falsa_exclusao", "A triagem automática é segura? Ainda não dá para medir", aviso=AVISO_SEM_HUMANOS,
+                          texto=base, pares=pares)
+        n_zero = _n_minimo_sem_erros(LIMITE_FALSA_EXCLUSAO)
+        n_amostra = 30
+        sup_amostra = est.limite_superior_binomial_exato(0, n_amostra)
+        memoria = [f"Memória de cálculo: com zero erros, seriam necessários cerca de {fmt.numero(n_zero)} artigos excluídos conferidos "
+                   f"para mostrar que a taxa de falsa exclusão está abaixo de {meta} (limite superior unilateral de 95%, binomial exato).",
+                   f"Uma amostra de {n_amostra} conferidos sem nenhum erro só descarta falhas grosseiras: o limite superior seria "
+                   f"{_pct_taxa(sup_amostra)}, ainda bem acima da meta de {meta} definida para este projeto."]
+        return _bloco("falsa_exclusao", "A triagem automática é segura? Ainda não dá para medir",
+                      aviso=(f"O modelo excluiu {fmt.numero(n_exc)} artigos e nenhum foi conferido por uma pessoa; a triagem automática "
+                             "só pode ser considerada segura depois de conferir uma amostra aleatória dos excluídos."),
+                      texto=base + memoria, pares=pares)
+    taxa = k / n
+    sup = est.limite_superior_binomial_exato(k, n)
     binom = est.teste_binomial_exato_unilateral(k, n, LIMITE_FALSA_EXCLUSAO, "menor")
     s = selos.selo(binom["p_valor"])
-    graf = g.semaforo_limite(k / n, inf, sup, LIMITE_FALSA_EXCLUSAO, "Taxa de falsa exclusão",
-                             "Triagem automatizada segura: o risco de perder um estudo relevante é inferior a 2%",
-                             "Atenção: a taxa de falsa exclusão passa do limite de 2%", n=n)
+    graf = g.semaforo_limite(
+        taxa, taxa, sup, LIMITE_FALSA_EXCLUSAO, "Taxa de falsa exclusão",
+        f"Triagem automatizada segura: o limite superior unilateral de 95% da taxa de falsa exclusão está abaixo da meta de {meta} "
+        "definida para este projeto",
+        f"Atenção: a taxa de falsa exclusão observada passa da meta de {meta} definida para este projeto",
+        f"Resultado inconclusivo: o limite superior unilateral de 95% fica acima da meta de {meta} definida para este projeto. "
+        "A amostra de excluídos conferidos ainda é pequena para garantir segurança.", n=n, unilateral=True)
+    # o fluxo cobre só quem uma pessoa triou: as decisões pendentes (sem triagem) ficam de fora
     cruz = d.get("cruzamento") or {}
-    fluxos = {(o, de): v for o, linha in cruz.items() for de, v in linha.items() if v}
+    fluxos = {(o, de): v for o, linha in cruz.items() for de, v in linha.items() if v and de in ("incluir", "excluir")}
     graf2 = g.fluxo_duas_colunas([{"chave": c, "rotulo": c.capitalize()} for c in ("elegivel", "quarentena", "excluido")],
-                                 [{"chave": c, "rotulo": c.capitalize()} for c in ("incluir", "excluir", "pendente")],
-                                 fluxos, [("excluido", "incluir")], "Veredito do modelo e decisão humana")
-    return _bloco("falsa_exclusao", f"{k} de {n} artigos triados por humano foram excluídos pelo modelo e incluídos pela pessoa",
-                  graf + graf2, f"TFE = {fmt.decimal(100 * k / n, 1)}%; Wilson 95% [{fmt.decimal(100 * inf, 1)}%; {fmt.decimal(100 * sup, 1)}%]; "
-                  f"binomial exato (H₀: p ≥ 2%) p = {fmt.decimal(binom['p_valor'], 4)}", [s["texto"]], selo=s,
-                  pares=[("Falsas exclusões", str(k)), ("Triados por humano", fmt.numero(n)),
+                                 [{"chave": c, "rotulo": c.capitalize()} for c in ("incluir", "excluir")],
+                                 fluxos, [("excluido", "incluir")],
+                                 "Veredito do modelo e decisão humana (só os artigos que uma pessoa triou)")
+    texto = [s["texto"],
+             f"A taxa é calculada só sobre os artigos que o modelo excluiu e uma pessoa conferiu ({fmt.numero(n)}"
+             + (f" de {fmt.numero(n_exc)} excluídos" if n_exc >= n else "") + "). "
+             "Só vale para todos os excluídos se a amostra conferida foi sorteada ao acaso.",
+             "O fluxo abaixo cobre apenas os artigos que uma pessoa triou, de qualquer veredito do modelo."]
+    return _bloco("falsa_exclusao",
+                  f"{k} de {n} artigos excluídos pelo modelo e conferidos por uma pessoa foram incluídos pela pessoa",
+                  graf + graf2,
+                  f"Taxa de falsa exclusão = {fmt.decimal(100 * taxa, 1)}% ({k} de {n}); limite superior unilateral de 95% (binomial exato) = "
+                  f"{_pct_taxa(sup)}; teste binomial exato (H₀: p ≥ {meta}) p = {fmt.decimal(binom['p_valor'], 4)}",
+                  texto, selo=s,
+                  pares=[("Falsas exclusões", str(k)), ("Excluídos conferidos por uma pessoa", fmt.numero(n)),
+                         ("Artigos excluídos pelo modelo", fmt.numero(n_exc)),
+                         ("Limite superior unilateral de 95%", _pct_taxa(sup)),
                          ("Categorias dos casos", ", ".join(f"{c}: {v}" for c, v in (d.get("por_categoria_falsa") or {}).items()) or "nenhum")])
 
 
-def bloco_hipoteses(resumo, funil):
+def bloco_hipoteses(resumo, funil, falsa_exclusao=None):
     """Quadro do que cada hipotese do plano de analise ja pode ser testada e o que falta."""
     achados_h = bool(resumo.get("tem_dados_humanos_achados"))
     artigos_h = bool(resumo.get("tem_dados_humanos_artigos"))
     dois = len((funil or {}).get("provedores") or []) >= 2
+    excluidos_h = bool((falsa_exclusao or {}).get("tem_excluidos_checados"))
 
     def estado(ok, falta):
         return "pode ser feita" if ok else "aguarda: " + falta
@@ -330,7 +387,8 @@ def bloco_hipoteses(resumo, funil):
         ["H1 região × tecnologia", estado(True, ""), "feita com achados classificados (veja a aba Adoção)"],
         ["H2 evidência e confirmação (regressão)", estado(achados_h, "verificação humana dos achados"), "fase 3 (`analises/`)"],
         ["H3 buscadores (custo por achado confirmado)", estado(achados_h and dois, "um segundo buscador usado na coleta e a verificação humana"), "fase 3"],
-        ["H4 falsa exclusão da triagem", estado(artigos_h, "triagem humana dos artigos"), "feita nesta página quando houver triagem"],
+        ["H4 falsa exclusão da triagem", estado(excluidos_h, "conferência por uma pessoa de uma amostra sorteada dos artigos que o modelo excluiu"),
+         "feita na aba Confiança na IA quando houver essa conferência"],
         ["H5 citações e posição × inclusão", estado(artigos_h, "triagem humana dos artigos"), "fase 3"],
         ["H6 tamanho do texto e falhas", estado(True, ""), "feita com a classificação (aba Operação)"],
     ]

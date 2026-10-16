@@ -14,8 +14,21 @@ Cada função declara a fórmula e os pressupostos no docstring. Convenções:
 import math
 import random
 
-# Probabilidade atribuída a cada nível de confiança do classificador (diagrama de confiabilidade e Brier).
+from dominio.concordancia import interpretar_kappa
+
+# SUPOSIÇÃO, não medida: probabilidade atribuída a cada nível de confiança do classificador (diagrama de
+# confiabilidade e Brier). Os números 0,9 / 0,5 / 0,2 são uma ESCOLHA DE PESQUISA (cenário "padrao"), sem base empírica:
+# o Brier mede sobretudo se esse mapeamento bate com a realidade, não só se o modelo separa bons de maus. Por isso
+# qualquer Brier divulgado deve vir rotulado como suposição, ao lado de `CENARIOS_PROBABILIDADE` (análise de
+# sensibilidade) e da referência "sempre a taxa geral" (`brier_referencia`). Ver docs/ESTATISTICA_EXPLICADA.md, seção 10.
 PROBABILIDADE_POR_CONFIANCA = {"alta": 0.9, "media": 0.5, "baixa": 0.2}
+
+# Três mapeamentos nomeados para a análise de sensibilidade do Brier ("padrao" é o PROBABILIDADE_POR_CONFIANCA acima).
+CENARIOS_PROBABILIDADE = {
+    "padrao": {"alta": 0.9, "media": 0.5, "baixa": 0.2},
+    "otimista": {"alta": 0.95, "media": 0.8, "baixa": 0.5},
+    "conservador": {"alta": 0.8, "media": 0.6, "baixa": 0.4},
+}
 
 _EPS = 1e-300
 
@@ -302,6 +315,40 @@ def teste_binomial_exato_unilateral(k, n, p0, direcao="menor"):
     if n > 0:
         resultado["p_valor"] = _cauda_binomial(k, n, float(p0), inferior=(direcao == "menor"))
     return resultado
+
+
+def limite_superior_binomial_exato(k, n, confianca=0.95):
+    """Limite superior unilateral exato (Clopper-Pearson) de confiança `confianca` para uma proporção, dados k eventos em n.
+
+    É o p tal que P(X <= k | p) = 1 - confianca, com X ~ Binomial(n, p), achado por bisseção sobre a cauda binomial (as
+    mesmas funções em escala log do teste exato). Leitura: com `confianca` de 95%, a proporção verdadeira é no máximo
+    este valor. k = n dá 1. n = 0 não tem dado: devolve None. Exige 0 <= k <= n.
+
+    Equivalência exata com o teste binomial unilateral: `limite_superior_binomial_exato(k, n, c) < p0` se e somente se
+    `teste_binomial_exato_unilateral(k, n, p0, "menor")["p_valor"] < 1 - c` (a cauda P(X <= k | p) só diminui quando p
+    cresce; só um empate exato em ponto flutuante pode desfazer a igualdade). Assim o veredito "o limite está abaixo da meta p0" e o p-valor nunca discordam. Com k = 0 vale
+    1 - (1 - c)^(1/n), próximo de 3/n para c = 0,95 (regra dos três).
+    """
+    k = _contagem_inteira(k, "k")
+    n = _contagem_inteira(n, "n")
+    confianca = _confianca_valida(confianca)
+    if k > n:
+        raise ValueError(f"k ({k}) não pode ser maior que n ({n})")
+    if n == 0:
+        return None
+    if k == n:
+        return 1.0
+    alfa = 1.0 - confianca
+    inferior, superior = 0.0, 1.0
+    for _ in range(200):
+        meio = (inferior + superior) / 2.0
+        if meio <= inferior or meio >= superior:
+            break
+        if _cauda_binomial(k, n, meio, inferior=True) > alfa:
+            inferior = meio
+        else:
+            superior = meio
+    return (inferior + superior) / 2.0
 
 
 def teste_mcnemar(so_a, so_b):
@@ -608,21 +655,14 @@ def kappa_cohen(matriz, confianca=0.95):
 
 
 def faixa_kappa(kappa):
-    """Faixa de leitura do kappa (Landis e Koch adaptada ao plano de visualização do projeto), em português.
-
-    kappa < 0,40: "fraca" (inclui valores negativos); < 0,61: "moderada" (0,40 a 0,60); <= 0,80: "substancial"
-    (0,61 a 0,80); acima de 0,80: "quase perfeita". None devolve None. As faixas são só uma leitura aproximada.
+    """Faixa de leitura do kappa, em português, com a MESMA escala de `dominio.concordancia.interpretar_kappa`
+    (fonte única; Landis e Koch, 1977): < 0 "pior que o acaso"; até 0,20 "fraca"; até 0,40 "razoável"; até 0,60
+    "moderada"; até 0,80 "substancial"; acima disso "quase perfeita". None devolve None. Entrada não numérica levanta
+    ValueError. As faixas são só uma leitura aproximada.
     """
     if kappa is None:
         return None
-    kappa = _numero_finito(kappa, "kappa")
-    if kappa < 0.40:
-        return "fraca"
-    if kappa < 0.61:
-        return "moderada"
-    if kappa <= 0.80:
-        return "substancial"
-    return "quase perfeita"
+    return interpretar_kappa(_numero_finito(kappa, "kappa"))
 
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -651,6 +691,36 @@ def brier_score(probabilidades, desfechos):
             raise ValueError(f"probabilidade fora de [0, 1]: {p}")
         soma += (p - _desfecho_binario(y, "desfecho")) ** 2
     return soma / len(probabilidades)
+
+
+def brier_referencia(desfechos):
+    """Brier da referência ingênua "sempre prever a taxa geral": p_barra (1 - p_barra), p_barra = média dos desfechos.
+
+    Um Brier só diz algo lido ao lado deste valor: se não fica abaixo dele, o mapeamento de confiança em
+    probabilidade não acrescenta nada a "chutar a taxa geral". Lista vazia devolve None.
+    """
+    if len(desfechos) == 0:
+        return None
+    taxa = sum(_desfecho_binario(y, "desfecho") for y in desfechos) / len(desfechos)
+    return taxa * (1.0 - taxa)
+
+
+def brier_por_cenario(rotulos, desfechos):
+    """Brier em cada mapeamento de `CENARIOS_PROBABILIDADE` (análise de sensibilidade) mais a referência ingênua.
+
+    `rotulos`: "alta", "media" ou "baixa" por item; `desfechos`: 1 se a revisão humana confirmou, senão 0. Devolve
+    {cenario: brier, ..., "brier_referencia": brier de "sempre a taxa geral"}; sem itens, todos os valores são None.
+    Os mapeamentos são suposições de pesquisa: se a conclusão muda de um cenário para outro, ela depende da suposição.
+    Rótulo desconhecido ou tamanhos diferentes levantam ValueError.
+    """
+    if len(rotulos) != len(desfechos):
+        raise ValueError("rotulos e desfechos devem ter o mesmo tamanho")
+    for rotulo in rotulos:
+        if rotulo not in PROBABILIDADE_POR_CONFIANCA:
+            raise ValueError(f"nível de confiança desconhecido: {rotulo!r}")
+    saida = {nome: brier_score([mapa[r] for r in rotulos], desfechos) for nome, mapa in CENARIOS_PROBABILIDADE.items()}
+    saida["brier_referencia"] = brier_referencia(desfechos)
+    return saida
 
 
 def tabela_calibracao(rotulos, desfechos, confianca=0.95):
@@ -786,7 +856,7 @@ def _quantil_interpolado(ordenados, q):
     return ordenados[baixo] + (posicao - baixo) * (ordenados[alto] - ordenados[baixo])
 
 
-def bootstrap_ic(funcao, amostras, repeticoes=2000, semente=0, confianca=0.95):
+def bootstrap_ic(funcao, amostras, repeticoes=10_000, semente=0, confianca=0.95):
     """IC por percentis do bootstrap não paramétrico (reamostragem com reposição), determinístico para a `semente`.
 
     `amostras`: sequência de GRUPOS, cada grupo uma lista de observações (qualquer objeto). Em cada repetição cada
@@ -795,6 +865,8 @@ def bootstrap_ic(funcao, amostras, repeticoes=2000, semente=0, confianca=0.95):
     funcao devolve None, não finito, ou levanta ZeroDivisionError são descartadas e contadas à parte.
     IC = quantis (1 - confianca)/2 e 1 - (1 - confianca)/2 das estatísticas válidas (interpolação linear).
     Grupo vazio levanta ValueError. Sem nenhuma repetição válida, ic_inferior e ic_superior são None.
+    O padrão é 10.000 repetições (antes 2.000): o custo extra é desprezível para os tamanhos de amostra do projeto e o
+    intervalo por percentis fica mais estável (menos variação entre sementes nos quantis das caudas).
     Devolve dict: estimativa (funcao nos dados originais, ou None), ic_inferior, ic_superior, repeticoes,
     repeticoes_validas, semente.
     """

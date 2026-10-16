@@ -184,9 +184,11 @@ def test_id_ausente_gera_linha_invalida_e_o_item_pode_ser_repetido(academico):
 def test_termo_fora_da_lista_fica_marcado_no_banco(academico):
     repo, bruto, run = academico
     _exec(repo, bruto, run, TriadorSimulado(termo_ruim=True))
-    problemas = [json.loads(l[0]) for l in repo.conn.execute("SELECT problemas FROM triagem_escopo WHERE valido=0")]
+    problemas = [json.loads(l[0]) for l in repo.conn.execute("SELECT problemas FROM triagem_escopo WHERE problemas LIKE '%termo_gerador_fora_da_lista%'")]
     assert problemas and all("termo_gerador_fora_da_lista" in p for p in problemas)
-    assert _n(repo, "SELECT COUNT(*) FROM triagem_escopo WHERE valido=0 AND termo_gerador IS NOT NULL") == 0
+    assert _n(repo, "SELECT COUNT(*) FROM triagem_escopo WHERE problemas LIKE '%termo_gerador_fora_da_lista%' AND termo_gerador IS NOT NULL") == 0
+    # o aviso de campo auxiliar nao invalida o veredito (so id, enum, categoria e recorte invalidam)
+    assert _n(repo, "SELECT COUNT(*) FROM triagem_escopo WHERE problemas LIKE '%termo_gerador_fora_da_lista%' AND valido=0") == 0
 
 
 @pytest.mark.parametrize("triador, erro", [

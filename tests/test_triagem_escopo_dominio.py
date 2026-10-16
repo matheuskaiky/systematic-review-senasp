@@ -168,7 +168,7 @@ def test_termo_gerador_precisa_ser_um_dos_termos_do_item_comparacao_normalizada(
     assert ok["termo_gerador"] == '"reconhecimento facial"' and ok["valido"] is True      # devolve o texto do termo
     ruim = _validar([it], [_obj(it, status="quarentena", categoria_motivo="AMBIGUIDADE_LEXICAL",
                                 termo_gerador_ruido="machine learning")])[0][0]
-    assert ruim["termo_gerador"] is None and ruim["problemas"] == ["termo_gerador_fora_da_lista"] and not ruim["valido"]
+    assert ruim["termo_gerador"] is None and ruim["problemas"] == ["termo_gerador_fora_da_lista"] and ruim["valido"] is True
     elegivel = _validar([it], [_obj(it, termo_gerador_ruido="machine learning")])[0][0]
     assert elegivel["termo_gerador"] is None and elegivel["valido"] is True               # elegivel nao tem termo gerador
 
@@ -179,9 +179,9 @@ def test_sinal_negativo_literal_ate_tres_palavras_sem_acento_nem_caixa():
     ok = _validar([it], [_obj(it, sinal_negativo="SAUDE publica", **base)])[0][0]
     assert ok["sinal_negativo"] == "SAUDE publica" and ok["valido"]
     parte = _validar([it], [_obj(it, sinal_negativo="hospital", **base)])[0][0]       # "hospitais": nao e palavra inteira
-    assert parte["sinal_negativo"] is None and parte["problemas"] == ["sinal_negativo_nao_literal"]
+    assert parte["sinal_negativo"] is None and parte["problemas"] == ["sinal_negativo_nao_literal"] and parte["valido"] is True
     longo = _validar([it], [_obj(it, sinal_negativo="análise de hospitais e", **base)])[0][0]
-    assert longo["sinal_negativo"] is None and longo["problemas"] == ["sinal_negativo_longo"]
+    assert longo["sinal_negativo"] is None and longo["problemas"] == ["sinal_negativo_longo"] and longo["valido"] is True
     no_resumo = _validar([it], [_obj(it, sinal_negativo="hospitais e clínicas", **base)])[0][0]
     assert no_resumo["sinal_negativo"] == "hospitais e clínicas"
     cortado = _artigo(2, resumo="x" * 1300 + " hospital")
@@ -317,3 +317,12 @@ def test_amostra_web_metade_selecionados_metade_descartados_e_espalhada():
     a = escolher_amostra(itens, 8, True, "x")
     assert sum(1 for i in a if i["selecionado"]) == 4 and sum(1 for i in a if not i["selecionado"]) == 4
     assert {(i["uf"], i["tecnologia"]) for i in a if not i["selecionado"]} == {("PI", "a"), ("PI", "b"), ("CE", "a"), ("CE", "b")}
+
+
+def test_problema_estrutural_continua_invalidando_a_linha():
+    it = _artigo(1)
+    # categoria invalida, status invalido e recorte temporal incoerente com o ano invalidam (nao sao campo auxiliar)
+    assert not _validar([it], [_obj(it, status="quarentena", categoria_motivo="INVENTADA")])[0][0]["valido"]
+    assert not _validar([it], [_obj(it, status="talvez")])[0][0]["valido"]
+    recente = _artigo(2, ano=2024)
+    assert not _validar([recente], [_obj(recente, status="excluido", confianca="alta", categoria_motivo="FORA_DO_RECORTE_TEMPORAL")])[0][0]["valido"]

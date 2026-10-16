@@ -25,6 +25,9 @@ CATEGORIA_GEOGRAFICA = "FORA_DO_RECORTE_GEOGRAFICO"
 CATEGORIA_TEMPORAL = "FORA_DO_RECORTE_TEMPORAL"
 MAX_PALAVRAS_SINAL = 3
 FONTES = ("artigo", "web")
+# Avisos sobre campos AUXILIARES (termo gerador e sinal negativo): o campo vira nulo e o aviso fica em `problemas`, mas o
+# veredito (status, motivo) segue valido. Os demais problemas (enum, id, categoria, recorte) invalidam a linha.
+AVISOS_DE_CAMPO_AUXILIAR = frozenset({"termo_gerador_fora_da_lista", "sinal_negativo_longo", "sinal_negativo_nao_literal"})
 
 
 @dataclass(frozen=True)
@@ -285,7 +288,7 @@ def _conferir(item, obj, config):
             problemas.append("sinal_negativo_nao_literal")
         else:
             linha["sinal_negativo"] = sinal.strip()
-    linha["valido"] = not problemas
+    linha["valido"] = not [p for p in problemas if p not in AVISOS_DE_CAMPO_AUXILIAR]
     return linha
 
 

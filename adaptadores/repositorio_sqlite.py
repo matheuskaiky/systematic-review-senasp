@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import sqlite3
@@ -50,8 +51,24 @@ class RepositorioSQLite:
         # Quem GRAVA espera ate 60 s por um bloqueio de leitura (o painel aberto pode estar lendo, e em /mnt/c uma leitura
         # lenta segura o banco). Com 5 s, uma classificacao longa morria com "database is locked" (16/10/2026).
         self.conn.execute("PRAGMA busy_timeout = 60000")
-        self.conn.executescript((Path(__file__).parent / "schema.sql").read_text(encoding="utf-8"))
+        self._preparar_esquema()
         self._garantir_colunas()
+
+    def _preparar_esquema(self):
+        """Cria ou atualiza o esquema SO quando ele mudou. Antes, cada processo que abria o banco derrubava e recriava as
+        ~60 views, uma gravacao longa em /mnt/c que bloqueava quem ja estava gravando ("database is locked", 16/10/2026).
+        A assinatura (hash do `schema.sql` e das colunas novas) fica em `meta_schema`; igual = nenhuma gravacao ao abrir."""
+        texto = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
+        assinatura = hashlib.sha256((texto + json.dumps(_COLUNAS_NOVAS, sort_keys=True)).encode()).hexdigest()
+        if self.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta_schema'").fetchone():
+            guardada = self.conn.execute("SELECT valor FROM meta_schema WHERE chave='assinatura'").fetchone()
+            if guardada and guardada[0] == assinatura:
+                return
+        self.conn.executescript(texto)
+        self._garantir_colunas()
+        self.conn.execute("CREATE TABLE IF NOT EXISTS meta_schema (chave TEXT PRIMARY KEY, valor TEXT)")
+        self.conn.execute("INSERT OR REPLACE INTO meta_schema (chave, valor) VALUES ('assinatura', ?)", (assinatura,))
+        self.conn.commit()
 
     def _garantir_colunas(self):
         for tabela, colunas in _COLUNAS_NOVAS.items():

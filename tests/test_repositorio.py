@@ -202,3 +202,50 @@ def test_bruto_local_devolve_caminho_relativo(tmp_path):
     caminho, _ = bruto.salvar("texto", "run1", "b" * 40, "olá".encode(), "txt")
     assert not caminho.startswith(("/", str(tmp_path)))
     assert (tmp_path / caminho).exists()
+
+
+# ---------- abrir o banco nao regrava o esquema quando ele nao mudou ----------
+def _comandos_ao_abrir(caminho):
+    comandos = []
+    conn = None
+    import sqlite3 as _s
+    original = _s.connect
+
+    def conectar(*a, **k):
+        c = original(*a, **k)
+        c.set_trace_callback(lambda sql: comandos.append(sql))
+        return c
+    _s.connect = conectar
+    try:
+        RepositorioSQLite(caminho).fechar()
+    finally:
+        _s.connect = original
+    return comandos
+
+
+def test_reabrir_banco_nao_derruba_nem_recria_as_views(tmp_path):
+    RepositorioSQLite(tmp_path / "e.db").fechar()
+    comandos = _comandos_ao_abrir(tmp_path / "e.db")
+    escritas = [c for c in comandos if c.strip().upper().startswith(("DROP", "CREATE", "ALTER", "INSERT", "UPDATE", "DELETE"))]
+    assert escritas == [], escritas[:5]
+
+
+def test_esquema_alterado_e_aplicado_na_proxima_abertura(tmp_path):
+    r = RepositorioSQLite(tmp_path / "m.db")
+    r.conn.execute("DROP VIEW v_funil")
+    r.conn.execute("UPDATE meta_schema SET valor='antigo' WHERE chave='assinatura'")
+    r.conn.commit()
+    r.fechar()
+    r2 = RepositorioSQLite(tmp_path / "m.db")
+    assert r2.conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='view' AND name='v_funil'").fetchone()[0] == 1
+    assert r2.conn.execute("SELECT valor FROM meta_schema WHERE chave='assinatura'").fetchone()[0] != "antigo"
+
+
+def test_banco_antigo_sem_meta_schema_e_atualizado_uma_vez(tmp_path):
+    import sqlite3 as _s
+    c = _s.connect(tmp_path / "velho.db")
+    c.executescript("CREATE TABLE execucoes (run_id TEXT PRIMARY KEY, iniciado_em TEXT NOT NULL, config_hash TEXT NOT NULL, config_json TEXT NOT NULL);")
+    c.close()
+    r = RepositorioSQLite(tmp_path / "velho.db")
+    assert r.conn.execute("SELECT COUNT(*) FROM meta_schema").fetchone()[0] == 1
+    assert "no_relatorio" in {l["name"] for l in r.conn.execute("PRAGMA table_info(execucoes)")}

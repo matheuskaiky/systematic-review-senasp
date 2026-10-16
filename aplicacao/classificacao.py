@@ -56,7 +56,7 @@ def executar(repo, bruto, classificador, run_id, run_origem, params, ufs_nomes, 
             repo.registrar_metrica(run_id, "classificacao_parada_cota_diaria", 1)
             repo.confirmar()
             raise CotaDiariaEsgotada(classificador.nome, "Retome com --retomar depois que a cota renovar.",
-                                     res.chamada.extras.get("cota_renova_em_s"))
+                                     res.chamada.extras.get("cota_renova_em_s"), res.chamada.extras.get("cota_motivo", "cota_diaria"))
         if res.chamada.sucesso:
             validos, invalidos, descartados = [], 0, []
             for a in res.achados:

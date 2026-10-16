@@ -90,7 +90,7 @@ def executar(repo, bruto, triador, run_id, fonte, mapas, config, precos, segredo
             repo.registrar_metrica(run_id, "triagem_escopo_itens_triados", r["itens_triados"])
             repo.confirmar()
             raise CotaDiariaEsgotada(triador.nome, "Os itens do lote afetado seguem sem triagem.",
-                                     res.chamada.extras.get("cota_renova_em_s"))
+                                     res.chamada.extras.get("cota_renova_em_s"), res.chamada.extras.get("cota_motivo", "cota_diaria"))
         if linhas is None:
             r["lotes_falhos"] += 1
             motivo = str(res.chamada.erro)

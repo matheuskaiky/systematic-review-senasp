@@ -96,6 +96,10 @@ def estimar(args):
 
 def _avisar_cota_diaria(e, cmd, run_id):
     """Mensagem unica para a parada por cota diaria esgotada (sem traceback): a execucao fica interrompida e se retoma."""
+    if getattr(e, "motivo", "") == "saldo":
+        logging.warning("Parada: %s Depois de colocar crédito no projeto, retome com: python main.py %s ... --retomar %s",
+                        e, cmd, run_id)
+        return
     logging.warning("Parada: %s Resume com --retomar %s depois que a cota renovar (a cota diária renova à meia-noite no "
                     "horário do Pacífico, 04h no horário de Brasília durante o horário de verão americano e 05h fora "
                     "dele). Comando: python main.py %s ... --retomar %s", e, run_id, cmd, run_id)

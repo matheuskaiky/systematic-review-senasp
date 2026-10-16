@@ -137,3 +137,37 @@ def repo_bruto(tmp_path):
 
 def test_mensagem_do_erro_de_dominio():
     assert "5h03min" in str(CotaDiariaEsgotada("gemini", "", 18200)) and "esgotada" in str(CotaDiariaEsgotada("gemini"))
+
+
+# ---------- HTTP 402: saldo pre-pago esgotado ----------
+SALDO = json.dumps({"error": {"code": 402, "message": "Your prepayment credits are depleted. Please go to AI Studio", "status": "RESOURCE_EXHAUSTED"}})
+
+
+def test_adaptador_marca_saldo_esgotado_no_402(monkeypatch):
+    _chamar(monkeypatch, SALDO, erro="HTTP 402: ...", http_status=402)
+    c = _gemini().classificar(_entrada(), Instrucoes("v", "S", "U", ESQUEMA)).chamada
+    assert c.extras["cota_diaria_esgotada"] is True and c.extras["cota_motivo"] == "saldo" and not c.sucesso
+
+
+def test_mensagem_de_saldo_nao_fala_em_renovar_a_cota():
+    msg = str(CotaDiariaEsgotada("gemini", "", None, "saldo"))
+    assert "Saldo pré-pago" in msg and "402" in msg and "renovar" not in msg and "faturamento" in msg
+
+
+def test_etapa_para_no_402_com_a_mensagem_de_saldo(tmp_path):
+    class Sem402:
+        nome = "gemini:teste"
+
+        def classificar(self, entrada, instr):
+            reg = RegistroChamada(provedor=self.nome, operacao="classificar", parametros={}, requisitado_em="2026-10-16T00:00:00+00:00",
+                                  http_status=402, latencia_ms=1, erro="HTTP 402: saldo")
+            reg.extras.update({"cota_diaria_esgotada": True, "cota_motivo": "saldo"})
+            return ResultadoClassificacao(False, [], False, "", reg)
+    logging.disable(logging.CRITICAL)
+    try:
+        repo, run_id = construir_downloads(tmp_path)
+        with pytest.raises(CotaDiariaEsgotada) as e:
+            classificacao.executar(repo, repo_bruto(tmp_path), Sem402(), run_id, run_id, _params(), C.UFS, [], 0, ufs={"PI"})
+    finally:
+        logging.disable(logging.NOTSET)
+    assert e.value.motivo == "saldo" and "Saldo pré-pago" in str(e.value)

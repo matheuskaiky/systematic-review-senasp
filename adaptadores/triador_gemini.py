@@ -45,6 +45,9 @@ class TriadorEscopoGemini(ClassificadorGemini):
                 if diaria:                         # a etapa para (ver aplicacao/triagem_escopo.py); nao e falha do lote
                     reg.extras["cota_diaria_esgotada"] = True
                     reg.extras["cota_renova_em_s"] = renova
+            elif r["http_status"] == 402:          # saldo pre-pago esgotado: repetir nao adianta, a etapa para
+                reg.extras["cota_diaria_esgotada"] = True
+                reg.extras["cota_motivo"] = "saldo"
         if reg.erro is None:
             try:
                 meta = self.metadados(r["resp"].text)

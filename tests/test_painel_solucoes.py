@@ -261,3 +261,26 @@ def test_teto_de_100_resultados_com_aviso(modelo):
 def test_buscar_texto_e_solucoes_apontam_um_para_o_outro(cli):
     assert 'href="/buscar-texto?q=Gama%20App&amp;uf=PI&amp;inteira=1"' in cli.get("/solucoes").text
     assert 'href="/solucoes"' in cli.get("/buscar-texto").text
+
+
+def test_aquecimento_le_os_textos_ao_abrir_o_painel(modelo):
+    """Com o servidor no ar (`with TestClient`), a tarefa de fundo enche o cache antes de qualquer busca."""
+    _, _, banco, raw, ctx = modelo
+    app, _ = _app(banco, raw, banco.parent)
+    with TestClient(app) as cliente:
+        app.state.aquecimento_cache_texto.join(timeout=60)
+        assert app.state.cache_textos.tamanho() > 0
+        assert cliente.get("/buscar-texto?q=reconhecimento").status_code == 200
+
+
+def test_sem_servidor_nao_ha_aquecimento_e_falha_do_aquecimento_nao_derruba(modelo, tmp_path):
+    _, _, banco, raw, ctx = modelo
+    app, _ = _app(banco, raw, banco.parent)
+    TestClient(app)                                             # sem `with`: o evento de inicio nao dispara
+    assert not hasattr(app.state, "aquecimento_cache_texto")
+    # banco que nao existe: o aquecimento termina sem erro e o painel sobe
+    app2, _ = _app(tmp_path / "nao_existe.db", tmp_path / "raw", tmp_path)
+    with TestClient(app2) as c2:
+        app2.state.aquecimento_cache_texto.join(timeout=10)
+        assert app2.state.cache_textos.tamanho() == 0
+        assert c2.get("/buscar-texto").status_code in (200, 503)

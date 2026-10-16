@@ -5,8 +5,12 @@
 resultado de busca, pagina baixada, achado. So le o banco e os arquivos de texto; nunca grava.
 
 O texto das paginas e lido por `c.bruto` e guardado em memoria (os arquivos nao mudam), com o texto normalizado ao lado, para que
-a segunda busca seja quase instantanea."""
+a segunda busca seja quase instantanea. Ao abrir o painel, uma tarefa em segundo plano le todos os textos (aquecimento), de modo
+que a PRIMEIRA busca tambem seja rapida: sem ela, ler cerca de 800 arquivos em /mnt/c leva de 6 a 11 s."""
+import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from urllib.parse import urlencode
 
 from fastapi import Request
@@ -30,6 +34,7 @@ class CacheDeTextos:
     def __init__(self, bruto):
         self._bruto = bruto
         self._itens, self._tamanho = {}, 0
+        self._trava = threading.Lock()          # o aquecimento e as requisicoes podem usar o cache ao mesmo tempo
 
     def _ler(self, caminho):
         try:
@@ -41,16 +46,23 @@ class CacheDeTextos:
     def obter(self, caminhos):
         """{caminho: (original, normalizado) ou None} para todos os caminhos pedidos."""
         caminhos = list(dict.fromkeys(caminhos))
-        saida = {p: self._itens[p] for p in caminhos if p in self._itens}
+        with self._trava:
+            saida = {p: self._itens[p] for p in caminhos if p in self._itens}
         faltam = [p for p in caminhos if p not in saida]
         if faltam:
-            if self._tamanho > ORCAMENTO_CACHE:
-                self._itens, self._tamanho = {}, 0
             with ThreadPoolExecutor(THREADS_LEITURA) as pool:
-                for p, t in zip(faltam, pool.map(self._ler, faltam)):
+                lidos = list(zip(faltam, pool.map(self._ler, faltam)))
+            with self._trava:
+                if self._tamanho > ORCAMENTO_CACHE:
+                    self._itens, self._tamanho = {}, 0
+                for p, t in lidos:
                     saida[p] = self._itens[p] = t
                     self._tamanho += 2 * len(t[0]) if t else 0
         return saida
+
+    def tamanho(self):
+        with self._trava:
+            return len(self._itens)
 
 
 def _so_http(url):
@@ -77,6 +89,32 @@ def registrar(c):
     app, leitura = c.app, c.leitura
     cache = CacheDeTextos(c.bruto)
     ufs_validas = c.contexto.ufs
+
+    def aquecer():
+        """Le todos os textos para o cache. Qualquer falha so e registrada: o aquecimento nunca pode derrubar o painel."""
+        try:
+            if leitura.existe():
+                cache.obter(p["texto_path"] for p in leitura.paginas_para_busca_texto(None))
+        except Exception:                               # noqa: BLE001 - e so uma otimizacao
+            logging.warning("[painel] aquecimento do cache de textos falhou; a primeira busca sera mais lenta", exc_info=True)
+
+    def iniciar_aquecimento():
+        t = threading.Thread(target=aquecer, name="aquecer-cache-texto", daemon=True)
+        app.state.aquecimento_cache_texto = t
+        t.start()
+
+    app.state.cache_textos = cache
+    # o aquecimento comeca quando o servidor sobe (ou em `with TestClient(app)`); o FastAPI atual nao tem `add_event_handler`,
+    # entao o ciclo de vida existente e embrulhado
+    ciclo_original = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def ciclo(aplicacao):
+        iniciar_aquecimento()
+        async with ciclo_original(aplicacao) as estado:
+            yield estado
+
+    app.router.lifespan_context = ciclo
 
     @app.get("/buscar-texto", response_class=HTMLResponse)
     def buscar_texto(request: Request):

@@ -9,7 +9,7 @@ O texto do prompt e em ingles e a saida em portugues (convencao D1 do projeto). 
 """
 from dominio.triagem_escopo import ConfigTriagem, SEM_CATEGORIA
 
-PROMPT_TRIAGEM_VERSAO = "t2"   # t2 (16/10/2026): a excecao dos anos antigos passou a ser usada (ver docs/ESTRATEGIA_TRIAGEM_ESCOPO_LLM.md)
+PROMPT_TRIAGEM_VERSAO = "t2"   # t2 (16/10/2026): a excecao dos anos antigos passou a ser usada (ver a secao 8 de docs/GUIA_DO_PROJETO.md)
 
 # ----- vocabularios fechados (os valores do enum sao em portugues) -----
 STATUS = ("elegivel", "quarentena", "excluido")

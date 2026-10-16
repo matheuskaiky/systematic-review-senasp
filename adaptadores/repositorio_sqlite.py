@@ -47,7 +47,9 @@ class RepositorioSQLite:
         self.conn = sqlite3.connect(caminho)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
-        self.conn.execute("PRAGMA busy_timeout = 5000")        # o painel e a linha de comando podem abrir o banco juntos
+        # Quem GRAVA espera ate 60 s por um bloqueio de leitura (o painel aberto pode estar lendo, e em /mnt/c uma leitura
+        # lenta segura o banco). Com 5 s, uma classificacao longa morria com "database is locked" (16/10/2026).
+        self.conn.execute("PRAGMA busy_timeout = 60000")
         self.conn.executescript((Path(__file__).parent / "schema.sql").read_text(encoding="utf-8"))
         self._garantir_colunas()
 

@@ -14,7 +14,7 @@
   <thead><tr><th></th><th class="num"><a href="/execucoes/{{ ea.run_id }}"><code>{{ ea.run_id }}</code></a></th><th class="num"><a href="/execucoes/{{ eb.run_id }}"><code>{{ eb.run_id }}</code></a></th><th class="num">Diferença</th></tr></thead>
   <tbody>{% for chave, rotulo in campos %}{% set va = ea.funil.get(chave) or 0 %}{% set vb = eb.funil.get(chave) or 0 %}
     <tr><td>{{ rotulo }}</td><td class="num">{{ fmt.numero(va) }}</td><td class="num">{{ fmt.numero(vb) }}</td><td class="num">{{ "+" if vb > va }}{{ fmt.numero(vb - va) }}</td></tr>{% endfor %}
-    <tr><td>Custo registrado</td><td class="num">{{ fmt.moeda_usd(ea.custos|sum(attribute="custo_usd")) }}</td><td class="num">{{ fmt.moeda_usd(eb.custos|sum(attribute="custo_usd")) }}</td><td></td></tr>
+    <tr><td>Custo registrado</td><td class="num">{{ fmt.moeda_usd(custo_a) }}</td><td class="num">{{ fmt.moeda_usd(custo_b) }}</td><td></td></tr>
   </tbody></table></div></section>
 <section class="cartao"><h2>O que mudou na configuração</h2>
   {% if ea.config_hash == eb.config_hash %}<p class="selos"><span class="selo ok">✔ Configuração idêntica</span> (<code>{{ ea.config_hash }}</code>)</p>

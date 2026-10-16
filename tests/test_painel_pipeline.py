@@ -152,3 +152,14 @@ def test_navegacao_leva_as_telas_novas(ctx):
     cli, _, _ = ctx
     h = cli.get("/").text
     assert 'href="/execucoes"' in h and 'href="/chamadas"' in h
+
+
+def test_comparar_execucoes_com_custo_nulo_nao_quebra(ctx):
+    """Download nao tem custo (nulo): a soma do custo tem de tratar None (so aparecia com dados reais)."""
+    cli, copia, _ = ctx
+    baixar = _um(copia, "SELECT run_id FROM execucoes WHERE comando='baixar' LIMIT 1")
+    busca = _um(copia, "SELECT run_id FROM execucoes WHERE comando='busca-web' AND no_relatorio=1 LIMIT 1")
+    assert _um(copia, "SELECT COUNT(*) FROM chamadas WHERE run_id=? AND custo_usd IS NULL", baixar) > 0
+    r = cli.get(f"/execucoes/comparar?a={baixar}&b={busca}")
+    assert r.status_code == 200 and "Custo registrado" in r.text
+    assert cli.get(f"/execucoes/comparar?a={baixar}&b={baixar}").status_code == 200

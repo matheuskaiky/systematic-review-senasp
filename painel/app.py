@@ -218,7 +218,9 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
                   ("pares_url_uf_selecionados", "Páginas selecionadas"), ("paginas_baixadas", "Páginas baixadas"),
                   ("paginas_com_texto", "Páginas com texto"), ("classificacoes", "Classificações"), ("achados", "Achados"),
                   ("achados_evidencia_ok", "Achados com evidência"), ("achados_verificados", "Achados verificados")]
-        return pagina(request, "comparar.html", todas=todas, a=a, b=b, ea=ea, eb=eb, diferencas=diferencas, campos=campos)
+        soma = lambda e: sum((c["custo_usd"] or 0) for c in e["custos"]) if e else 0       # download nao tem custo (nulo)
+        return pagina(request, "comparar.html", todas=todas, a=a, b=b, ea=ea, eb=eb, diferencas=diferencas, campos=campos,
+                      custo_a=soma(ea), custo_b=soma(eb))
 
     @app.get("/execucoes/{run_id}", response_class=HTMLResponse)
     def execucao(request: Request, run_id: str):

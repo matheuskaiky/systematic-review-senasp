@@ -109,3 +109,14 @@ def test_mascarar_segredos_em_qualquer_nivel_sem_alterar_o_original():
     assert "SEGREDO" not in str(m) and m["headers"]["Content-Type"] == "json" and m["lista"][0]["ok"] == 1
     assert m["monkeys"] == "ok" and m["vazio"]["key"] == ""            # nao mascara o que nao e segredo nem o vazio
     assert original["api_key"] == "SEGREDO"
+
+
+def test_trecho_aproximado_em_texto_grande_e_rapido_e_acha_a_frase():
+    import time
+    frases = [f"Frase numero {n} sobre orcamento, obras e saude do estado sem relacao com o assunto buscado." for n in range(900)]
+    frases[437] = "A secretaria implantou o sistema de reconhecimento facial nas estacoes de metro da capital."
+    texto = "\n".join(" ".join(frases[i:i + 3]) for i in range(0, 900, 3))
+    assert len(texto) > 60_000
+    t = time.perf_counter()
+    par = trecho_mais_parecido("implantou um sistema de reconhecimento facial nas estacoes do metro", texto)
+    assert time.perf_counter() - t < 0.5 and par is not None and "reconhecimento facial" in texto[par[0]:par[1]]

@@ -39,26 +39,35 @@ def localizar_evidencia(evidencia, texto):
     return mapa[k], mapa[k + len(e) - 1] + 1
 
 
-def trecho_mais_parecido(evidencia, texto, minimo=0.35):
+def trecho_mais_parecido(evidencia, texto, minimo=0.35, candidatos=12):
     """Quando a evidencia nao consta no texto: (inicio, fim, similaridade 0-1) do trecho mais parecido, por
-    sentencas/paragrafos, ou None. E uma aproximacao para ajudar o humano, nunca uma prova."""
+    sentencas/paragrafos, ou None. E uma aproximacao para ajudar o humano, nunca uma prova.
+
+    Para nao rodar o difflib em milhares de sentencas (60 mil caracteres levavam ~0,7 s), um pre-filtro barato escolhe as
+    `candidatos` sentencas com mais palavras em comum com a evidencia, e so nelas se calcula a similaridade."""
     e = normalizar_texto(evidencia)
     if not e or not texto:
         return None
-    melhor = None
+    palavras_e = set(e.split())
+    pecas = []
     for m in re.finditer(r"[^\n]+", texto):
         inicio = m.start()
         for parte in re.finditer(r".+?(?:[.!?](?=\s)|$)", m.group(), flags=re.S):
-            trecho = parte.group()
-            n = normalizar_texto(trecho)
+            n = normalizar_texto(parte.group())
             if len(n) < 8:
                 continue
-            sm = difflib.SequenceMatcher(None, e, n, autojunk=False)
-            if sm.real_quick_ratio() < minimo or sm.quick_ratio() < minimo:
-                continue
-            r = sm.ratio()
-            if melhor is None or r > melhor[2]:
-                melhor = (inicio + parte.start(), inicio + parte.end(), r)
+            comuns = len(palavras_e & set(n.split()))
+            if comuns:
+                pecas.append((comuns / len(palavras_e), inicio + parte.start(), inicio + parte.end(), n))
+    pecas.sort(key=lambda x: -x[0])
+    melhor = None
+    for _, ini, fim, n in pecas[:candidatos]:
+        sm = difflib.SequenceMatcher(None, e, n, autojunk=False)
+        if sm.real_quick_ratio() < minimo or sm.quick_ratio() < minimo:
+            continue
+        r = sm.ratio()
+        if melhor is None or r > melhor[2]:
+            melhor = (ini, fim, r)
     return melhor if melhor and melhor[2] >= minimo else None
 
 

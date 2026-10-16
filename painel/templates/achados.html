@@ -3,7 +3,7 @@
 {% block titulo %}Achados{% endblock %}
 {% block conteudo %}
 <h1>Achados</h1>
-<p class="sub">Em ordem de revisão: não verificados primeiro, depois evidência não localizada, texto só de snippet, confiança baixa e fonte não oficial.</p>
+<p class="sub">Só a classificação vigente de cada página (ver o glossário). Em ordem de revisão: não verificados primeiro, depois evidência não localizada, texto só de snippet, confiança baixa e fonte não oficial.</p>
 <form class="filtros" method="get" action="/achados">
   <label>UF <select name="uf"><option value="">todas</option>{% for sigla, nome in ctx.ufs.items() %}<option value="{{ sigla }}"{% if filtros.uf == sigla %} selected{% endif %}>{{ sigla }}</option>{% endfor %}</select></label>
   <label>Esfera <select name="esfera"><option value="">todas</option><option value="estadual"{% if filtros.esfera == "estadual" %} selected{% endif %}>estadual</option><option value="municipal"{% if filtros.esfera == "municipal" %} selected{% endif %}>municipal</option></select></label>
@@ -15,7 +15,7 @@
   <label>Fonte <select name="oficial"><option value="">todas</option><option value="1"{% if filtros.oficial == "1" %} selected{% endif %}>oficial</option><option value="0"{% if filtros.oficial == "0" %} selected{% endif %}>não oficial</option></select></label>
   <label>Texto <select name="origem"><option value="">todos</option>{% for k, v in rotulos.ORIGEM_TEXTO.items() %}<option value="{{ k }}"{% if filtros.origem == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
   <label>Verificação <select name="verificacao"><option value="">todas</option>{% for k, v in rotulos.VERIFICACAO.items() %}<option value="{{ k }}"{% if filtros.verificacao == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
-  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="trecho, fornecedor ou endereço"></label>
+  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="trecho, solução, fornecedor ou endereço"></label>
   <button class="botao" type="submit">Filtrar</button>
   {% if filtros %}<a href="/achados">Limpar</a>{% endif %}
 </form>
@@ -27,12 +27,13 @@
 <p class="vazio">Nenhum achado com estes filtros.{% if filtros %} <a href="/achados">Limpar filtros</a>.{% else %} Rode a classificação (<code>python main.py classificar --de &lt;run_id&gt; --ufs PI --limite 5</code>).{% endif %}</p>
 {% else %}
 <div class="tabela-rolavel"><table class="tabela-achados">
-  <thead><tr><th>UF</th><th>Cidade</th><th>Tecnologia</th><th>Status</th><th>Evidência</th><th>Fonte</th><th>Verificação</th><th></th></tr></thead>
+  <thead><tr><th>UF</th><th>Cidade</th><th>Tecnologia</th><th>Solução</th><th>Status</th><th>Evidência</th><th>Fonte</th><th>Verificação</th><th></th></tr></thead>
   <tbody>{% for a in res.itens %}
     <tr>
       <td>{{ a.uf }}</td>
       <td>{% if a.cidade %}{{ a.cidade }}{% else %}<small class="fornecedor">estadual</small>{% endif %}</td>
       <td>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }}<br><small class="fornecedor">{{ a.fornecedor or "fornecedor não informado" }}</small></td>
+      <td>{% if a.nome_solucao %}<a href="/achados?q={{ a.nome_solucao|urlencode }}">{{ a.nome_solucao }}</a>{% else %}—{% endif %}</td>
       <td>{{ s.status(a.status_reportado) }}<br>{{ s.confianca(a.confianca) }}</td>
       <td>{{ s.evidencia(a.evidencia_confere) }}{% if a.origem_texto == 'snippet' %}<br>{{ s.origem(a.origem_texto, false) }}{% endif %}</td>
       <td>{{ s.fonte(a.fonte_oficial_final if a.fonte_oficial_final is not none else a.fonte_oficial, true) }}<br><small>{{ a.dominio_final or a.dominio }}</small></td>

@@ -345,3 +345,19 @@ def test_texto_nao_menciona_robots_sem_bloqueios():
     f = _fatos()
     f["web"]["bloqueios_robots"] = {"bloqueado_por_robots": 1}
     assert "1 página foi proibida pelo site" in _texto(f)
+
+
+# ---------- RC15: nome da solucao (prompt v4) e classificacao vigente ----------
+def test_metodologia_menciona_o_campo_nome_solucao_e_o_prompt_v4():
+    t = _texto(_fatos())
+    assert "nome_solucao" in t and "prompt v4" in t and "trecho de evidência continua sendo uma citação literal" in t
+
+
+def test_metodologia_explica_a_classificacao_vigente_so_quando_ha_repeticao():
+    f = _fatos()
+    assert "classificação vigente" not in _texto(f)                      # sem n_historico: nada a explicar
+    f["classificacao"]["n_historico"] = 1300                              # igual ao total das vigentes
+    assert "classificação vigente" not in _texto(f)
+    f["classificacao"]["n_historico"] = 1313
+    t = _texto(f)
+    assert "pela classificação vigente" in t and "ao todo foram feitas 1.313 classificações" in t

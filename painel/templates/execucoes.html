@@ -10,7 +10,7 @@
 <div class="tabela-rolavel"><table>
   <thead><tr><th>Execução</th><th>Comando</th><th>Situação</th><th>Início</th><th>Duração</th><th class="num">Chamadas</th><th class="num">Falhas</th><th class="num">Custo</th><th>Relatório</th></tr></thead>
   <tbody>{% for e in itens %}
-    <tr><td><a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a>{% if e.run_origem %}<br><small>entrada: <code>{{ e.run_origem }}</code></small>{% endif %}</td>
+    <tr><td><a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a>{% if e.runs_origem %}<br><small>entrada: {% for r in e.runs_origem %}<code>{{ r }}</code>{{ ", " if not loop.last }}{% endfor %}</small>{% endif %}</td>
       <td>{{ e.comando }}</td>
       <td>{% if e.status == "concluida" %}<span class="selo ok">✔ concluída</span>{% elif e.status == "em_andamento" %}<span class="selo alerta">● em andamento</span>{% else %}<span class="selo st-descartado">✕ {{ e.status }}</span>{% endif %}</td>
       <td>{{ fmt.data_hora(e.iniciado_em) }}</td><td>{{ fmt.duracao(e.iniciado_em, e.finalizado_em) }}</td>

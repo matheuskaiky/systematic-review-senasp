@@ -184,6 +184,14 @@ def test_sem_response_format_o_esquema_vai_no_prompt_de_sistema():
     assert sistema.startswith("SISTEMA") and "Respond ONLY with valid JSON" in sistema and json.dumps(ESQUEMA, ensure_ascii=False) in sistema
 
 
+def test_nome_solucao_vai_no_esquema_nos_dois_modos_do_openai_compat():
+    """RC15: o campo entra pelo `response_format` ou, sem ele, pelo esquema embutido no prompt de sistema."""
+    com = _openai(usar_response_format=True)._corpo(_instr())["response_format"]["json_schema"]["schema"]
+    item = com["properties"]["achados"]["items"]
+    assert item["properties"]["nome_solucao"]["type"] == "string" and "nome_solucao" in item["required"]
+    assert '"nome_solucao"' in _openai(usar_response_format=False)._corpo(_instr())["messages"][0]["content"]
+
+
 def test_com_response_format_o_esquema_vai_no_campo_proprio():
     c = _openai(usar_response_format=True)._corpo(_instr())
     assert c["response_format"] == {"type": "json_schema", "json_schema": {"name": "classificacao", "schema": ESQUEMA}}
@@ -215,6 +223,7 @@ def test_openai_classificar_com_resposta_normal(monkeypatch):
     res = _openai(preco_entrada_por_m=0.5, preco_saida_por_m=1.5).classificar(_entrada(), _instr())
     c = res.chamada
     assert res.relevante and res.json_valido and len(res.achados) == 1 and c.sucesso
+    assert res.achados[0].nome_solucao == "Sistema Simulado"        # o adaptador so repassa; a conferencia com o texto e do estagio
     assert c.provedor == "openai_compat:modelo-x" and (c.tokens_entrada, c.tokens_saida) == (1000, 100)
     assert c.custo_usd == pytest.approx((1000 * 0.5 + 100 * 1.5) / 1e6) and c.extras["custo_origem"] == "calculado_por_tokens"
     assert c.id_externo == "chatcmpl-sintetico-0001" and c.extras["finish_reason"] == "stop" and c.extras["modelo_versao"] == "modelo-sintetico-2026-01-01"
@@ -360,6 +369,9 @@ def test_estagio_de_classificacao_roda_igual_com_o_classificador_trocado(tmp_pat
     k = repo.conn.execute("SELECT DISTINCT classificador FROM classificacoes").fetchall()
     assert [x[0] for x in k] == ["openai_compat:modelo-x"] and repo.conn.execute("SELECT COUNT(*) FROM achados").fetchone()[0] == 3
     assert repo.conn.execute("SELECT SUM(evidencia_confere) FROM achados").fetchone()[0] == 3        # a checagem da evidencia nao muda
+    # o nome "Sistema Simulado" da resposta nao esta no texto da pagina simulada: descartado e contado (antialucinacao, igual em todo provedor)
+    assert repo.conn.execute("SELECT COUNT(*) FROM achados WHERE nome_solucao IS NOT NULL").fetchone()[0] == 0
+    assert repo.conn.execute("SELECT valor FROM metricas_run WHERE chave='classificacao_nome_solucao_descartado'").fetchone()[0] == 3
 
 
 def test_nenhum_nome_de_provedor_aparece_no_codigo_fora_de_config_e_adaptadores():

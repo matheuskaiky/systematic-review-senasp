@@ -85,6 +85,8 @@ class LeituraMetodologia:
                 FROM r_classificacoes k LEFT JOIN achados a ON a.classificacao_id=k.classificacao_id
                 GROUP BY k.classificador, k.prompt_versao ORDER BY n_classificacoes DESC, k.classificador, k.prompt_versao"""),
             "n_so_snippet": self._um("SELECT COUNT(*) AS n FROM r_classificacoes WHERE origem_texto='snippet'")["n"],
+            # todas as classificacoes feitas (uma pagina classificada duas vezes conta duas); as demais contagens sao das vigentes
+            "n_historico": self._um("SELECT COUNT(*) AS n FROM r_classificacoes_historico")["n"],
             "n_invalidas": self._um("SELECT COUNT(*) AS n FROM v_classificacoes_invalidas")["n"],
             "n_fora_vocabulario": self._um("SELECT COUNT(*) AS n FROM r_achados_descartados")["n"],
         }

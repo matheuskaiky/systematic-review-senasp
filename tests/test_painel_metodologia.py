@@ -157,7 +157,8 @@ def test_escopo_municipal_aparece_quando_ha_cidade_e_bate_com_o_sql(ctx):
     n, cid, conf = sqlite3.connect(copia).execute("SELECT SUM(n_achados), COUNT(*), SUM(n_confirmados) FROM v_resumo_municipio").fetchone()
     assert n
     t = _texto_da_pagina(cli.get("/metodologia").text)
-    assert f"{n} achados em secretarias municipais de {cid} cidade, dos quais {conf} confirmados" in t
+    palavra = "cidade" if cid == 1 else "cidades"          # o texto concorda no plural (a demonstracao passou a ter 3 cidades)
+    assert f"{n} achados em secretarias municipais de {cid} {palavra}, dos quais {conf} confirmados" in t
     assert "Não há achados de secretarias municipais" not in t
 
 

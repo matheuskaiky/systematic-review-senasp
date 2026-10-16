@@ -38,6 +38,17 @@ FRASES = {
     "analise_preditiva": "testa um modelo de análise preditiva para planejar o policiamento",
     "outra_ia": "contratou uma plataforma de inteligência artificial para triagem de ocorrências",
 }
+# nomes proprios FICTICIOS de solucoes: aparecem no texto de parte das paginas e o classificador demonstrativo os devolve em `nome_solucao`
+NOMES_SOLUCAO_DEMO = {"reconhecimento_facial": "Rosto Seguro", "leitura_placas": "Placa Atenta", "videomonitoramento_inteligente": "Olho Central",
+                      "analise_preditiva": "Rota Prevista", "outra_ia": "Atende Mais"}
+NOME_INVENTADO_DEMO = "Plataforma Fantasma"      # o "modelo" devolve este nome sem que o texto o cite: o sistema o descarta
+
+
+def _nome_demo(url, tec):
+    """Nome fiel ao texto (a pagina o cita) em parte das URLs; nada nas demais."""
+    return NOMES_SOLUCAO_DEMO.get(tec, "") if _h(url + "|nome", 4) == 0 else ""
+
+
 PREAMBULO = ("Notícias da Secretaria. {a}\n\nA pasta informou que o investimento segue o planejamento do exercício. "
              "O secretário destacou a integração entre as forças de segurança e a transparência das ações.\n\n")
 POSFACIO = ("\n\nAs informações detalhadas constam no portal da transparência. Outras ações incluem capacitação de equipes, "
@@ -104,8 +115,10 @@ class FetcherDemo:
         tec = next((t for t in FRASES if t in url), None)
         uf = url.split(".")[1].upper() if "exemplo.gov.br" in url else "UF"
         frase = FRASES.get(tec, "mantém suas ações institucionais")
+        nome = _nome_demo(url, tec)
+        citacao = f"A ferramenta, batizada de {nome}, foi apresentada à imprensa. " if nome else ""    # o nome fica fora do trecho da evidencia
         corpo = (PREAMBULO.format(a=f"A Secretaria de Segurança Pública do estado {frase}.") + f"Contexto: {frase}, segundo nota oficial de {uf}. "
-                 + "Texto de relleno. " * 12 + POSFACIO).encode()
+                 + citacao + "Texto de relleno. " * 12 + POSFACIO).encode()
         return ArquivoBaixado(url, 200, "text/html", corpo, False, _reg(self.nome, "baixar", raw=corpo, raw_ext="html", latencia_ms=300 + _h(url, 900)))
 
 
@@ -141,8 +154,9 @@ class ClassificadorDemo:
         if n % 5 == 0:                                         # ~20%: o modelo parafraseou, a evidencia nao confere
             trecho = "informou que usa tecnologia de IA em diversas frentes de policiamento"
         if "nao" not in u:
+            nome = _nome_demo(u, tec) or (NOME_INVENTADO_DEMO if _h(u + "|inventado", 15) == 0 else "")
             achados.append(Achado(tec, status, FORNECEDORES[n % len(FORNECEDORES)], n % 7 == 0 and "lgpd" in trecho.lower(),
-                                  trecho, ("alta", "media", "baixa")[n % 3]))
+                                  trecho, ("alta", "media", "baixa")[n % 3], nome_solucao=nome))
         if n % 9 == 0:                                         # alguns achados extras na mesma pagina
             outra = list(FRASES)[(list(FRASES).index(tec) + 1) % len(FRASES)]
             achados.append(Achado(outra, "apenas_citado", "", False, FRASES[outra], "baixa"))

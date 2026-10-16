@@ -128,7 +128,8 @@ def interpretar_json_classificacao(texto):
     achados = [
         Achado(tecnologia=str(a.get("tecnologia", "")), status=str(a.get("status", "")),
                fornecedor=str(a.get("fornecedor") or ""), menciona_lgpd=bool(a.get("menciona_lgpd")),
-               evidencia=str(a.get("evidencia") or ""), confianca=str(a.get("confianca", "baixa")))
+               evidencia=str(a.get("evidencia") or ""), confianca=str(a.get("confianca", "baixa")),
+               nome_solucao=" ".join(str(a.get("nome_solucao") or "").split()))
         for a in dados["achados"] if isinstance(a, dict)
     ]
     return bool(dados.get("relevante", bool(achados))), achados, True

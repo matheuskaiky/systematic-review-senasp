@@ -317,7 +317,13 @@ def _classificacao(x):
     if _g(cl, "n_so_snippet"):
         p.n(cl["n_so_snippet"], _url("/achados", origem="snippet")).t(" " + _pl(cl["n_so_snippet"], "classificação usou", "classificações usaram")
                                                                       + " só o trecho (snippet) do resultado da busca, não o texto da página. ")
-    p.t("Combinações de classificador e versão do prompt presentes no relatório:")
+    if _g(cl, "n_historico") > sum(_g(c, "n_classificacoes") for c in pares):
+        p.t("Uma página classificada mais de uma vez conta uma só vez, pela classificação vigente (a mais recente com resposta válida "
+            "e texto da página, ou a que já tem achado verificado por humano); ao todo foram feitas ").n(cl["n_historico"]).t(
+            " classificações, e o histórico completo continua no banco. ")
+    p.t("Cada achado traz também o nome próprio da solução (campo nome_solucao, a partir do prompt v4), copiado como está no texto; "
+        "o nome só é guardado se aparece no texto enviado ao modelo, e o trecho de evidência continua sendo uma citação literal. ")
+    p.t("Combinações de classificador e versão do prompt presentes no relatório (contagens das classificações vigentes):")
     blocos += [_bloco_p(p), _ul(itens)]
 
     total = _g(ach, "total")

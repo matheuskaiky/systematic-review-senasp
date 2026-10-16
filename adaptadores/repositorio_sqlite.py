@@ -11,6 +11,7 @@ import pandas as pd
 from dominio.modelos import CandidatoDownload, ItemClassificacao
 from dominio.servicos import (normalizar_url, dominio_de, eh_oficial, chave_dedup_titulo, palavras_chave_tecnologia,
                               evidencia_cita_termo, evidencia_cita_lgpd, normalizar_status_final)
+from dominio.entrada import separar_runs, juntar_runs
 from infra.util import agora
 
 
@@ -32,7 +33,8 @@ _COLUNAS_NOVAS = {
                   "excluida_em": "TEXT"},
     "paginas": {"dominio_final": "TEXT", "fonte_oficial_final": "INTEGER"},
     "selecao_download": {"auditoria": "INTEGER NOT NULL DEFAULT 0"},
-    "achados": {"confianca_original": "TEXT", "evidencia_cita_tecnologia": "INTEGER", "evidencia_cita_lgpd": "INTEGER"},
+    "achados": {"confianca_original": "TEXT", "evidencia_cita_tecnologia": "INTEGER", "evidencia_cita_lgpd": "INTEGER",
+                "nome_solucao": "TEXT"},
     "triagem": {"decisao_texto_completo": "TEXT", "motivo_texto_completo": "TEXT"},
     "triagem_revisoes": {"independente": "INTEGER NOT NULL DEFAULT 0"},
     "achados_revisoes": {"anterior_json": "TEXT", "posterior_json": "TEXT", "desfeita": "INTEGER NOT NULL DEFAULT 0"},
@@ -54,12 +56,32 @@ class RepositorioSQLite:
         self._preparar_esquema()
         self._garantir_colunas()
 
+    @staticmethod
+    def _assinatura_do_esquema():
+        texto = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
+        return texto, hashlib.sha256((texto + json.dumps(_COLUNAS_NOVAS, sort_keys=True)).encode()).hexdigest()
+
+    @classmethod
+    def esquema_atualizado(cls, caminho):
+        """So le (modo somente leitura): o esquema gravado no banco tem a mesma assinatura do codigo atual? Banco que nao
+        existe conta como atualizado (quem o cria aplica o esquema). Serve ao painel, que abre o banco so para leitura."""
+        caminho = Path(caminho)
+        if not caminho.exists():
+            return True
+        conn = sqlite3.connect(f"file:{caminho.as_posix()}?mode=ro", uri=True)
+        try:
+            guardada = conn.execute("SELECT valor FROM meta_schema WHERE chave='assinatura'").fetchone()
+        except sqlite3.Error:
+            return False
+        finally:
+            conn.close()
+        return bool(guardada) and guardada[0] == cls._assinatura_do_esquema()[1]
+
     def _preparar_esquema(self):
         """Cria ou atualiza o esquema SO quando ele mudou. Antes, cada processo que abria o banco derrubava e recriava as
         ~60 views, uma gravacao longa em /mnt/c que bloqueava quem ja estava gravando ("database is locked", 16/10/2026).
         A assinatura (hash do `schema.sql` e das colunas novas) fica em `meta_schema`; igual = nenhuma gravacao ao abrir."""
-        texto = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
-        assinatura = hashlib.sha256((texto + json.dumps(_COLUNAS_NOVAS, sort_keys=True)).encode()).hexdigest()
+        texto, assinatura = self._assinatura_do_esquema()
         if self.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta_schema'").fetchone():
             guardada = self.conn.execute("SELECT valor FROM meta_schema WHERE chave='assinatura'").fetchone()
             if guardada and guardada[0] == assinatura:
@@ -126,12 +148,20 @@ class RepositorioSQLite:
         self.conn.commit()
 
     # ---------- run ----------
+    def validar_runs_origem(self, runs):
+        """Cada execucao de origem (--de) precisa existir; encerra com mensagem para a primeira que faltar."""
+        for run in separar_runs(runs):
+            if not self.conn.execute("SELECT 1 FROM execucoes WHERE run_id=?", (run,)).fetchone():
+                raise SystemExit(f"Execução indicada em --de não encontrada: {run}")
+
     def iniciar_execucao(self, comando, config_hash, config_json, commit_git, retomar=None, run_origem=None,
                          ambiente_json=None):
-        # C5: a execucao indicada em --de precisa existir
-        if run_origem and not self.conn.execute(
-                "SELECT 1 FROM execucoes WHERE run_id=?", (run_origem,)).fetchone():
-            raise SystemExit(f"Execução indicada em --de não encontrada: {run_origem}")
+        """`run_origem`: um run_id, ou varios (lista, ou texto separado por virgulas). A coluna `execucoes.run_origem`
+        continua TEXT unica e guarda os run_id separados por virgula, na ordem dada (`dominio.entrada.separar_runs`
+        os separa de novo)."""
+        # C5: toda execucao indicada em --de precisa existir
+        self.validar_runs_origem(run_origem)
+        run_origem = juntar_runs(run_origem)
         if retomar:
             linha = self.conn.execute("SELECT config_hash FROM execucoes WHERE run_id=?", (retomar,)).fetchone()
             if not linha:
@@ -154,7 +184,8 @@ class RepositorioSQLite:
         return run_id
 
     def obter_run_origem(self, run_id):
-        """C5: run_origem guardado para a execucao (None se nao houver)."""
+        """C5: run_origem guardado para a execucao (None se nao houver). Com varias origens e o texto como foi gravado,
+        separado por virgulas; use `dominio.entrada.separar_runs` para obter a lista."""
         linha = self.conn.execute("SELECT run_origem FROM execucoes WHERE run_id=?", (run_id,)).fetchone()
         return linha["run_origem"] if linha else None
 
@@ -254,16 +285,56 @@ class RepositorioSQLite:
                           cidade=consulta.cidade or None)
         return novas
 
-    def candidatos_download(self, run_origem):
-        linhas = self.conn.execute("""
-            SELECT r.url_id, u.url_original AS url, r.uf, u.dominio, u.fonte_oficial,
-                   COALESCE(MAX(r.titulo),'') AS titulo, COALESCE(MAX(r.snippet),'') AS snippet,
-                   MIN(r.posicao) AS melhor_posicao, COUNT(*) AS n_ocorrencias, MAX(r.cidade) AS cidade
+    def candidatos_download(self, run_origens):
+        """Candidatos a download de UMA ou MAIS execucoes de busca (`run_origens`: texto ou lista), sem repeticao por
+        (url_id, uf). Do resultado mais recente (maior `resultado_id`) vem o titulo, o snippet e a cidade; a posicao e
+        a menor de todas e `n_ocorrencias` soma as ocorrencias de todas as execucoes. Ordem deterministica: (uf, url_id)."""
+        runs = separar_runs(run_origens)
+        if not runs:
+            return []
+        linhas = self.conn.execute(f"""
+            SELECT r.resultado_id, r.url_id, u.url_original AS url, r.uf, u.dominio, u.fonte_oficial,
+                   r.titulo, r.snippet, r.posicao, r.cidade
             FROM resultados_web r JOIN urls u ON u.url_id=r.url_id
-            WHERE r.run_id=? GROUP BY r.url_id, r.uf""", (run_origem,)).fetchall()
-        return [CandidatoDownload(l["url_id"], l["url"], l["uf"], l["dominio"], l["titulo"], l["snippet"],
-                                  l["melhor_posicao"], l["n_ocorrencias"], bool(l["fonte_oficial"]),
-                                  l["cidade"] or "") for l in linhas]
+            WHERE r.run_id IN ({",".join("?" for _ in runs)}) ORDER BY r.resultado_id""", runs).fetchall()
+        por_par = {}
+        for l in linhas:
+            chave = (l["url_id"], l["uf"])
+            d = por_par.setdefault(chave, {"n": 0, "pos": None, "cidade": None})
+            d["n"] += 1
+            d["linha"] = l                                  # a ultima (mais recente) sobrescreve
+            if l["posicao"] is not None and (d["pos"] is None or l["posicao"] < d["pos"]):
+                d["pos"] = l["posicao"]
+            if l["cidade"]:
+                d["cidade"] = l["cidade"]
+        return [CandidatoDownload(l["url_id"], l["url"], l["uf"], l["dominio"], l["titulo"] or "", l["snippet"] or "",
+                                  d["pos"], d["n"], bool(l["fonte_oficial"]), d["cidade"] or "")
+                for _, d in sorted(por_par.items()) for l in (d["linha"],)]
+
+    def urls_com_pagina_ok(self, excluir_run=None):
+        """url_id com ao menos uma pagina de texto extraido (`extracao_ok = 1`) em QUALQUER execucao, dentro ou fora do
+        relatorio. `excluir_run` ignora as paginas dessa execucao (uma retomada nao muda o que a execucao ja selecionou)."""
+        return {l[0] for l in self.conn.execute(
+            "SELECT DISTINCT url_id FROM paginas WHERE extracao_ok=1 AND run_id <> ?", (excluir_run or "",))}
+
+    def ultimas_tentativas_download(self, excluir_run=None):
+        """{url_id: (resultado, motivo)} da tentativa de download MAIS RECENTE de cada url, em qualquer execucao
+        (`v_resultado_download`: `resultado` ok, falha_download ou falha_extracao; `motivo` como na view). Urls nunca
+        tentadas nao aparecem. `excluir_run` ignora as tentativas dessa execucao."""
+        saida = {}
+        for l in self.conn.execute("""
+                SELECT url_id, resultado, motivo FROM v_resultado_download
+                WHERE chamada_id IS NOT NULL AND run_id <> ? ORDER BY chamada_id""", (excluir_run or "",)):
+            saida[l["url_id"]] = (l["resultado"], l["motivo"])
+        return saida
+
+    def classificados_validos(self, prompt_versao, classificador, excluir_run=None):
+        """{(url_id, uf)} com classificacao valida (`json_valido = 1`) feita com este prompt e este classificador em
+        alguma execucao DENTRO do relatorio (`no_relatorio = 1`). `excluir_run` ignora as classificacoes dessa execucao."""
+        return {(l[0], l[1]) for l in self.conn.execute(
+            """SELECT DISTINCT k.url_id, k.uf FROM classificacoes k JOIN execucoes e ON e.run_id=k.run_id
+               WHERE k.json_valido=1 AND k.prompt_versao=? AND k.classificador=? AND e.no_relatorio=1 AND k.run_id <> ?""",
+            (prompt_versao, classificador, excluir_run or ""))}
 
     def salvar_selecao(self, run_id, linhas):
         # cada linha: (url_id, uf, selecionada, motivo) ou (url_id, uf, selecionada, motivo, auditoria)
@@ -286,19 +357,29 @@ class RepositorioSQLite:
             extrator=texto.extrator if texto else None, extracao_ok=int(bool(texto and texto.ok)),
             motivo_falha=texto.motivo_falha if texto else None)
 
-    def itens_para_classificar(self, run_origem):
-        linhas = self.conn.execute("""
+    def itens_para_classificar(self, run_origens):
+        """Itens (url_id, uf) selecionados para download em UMA ou MAIS execucoes de download (`run_origens`: texto ou
+        lista), sem repeticao. A pagina de cada item e a MAIS RECENTE com texto extraido entre essas execucoes (se nenhuma
+        tiver texto, a mais recente, sem texto). Titulo, snippet e cidade vem do resultado de busca mais recente.
+        Ordem deterministica: (uf, url_id)."""
+        runs = separar_runs(run_origens)
+        if not runs:
+            return []
+        marcas = ",".join("?" for _ in runs)
+        linhas = self.conn.execute(f"""
             SELECT s.url_id, s.uf, u.url_original AS url,
                    (SELECT titulo  FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf ORDER BY r.resultado_id DESC LIMIT 1) AS titulo,
                    (SELECT snippet FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf ORDER BY r.resultado_id DESC LIMIT 1) AS snippet,
                    p.pagina_id, CASE WHEN p.extracao_ok=1 THEN p.texto_path END AS texto_path,
-                   (SELECT cidade FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf AND r.run_id=s.run_id
-                    AND r.cidade IS NOT NULL LIMIT 1) AS cidade
-            FROM selecao_download s
+                   (SELECT cidade FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf
+                    AND r.cidade IS NOT NULL ORDER BY r.resultado_id DESC LIMIT 1) AS cidade
+            FROM (SELECT DISTINCT url_id, uf FROM selecao_download
+                  WHERE run_id IN ({marcas}) AND (selecionada=1 OR auditoria=1)) s
             JOIN urls u ON u.url_id=s.url_id
-            LEFT JOIN paginas p ON p.pagina_id=(SELECT MAX(pagina_id) FROM paginas WHERE url_id=s.url_id AND run_id=s.run_id)
-            WHERE s.run_id=? AND (s.selecionada=1 OR s.auditoria=1)
-            ORDER BY s.uf, s.url_id""", (run_origem,)).fetchall()
+            LEFT JOIN paginas p ON p.pagina_id=COALESCE(
+                (SELECT MAX(pagina_id) FROM paginas WHERE url_id=s.url_id AND run_id IN ({marcas}) AND extracao_ok=1),
+                (SELECT MAX(pagina_id) FROM paginas WHERE url_id=s.url_id AND run_id IN ({marcas})))
+            ORDER BY s.uf, s.url_id""", runs * 3).fetchall()
         return [ItemClassificacao(l["url_id"], l["uf"], l["url"], l["titulo"], l["snippet"],
                                   l["pagina_id"], l["texto_path"], l["cidade"] or "") for l in linhas]
 
@@ -317,7 +398,8 @@ class RepositorioSQLite:
                           evidencia_confere=None if a.evidencia_confere is None else int(a.evidencia_confere),
                           confianca=a.confianca, confianca_original=a.confianca_original,
                           evidencia_cita_tecnologia=None if a.evidencia_cita_tecnologia is None else int(a.evidencia_cita_tecnologia),
-                          evidencia_cita_lgpd=None if a.evidencia_cita_lgpd is None else int(a.evidencia_cita_lgpd))
+                          evidencia_cita_lgpd=None if a.evidencia_cita_lgpd is None else int(a.evidencia_cita_lgpd),
+                          nome_solucao=a.nome_solucao or None)
         return cid
 
     def salvar_achados_descartados(self, classificacao_id, descartados):

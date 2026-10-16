@@ -1,18 +1,22 @@
 import logging
 import time
-from dominio.servicos import hash_chave, selecionar_candidatos, escolher_auditoria
+from dominio.servicos import hash_chave
 from aplicacao.comum import registrar_chamada
+from aplicacao.planejamento import planejar_download
 
 
 def executar(repo, bruto, fetcher, extrator, run_id, run_origem, politica, segredos, pausa,
-             limite=None, ufs=None, auditoria=0, semente="", max_falhas_por_pagina=None):
+             limite=None, ufs=None, auditoria=0, semente="", max_falhas_por_pagina=None,
+             so_sem_pagina=False, so_falha=None, urls=None):
     """`max_falhas_por_pagina`: depois de N chamadas com falha para a mesma pagina nesta execucao, a pagina e abandonada
     (nao e baixada de novo a cada --retomar); o total de desistencias vai para a metrica `download_desistencias`.
-    Sucessos nunca sao limitados."""
-    cands = [c for c in repo.candidatos_download(run_origem) if not ufs or c.uf in ufs]
-    decisao = selecionar_candidatos(cands, politica)
+    Sucessos nunca sao limitados.
+
+    `run_origem`: uma ou mais execucoes de busca (texto ou lista). `so_sem_pagina`, `so_falha` e `urls` sao os filtros de
+    resgate (ver `aplicacao.planejamento.planejar_download`), aplicados antes da selecao."""
     # auditoria do pre-filtro: amostra reprodutivel dos descartados por palavra-chave tambem e baixada e classificada
-    amostra = {(c.url_id, c.uf) for c, _, _ in escolher_auditoria(decisao, auditoria, semente)}
+    cands, decisao, amostra = planejar_download(repo, run_origem, politica, ufs, auditoria, semente, so_sem_pagina,
+                                                so_falha, urls, excluir_run=run_id)
     repo.salvar_selecao(run_id, [(c.url_id, c.uf, int(ok), motivo, int((c.url_id, c.uf) in amostra))
                                  for c, ok, motivo in decisao])
     repo.registrar_metrica(run_id, "download_auditoria_amostra", len(amostra))

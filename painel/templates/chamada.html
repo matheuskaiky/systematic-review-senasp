@@ -28,7 +28,7 @@
 {% if c.classificacao %}<section class="cartao"><h2>Classificação gravada</h2>
   <p>{% if c.classificacao.relevante %}Página relevante{% else %}Página sem achados{% endif %} · {{ c.classificacao.n_achados }} achado(s){% if c.classificacao.n_achados_invalidos %}, {{ c.classificacao.n_achados_invalidos }} fora do vocabulário (descartados){% endif %} ·
     {{ rotulos.rotulo(rotulos.ORIGEM_TEXTO, c.classificacao.origem_texto) }}{% if c.classificacao.texto_truncado %} (texto cortado){% endif %} · {{ fmt.numero(c.classificacao.n_chars_enviados) }} caracteres · prompt {{ c.classificacao.prompt_versao }}{% if not c.classificacao.json_valido %} · <span class="selo alerta">JSON inválido</span>{% endif %}</p>
-  {% if c.achados %}<ul class="lista-simples">{% for a in c.achados %}<li><a href="/achados/{{ a.achado_id }}">nº {{ a.achado_id }}</a> · {{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} · {{ s.status(a.status_reportado) }} {{ s.evidencia(a.evidencia_confere) }}</li>{% endfor %}</ul>{% endif %}
+  {% if c.achados %}<ul class="lista-simples">{% for a in c.achados %}<li><a href="/achados/{{ a.achado_id }}">nº {{ a.achado_id }}</a> · {{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }}{% if a.nome_solucao %} · <strong>{{ a.nome_solucao }}</strong>{% endif %} · {{ s.status(a.status_reportado) }} {{ s.evidencia(a.evidencia_confere) }}</li>{% endfor %}</ul>{% endif %}
 </section>{% endif %}
 {% if c.pagina_baixada %}<section class="cartao"><h2>Página baixada</h2>
   <dl class="ficha"><dt>Endereço final</dt><dd>{{ c.pagina_baixada.url_final }}</dd><dt>Tipo</dt><dd>{{ c.pagina_baixada.content_type }}</dd><dt>Tamanho</dt><dd>{{ fmt.numero(c.pagina_baixada.n_bytes) }} bytes{% if c.pagina_baixada.truncado %} (cortado no limite){% endif %}</dd>

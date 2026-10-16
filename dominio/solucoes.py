@@ -60,6 +60,15 @@ def casar(texto_norm, termo_norm):
     return bool(termo_norm.strip()) and termo_norm in texto_norm
 
 
+def nome_solucao_no_texto(nome, texto):
+    """True se o nome proprio devolvido pelo classificador aparece no texto enviado a ele (antialucinacao, RC15).
+
+    Mesma regra de casamento da busca: sem acento, sem diferenca de maiusculas e pontuacao, frase INTEIRA ("BO Facil" casa em "o BO-Fácil
+    foi"; "Sistema BO Fácil" NAO casa em um texto que so diz "BO Fácil", porque o prompt pede o nome exatamente como escrito). Nome vazio nunca casa. `texto` e tudo o que o modelo recebeu como
+    conteudo da pagina; quem chama decide o que entra nele."""
+    return casar(normalizar(texto), normalizar(nome))
+
+
 def variantes_da_solucao(solucao):
     """Nome e apelidos, normalizados (com espacos nas pontas), sem repeticao e sem vazios, na ordem em que foram informados."""
     vistas = []
@@ -174,7 +183,7 @@ _EXPLICACOES = {
     SO_NOS_RESULTADOS: "O nome aparece no título ou no resumo de resultados de busca, mas nenhuma página baixada o cita. Falta baixar a "
                        "página que o cita (ela pode ter ficado fora do limite de downloads ou só ter aparecido em uma execução de teste).",
     PAGINA_SEM_ACHADO: "O nome aparece no texto de página(s) já baixada(s), mas nenhum achado o cita pelo nome. A ideia pode estar nos achados "
-                       "dessas páginas, descrita sem o nome (o classificador não guarda o nome da solução). Falta ligar a página ao achado.",
+                       "dessas páginas, descrita sem o nome (classificações feitas antes do prompt v4 não guardam o nome da solução; nas novas, o campo nome_solucao o traz). Falta ligar a página ao achado.",
     EM_ACHADOS: "Pelo menos um achado cita o nome na evidência (ou no campo do nome da solução). A coleta encontrou, baixou e classificou "
                 "a solução.",
 }

@@ -554,9 +554,10 @@ class LeituraAnalises:
 
         Devolve {n, razao_mediana, razao_media, regressao: {intercepto, inclinacao, chars_por_token_marginal, r2} ou None,
         por_classificador: [{classificador, n, razao_mediana}], pares: [[n_chars_enviados, tokens_entrada], ...]}."""
+        # historico (toda chamada feita), nao so a classificacao vigente: a calibracao e sobre as chamadas
         linhas = self._ler("""
             SELECT k.n_chars_enviados AS chars, c.tokens_entrada AS tokens, k.classificador
-            FROM r_classificacoes k JOIN r_chamadas c ON c.chamada_id = k.chamada_id
+            FROM r_classificacoes_historico k JOIN r_chamadas c ON c.chamada_id = k.chamada_id
             WHERE c.etapa = 'classificacao' AND k.n_chars_enviados > 0 AND c.tokens_entrada > 0 ORDER BY k.classificacao_id""")
         razoes = [l["chars"] / l["tokens"] for l in linhas]
         reg = None
@@ -588,9 +589,10 @@ class LeituraAnalises:
         taxa_json_invalido}, faixas: [{faixa, n, n_json_invalido, taxa_json_invalido, n_truncados, n_achados,
         achados_por_classificacao, achados_por_mil_chars}], pares: [[n_chars_enviados, n_achados, json_valido], ...]}."""
         onde, args = ("WHERE origem_texto = ?", (origem_texto,)) if origem_texto else ("", ())
+        # historico: a hipotese e sobre o comportamento do modelo por tamanho de texto, em cada chamada feita
         linhas = self._ler(f"""SELECT n_chars_enviados AS chars, COALESCE(texto_truncado, 0) AS truncado, json_valido,
                                       COALESCE(n_achados, 0) AS n_achados
-                               FROM r_classificacoes {onde} ORDER BY classificacao_id""", args)
+                               FROM r_classificacoes_historico {onde} ORDER BY classificacao_id""", args)
         acum = {}
         for nome, _, _ in FAIXAS_TEXTO:
             acum[nome] = {"n": 0, "inval": 0, "trunc": 0, "ach": 0, "ach_ok": 0, "chars_ok": 0, "n_ok": 0}

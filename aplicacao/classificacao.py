@@ -3,18 +3,21 @@ import time
 from dataclasses import replace
 from dominio.modelos import EntradaClassificacao, Instrucoes
 from dominio.servicos import hash_chave, evidencia_confere, evidencia_cita_termo, evidencia_cita_lgpd
+from dominio.solucoes import nome_solucao_no_texto
 from aplicacao.comum import registrar_chamada
+from aplicacao.planejamento import planejar_classificacao
 from dominio.erros import CotaDiariaEsgotada
 
 _CONFIANCAS = ("alta", "media", "baixa")
 
 
 def executar(repo, bruto, classificador, run_id, run_origem, params, ufs_nomes, segredos, pausa,
-             limite=None, ufs=None, max_falhas_por_item=None):
-    feitos = ignorados = desistencias = 0
-    for item in repo.itens_para_classificar(run_origem):
-        if ufs and item.uf not in ufs:
-            continue
+             limite=None, ufs=None, max_falhas_por_item=None, so_nao_classificadas=False, urls=None):
+    """`run_origem`: uma ou mais execucoes de download (texto ou lista). `so_nao_classificadas` e `urls` filtram os itens
+    (ver `aplicacao.planejamento.planejar_classificacao`); quem decide qual classificacao vale e a leitura, nao esta funcao."""
+    feitos = ignorados = desistencias = nomes_descartados = 0
+    for item in planejar_classificacao(repo, run_origem, ufs, urls, so_nao_classificadas, params.versao_prompt,
+                                       classificador.nome, excluir_run=run_id):
         if limite and feitos >= limite:
             break
         chave = hash_chave("classificacao", classificador.nome, params.versao_prompt, item.url_id, item.uf)
@@ -42,6 +45,9 @@ def executar(repo, bruto, classificador, run_id, run_origem, params, ufs_nomes, 
         truncado = len(texto) > params.max_chars
         texto_env = texto[:params.max_chars]
         entrada = EntradaClassificacao(item.uf, item.url, item.titulo or "", texto_env, origem, truncado)
+        # Tudo o que o prompt entrega como conteudo da pagina: o texto, o titulo e a URL (um nome so no titulo ou na URL tambem esta na
+        # entrada do modelo). O nome do estado-alvo, que o prompt tambem traz, nao conta.
+        conteudo_enviado = f"{entrada.titulo}\n{entrada.url}\n{texto_env}"
         instr = Instrucoes(
             versao=params.versao_prompt, sistema=params.sistema, esquema=params.esquema,
             usuario=params.usuario_template.format(uf=item.uf, nome=ufs_nomes.get(item.uf, item.uf),
@@ -70,7 +76,15 @@ def executar(repo, bruto, classificador, run_id, run_origem, params, ufs_nomes, 
                 if origem == "snippet":
                     conf = "baixa"                      # snippet only: never high confidence
                 palavras = params.palavras_tecnologia.get(a.tecnologia)
-                validos.append(replace(a, confianca=conf, confianca_original=a.confianca,
+                nome = a.nome_solucao or ""
+                if nome and not nome_solucao_no_texto(nome, conteudo_enviado):
+                    # antialucinacao: o nome so vale se aparece no que o modelo recebeu. Fica vazio; a resposta bruta guarda o original
+                    nomes_descartados += 1
+                    logging.warning("[classify %s %s] nome_solucao %r descartado: não aparece no texto enviado ao modelo",
+                                    item.uf, item.url_id, nome)
+                    repo.registrar_metrica(run_id, "classificacao_nome_solucao_descartado", nomes_descartados)
+                    nome = ""
+                validos.append(replace(a, confianca=conf, confianca_original=a.confianca, nome_solucao=nome,
                                        evidencia_confere=evidencia_confere(a.evidencia, texto_env),
                                        evidencia_cita_tecnologia=evidencia_cita_termo(a.evidencia, palavras) if palavras else None,
                                        evidencia_cita_lgpd=evidencia_cita_lgpd(a.evidencia)))
@@ -88,4 +102,5 @@ def executar(repo, bruto, classificador, run_id, run_origem, params, ufs_nomes, 
         time.sleep(pausa)
     repo.registrar_metrica(run_id, "classificacao_ignorados_sem_texto", ignorados)
     repo.registrar_metrica(run_id, "classificacao_desistencias", desistencias)
+    repo.registrar_metrica(run_id, "classificacao_nome_solucao_descartado", nomes_descartados)
     repo.confirmar()

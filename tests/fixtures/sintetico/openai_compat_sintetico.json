@@ -4,7 +4,7 @@
   "model": "modelo-sintetico-2026-01-01",
   "choices": [
     {"index": 0, "finish_reason": "stop",
-     "message": {"role": "assistant", "content": "{\"relevante\": true, \"achados\": [{\"tecnologia\": \"reconhecimento_facial\", \"status\": \"em_uso\", \"fornecedor\": \"\", \"menciona_lgpd\": false, \"evidencia\": \"implantou reconhecimento facial nas câmeras da capital\", \"confianca\": \"alta\"}]}"}}
+     "message": {"role": "assistant", "content": "{\"relevante\": true, \"achados\": [{\"tecnologia\": \"reconhecimento_facial\", \"status\": \"em_uso\", \"fornecedor\": \"\", \"menciona_lgpd\": false, \"evidencia\": \"implantou reconhecimento facial nas câmeras da capital\", \"confianca\": \"alta\", \"nome_solucao\": \"Sistema Simulado\"}]}"}}
   ],
   "usage": {"prompt_tokens": 1000, "completion_tokens": 100, "total_tokens": 1100}
 }

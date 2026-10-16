@@ -157,6 +157,32 @@ def test_configuracao_traz_as_palavras_e_o_limite_de_falhas():
     assert S.CLASSIFICACAO["max_falhas_por_item"] == 3
 
 
+# ====================== nome_solucao (RC15) nao mexe na checagem literal da evidencia ======================
+class _ClassificadorComNome:
+    nome = "duplo"
+
+    def __init__(self, nome_solucao):
+        self.nome_solucao = nome_solucao
+
+    def classificar(self, entrada, instr):
+        from adaptadores.simulados import _reg
+        from dominio.modelos import Achado, ResultadoClassificacao
+        reg = _reg(self.nome, "classificar", raw=b"{}", tokens_entrada=10, tokens_saida=5, custo_usd=0.0)
+        a = Achado("reconhecimento_facial", "em_uso", "", False, "implantou reconhecimento facial nas câmeras da capital", "alta",
+                   nome_solucao=self.nome_solucao)
+        return ResultadoClassificacao(True, [a], True, "{}", reg)
+
+
+def test_nome_solucao_nunca_muda_a_checagem_literal_e_nome_ausente_do_texto_e_descartado(tmp_path, silencio):
+    resultados = {}
+    for i, nome in enumerate(("", "Nome Que Nao Esta No Texto")):
+        repo, bruto, run_id = _estagio(tmp_path / str(i))
+        classificacao.executar(repo, bruto, _ClassificadorComNome(nome), run_id, run_id, _params(), C.UFS, [], 0, ufs={"PI"})
+        resultados[nome] = [tuple(l) for l in repo.conn.execute("SELECT evidencia_confere, nome_solucao FROM achados")]
+        assert repo.conn.execute("SELECT valor FROM metricas_run WHERE chave='classificacao_nome_solucao_descartado'").fetchone()[0] == (3 if nome else 0)
+    assert resultados[""] == resultados["Nome Que Nao Esta No Texto"] == [(1, None)] * 3     # nome inventado: descartado; evidencia: intacta
+
+
 # ====================== achados antigos ganham as checagens ao abrir o banco ======================
 def test_achados_antigos_sao_preenchidos_a_partir_da_evidencia_e_do_vocabulario_da_execucao(tmp_path):
     db = sqlite3.connect(tmp_path / "antigo.db")

@@ -68,7 +68,20 @@ def test_tipos_viram_maiusculas_e_a_estrutura_e_preservada():
     assert p["tecnologia"] == {"type": "STRING", "enum": list(V.TECNOLOGIAS)}
     assert p["status"]["enum"] == list(V.STATUS) and p["confianca"]["enum"] == list(V.CONFIANCA)
     assert p["menciona_lgpd"] == {"type": "BOOLEAN"} and p["fornecedor"]["description"]
-    assert achados["items"]["required"] == ["tecnologia", "status", "fornecedor", "menciona_lgpd", "evidencia", "confianca"]
+    assert achados["items"]["required"] == ["tecnologia", "status", "fornecedor", "menciona_lgpd", "evidencia", "confianca", "nome_solucao"]
+    assert p["nome_solucao"]["type"] == "STRING" and p["nome_solucao"]["description"] and "enum" not in p["nome_solucao"]
+
+
+def test_nome_solucao_e_string_sem_null_nos_tres_formatos_do_esquema():
+    """RC15: o esquema segue a convencao sem `null` (vazio = sem nome proprio) e vale para os tres formatos aceitos pelo Gemini."""
+    item = ESQUEMA["properties"]["achados"]["items"]
+    assert item["properties"]["nome_solucao"]["type"] == "string" and "nome_solucao" in item["required"]
+    assert "null" not in json.dumps(ESQUEMA)
+    for formato in FORMATOS_ESQUEMA:
+        g = _gemini(formato_esquema=formato)._corpo(_instr())["generationConfig"]
+        assert "nome_solucao" in json.dumps(g), formato
+    convertido = _para_esquema_gemini(ESQUEMA)["properties"]["achados"]["items"]["properties"]["nome_solucao"]
+    assert convertido["type"] == "STRING"
 
 
 def test_campos_fora_do_dialeto_sao_descartados():
@@ -206,6 +219,7 @@ def test_classificar_com_resposta_normal(monkeypatch):
     assert res.relevante and res.json_valido and len(res.achados) == 1
     a = res.achados[0]
     assert (a.tecnologia, a.status, a.confianca, a.menciona_lgpd) == ("reconhecimento_facial", "em_uso", "alta", True)
+    assert a.nome_solucao == "Sistema Simulado"                   # o adaptador so repassa; a conferencia com o texto e do estagio
     c = res.chamada
     assert c.sucesso and c.provedor == "gemini:gemini-3.5-flash-lite" and c.operacao == "classificar"
     assert (c.tokens_entrada, c.tokens_saida) == (1200, 200) and c.custo_usd == pytest.approx((1200 * 0.3 + 200 * 2.5) / 1e6)
@@ -387,6 +401,7 @@ def test_classificar_com_a_resposta_real(monkeypatch):
     _chamar(monkeypatch, _REAL.read_text(encoding="utf-8"))
     res = _gemini().classificar(_entrada(), _instr())
     assert res.chamada.sucesso and res.json_valido and len(res.achados) == 3
+    assert [a.nome_solucao for a in res.achados] == ["", "", ""]   # resposta real anterior ao prompt v4: sem o campo, vira ""
     assert res.chamada.custo_usd == pytest.approx((1073 * 0.3 + 352 * 2.5) / 1e6) and res.chamada.extras["service_tier"] == "standard"
 
 

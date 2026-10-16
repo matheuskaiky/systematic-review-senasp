@@ -21,6 +21,7 @@ from adaptadores.leitura_solucoes import LeituraSolucoes
 from adaptadores.leitura_termos_cobertura import LeituraTermosCobertura
 from adaptadores.leitura_termos_ruido import LeituraTermosRuido
 from adaptadores.leitura_triagem_escopo import LeituraTriagemEscopo
+from dominio.entrada import separar_runs
 from dominio.relevancia import NIVEIS, pontuar_relevancia
 
 
@@ -102,13 +103,16 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
 
     # ---------- execucoes e chamadas ----------
     def execucoes(self):
-        return self._consulta("""
+        linhas = self._consulta("""
             SELECT e.run_id, e.comando, e.status, e.iniciado_em, e.finalizado_em, e.run_origem, e.config_hash, e.commit_git,
                    e.no_relatorio, e.motivo_exclusao,
                    (SELECT COUNT(*) FROM chamadas c WHERE c.run_id=e.run_id) AS n_chamadas,
                    (SELECT COUNT(*) FROM chamadas c WHERE c.run_id=e.run_id AND c.sucesso=0) AS n_falhas,
                    (SELECT COALESCE(SUM(custo_usd), 0) FROM chamadas c WHERE c.run_id=e.run_id) AS custo_usd
             FROM execucoes e ORDER BY e.iniciado_em DESC, e.run_id DESC""")
+        for l in linhas:
+            l["runs_origem"] = separar_runs(l["run_origem"])        # `run_origem` guarda varias, separadas por virgula
+        return linhas
 
     def execucao(self, run_id):
         e = self._um("""SELECT run_id, comando, status, iniciado_em, finalizado_em, run_origem, config_hash, config_json,
@@ -124,7 +128,10 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         e["retomadas"] = self._consulta("SELECT retomado_em, commit_git FROM execucoes_retomadas WHERE run_id=? ORDER BY retomada_id", (run_id,))
         e["falhas_download"] = self._consulta("""SELECT COALESCE(motivo_falha, 'ok') AS motivo, COUNT(*) AS n FROM paginas
                                                  WHERE run_id=? AND extracao_ok=0 GROUP BY motivo_falha ORDER BY n DESC""", (run_id,))
-        e["run_destino"] = [l["run_id"] for l in self._consulta("SELECT run_id FROM execucoes WHERE run_origem=? ORDER BY iniciado_em", (run_id,))]
+        e["runs_origem"] = separar_runs(e["run_origem"])
+        # `run_origem` guarda varias execucoes separadas por virgula: procura o run_id como um item inteiro da lista
+        e["run_destino"] = [l["run_id"] for l in self._consulta(
+            "SELECT run_id FROM execucoes WHERE instr(',' || run_origem || ',', ',' || ? || ',') > 0 ORDER BY iniciado_em", (run_id,))]
         return e
 
     def opcoes_chamadas(self):
@@ -161,7 +168,8 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         c["classificacao"] = self._um("""SELECT classificacao_id, uf, cidade, origem_texto, texto_truncado, n_chars_enviados, relevante,
                                                 json_valido, n_achados, n_achados_invalidos, resposta_texto, prompt_versao
                                          FROM classificacoes WHERE chamada_id=?""", (chamada_id,))
-        c["achados"] = self._consulta("""SELECT a.achado_id, a.tecnologia, a.status_reportado, a.confianca, a.evidencia_confere
+        solucao = "a.nome_solucao, " if self._tem_coluna("achados", "nome_solucao") else ""
+        c["achados"] = self._consulta(f"""SELECT {solucao}a.achado_id, a.tecnologia, a.status_reportado, a.confianca, a.evidencia_confere
                                          FROM achados a JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
                                          WHERE k.chamada_id=? ORDER BY a.achado_id""", (chamada_id,)) if c["classificacao"] else []
         c["pagina_baixada"] = self._um("""SELECT pagina_id, url_final, http_status, content_type, n_bytes, truncado, texto_path, n_chars,
@@ -343,8 +351,12 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         return self._um("SELECT 1 AS x FROM triagem_revisoes WHERE artigo_id=? LIMIT 1", (artigo_id,)) is not None
 
     # ---------- achados ----------
+    def _tem_solucao_na_fila(self):
+        """O banco aberto ja tem `nome_solucao` na view da fila? (banco anterior ao prompt v4: a busca ignora o campo.)"""
+        return any(l["name"] == "nome_solucao" for l in self._consulta("PRAGMA table_info(v_achados_revisao)"))
+
     @staticmethod
-    def _onde(filtros):
+    def _onde(filtros, com_solucao=False):
         cond, args = [], []
 
         def simples(chave, coluna):
@@ -377,15 +389,16 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             cond.append("verificado = 1 AND status_final = 'descartado'")
         q = (filtros.get("q") or "").strip()
         if q:
-            cond.append("(evidencia LIKE ? ESCAPE '\\' OR fornecedor LIKE ? ESCAPE '\\' OR url LIKE ? ESCAPE '\\')")
+            campos = ["evidencia", "fornecedor", "url"] + (["nome_solucao"] if com_solucao else [])
+            cond.append("(" + " OR ".join(f"{c} LIKE ? ESCAPE '\\'" for c in campos) + ")")
             padrao = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-            args += [padrao] * 3
+            args += [padrao] * len(campos)
         return (" WHERE " + " AND ".join(cond)) if cond else "", args
 
     def achados(self, filtros, pagina=1, por_pagina=50):
         por_pagina = min(max(int(por_pagina), 1), LIMITE_POR_PAGINA)
         pagina = max(int(pagina), 1)
-        onde, args = self._onde(filtros)
+        onde, args = self._onde(filtros, self._tem_solucao_na_fila())
         total = self._um(f"SELECT COUNT(*) AS n FROM v_achados_revisao{onde}", args)["n"]
         itens = self._consulta(
             f"SELECT * FROM v_achados_revisao{onde} ORDER BY {ORDEM_FILA} LIMIT ? OFFSET ?",
@@ -393,13 +406,14 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": itens}
 
     def ids_fila_revisao(self, filtros):
-        onde, args = self._onde({**filtros, "verificacao": "pendente"})
+        onde, args = self._onde({**filtros, "verificacao": "pendente"}, self._tem_solucao_na_fila())
         return [l["achado_id"] for l in self._consulta(
             f"SELECT achado_id FROM v_achados_revisao{onde} ORDER BY {ORDEM_FILA}", args)]
 
     def achado(self, achado_id):
-        a = self._um("""
-            SELECT a.achado_id, a.uf, a.tecnologia, a.status_reportado, a.fornecedor, a.menciona_lgpd, a.evidencia,
+        solucao = "a.nome_solucao, " if self._tem_coluna("achados", "nome_solucao") else ""
+        a = self._um(f"""
+            SELECT {solucao}a.achado_id, a.uf, a.tecnologia, a.status_reportado, a.fornecedor, a.menciona_lgpd, a.evidencia,
                    a.evidencia_confere, a.confianca, a.confianca_original, a.evidencia_cita_tecnologia,
                    a.evidencia_cita_lgpd, a.verificado, a.status_final, a.verificado_por, a.verificado_em, a.observacao,
                    k.classificacao_id, k.run_id, k.url_id, k.pagina_id, k.origem_texto, k.texto_truncado,
@@ -418,6 +432,17 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         origem = self._um("""SELECT titulo, snippet FROM resultados_web WHERE url_id=? AND uf=?
                              ORDER BY resultado_id DESC LIMIT 1""", (a["url_id"], a["uf"])) or {}
         a["titulo"], a["snippet"] = origem.get("titulo"), origem.get("snippet")
+        a.setdefault("nome_solucao", None)
+        # classificacao vigente do par (url, uf): se nao e a deste achado, ele foi substituido por uma classificacao mais recente
+        # (ou melhor: ver r_classificacoes no schema). Continua abrindo, com aviso.
+        vigente = self._um("SELECT classificacao_id, run_id, prompt_versao, origem_texto FROM r_classificacoes WHERE url_id=? AND uf=?",
+                           (a["url_id"], a["uf"]))
+        a["substituido_por"] = None
+        if vigente and a["no_relatorio"] == 1 and vigente["classificacao_id"] != a["classificacao_id"]:
+            vigente["achados"] = self._consulta(
+                "SELECT achado_id, tecnologia, status_reportado, verificado, status_final FROM achados WHERE classificacao_id=? ORDER BY achado_id",
+                (vigente["classificacao_id"],))
+            a["substituido_por"] = vigente
         a["outros_achados_da_pagina"] = self._consulta(
             """SELECT achado_id, tecnologia, status_reportado, verificado, status_final FROM achados
                WHERE classificacao_id=? AND achado_id<>? ORDER BY achado_id""", (a["classificacao_id"], achado_id))

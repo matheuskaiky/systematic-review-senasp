@@ -155,6 +155,8 @@ def _linha_achado(a, verificado):
     tec = _e(rotulos.rotulo(rotulos.TECNOLOGIAS, a["tecnologia"]))
     if a.get("cidade"):
         tec += f'<br><small>Município: {_e(a["cidade"])}</small>'
+    if a.get("nome_solucao"):
+        tec += f'<br><small>Solução: <strong>{_e(a["nome_solucao"])}</strong></small>'
     status = a["status_final"] if verificado else a["status_reportado"]
     oficial = a.get("fonte_oficial_final") if a.get("fonte_oficial_final") is not None else a.get("fonte_oficial")
     fonte = _link_externo(a.get("url"), a.get("dominio_final") or a.get("dominio") or a.get("url") or "fonte")

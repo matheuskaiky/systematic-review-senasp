@@ -176,7 +176,8 @@ def test_execucao_grava_o_resumo_de_metricas(ambiente_cli, monkeypatch):
     metricas = {l["chave"]: l["valor"] for l in _banco(ambiente_cli).execute("SELECT * FROM metricas_run")}
     # alteracao deliberada: o download agora registra `download_desistencias` (paginas abandonadas por excesso de falhas)
     assert metricas == {"download_candidatos": 6, "download_selecionados": 6, "download_auditoria_amostra": 0,
-                        "download_desistencias": 0, "classificacao_ignorados_sem_texto": 0, "classificacao_desistencias": 0}
+                        "download_desistencias": 0, "classificacao_ignorados_sem_texto": 0, "classificacao_desistencias": 0,
+                        "classificacao_nome_solucao_descartado": 0}      # RC15: nomes de solucao descartados por nao estarem no texto
 
 
 def test_migrar_robots_esta_na_ajuda_do_programa(monkeypatch, capsys):
@@ -185,3 +186,23 @@ def test_migrar_robots_esta_na_ajuda_do_programa(monkeypatch, capsys):
         main.main()
     saida = capsys.readouterr().out
     assert e.value.code == 0 and "--aplicar" in saida and "copia de seguranca" in saida
+
+
+def test_painel_somente_leitura_recusa_esquema_desatualizado(tmp_path, monkeypatch):
+    """O painel nao grava em --somente-leitura: com o esquema antigo ele avisa em vez de abrir com views faltando."""
+    import sqlite3
+    import pytest
+    import main
+    from adaptadores.repositorio_sqlite import RepositorioSQLite
+    banco = tmp_path / "busca.db"
+    RepositorioSQLite(banco).fechar()
+    c = sqlite3.connect(banco)
+    c.execute("UPDATE meta_schema SET valor='antiga' WHERE chave='assinatura'")
+    c.commit()
+    c.close()
+    monkeypatch.setitem(main.S.OPCOES["sqlite"], "caminho", banco)
+    argv = ["main.py", "painel", "--somente-leitura", "--porta", "8999"]
+    monkeypatch.setattr("sys.argv", argv)
+    with pytest.raises(SystemExit) as e:
+        main.main()
+    assert "desatualizado" in str(e.value)

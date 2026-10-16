@@ -104,10 +104,12 @@ def test_verificado_sem_status_final_e_recusado(repo_achados):
 def test_fila_de_revisao_nao_traz_achados_de_execucao_fora_do_relatorio(tmp_path, silencio):
     repo, run1 = construir_web(tmp_path)
     _, run2 = construir_web(tmp_path, repo=repo)
+    # as duas execucoes classificaram as mesmas paginas: a fila mostra so a classificacao vigente, a da execucao mais recente
     antes = repo.conn.execute("SELECT COUNT(*) FROM v_achados_revisao").fetchone()[0]
+    assert {r[0] for r in repo.conn.execute("SELECT run_id FROM v_achados_revisao")} == {run2}
     repo.definir_no_relatorio(run2, False, "piloto")
     depois = repo.conn.execute("SELECT COUNT(*) FROM v_achados_revisao").fetchone()[0]
-    assert 0 < depois < antes
+    assert 0 < depois <= antes                        # com a execucao mais nova fora, a vigente volta a ser a da primeira
     assert {r[0] for r in repo.conn.execute("SELECT run_id FROM v_achados_revisao")} == {run1}
     assert "Achados" in repo.tabelas_para_exportacao()
 

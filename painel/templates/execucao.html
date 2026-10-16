@@ -13,7 +13,7 @@
   <dt>Início</dt><dd>{{ fmt.data_hora(e.iniciado_em) }}{% if e.finalizado_em %} · duração {{ fmt.duracao(e.iniciado_em, e.finalizado_em) }}{% endif %}</dd>
   <dt>Configuração</dt><dd><code>{{ e.config_hash }}</code> · veja a configuração completa no fim da página</dd>
   <dt>Código</dt><dd><code>{{ e.commit_git or "—" }}</code>{% if e.commit_git and "+sujo" in e.commit_git %} <span class="selo alerta">código com alterações não commitadas</span>{% endif %}</dd>
-  {% if e.run_origem %}<dt>Entrada</dt><dd><a href="/execucoes/{{ e.run_origem }}"><code>{{ e.run_origem }}</code></a> (<code>--de</code>)</dd>{% endif %}
+  {% if e.runs_origem %}<dt>Entrada</dt><dd>{% for r in e.runs_origem %}<a href="/execucoes/{{ r }}"><code>{{ r }}</code></a>{{ ", " if not loop.last }}{% endfor %} (<code>--de</code>)</dd>{% endif %}
   {% if e.run_destino %}<dt>Alimentou</dt><dd>{% for r in e.run_destino %}<a href="/execucoes/{{ r }}"><code>{{ r }}</code></a>{{ ", " if not loop.last }}{% endfor %}</dd>{% endif %}
   <dt>Custo registrado</dt><dd>{{ fmt.moeda_usd(custo_total) }}</dd>
   {% if e.retomadas %}<dt>Retomadas</dt><dd>{{ e.retomadas|length }}: {% for r in e.retomadas %}{{ fmt.data_hora(r.retomado_em) }}{{ ", " if not loop.last }}{% endfor %}</dd>{% endif %}

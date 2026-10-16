@@ -249,3 +249,21 @@ def test_banco_antigo_sem_meta_schema_e_atualizado_uma_vez(tmp_path):
     r = RepositorioSQLite(tmp_path / "velho.db")
     assert r.conn.execute("SELECT COUNT(*) FROM meta_schema").fetchone()[0] == 1
     assert "no_relatorio" in {l["name"] for l in r.conn.execute("PRAGMA table_info(execucoes)")}
+
+
+# ---------- esquema atualizado (usado pelo painel somente leitura) ----------
+def test_esquema_atualizado_so_le_e_detecta_banco_desatualizado(tmp_path):
+    banco = tmp_path / "e.db"
+    assert RepositorioSQLite.esquema_atualizado(banco) is True            # nao existe: quem criar aplica o esquema
+    RepositorioSQLite(banco).fechar()
+    assert RepositorioSQLite.esquema_atualizado(banco) is True
+    c = sqlite3.connect(banco)
+    c.execute("UPDATE meta_schema SET valor='antiga' WHERE chave='assinatura'")
+    c.commit()
+    c.close()
+    assert RepositorioSQLite.esquema_atualizado(banco) is False
+    velho = tmp_path / "velho.db"
+    sqlite3.connect(velho).close()                                         # banco sem a tabela meta_schema
+    assert RepositorioSQLite.esquema_atualizado(velho) is False
+    RepositorioSQLite(banco).fechar()                                      # abrir de novo aplica o esquema e regrava a assinatura
+    assert RepositorioSQLite.esquema_atualizado(banco) is True

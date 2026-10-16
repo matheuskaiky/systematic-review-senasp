@@ -275,3 +275,36 @@ def test_planilha_de_download_traz_os_dois_motivos_de_bloqueio_do_robots(tmp_pat
     assert set(por_motivo) == {"bloqueado_por_robots", "robots_inacessivel"}
     assert por_motivo["bloqueado_por_robots"]["erro"] == "bloqueado_por_robots" and pd.isna(por_motivo["robots_inacessivel"]["http_status"])
     assert por_motivo["robots_inacessivel"]["erro"] == "robots_inacessivel"
+
+
+# ============================== RC15: nome da solucao nas abas Achados e Secretarias ==============================
+def test_abas_achados_e_secretarias_trazem_o_nome_da_solucao(tmp_path):
+    import logging
+    from adaptadores.bruto_local import BrutoLocal
+    from adaptadores.simulados import (BuscaSimulada, ClassificadorSimulado, ExtratorSimulado, FetcherSimulado, NOME_SOLUCAO_DEMO, _reg)
+    from aplicacao import busca_web, classificacao, download
+    from dados_metricas import _consulta_pi, _novo_run, _params
+    from dominio.modelos import ArquivoBaixado
+
+    texto = f"A Secretaria implantou reconhecimento facial nas câmeras da capital, com o {NOME_SOLUCAO_DEMO}."
+
+    class FetcherComNome(FetcherSimulado):
+        def baixar(self, url):
+            return ArquivoBaixado(url, 200, "text/html", texto.encode(), False, _reg(self.nome, "baixar", raw=texto.encode(), raw_ext="html"))
+
+    logging.disable(logging.CRITICAL)
+    try:
+        repo, bruto = RepositorioSQLite(tmp_path / "x.db"), BrutoLocal(tmp_path / "raw")
+        run_id = _novo_run(repo, "pipeline-uf")
+        busca_web.executar(repo, bruto, BuscaSimulada(), run_id, _consulta_pi(), C.PERFIS_BUSCA_WEB, [], 0)
+        download.executar(repo, bruto, FetcherComNome(), ExtratorSimulado(), run_id, run_id, C.POLITICA_DOWNLOAD, [], 0, ufs={"PI"})
+        classificacao.executar(repo, bruto, ClassificadorSimulado(), run_id, run_id, _params(), C.UFS, [], 0, ufs={"PI"})
+    finally:
+        logging.disable(logging.NOTSET)
+    repo.conn.execute("UPDATE achados SET verificado=1, status_final='em_uso' WHERE achado_id=1")
+    repo.confirmar()
+    tabelas = repo.tabelas_para_exportacao()
+    assert list(tabelas["Achados"]["nome_solucao"]) == [NOME_SOLUCAO_DEMO] * 3
+    assert list(tabelas["Secretarias"]["nome_solucao"]) == [NOME_SOLUCAO_DEMO]
+    caminho = ExportadorExcel().exportar({k: tabelas[k] for k in ("Achados", "Secretarias")}, tmp_path / "s.xlsx")
+    assert pd.read_excel(caminho, sheet_name="Achados")["nome_solucao"].tolist() == [NOME_SOLUCAO_DEMO] * 3

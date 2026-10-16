@@ -173,6 +173,7 @@ class Achado:
     confianca_original: Optional[str] = None     # confianca devolvida pelo modelo, antes de qualquer ajuste
     evidencia_cita_tecnologia: Optional[bool] = None   # o trecho cita um termo da tecnologia? (heuristica, sem LLM)
     evidencia_cita_lgpd: Optional[bool] = None         # o trecho cita a LGPD ou protecao de dados? (heuristica)
+    nome_solucao: str = ""                             # nome proprio da solucao, so se aparece no texto enviado ("" = sem nome)
 
 
 @dataclass

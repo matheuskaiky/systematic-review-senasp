@@ -219,6 +219,11 @@ def test_achados_da_url_e_em_lote(cenario):
 
 def test_coluna_nome_solucao_e_usada_quando_existe(cenario):
     leitura, ids, banco, raiz = cenario
+    # o schema atual ja cria a coluna (RC15); para exercitar o banco ANTERIOR a ela, tira a coluna (e as views que a citam) e a devolve depois
+    assert "nome_solucao" in leitura.achados_da_url(ids["u_gama"], "PI")[0]
+    sql(banco, "DROP VIEW v_achados_revisao")
+    sql(banco, "DROP VIEW v_secretarias_confirmadas")
+    sql(banco, "ALTER TABLE achados DROP COLUMN nome_solucao")
     assert "nome_solucao" not in leitura.achados_da_url(ids["u_gama"], "PI")[0]
     sql(banco, "ALTER TABLE achados ADD COLUMN nome_solucao TEXT")
     aid = Montagem(banco, raiz).achado("SOL1", ids["u_gama"], ids["p_gama"], "descricao sem o nome", nome="Gama App")

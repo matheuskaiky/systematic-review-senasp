@@ -5,7 +5,7 @@
         "role": "model",
         "parts": [
           {"thought": true, "text": "Raciocinio interno que nao deve entrar na resposta."},
-          {"text": "{\"relevante\": true, \"achados\": [{\"tecnologia\": \"reconhecimento_facial\", \"status\": \"em_uso\", \"fornecedor\": \"\", \"menciona_lgpd\": true, \"evidencia\": \"implantou reconhecimento facial nas câmeras da capital\", \"confianca\": \"alta\"}]}"}
+          {"text": "{\"relevante\": true, \"achados\": [{\"tecnologia\": \"reconhecimento_facial\", \"status\": \"em_uso\", \"fornecedor\": \"\", \"menciona_lgpd\": true, \"evidencia\": \"implantou reconhecimento facial nas câmeras da capital\", \"confianca\": \"alta\", \"nome_solucao\": \"Sistema Simulado\"}]}"}
         ]
       },
       "finishReason": "STOP",

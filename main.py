@@ -13,9 +13,11 @@ from composicao import Fabrica
 from dominio.esquemas import esquema_classificacao
 from dominio.modelos import ParametrosClassificacao
 from dominio.erros import CotaDiariaEsgotada
-from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia
+from dominio.entrada import separar_runs, descricao_motivos_falha_download
+from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia, dominio_de
 from dominio.triagem_escopo import atomo_do_modelo_de_consulta, estimar_custo
 from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao, triagem_escopo
+from aplicacao.planejamento import planejar_download, planejar_classificacao
 from infra.log import iniciar_log
 from infra.util import coletar_ambiente
 
@@ -105,22 +107,94 @@ def _avisar_cota_diaria(e, cmd, run_id):
                     "dele). Comando: python main.py %s ... --retomar %s", e, run_id, cmd, run_id)
 
 
+def _listar_download(args, repo, de, ufs):
+    """--listar de `baixar`: mostra o que SERIA baixado. So le o banco: nada e baixado nem gravado (nem a execucao)."""
+    cands, decisao, _ = planejar_download(repo, de, C.POLITICA_DOWNLOAD, set(ufs), 0, "", args.so_sem_pagina,
+                                          args.so_falha, args.urls)
+    ultimas = repo.ultimas_tentativas_download()
+    escolhidas, vistas = [], set()
+    for c, ok, _motivo in sorted(decisao, key=lambda d: (d[0].url_id, d[0].uf)):
+        if ok:
+            if args.limite and c.url_id not in vistas and len(vistas) >= args.limite:
+                break
+            vistas.add(c.url_id)
+            escolhidas.append(c)
+    descartes = {}
+    for _, ok, motivo in decisao:
+        if not ok:
+            descartes[motivo] = descartes.get(motivo, 0) + 1
+    filtros = [f for f, v in (("--so-sem-pagina", args.so_sem_pagina), (f"--so-falha {args.so_falha}", args.so_falha),
+                              ("--urls " + " ".join(str(u) for u in args.urls or []), args.urls)) if v] or ["nenhum"]
+    print(f"Execuções de entrada (--de): {', '.join(de)} | filtros de resgate: {', '.join(filtros)}")
+    print(f"Candidatos depois dos filtros: {len(cands)} | descartados na seleção: "
+          + (", ".join(f"{m} {n}" for m, n in sorted(descartes.items())) or "0"))
+    print(f"Seriam baixadas: {len(vistas)} páginas ({len(escolhidas)} pares URL/UF; uma página serve a todas as UFs em que "
+          f"aparece; por --limite: {args.limite or 'sem limite'}). Nada foi baixado nem gravado.")
+    if args.auditoria:
+        print("A amostra de --auditoria depende do run_id da execução e não é mostrada aqui.")
+    print("url_id  UF  domínio  motivo  tentativa anterior (resultado:motivo)")
+    for c in escolhidas:
+        antes = ":".join(ultimas[c.url_id]) if c.url_id in ultimas else "nunca_tentada"
+        print(f"{c.url_id:>6}  {c.uf}  {c.dominio}  selecionada  {antes}")
+
+
+def _listar_classificacao(args, repo, de, ufs, params, classificador_nome):
+    """--listar de `classificar`: mostra o que SERIA classificado. So le o banco: nenhuma chamada e nenhuma gravacao."""
+    itens = planejar_classificacao(repo, de, set(ufs), args.urls, args.so_nao_classificadas, params.versao_prompt,
+                                   classificador_nome)
+    linhas, usaveis = [], 0
+    for i in itens:
+        if i.texto_path:
+            motivo = "pagina"
+        elif params.usar_snippet_se_falhar and (i.titulo or i.snippet):
+            motivo = "snippet"
+        else:
+            motivo = "sem_texto (seria ignorado)"
+        if motivo != "sem_texto (seria ignorado)":
+            if args.limite and usaveis >= args.limite:
+                break
+            usaveis += 1
+        linhas.append((i, motivo))
+    filtros = [f for f, v in (("--so-nao-classificadas", args.so_nao_classificadas),
+                              ("--urls " + " ".join(str(u) for u in args.urls or []), args.urls)) if v] or ["nenhum"]
+    print(f"Execuções de entrada (--de): {', '.join(de)} | filtros: {', '.join(filtros)} | prompt {params.versao_prompt}")
+    print(f"Seriam classificados: {usaveis} itens (por --limite: {args.limite or 'sem limite'}). "
+          "Nenhuma chamada foi feita e nada foi gravado.")
+    print("url_id  UF  domínio  motivo (texto enviado)")
+    for i, motivo in linhas:
+        print(f"{i.url_id:>6}  {i.uf}  {dominio_de(i.url)}  {motivo}")
+
+
 def rodar(args, etapas):
     fab = Fabrica(simulado=args.simulado)
     repo, snap = fab.repo, S.snapshot_config()
-    # C5: na retomada, sem --de, reaproveita o --de guardado na execucao original
-    de = args.de or (repo.obter_run_origem(args.retomar) if args.retomar else None)
+    # C5: na retomada, sem --de, reaproveita o --de guardado na execucao original (uma ou varias execucoes)
+    de = separar_runs(args.de) or separar_runs(repo.obter_run_origem(args.retomar) if args.retomar else None)
     # C5: etapa que le o resultado de outra etapa que nao roda no mesmo comando exige --de
     precisa_de = (("download" in etapas and "busca_web" not in etapas)
                   or ("classificacao" in etapas and "download" not in etapas))
     if precisa_de and not de:
         raise SystemExit(f"O comando '{args.cmd}' lê dados de uma etapa anterior que não roda nele: "
                          "informe --de <run_id> com a execução que contém essa entrada.")
+    # filtros de resgate e --listar (so `baixar` e `classificar`): validam e mostram antes de criar a execucao
+    so_sem_pagina, so_falha, urls = (getattr(args, k, None) for k in ("so_sem_pagina", "so_falha", "urls"))
+    so_nao_classificadas, listar = getattr(args, "so_nao_classificadas", False), getattr(args, "listar", False)
+    ufs = {k: v for k, v in C.UFS.items() if not args.ufs or k in args.ufs}
+    if listar or so_sem_pagina or so_falha or urls or so_nao_classificadas:
+        repo.validar_runs_origem(de)
+        if etapas == ["download"]:
+            if listar:
+                return _listar_download(args, repo, de, ufs)
+            planejar_download(repo, de, C.POLITICA_DOWNLOAD, set(ufs), 0, "", so_sem_pagina, so_falha, urls)
+        elif etapas == ["classificacao"]:
+            nome_cl = fab.classificador.nome if so_nao_classificadas else None
+            if listar:
+                return _listar_classificacao(args, repo, de, ufs, _params_classificacao(), nome_cl)
+            planejar_classificacao(repo, de, set(ufs), urls, so_nao_classificadas, P.PROMPT_VERSAO, nome_cl)
     run_id = repo.iniciar_execucao(args.cmd + (" [simulado]" if args.simulado else ""),
                                    snap["hash"], snap["json"], _commit_git(), args.retomar, run_origem=de,
                                    ambiente_json=_ambiente(args))
     iniciar_log(run_id, S.LOG_DIR)
-    ufs = {k: v for k, v in C.UFS.items() if not args.ufs or k in args.ufs}
     termos = [t for t in C.TERMOS if not args.termos or t.id in args.termos]
     # where each stage reads from: from the run itself if the previous stage runs together; otherwise from --de
     origem_dl = run_id if "busca_web" in etapas else de
@@ -144,11 +218,13 @@ def rodar(args, etapas):
             download.executar(repo, fab.bruto, fab.fetcher, fab.extrator, run_id, origem_dl,
                               C.POLITICA_DOWNLOAD, fab.segredos, S.PAUSAS["download"], args.limite, set(ufs),
                               auditoria=args.auditoria or 0, semente=run_id,
-                              max_falhas_por_pagina=S.DOWNLOAD["max_falhas_por_pagina"])
+                              max_falhas_por_pagina=S.DOWNLOAD["max_falhas_por_pagina"],
+                              so_sem_pagina=bool(so_sem_pagina), so_falha=so_falha, urls=urls)
         if "classificacao" in etapas:
             classificacao.executar(repo, fab.bruto, fab.classificador, run_id, origem_cl, _params_classificacao(),
                                    C.UFS, fab.segredos, S.PAUSAS["classificacao"], args.limite, set(ufs),
-                                   max_falhas_por_item=S.CLASSIFICACAO["max_falhas_por_item"])
+                                   max_falhas_por_item=S.CLASSIFICACAO["max_falhas_por_item"],
+                                   so_nao_classificadas=so_nao_classificadas, urls=urls)
     except KeyboardInterrupt:
         status = "interrompida"
         logging.warning("Interrupted. Resume with: python main.py %s --retomar %s", args.cmd, run_id)
@@ -301,6 +377,7 @@ def abrir_painel(a, fab):
     if a.host not in ("127.0.0.1", "localhost"):
         raise SystemExit("O painel só aceita conexões locais (127.0.0.1): ele não tem autenticação.")
     import uvicorn
+    from adaptadores.repositorio_sqlite import RepositorioSQLite
     from config.solucoes_conhecidas import SOLUCOES_CONHECIDAS
     from painel.app import Contexto, criar_app
     banco = "demo" if a.demo else "simulado" if a.simulado else "real"
@@ -313,6 +390,14 @@ def abrir_painel(a, fab):
         "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5")
     if not fab.caminho_banco.exists() and a.demo:
         raise SystemExit("O banco de demonstração não existe. Rode antes: python main.py painel-demo")
+    if fab.caminho_banco.exists():
+        # o painel le o banco sem aplicar o esquema; depois de uma atualizacao do codigo faltariam colunas e views. Aplica-se aqui,
+        # uma unica vez (abrir o repositorio so grava se a assinatura do esquema mudou: D55). Em --somente-leitura nao se grava.
+        if not a.somente_leitura:
+            fab.novo_repositorio().fechar()
+        elif not RepositorioSQLite.esquema_atualizado(fab.caminho_banco):
+            raise SystemExit("O esquema do banco está desatualizado em relação ao código e --somente-leitura não grava. "
+                             "Abra o painel sem essa opção (ou rode qualquer comando de coleta) uma vez para atualizá-lo.")
     app = criar_app(fab.leitura_painel(), fab.novo_repositorio, fab.bruto, contexto)
     print(f"Painel ({banco}): http://{a.host}:{a.porta}   (Ctrl+C para encerrar)")
     uvicorn.run(app, host=a.host, port=a.porta, log_level="warning")
@@ -367,13 +452,32 @@ def main():
     for nome in ETAPAS:
         s = sub.add_parser(nome)
         s.add_argument("--retomar", help="run_id of an interrupted run (same configuration)")
-        s.add_argument("--de", help="run_id that holds the input data for this stage")
+        multi = nome in ("baixar", "classificar")
+        s.add_argument("--de", nargs="+" if multi else None,
+                       help="run_id that holds the input data for this stage" + ("; aceita varios (a entrada e a uniao deles, "
+                                                                                "sem repeticoes)" if multi else ""))
         s.add_argument("--simulado", action="store_true", help="fake adapters, no cost")
         s.add_argument("--ufs", nargs="*"); s.add_argument("--termos", nargs="*")
         s.add_argument("--paginas", type=int); s.add_argument("--perfil")
         s.add_argument("--limite", type=int, help="max. items per stage (testing)")
         s.add_argument("--auditoria", type=int, default=0,
                        help="N URLs descartadas pelo pre-filtro de palavras-chave tambem sao baixadas e classificadas (auditoria)")
+        if nome in ("baixar", "classificar"):
+            s.add_argument("--urls", type=int, nargs="+", metavar="URL_ID",
+                           help="so estes url_id (erro se nenhum deles for candidato nas execucoes de --de)")
+            s.add_argument("--listar", action="store_true",
+                           help="mostra o que seria " + ("baixado" if nome == "baixar" else "classificado")
+                           + " (quantidade, url_id, UF, dominio e motivo) e sai: sem rede, sem chamada de API e sem gravar nada")
+        if nome == "baixar":
+            s.add_argument("--so-sem-pagina", action="store_true",
+                           help="pula as URLs que ja tem pagina com texto extraido em QUALQUER execucao (dentro ou fora do relatorio)")
+            s.add_argument("--so-falha", metavar="MOTIVO",
+                           help="so as URLs cuja tentativa de download MAIS RECENTE falhou com este motivo: "
+                                + descricao_motivos_falha_download())
+        if nome == "classificar":
+            s.add_argument("--so-nao-classificadas", action="store_true",
+                           help="pula os pares (url_id, UF) que ja tem classificacao valida com o mesmo prompt_versao e o mesmo "
+                                "classificador em alguma execucao do relatorio (uma nova versao do prompt reclassifica)")
     s = sub.add_parser("triar-escopo", help="pergunta ao modelo de linguagem, em lotes, se cada resultado coletado esta no escopo (so por amostra)")
     s.add_argument("--fonte", required=True, choices=("artigos", "web"))
     s.add_argument("--amostra", type=int, help="tamanho da amostra deterministica (regra 11: use amostras pequenas)")

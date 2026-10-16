@@ -35,11 +35,18 @@ _NUMEROS = [
     _e("kpi-paginas-com-texto", "Páginas com texto",
        "Páginas baixadas de onde foi possível extrair texto legível. Só essas vão para o classificador com o texto da página."),
     _e("kpi-classificacoes", "Classificações",
-       "Quantas vezes o modelo de linguagem leu uma página (ou, sem texto, só o título e o trecho do buscador) e respondeu. "
+       "Quantas páginas (pares página-UF) o modelo de linguagem leu e classificou, contando só a classificação vigente de cada uma "
+       "(ver “Classificação vigente”). Lê o texto da página ou, sem texto, só o título e o trecho do buscador. "
        "Uma classificação pode não ter nenhum achado."),
     _e("kpi-achados", "Achados",
-       "Cada par tecnologia-status que o modelo apontou numa página, com um trecho literal como evidência. "
+       "Cada par tecnologia-status que o modelo apontou numa página, com um trecho literal como evidência, contando só os da "
+       "classificação vigente de cada página. "
        "Um achado é uma hipótese a verificar por uma pessoa, não um resultado confirmado."),
+    _e("classificacao-vigente", "Classificação vigente",
+       "Quando uma página foi classificada mais de uma vez, só uma classificação conta nos números: a que já tem achado verificado por "
+       "uma pessoa (decisão humana nunca é trocada sozinha); senão a de resposta válida; senão a feita com o texto da página, "
+       "que vale mais que a feita só com o trecho do buscador; senão a mais recente. Nada é apagado: as outras ficam no banco, "
+       "e um achado antigo continua abrindo, com o aviso de que foi substituído."),
     _e("kpi-evidencia-confere", "Evidência confere",
        "Percentual dos achados cujo trecho citado existe de fato no texto enviado ao modelo. Veja o termo “Evidência confere”, "
        "mais adiante, para o que isso garante e o que não garante."),
@@ -195,6 +202,11 @@ _EVIDENCIA = [
     _e("evidencia-cita-tecnologia", "Evidência cita a tecnologia",
        "Verificação branda: o trecho contém alguma palavra do nome da tecnologia (por exemplo, “placas” para leitura de placas). "
        "Se não contém, o achado sobe na fila de revisão. É uma ajuda para priorizar, não uma decisão."),
+    _e("nome-solucao", "Nome da solução",
+       "O nome próprio da ferramenta, sistema ou programa do achado (por exemplo, “BO Fácil” ou “SPiA”), como está escrito no texto. "
+       "O modelo o preenche mesmo quando o trecho de evidência só diz “a ferramenta”, porque o nome pode estar em outro parágrafo. "
+       "O sistema só guarda o nome se ele aparece no texto enviado ao modelo (título e endereço incluídos); um nome inventado é "
+       "descartado e fica contado. Em branco (“—”) quer dizer que nenhum nome próprio apareceu. A evidência continua sendo um trecho literal."),
     _e("evidencia-cita-lgpd", "Evidência cita a LGPD",
        "O trecho menciona a Lei Geral de Proteção de Dados ou proteção de dados. Para saber quantos achados tratam de LGPD, use "
        "esta marca e não a do modelo, que às vezes marca LGPD sem que o trecho a cite."),

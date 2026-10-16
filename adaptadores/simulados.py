@@ -10,6 +10,10 @@ _TEXTO = ("A Secretaria de Segurança Pública implantou reconhecimento facial n
           "em 2024, com contrato firmado com empresa de tecnologia e atendimento à LGPD.")
 
 
+# Nome proprio demonstrativo do classificador simulado: preenche `nome_solucao` so quando o texto o contem.
+NOME_SOLUCAO_DEMO = "Sistema Simulado"
+
+
 def _reg(provedor, op, **kw):
     return RegistroChamada(provedor=provedor, operacao=op, parametros={}, requisitado_em=agora(),
                            http_status=200, latencia_ms=1, **kw)
@@ -51,7 +55,9 @@ class ClassificadorSimulado:
         reg = _reg(self.nome, "classificar", raw=b'{"simulado": true}', tokens_entrada=100, tokens_saida=20, custo_usd=0.0)
         if "reconhecimento facial" in entrada.texto:
             trecho = "implantou reconhecimento facial nas câmeras da capital"
-            a = Achado("reconhecimento_facial", "em_uso", "", True, trecho, "alta")
+            # nome demonstrativo fixo: so e devolvido se o texto o traz (o texto padrao nao traz, entao nada muda nos testes antigos)
+            nome = NOME_SOLUCAO_DEMO if NOME_SOLUCAO_DEMO in entrada.texto else ""
+            a = Achado("reconhecimento_facial", "em_uso", "", True, trecho, "alta", nome_solucao=nome)
             return ResultadoClassificacao(True, [a], True, "{}", reg)
         return ResultadoClassificacao(False, [], True, "{}", reg)
 

@@ -232,12 +232,14 @@ CREATE TABLE IF NOT EXISTS achados (
     confianca_original TEXT,                         -- confianca devolvida pelo modelo, antes do rebaixamento
     evidencia_cita_tecnologia INTEGER,               -- 1 = o trecho cita um termo da tecnologia (heuristica, sem LLM)
     evidencia_cita_lgpd INTEGER,                     -- 1 = o trecho cita LGPD ou protecao de dados (heuristica)
+    nome_solucao      TEXT,                          -- nome proprio da solucao (prompt v4), so se aparece no texto enviado; NULL = sem nome
     verificado        INTEGER NOT NULL DEFAULT 0,
     status_final      TEXT,                          -- human decision
     verificado_por    TEXT,
     verificado_em     TEXT,
     observacao        TEXT
 );
+CREATE INDEX IF NOT EXISTS ix_achados_classificacao ON achados(classificacao_id);
 -- achados que o modelo devolveu fora do vocabulario controlado: descartados, mas guardados para auditoria
 CREATE TABLE IF NOT EXISTS achados_descartados (
     descartado_id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -313,17 +315,41 @@ SELECT s.* FROM selecao_download s JOIN execucoes e ON e.run_id = s.run_id WHERE
 DROP VIEW IF EXISTS r_paginas;
 CREATE VIEW r_paginas AS
 SELECT p.* FROM paginas p JOIN execucoes e ON e.run_id = p.run_id WHERE e.no_relatorio = 1;
+-- HISTORICO: toda classificacao das execucoes do relatorio (uma pagina classificada duas vezes aparece duas vezes). Serve a
+-- metricas de DESEMPENHO e CUSTO do classificador (por versao do prompt), nunca a contagens de paginas ou achados.
+DROP VIEW IF EXISTS r_classificacoes_historico;
+CREATE VIEW r_classificacoes_historico AS
+SELECT k.* FROM classificacoes k JOIN execucoes e ON e.run_id = k.run_id WHERE e.no_relatorio = 1;
+DROP VIEW IF EXISTS r_achados_historico;
+CREATE VIEW r_achados_historico AS
+SELECT a.* FROM achados a JOIN r_classificacoes_historico k ON k.classificacao_id = a.classificacao_id;
+-- CLASSIFICACAO VIGENTE: uma por par (url_id, uf) entre as execucoes do relatorio. Vale, nesta ordem:
+--   (a) a que tem achado verificado por humano (a mais recente delas): decisao humana nunca e substituida sozinha;
+--   (b) senao, a de JSON valido;  (c) senao, a de texto da pagina sobre a de so snippet (snippet novo nao troca texto completo antigo);
+--   (d) senao, a mais recente (maior classificacao_id).
+-- Nada e apagado: o historico fica nas tabelas e em r_classificacoes_historico; so a contagem muda. Contagens de paginas e achados leem esta view.
 DROP VIEW IF EXISTS r_classificacoes;
 CREATE VIEW r_classificacoes AS
-SELECT k.* FROM classificacoes k JOIN execucoes e ON e.run_id = k.run_id WHERE e.no_relatorio = 1;
+WITH base AS (
+    SELECT k.classificacao_id, k.url_id, k.uf, COALESCE(k.json_valido, 0) AS valido,
+           CASE WHEN k.origem_texto = 'pagina' THEN 1 ELSE 0 END AS pagina,
+           CASE WHEN v.classificacao_id IS NULL THEN 0 ELSE 1 END AS humano
+    FROM r_classificacoes_historico k
+    LEFT JOIN (SELECT DISTINCT classificacao_id FROM achados WHERE verificado = 1) v ON v.classificacao_id = k.classificacao_id),
+ranque AS (
+    SELECT classificacao_id,
+           ROW_NUMBER() OVER (PARTITION BY url_id, uf ORDER BY humano DESC,
+                              CASE WHEN humano = 1 THEN 0 ELSE valido END DESC,
+                              CASE WHEN humano = 1 THEN 0 ELSE pagina END DESC,
+                              classificacao_id DESC) AS posicao
+    FROM base)
+SELECT k.* FROM classificacoes k JOIN ranque r ON r.classificacao_id = k.classificacao_id WHERE r.posicao = 1;
 DROP VIEW IF EXISTS r_achados;
 CREATE VIEW r_achados AS
-SELECT a.* FROM achados a JOIN classificacoes k ON k.classificacao_id = a.classificacao_id
-JOIN execucoes e ON e.run_id = k.run_id WHERE e.no_relatorio = 1;
+SELECT a.* FROM achados a JOIN r_classificacoes k ON k.classificacao_id = a.classificacao_id;
 DROP VIEW IF EXISTS r_achados_descartados;
 CREATE VIEW r_achados_descartados AS
-SELECT d.* FROM achados_descartados d JOIN classificacoes k ON k.classificacao_id = d.classificacao_id
-JOIN execucoes e ON e.run_id = k.run_id WHERE e.no_relatorio = 1;
+SELECT d.* FROM achados_descartados d JOIN r_classificacoes k ON k.classificacao_id = d.classificacao_id;
 -- artigo que so apareceu em execucao fora do relatorio nao conta; artigos das buscas manuais sempre contam
 DROP VIEW IF EXISTS r_artigos;
 CREATE VIEW r_artigos AS
@@ -395,19 +421,18 @@ SELECT a.achado_id, k.run_id, a.uf, a.tecnologia, a.status_reportado, a.forneced
        a.verificado, a.status_final, a.verificado_por, a.verificado_em, a.observacao,
        EXISTS (SELECT 1 FROM v_pares_auditoria pa WHERE pa.url_id = k.url_id AND pa.uf = k.uf) AS auditoria,
        p.dominio_final, p.fonte_oficial_final,
-       a.evidencia_cita_tecnologia, a.evidencia_cita_lgpd, k.cidade
+       a.evidencia_cita_tecnologia, a.evidencia_cita_lgpd, k.cidade, a.nome_solucao
 FROM achados a
-JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
+JOIN r_classificacoes k ON k.classificacao_id=a.classificacao_id   -- fila de revisao: so a classificacao vigente de execucoes do relatorio
 JOIN urls u ON u.url_id=k.url_id
 LEFT JOIN paginas p ON p.pagina_id=k.pagina_id
-JOIN execucoes e ON e.run_id=k.run_id AND e.no_relatorio=1       -- fila de revisao: so execucoes do relatorio
 ORDER BY a.verificado, a.evidencia_confere, a.evidencia_cita_tecnologia, a.uf;
 
 DROP VIEW IF EXISTS v_secretarias_confirmadas;
 CREATE VIEW v_secretarias_confirmadas AS      -- C4: achados verificados e nao descartados, por UF e tecnologia
 SELECT a.uf, k.cidade, a.tecnologia, a.status_final, a.fornecedor, a.menciona_lgpd, a.evidencia,
        u.url_original AS url, f.dominio_efetivo AS dominio, f.fonte_oficial_efetiva AS fonte_oficial,
-       a.achado_id, a.verificado_por, a.verificado_em
+       a.achado_id, a.verificado_por, a.verificado_em, a.nome_solucao
 FROM r_achados a
 JOIN r_classificacoes k ON k.classificacao_id=a.classificacao_id
 JOIN urls u ON u.url_id=k.url_id
@@ -744,14 +769,15 @@ SELECT status_reportado, status_final, status_reportado = status_final AS mantev
 FROM r_achados WHERE verificado = 1
 GROUP BY status_reportado, status_final ORDER BY n DESC;
 
--- Qualidade e custo por classificador, versao do prompt e origem do texto.
+-- Qualidade e custo por classificador, versao do prompt e origem do texto. Le o HISTORICO (toda chamada feita), nao so a
+-- classificacao vigente: o custo e o desempenho de uma versao do prompt valem mesmo quando outra classificacao a substituiu.
 DROP VIEW IF EXISTS v_qualidade_classificacao;
 CREATE VIEW v_qualidade_classificacao AS
 WITH por_classificacao AS (
     SELECT k.classificacao_id, k.classificador, k.prompt_versao, k.origem_texto, k.json_valido, k.relevante,
            k.texto_truncado, k.n_achados_invalidos, k.chamada_id, COUNT(a.achado_id) AS n_achados,
            COALESCE(SUM(a.evidencia_confere = 1), 0) AS n_evidencia_ok
-    FROM r_classificacoes k LEFT JOIN r_achados a ON a.classificacao_id = k.classificacao_id
+    FROM r_classificacoes_historico k LEFT JOIN r_achados_historico a ON a.classificacao_id = k.classificacao_id
     GROUP BY k.classificacao_id)
 SELECT p.classificador, p.prompt_versao, p.origem_texto, COUNT(*) AS n_classificacoes,
        ROUND(100.0 * SUM(p.json_valido) / COUNT(*), 1) AS pct_json_valido,
@@ -1060,11 +1086,11 @@ CREATE VIEW v_classificacoes_invalidas AS
 SELECT k.classificacao_id, k.run_id, k.url_id, k.uf, k.classificador, k.prompt_versao, k.origem_texto,
        json_extract(c.extras_json, '$.finish_reason') AS finish_reason, c.tokens_saida, substr(k.resposta_texto, 1, 200) AS inicio_da_resposta
 FROM r_classificacoes k JOIN chamadas c ON c.chamada_id = k.chamada_id
-WHERE k.json_valido = 0
-  AND NOT EXISTS (SELECT 1 FROM r_classificacoes v WHERE v.url_id = k.url_id AND v.uf = k.uf AND v.json_valido = 1);
+WHERE k.json_valido = 0;       -- r_classificacoes so traz a vigente do par, que e invalida apenas se nenhuma outra do par for valida
 
 -- A evidencia citada sustenta o achado? `evidencia_confere` so mede se o trecho existe no texto; estas duas checagens
 -- (sem LLM) medem se ele cita um termo da tecnologia e se o flag de LGPD do modelo tem respaldo no proprio trecho.
+-- Comportamento do modelo por versao do prompt: le o historico, como v_qualidade_classificacao.
 DROP VIEW IF EXISTS v_consistencia_evidencia;
 CREATE VIEW v_consistencia_evidencia AS
 SELECT k.classificador, k.prompt_versao, COUNT(*) AS n_achados,
@@ -1074,5 +1100,5 @@ SELECT k.classificador, k.prompt_versao, COUNT(*) AS n_achados,
        COALESCE(SUM(a.menciona_lgpd = 1 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_modelo_com_respaldo,
        COALESCE(SUM(a.menciona_lgpd = 1 AND COALESCE(a.evidencia_cita_lgpd, 0) = 0), 0) AS n_lgpd_modelo_sem_respaldo,
        COALESCE(SUM(COALESCE(a.menciona_lgpd, 0) = 0 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_no_trecho_sem_flag
-FROM r_achados a JOIN r_classificacoes k ON k.classificacao_id = a.classificacao_id
+FROM r_achados_historico a JOIN r_classificacoes_historico k ON k.classificacao_id = a.classificacao_id
 GROUP BY k.classificador, k.prompt_versao;

@@ -4,6 +4,7 @@ from dataclasses import replace
 from dominio.modelos import EntradaClassificacao, Instrucoes
 from dominio.servicos import hash_chave, evidencia_confere, evidencia_cita_termo, evidencia_cita_lgpd
 from aplicacao.comum import registrar_chamada
+from dominio.erros import CotaDiariaEsgotada
 
 _CONFIANCAS = ("alta", "media", "baixa")
 
@@ -49,6 +50,13 @@ def executar(repo, bruto, classificador, run_id, run_origem, params, ufs_nomes, 
         res = classificador.classificar(entrada, instr)
         chamada_id, _ = registrar_chamada(repo, bruto, run_id, "classificacao", "item",
                                           f"{item.url_id}:{item.uf}", chave, res.chamada, segredos, uf=item.uf)
+        if res.chamada.extras.get("cota_diaria_esgotada"):
+            # a cota diaria do provedor acabou: repetir hoje so gasta tempo e espalharia falhas por todos os itens.
+            # Para aqui; o item nao conta como falha propria e a retomada (--retomar) refaz o que faltou.
+            repo.registrar_metrica(run_id, "classificacao_parada_cota_diaria", 1)
+            repo.confirmar()
+            raise CotaDiariaEsgotada(classificador.nome, "Retome com --retomar depois que a cota renovar.",
+                                     res.chamada.extras.get("cota_renova_em_s"))
         if res.chamada.sucesso:
             validos, invalidos, descartados = [], 0, []
             for a in res.achados:

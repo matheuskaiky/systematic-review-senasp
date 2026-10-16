@@ -25,7 +25,7 @@ AQUI = Path(__file__).parent
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 FILTROS_CHAMADAS = ("run", "etapa", "provedor", "uf", "resultado", "q")
-FILTROS_ARTIGOS = ("q", "decisao", "multi", "termo", "base", "ano_de", "ano_ate", "rel", "ordem")
+FILTROS_ARTIGOS = ("q", "decisao", "multi", "termo", "base", "ano_de", "ano_ate", "rel", "ordem", "llm")
 FILTROS = ("uf", "esfera", "cidade", "tecnologia", "status", "confianca", "evidencia", "oficial", "origem", "verificacao", "q")
 JANELA_CONTEXTO = 2500            # caracteres de cada lado da evidencia na visao resumida
 LIMITE_TEXTO = 200_000            # o visor nunca mostra mais que isto

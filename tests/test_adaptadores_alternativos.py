@@ -288,7 +288,8 @@ def test_openai_texto_que_nao_e_json_gera_json_invalido_sem_erro(monkeypatch):
 def test_registro_de_adaptadores_e_o_da_especificacao():
     assert {porta: set(nomes) for porta, nomes in REGISTROS.items()} == {
         "busca_web": {"perplexity_search", "serpapi_google"}, "academico": {"serpapi_scholar"}, "fetcher": {"requests"},
-        "extrator": {"padrao"}, "classificador": {"gemini", "openai_compat"}, "armazenamento": {"sqlite"},
+        "extrator": {"padrao"}, "classificador": {"gemini", "openai_compat"}, "triador": {"gemini"},
+        "armazenamento": {"sqlite"},
         "bruto": {"local"}, "exportador": {"excel"}}
 
 

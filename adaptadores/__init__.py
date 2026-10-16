@@ -4,6 +4,7 @@ from adaptadores.academico_serpapi_scholar import AcademicoSerpApiScholar
 from adaptadores.fetcher_requests import FetcherRequests
 from adaptadores.extrator_padrao import ExtratorPadrao
 from adaptadores.classificador_gemini import ClassificadorGemini
+from adaptadores.triador_gemini import TriadorEscopoGemini
 from adaptadores.classificador_openai_compat import ClassificadorOpenAICompat
 from adaptadores.repositorio_sqlite import RepositorioSQLite
 from adaptadores.bruto_local import BrutoLocal
@@ -15,6 +16,7 @@ REGISTROS = {
     "fetcher": {"requests": FetcherRequests},
     "extrator": {"padrao": ExtratorPadrao},
     "classificador": {"gemini": ClassificadorGemini, "openai_compat": ClassificadorOpenAICompat},
+    "triador": {"gemini": TriadorEscopoGemini},
     "armazenamento": {"sqlite": RepositorioSQLite},
     "bruto": {"local": BrutoLocal},
     "exportador": {"excel": ExportadorExcel},

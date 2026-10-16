@@ -1,9 +1,30 @@
+import json
 import logging
+import re
 import time
 from urllib.parse import quote, quote_plus
 import requests
 
 RETENTAVEIS = (429, 500, 502, 503, 504)   # retryable HTTP statuses
+
+
+def cota_diaria_esgotada(texto):
+    """Se o corpo de uma resposta 429 (formato de erro das APIs do Google: QuotaFailure e RetryInfo) diz que a cota DIARIA acabou, devolve `(True, segundos_para_renovar)`;
+    senao `(False, None)`. Cota por minuto (RPM/TPM) continua sendo retentavel: so a diaria nao adianta repetir."""
+    try:
+        erro = (json.loads(texto) or {}).get("error") or {}
+    except (ValueError, TypeError, AttributeError):
+        return False, None
+    if erro.get("code") != 429:
+        return False, None
+    diaria, espera = "PerDay" in str(erro.get("message", "")), None
+    for det in erro.get("details") or []:
+        for v in det.get("violations") or []:
+            diaria = diaria or "PerDay" in str(v.get("quotaId", ""))
+        if str(det.get("@type", "")).endswith("RetryInfo"):
+            m = re.match(r"(\d+(?:\.\d+)?)s", str(det.get("retryDelay", "")))
+            espera = float(m.group(1)) if m else espera
+    return diaria, (espera if diaria else None)
 
 # nomes de parametro ou cabecalho cujo valor e segredo (api_key, Authorization, x-goog-api-key...)
 _NOMES_SENSIVEIS = ("key", "token", "secret", "password", "passwd", "senha", "authorization", "auth", "credential",
@@ -34,11 +55,12 @@ def limpar_segredos(texto, segredos):
 
 
 def chamar(metodo, url, *, params=None, json_body=None, headers=None, timeout=60,
-           max_tentativas=4, espera_base=2, stream=False, allow_redirects=True, ler_corpo_erro=0):
+           max_tentativas=4, espera_base=2, stream=False, allow_redirects=True, ler_corpo_erro=0, nao_repetir=None):
     """HTTP with retry/backoff. Never raises: returns a metrics dict.
 
     Alem do contrato da especificacao, devolve `latencia_total_ms` (relogio de parede, com as esperas
     entre tentativas) e `historico` (uma entrada por tentativa). `latencia_ms` continua sendo a da ultima.
+    `nao_repetir(resposta)`, se dado e verdadeiro para um status retentavel, encerra sem novas tentativas (cota diaria).
     `allow_redirects=False` deixa o chamador seguir os redirecionamentos (para checar o robots.txt de cada destino).
     Com stream=True e `ler_corpo_erro=N`, uma resposta de erro tem os primeiros N bytes do corpo devolvidos em
     `corpo_erro` antes de ser fechada (permite distinguir um bloqueio de WAF de um 403 genuino).
@@ -56,7 +78,7 @@ def chamar(metodo, url, *, params=None, json_body=None, headers=None, timeout=60
             r = requests.request(metodo, url, params=params, json=json_body, headers=headers,
                                  timeout=timeout, stream=stream, allow_redirects=allow_redirects)
             latencia = int((time.perf_counter() - t0) * 1000)
-            if r.status_code in RETENTAVEIS and tentativa < max_tentativas:
+            if r.status_code in RETENTAVEIS and tentativa < max_tentativas and not (nao_repetir and nao_repetir(r)):
                 ultimo_erro = f"HTTP {r.status_code}"
                 espera = espera_base ** tentativa
                 historico.append({"tentativa": tentativa, "http_status": r.status_code,

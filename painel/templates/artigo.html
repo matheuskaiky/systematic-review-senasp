@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% import "_selos.html" as s %}
 {% block titulo %}Artigo {{ a.artigo_id }}{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="/static/relevancia.css">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/relevancia.css"><link rel="stylesheet" href="/static/triagem_escopo.css">{% endblock %}
 {% block conteudo %}
 {% set versao = a.revisado_em or 'nao-triado' %}
 <p class="trilha"><a href="/literatura">Literatura</a> › <a href="/literatura/artigos">artigos</a> › nº {{ a.artigo_id }}
@@ -23,6 +23,26 @@
       <dt>Link</dt><dd>{% if a.link %}<a href="{{ a.link|url_segura }}" target="_blank" rel="noopener noreferrer">{{ a.link }}</a>{% else %}não informado{% endif %}</dd>
     </dl>
     {% if a.snippet %}<blockquote class="trecho citado"><span class="rotulo-mini">Resumo (como veio da fonte)</span>{{ a.snippet }}</blockquote>{% endif %}
+  </article>
+  {% set e = rotulos_escopo %}
+  <article class="cartao cartao-llm" id="triagem-llm"><h2>Triagem de escopo pelo modelo</h2>
+    {% if not a.llm %}<p class="nao-avaliado">Este artigo ainda não foi avaliado pelo modelo. A triagem do modelo é só uma opinião, registrada à parte da sua decisão.</p>
+    {% else %}
+    <p class="selos">{{ s.llm(a.llm.status, a.llm.categoria_motivo, a.llm.valido) }}{% if a.llm.confianca %} <span class="selo neutro">Confiança {{ rotulos.rotulo(rotulos.CONFIANCA, a.llm.confianca)|lower }}</span>{% endif %}</p>
+    {% if a.llm.status == "excluido" %}
+    <p class="aviso aviso-excluido" role="status"><strong>Excluído pelo modelo.</strong> O modelo tem certeza de que este artigo é inútil para o escopo, por isso ele fica oculto das listas e da fila de triagem por padrão
+      (quarentena temporária). {% if a.decisao != "pendente" %}Como você já decidiu sobre ele ({{ "incluído" if a.decisao == "incluir" else "excluído" }}), a sua decisão prevalece e ele continua aparecendo nas listas.{% else %}Nada foi apagado: você decide, e pode vê-lo em <a href="/literatura/artigos?llm=excluido">Triagem LLM: apenas excluídos</a>.{% endif %}</p>
+    {% elif a.llm.status == "quarentena" %}<p class="explica-llm">{{ e.STATUS_EXPLICA.quarentena }}</p>{% endif %}
+    <dl class="ficha">
+      <dt>Justificativa</dt><dd>{{ a.llm.justificativa or "não informada" }}</dd>
+      <dt>Motivo</dt><dd>{% if a.llm.categoria_motivo %}{{ e.rotulo(e.CATEGORIAS, a.llm.categoria_motivo) }} <small class="fornecedor">· {{ e.rotulo(e.CATEGORIAS_EXPLICA, a.llm.categoria_motivo, "") }}</small>{% else %}nenhum (elegível){% endif %}</dd>
+      <dt>Termo gerador do ruído</dt><dd>{{ a.llm.termo_gerador or "—" }}</dd>
+      <dt>Sinal negativo sugerido</dt><dd>{% if a.llm.sinal_negativo %}<code>{{ a.llm.sinal_negativo }}</code>{% else %}—{% endif %}</dd>
+      <dt>Área temática</dt><dd>{{ e.rotulo(e.DOMINIOS, a.llm.dominio_tematico) if a.llm.dominio_tematico else "—" }}</dd>
+      <dt>Escopo geográfico</dt><dd>{{ e.rotulo(e.ESCOPOS, a.llm.escopo_geografico) if a.llm.escopo_geografico else "—" }}</dd>
+      <dt>Tipo de documento</dt><dd>{{ e.rotulo(e.TIPOS, a.llm.tipo_documento) if a.llm.tipo_documento else "—" }}</dd>
+      <dt>Execução</dt><dd><a href="/execucoes/{{ a.llm.run_id }}"><code>{{ a.llm.run_id }}</code></a>{% if a.llm.prompt_versao %} · prompt {{ a.llm.prompt_versao }}{% endif %} · <a href="/triagem-escopo">entender a triagem do modelo</a></dd>
+    </dl>{% endif %}
   </article>
   <article class="cartao"><h2>Onde foi encontrado</h2>
     {% if a.ocorrencias %}<h3>Google Scholar</h3><ul class="lista-simples">{% for o in a.ocorrencias %}<li><strong>{{ o.termo_id }}</strong> {{ ctx.termos.get(o.termo_id, "")|replace('"', '') }}

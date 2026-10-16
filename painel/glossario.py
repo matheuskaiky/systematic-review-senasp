@@ -6,7 +6,7 @@ oficial, em ingles, que vai para o prompt). O `id` de cada entrada e a ancora: o
 `/sobre#<id>`. Toda chave de `config.vocabulario` e de `painel.rotulos` tem entrada, com o prefixo de PREFIXOS
 (`tests/test_glossario.py` confere).
 """
-from painel import rotulos
+from painel import rotulos, rotulos_escopo
 
 # prefixo da ancora para cada tabela de chaves (a chave vem depois do hifen)
 PREFIXOS = {
@@ -235,6 +235,41 @@ _LITERATURA = [
        "Scholar não foi rodada. Em ambos os casos o número real é desconhecido, não zero."),
 ]
 
+_ESCOPO_LLM = [
+    _e("triagem-escopo", "Triagem de escopo pelo modelo",
+       "O modelo de linguagem lê o título e o resumo de cada artigo (ou resultado web) e diz se ele serve ao escopo da pesquisa: "
+       "elegível, quarentena ou excluído. É uma opinião registrada à parte da sua decisão, usada para ajustar as consultas de busca. "
+       "Nada é apagado: o excluído fica oculto das listas por padrão (quarentena temporária) e uma decisão humana sempre prevalece."),
+    _e("escopo-status-elegivel", "Triagem LLM: elegível", rotulos_escopo.STATUS_EXPLICA["elegivel"]),
+    _e("escopo-status-quarentena", "Triagem LLM: quarentena", rotulos_escopo.STATUS_EXPLICA["quarentena"]),
+    _e("escopo-status-excluido", "Triagem LLM: excluído pelo modelo", rotulos_escopo.STATUS_EXPLICA["excluido"]),
+] + [_e("escopo-categoria-" + k.lower(), "Motivo: " + rotulos_escopo.CATEGORIAS[k], rotulos_escopo.CATEGORIAS_EXPLICA[k])
+     for k in rotulos_escopo.CATEGORIAS] + [
+    _e("ficha-ruido", "Ficha de ruído por termo",
+       "Para cada consulta da busca, a parcela de itens elegíveis, em quarentena e excluídos pelo modelo, o motivo e a área mais frequentes "
+       "do ruído e a parcela de itens internacionais. O ruído é a soma de excluídos e em quarentena sobre o total. Só linhas com a "
+       "conferência automática aprovada entram nos percentuais."),
+    _e("termo-gerador", "Termo gerador",
+       "Entre as consultas que encontraram um item, a que o modelo aponta como provável causa de ele ter sido capturado por engano. "
+       "O programa confere que é uma das consultas da busca, para poder contar quantos itens ruidosos cada termo gerou."),
+    _e("sinal-negativo", "Sinal negativo",
+       "Palavra ou expressão (até três palavras) copiada do título ou do resumo de um item excluído que caracteriza aquele ruído e "
+       "poderia virar um operador negativo na busca. É uma sugestão do modelo: antes de usá-la, veja o dano colateral."),
+    _e("dano-colateral", "Dano colateral de um operador negativo",
+       "Quantos itens bons (elegíveis, em quarentena ou incluídos por você) também contêm o sinal negativo e se perderiam se a consulta o "
+       "excluísse. Zero é seguro; até 5% dos itens que contêm o texto é arriscado; mais que isso, ou uma palavra central do tema, é perigoso."),
+    _e("dominio-tematico", "Área temática",
+       "A área de onde vem o item segundo o modelo (saúde, educação, agropecuária, trânsito...), entre uma lista fechada. Mostra de onde "
+       "vem o ruído de cada termo e que tipo de operador negativo ajudaria."),
+    _e("escopo-geografico", "Escopo geográfico",
+       "Se o item trata do Brasil, é internacional ou indeterminado. Item internacional não é excluído só por isso, porque pode servir de "
+       "referência; mas um termo que só traz literatura estrangeira indica que a consulta precisa de foco no Brasil."),
+    _e("conferencia-automatica-escopo", "Conferência automática da triagem",
+       "Depois de cada resposta do modelo o programa confere, sem usar o modelo, se os campos são válidos, se o termo gerador é um dos termos "
+       "da busca e se o sinal negativo existe no texto; e rebaixa para quarentena toda exclusão sem confiança alta. Linhas que falham ficam "
+       "marcadas e fora dos percentuais."),
+]
+
 
 def _por_chave(tabela, nome, textos, extra=None):
     prefixo = PREFIXOS[nome]
@@ -275,6 +310,9 @@ SECOES = [
      "intro": "Cada passagem do pipeline é uma execução, com situação, configuração e gasto próprios.", "entradas": _EXECUCOES},
     {"id": "literatura", "titulo": "Literatura e PRISMA",
      "intro": "Termos da segunda parte da pesquisa: artigos científicos, triagem e fluxo PRISMA.", "entradas": _LITERATURA},
+    {"id": "triagem-escopo-llm", "titulo": "Triagem de escopo pelo modelo",
+     "intro": "O modelo opina, item a item, se o resultado serve ao escopo; a pesquisa usa a opinião para refinar as consultas, sem apagar nem decidir nada.",
+     "entradas": _ESCOPO_LLM},
 ]
 
 

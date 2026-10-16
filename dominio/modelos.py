@@ -184,6 +184,13 @@ class ResultadoClassificacao:
     chamada: RegistroChamada
 
 
+@dataclass
+class ResultadoTriagemLote:
+    """Resposta de UMA chamada de triagem de escopo: o texto bruto do modelo (a validacao e do dominio) e o registro."""
+    texto_resposta: str
+    chamada: RegistroChamada
+
+
 # ----- items that circulate between stages (read from the database) -----
 @dataclass(frozen=True)
 class CandidatoDownload:

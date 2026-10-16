@@ -6,4 +6,5 @@
 {% elif filtros %}<p class="vazio">Nenhum artigo pendente com estes filtros. <a href="/literatura/triagem">Ver a fila completa</a>.</p>
 {% else %}<div class="aviso ok" role="status">Triagem por título e resumo concluída: {{ fmt.numero(tri.incluidos) }} incluído(s) e {{ fmt.numero(tri.excluidos) }} excluído(s).</div>
 <p><a class="botao" href="/literatura/prisma">Ver o fluxo PRISMA</a> <a class="botao secundario" href="/literatura/artigos?decisao=incluir">Ver os incluídos (texto completo)</a></p>{% endif %}
+{% if tri.ocultos_llm %}<p class="contagem">{{ fmt.numero(tri.ocultos_llm) }} artigo(s) excluído(s) pelo modelo ficam fora da fila (quarentena temporária; nada foi apagado). <a href="/literatura/artigos?llm=excluido">Ver os excluídos</a> ou <a href="/literatura/triagem?llm=todos">incluí-los na fila</a>.</p>{% endif %}
 {% endblock %}

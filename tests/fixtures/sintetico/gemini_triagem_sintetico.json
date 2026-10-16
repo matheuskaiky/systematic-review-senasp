@@ -1,0 +1,29 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "thought": true,
+            "text": "Raciocinio interno sintetico."
+          },
+          {
+            "text": "{\"itens\": [{\"id\": \"1\", \"status\": \"elegivel\", \"confianca\": \"alta\", \"categoria_motivo\": \"NENHUMA\", \"justificativa\": \"Trata de reconhecimento facial na polícia militar.\", \"termo_gerador_ruido\": \"\", \"sinal_negativo\": \"\", \"dominio_tematico\": \"seguranca_publica\", \"escopo_geografico\": \"brasil\", \"tipo_documento\": \"artigo_periodico\"}, {\"id\": \"2\", \"status\": \"quarentena\", \"confianca\": \"media\", \"categoria_motivo\": \"AMBIGUIDADE_LEXICAL\", \"justificativa\": \"Uso do termo em contexto de saúde.\", \"termo_gerador_ruido\": \"reconhecimento facial\", \"sinal_negativo\": \"pacientes\", \"dominio_tematico\": \"saude\", \"escopo_geografico\": \"indeterminado\", \"tipo_documento\": \"artigo_congresso\"}]}"
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1800,
+    "candidatesTokenCount": 260,
+    "thoughtsTokenCount": 140,
+    "totalTokenCount": 2200,
+    "serviceTier": "standard"
+  },
+  "modelVersion": "gemini-3.5-flash-lite-sintetico",
+  "responseId": "resp-sintetico-triagem-0001"
+}

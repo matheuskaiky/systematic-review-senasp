@@ -2,7 +2,7 @@ import hashlib
 import json
 from dominio.modelos import RegistroChamada, ResultadoClassificacao
 from dominio.servicos import interpretar_json_classificacao
-from infra.http import chamar, extras_http
+from infra.http import chamar, cota_diaria_esgotada, extras_http
 from infra.util import agora
 
 # formas de enviar o esquema da resposta (a API documenta mais de uma; so uma chamada real confirma qual o modelo aceita)
@@ -95,7 +95,8 @@ class ClassificadorGemini:
         corpo = self._corpo(instr)
         r = chamar("POST", f"{self._base}/models/{self._modelo}:generateContent", json_body=corpo,
                    timeout=self._timeout,
-                   headers={"x-goog-api-key": self._chave, "Content-Type": "application/json"})
+                   headers={"x-goog-api-key": self._chave, "Content-Type": "application/json"},
+                   nao_repetir=lambda resp: cota_diaria_esgotada(resp.text)[0])
         reg = RegistroChamada(
             provedor=self.nome, operacao="classificar",
             parametros={"modelo": self._modelo, "temperatura": self._temp, "max_tokens_saida": self._max,
@@ -109,6 +110,11 @@ class ClassificadorGemini:
         texto, relevante, achados, valido = "", False, [], False
         if r["resp"] is not None:
             reg.raw = r["resp"].content
+            if r["http_status"] == 429:
+                diaria, renova = cota_diaria_esgotada(r["resp"].text)
+                if diaria:                         # a etapa para (ver aplicacao/classificacao.py); nao e falha do item
+                    reg.extras["cota_diaria_esgotada"] = True
+                    reg.extras["cota_renova_em_s"] = renova
         if reg.erro is None:
             try:
                 meta = self.metadados(r["resp"].text)

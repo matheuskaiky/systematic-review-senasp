@@ -2,6 +2,7 @@ import json
 import logging
 import sqlite3
 import uuid
+from urllib.parse import urlsplit
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -308,6 +309,116 @@ class RepositorioSQLite:
                           status=a.status, fornecedor=a.fornecedor or None, menciona_lgpd=int(a.menciona_lgpd),
                           evidencia=a.evidencia, confianca=a.confianca, motivo=motivo)
 
+    # ---------- triagem de escopo por LLM ----------
+    def itens_para_triagem_escopo(self, fonte):
+        """Itens a triar, como dicionarios simples, em ordem estavel (so execucoes dentro do relatorio).
+
+        `artigo`: um por artigo de `r_artigos`, com os ids dos termos que o acharam (Scholar primeiro, na ordem em que
+        apareceram; depois as buscas manuais) e as bases manuais de origem. `web`: um por (url_id, uf) de
+        `r_resultados_web`, com titulo e snippet da ocorrencia de snippet mais longo (empate: a mais recente), as
+        tecnologias e os modelos de consulta que a acharam, o provedor da ocorrencia mais recente e a decisao de download
+        (`selecionado`: True se alguma execucao a selecionou; `motivo_descarte`: o ultimo motivo, se nunca foi selecionada).
+        Os TEXTOS dos termos nao estao no banco: quem chama os resolve (`dominio.triagem_escopo.montar_termos`)."""
+        if fonte == "artigo":
+            return self._itens_artigo()
+        if fonte == "web":
+            return self._itens_web()
+        raise ValueError(f"fonte deve ser 'artigo' ou 'web', nao {fonte!r}")
+
+    def _itens_artigo(self):
+        termos, origens = {}, {}
+        for l in self.conn.execute("SELECT artigo_id, termo_id FROM r_ocorrencias ORDER BY ocorrencia_id"):
+            termos.setdefault(l["artigo_id"], []).append(l["termo_id"])
+        com_scholar = set(termos)
+        for l in self.conn.execute("SELECT artigo_id, termo_id, base FROM ocorrencias_manuais ORDER BY id"):
+            termos.setdefault(l["artigo_id"], []).append(l["termo_id"])
+            origens.setdefault(l["artigo_id"], []).append(l["base"])
+        saida = []
+        for a in self.conn.execute("SELECT * FROM r_artigos ORDER BY artigo_id").fetchall():
+            link = a["link"]
+            try:
+                host = urlsplit(link).hostname or "" if link else ""
+            except ValueError:
+                host = ""
+            i = a["artigo_id"]
+            saida.append({"item_id": i, "fonte": "artigo", "uf": "",
+                          "provedor": "serpapi_scholar" if i in com_scholar else "manual",
+                          "titulo": a["titulo"], "resumo": a["snippet"] or "",
+                          "autores_publicacao": a["autores_publicacao"] or "", "ano": a["ano"], "link": link, "host": host,
+                          "termos_ids": list(dict.fromkeys(termos.get(i, []))),
+                          "origens_manuais": list(dict.fromkeys(origens.get(i, [])))})
+        return saida
+
+    def _itens_web(self):
+        decisao = {}
+        for l in self.conn.execute("SELECT url_id, uf, selecionada, motivo FROM r_selecao_download ORDER BY run_id"):
+            d = decisao.setdefault((l["url_id"], l["uf"]), {"selecionado": False, "motivo": None})
+            if l["selecionada"]:
+                d["selecionado"], d["motivo"] = True, None
+            elif not d["selecionado"]:
+                d["motivo"] = l["motivo"]
+        grupos = {}
+        for l in self.conn.execute(
+                """SELECT r.resultado_id, r.url_id, r.uf, r.tecnologia, r.consulta_id, r.titulo, r.snippet, r.cidade,
+                          u.url_original, u.dominio, c.provedor
+                   FROM r_resultados_web r JOIN urls u ON u.url_id = r.url_id
+                   LEFT JOIN chamadas c ON c.chamada_id = r.chamada_id ORDER BY r.resultado_id"""):
+            g = grupos.setdefault((l["url_id"], l["uf"]), {"linhas": []})
+            g["linhas"].append(l)
+        saida = []
+        for (url_id, uf), g in sorted(grupos.items()):
+            linhas = g["linhas"]
+            melhor = max(linhas, key=lambda l: (len(l["snippet"] or ""), l["resultado_id"]))
+            d = decisao.get((url_id, uf), {"selecionado": None, "motivo": None})
+            tecnologias = list(dict.fromkeys(l["tecnologia"] for l in linhas if l["tecnologia"]))
+            saida.append({"item_id": url_id, "fonte": "web", "uf": uf, "provedor": linhas[-1]["provedor"],
+                          "titulo": melhor["titulo"] or "", "resumo": melhor["snippet"] or "",
+                          "url": melhor["url_original"], "host": melhor["dominio"] or "",
+                          "tecnologia": tecnologias[0] if tecnologias else "", "tecnologias": tecnologias,
+                          "modelos_ids": list(dict.fromkeys(l["consulta_id"].split("-")[0] for l in linhas)),
+                          "cidade": next((l["cidade"] for l in linhas if l["cidade"]), ""),
+                          "selecionado": d["selecionado"], "motivo_descarte": d["motivo"]})
+        return saida
+
+    def salvar_triagem_escopo(self, run_id, chamada_id, prompt_versao, linhas):
+        """Grava as linhas validadas de um lote. Idempotente por (run_id, fonte, item_id, uf): repetir substitui."""
+        for l in linhas:
+            self.conn.execute(
+                """INSERT INTO triagem_escopo (run_id, chamada_id, fonte, item_id, uf, provedor, termos_consulta, status,
+                       status_bruto, confianca, categoria_motivo, justificativa, termo_gerador, sinal_negativo,
+                       dominio_tematico, escopo_geografico, tipo_documento, valido, problemas, prompt_versao, criado_em)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(run_id, fonte, item_id, uf) DO UPDATE SET
+                       chamada_id=excluded.chamada_id, provedor=excluded.provedor, termos_consulta=excluded.termos_consulta,
+                       status=excluded.status, status_bruto=excluded.status_bruto, confianca=excluded.confianca,
+                       categoria_motivo=excluded.categoria_motivo, justificativa=excluded.justificativa,
+                       termo_gerador=excluded.termo_gerador, sinal_negativo=excluded.sinal_negativo,
+                       dominio_tematico=excluded.dominio_tematico, escopo_geografico=excluded.escopo_geografico,
+                       tipo_documento=excluded.tipo_documento, valido=excluded.valido, problemas=excluded.problemas,
+                       prompt_versao=excluded.prompt_versao, criado_em=excluded.criado_em""",
+                (run_id, chamada_id, l["fonte"], l["item_id"], l["uf"] or "", l.get("provedor"),
+                 json.dumps(l.get("termos_consulta") or [], ensure_ascii=False), l["status"], l.get("status_bruto"),
+                 l.get("confianca"), l.get("categoria_motivo"), l.get("justificativa"), l.get("termo_gerador"),
+                 l.get("sinal_negativo"), l.get("dominio_tematico"), l.get("escopo_geografico"), l.get("tipo_documento"),
+                 int(bool(l["valido"])), json.dumps(l.get("problemas") or [], ensure_ascii=False), prompt_versao, agora()))
+        return len(linhas)
+
+    def triagem_escopo_ja_feita(self, run_id, fonte, item_id, uf=""):
+        """O item ja tem linha de triagem de escopo nesta execucao?"""
+        return self.conn.execute("SELECT 1 FROM triagem_escopo WHERE run_id=? AND fonte=? AND item_id=? AND uf=?",
+                                 (run_id, fonte, item_id, uf or "")).fetchone() is not None
+
+    def triagem_escopo_feita_por_versao(self, fonte, prompt_versao):
+        """{(item_id, uf)} que o modelo ja respondeu, em qualquer execucao, com esta versao do prompt. Linhas em que o
+        modelo nao respondeu (id ausente, JSON invalido: `status_bruto` nulo) nao contam: o item pode ser repetido."""
+        return {(l["item_id"], l["uf"]) for l in self.conn.execute(
+            "SELECT item_id, uf FROM triagem_escopo WHERE fonte=? AND prompt_versao=? AND status_bruto IS NOT NULL",
+            (fonte, prompt_versao))}
+
+    def custo_execucao(self, run_id):
+        """Custo (US$) ja gravado em `chamadas` para a execucao."""
+        return self.conn.execute("SELECT COALESCE(SUM(custo_usd), 0) FROM chamadas WHERE run_id=?", (run_id,)).fetchone()[0]
+
     # ---------- export and imports ----------
     def tabelas_para_exportacao(self):
         consultas = {
@@ -329,11 +440,27 @@ class RepositorioSQLite:
             "Multi_termo": "SELECT * FROM v_artigos_multi_termo",
             "Sobreposicao": "SELECT * FROM v_sobreposicao_termos",
             "Triagem": """SELECT a.artigo_id, a.titulo, a.ano, a.link, a.citacoes,
+                                 (SELECT e.status || CASE WHEN e.categoria_motivo IS NOT NULL
+                                                          THEN ': ' || e.categoria_motivo ELSE '' END
+                                  FROM triagem_escopo e WHERE e.fonte='artigo' AND e.item_id=a.artigo_id AND e.uf=''
+                                  ORDER BY e.id DESC LIMIT 1) AS triagem_llm,
                                  COALESCE(t.decisao,'pendente') AS decisao, t.motivo,
                                  t.confirmado_em_base, t.link_confirmado, t.revisor, t.revisado_em,
                                  t.decisao_texto_completo, t.motivo_texto_completo
                           FROM artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id
                           ORDER BY COALESCE(a.citacoes,0) DESC, a.artigo_id""",
+            # opiniao do modelo (a ultima por item), sem esconder nada: `excluido` e `quarentena` aparecem junto com os demais
+            "Triagem_escopo": """SELECT e.fonte, e.item_id, e.uf,
+                                        CASE e.fonte WHEN 'artigo' THEN (SELECT a.titulo FROM artigos a WHERE a.artigo_id=e.item_id)
+                                                     ELSE (SELECT u.url_original FROM urls u WHERE u.url_id=e.item_id) END AS item,
+                                        e.status, e.status_bruto, e.confianca, e.categoria_motivo, e.justificativa,
+                                        e.termo_gerador, e.sinal_negativo, e.dominio_tematico, e.escopo_geografico,
+                                        e.tipo_documento, e.valido, e.problemas, e.termos_consulta, e.provedor,
+                                        e.prompt_versao, e.run_id, e.chamada_id, e.criado_em
+                                 FROM triagem_escopo e
+                                 WHERE e.id = (SELECT MAX(x.id) FROM triagem_escopo x
+                                               WHERE x.fonte=e.fonte AND x.item_id=e.item_id AND x.uf=e.uf)
+                                 ORDER BY e.fonte, e.item_id, e.uf""",
             "Buscas_manuais": "SELECT * FROM buscas_manuais ORDER BY base, termo_id",
             "Manuais_resumo": "SELECT * FROM v_manuais_resumo",
             # metricas para o relatorio (protocolo e justificativas)

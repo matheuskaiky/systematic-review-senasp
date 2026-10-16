@@ -8,12 +8,14 @@ from pathlib import Path
 import pandas as pd
 
 import config.settings as S
-from config import consultas as C, prompts as P, vocabulario as V
+from config import consultas as C, prompts as P, vocabulario as V, triagem_escopo as TE
 from composicao import Fabrica
 from dominio.esquemas import esquema_classificacao
 from dominio.modelos import ParametrosClassificacao
+from dominio.erros import CotaDiariaEsgotada
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia
-from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao
+from dominio.triagem_escopo import atomo_do_modelo_de_consulta, estimar_custo
+from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao, triagem_escopo
 from infra.log import iniciar_log
 from infra.util import coletar_ambiente
 
@@ -92,6 +94,13 @@ def estimar(args):
         print(f"Saldo: indisponível ({e})")
 
 
+def _avisar_cota_diaria(e, cmd, run_id):
+    """Mensagem unica para a parada por cota diaria esgotada (sem traceback): a execucao fica interrompida e se retoma."""
+    logging.warning("Parada: %s Resume com --retomar %s depois que a cota renovar (a cota diária renova à meia-noite no "
+                    "horário do Pacífico, 04h no horário de Brasília durante o horário de verão americano e 05h fora "
+                    "dele). Comando: python main.py %s ... --retomar %s", e, run_id, cmd, run_id)
+
+
 def rodar(args, etapas):
     fab = Fabrica(simulado=args.simulado)
     repo, snap = fab.repo, S.snapshot_config()
@@ -138,8 +147,131 @@ def rodar(args, etapas):
     except KeyboardInterrupt:
         status = "interrompida"
         logging.warning("Interrupted. Resume with: python main.py %s --retomar %s", args.cmd, run_id)
+    except CotaDiariaEsgotada as e:
+        status = "interrompida"
+        _avisar_cota_diaria(e, args.cmd, run_id)
     except SystemExit:
         # a fabrica encerra com SystemExit (ex.: falta de chave); a execucao nao pode constar como concluida
+        status = "falhou"
+        raise
+    except Exception:
+        status = "falhou"
+        logging.exception("Run failed")
+    finally:
+        repo.finalizar_execucao(run_id, status)
+        logging.info("Run %s: %s", run_id, status)
+
+
+def _mapas_termos_triagem():
+    """Textos dos termos de cada consulta, para a triagem de escopo (o banco guarda so os ids).
+
+    Artigos: o texto de cada termo do Scholar e das buscas manuais (`config/consultas.py::TERMOS`).
+    Resultados web: nao ha um "termo" unico; os termos sao os ATOMOS ALTERAVEIS da consulta: o rotulo da tecnologia
+    (`config/vocabulario.py::TECNOLOGIAS`) e as palavras fixas do modelo de consulta (o template sem {tec}, {nome}, {uf} e
+    {cidade}). UF, estado e cidade nao entram: nao sao escolhas de redacao da consulta."""
+    return {"artigo": {t.id: t.query for t in C.TERMOS},
+            "web": {"tecnologias": dict(V.TECNOLOGIAS),
+                    "modelos": {m.id: atomo_do_modelo_de_consulta(m.template)
+                                for m in list(C.MODELOS_WEB) + list(C.MODELOS_WEB_MUNICIPAIS)}}}
+
+
+def _opcoes_llm():
+    """Opcoes do provedor de LLM configurado para o classificador (a triagem usa o mesmo modelo, preco e chave)."""
+    return S.OPCOES[S.PROVEDORES["classificador"]]
+
+
+def _precos_triagem():
+    o = _opcoes_llm()
+    if o.get("preco_entrada_por_m") is None or o.get("preco_saida_por_m") is None:
+        return None
+    return {"entrada": o["preco_entrada_por_m"], "saida": o["preco_saida_por_m"]}
+
+
+def _config_triagem_run(lote):
+    """Configuracao da execucao de `triar-escopo`: o snapshot geral (sem alterar `settings.snapshot_config`) mais a
+    configuracao da triagem (versao do prompt, prompts, vocabularios, tamanho do lote) e um hash proprio."""
+    snap = S.snapshot_config()
+    conteudo = json.loads(snap["json"])
+    conteudo["triagem_escopo"] = {**TE.CONFIG.como_dict(), "lote": lote, "max_tokens_saida": TE.MAX_TOKENS_SAIDA,
+                                  "max_falhas_por_lote": TE.MAX_FALHAS_POR_LOTE}
+    texto = json.dumps(conteudo, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(texto.encode()).hexdigest()[:12], texto
+
+
+def _imprimir_estimativa(a, fonte, itens, resumo, lote, precos):
+    est = estimar_custo(itens, lote, precos, TE.CONFIG) if precos else None
+    print(f"Triagem de escopo (prompt {TE.PROMPT_TRIAGEM_VERSAO}) | fonte: {a.fonte}")
+    print(f"Itens no banco: {resumo['total']} | na amostra: {resumo['na_amostra']} | já triados com este prompt: "
+          f"{resumo['ja_triados']} | a triar: {resumo['a_triar']}")
+    if est is None:
+        print("Preços do modelo não configurados: custo indisponível.")
+        return
+    n = est["niveis"]
+    print(f"Lote: {lote} | chamadas (requisições): {est['chamadas']} | modelo: {_opcoes_llm()['modelo']} "
+          f"(US$/M tokens: entrada {precos['entrada']}, saída {precos['saida']})")
+    print(f"Tokens de entrada: {est['tokens_entrada']} no total | por chamada (média): {est['tokens_entrada_por_chamada']} | "
+          f"maior chamada: {est['tokens_entrada_maior_chamada']} ({est['pct_janela_contexto']}% da janela de contexto de "
+          f"{TE.JANELA_CONTEXTO_TOKENS:,} tokens)".replace(",", "."))
+    print(f"Tokens de saída (baixo / médio / alto): {n['baixo']['tokens_saida']} / {n['medio']['tokens_saida']} / "
+          f"{n['alto']['tokens_saida']}")
+    print(f"Custo estimado (US$): baixo {n['baixo']['custo_usd']:.4f} | médio {n['medio']['custo_usd']:.4f} | "
+          f"alto {n['alto']['custo_usd']:.4f}")
+    print(f"Nível gratuito: limite de {TE.LIMITE_DIARIO_GRATUITO} requisições por dia por modelo (documentado no erro 429 da "
+          f"API); esta execução usaria {100 * est['chamadas'] / TE.LIMITE_DIARIO_GRATUITO:.1f}% da cota diária "
+          "(compartilhada com a classificação, que usa o mesmo modelo e a mesma chave).")
+    print("Tokens estimados a 3,4 caracteres por token, sem o tokenizador oficial: ordem de grandeza, não valor exato.")
+
+
+def triar_escopo(a):
+    """Triagem de escopo por LLM (so lê o banco e grava `triagem_escopo`). Regra de busca amostral do projeto (regra 11): sem --amostra ou
+    --limite o comando recusa, salvo --tudo explicito. --estimar nao chama nada e nao pede chave."""
+    lote = TE.LOTE_PADRAO if a.lote is None else a.lote
+    if lote < 1 or lote > TE.LOTE_MAXIMO:
+        raise SystemExit(f"--lote deve estar entre 1 e {TE.LOTE_MAXIMO} (recebido: {lote}).")
+    if not a.estimar and not (a.amostra or a.limite or a.tudo):
+        raise SystemExit(
+            "Recusado (regra 11 do projeto, busca amostral): a triagem de escopo gasta créditos e, enquanto não houver protocolo final "
+            "de busca, deve rodar só sobre uma amostra pequena. Informe --amostra N (com --estratificar para espalhar "
+            "por termo e relevância) ou --limite N. Veja o custo antes, sem chamada, com --estimar. Para triar todos os "
+            "itens, passe --tudo de forma explícita (o custo estimado será mostrado antes).")
+    fonte = "artigo" if a.fonte == "artigos" else "web"
+    fab = Fabrica(simulado=a.simulado)
+    repo, precos = fab.repo, _precos_triagem()
+    mapas = _mapas_termos_triagem()
+    itens, resumo = triagem_escopo.selecionar(repo, fonte, mapas, TE.CONFIG, a.amostra, a.estratificar,
+                                              a.semente, a.limite, a.refazer)
+    if a.estimar or a.tudo:
+        _imprimir_estimativa(a, fonte, itens, resumo, lote, precos)
+    if a.estimar:
+        return
+    if not itens:
+        print("Nada a triar: todos os itens da seleção já têm triagem com este prompt (use --refazer para repetir).")
+        return
+    teto = a.max_custo if a.max_custo is not None else TE.MAX_CUSTO_PADRAO_USD
+    if precos is None:
+        raise SystemExit("Preços do modelo não configurados em config/settings.py: o teto de custo não pode ser aplicado.")
+    h, config_json = _config_triagem_run(lote)
+    run_id = repo.iniciar_execucao(a.cmd + (" [simulado]" if a.simulado else ""), h, config_json, _commit_git(),
+                                   a.retomar, run_origem=None, ambiente_json=_ambiente(a))
+    iniciar_log(run_id, S.LOG_DIR)
+    logging.info("run_id=%s | triar-escopo fonte=%s | teto US$ %.2f | simulated=%s", run_id, a.fonte, teto, a.simulado)
+    status = "concluida"
+    try:
+        r = triagem_escopo.executar(repo, fab.bruto, fab.triador, run_id, fonte, mapas, TE.CONFIG, precos, fab.segredos,
+                                    0 if a.simulado else TE.PAUSA_SEGUNDOS, lote, a.amostra, a.estratificar, a.semente,
+                                    a.limite, teto, a.refazer, TE.MAX_FALHAS_POR_LOTE)
+        print(f"Execução {run_id}: {r['itens_triados']} itens triados em {r['chamadas']} chamadas "
+              f"({r['lotes_falhos']} lotes com falha, {r['itens_sem_resposta']} itens sem resposta) | "
+              f"custo US$ {r['custo_usd']:.4f} (teto US$ {teto:.2f})")
+        if r["parou_por_custo"]:
+            print("PARADA pelo teto de custo antes de terminar; os itens restantes seguem sem triagem (ver metricas_run).")
+    except KeyboardInterrupt:
+        status = "interrompida"
+        logging.warning("Interrupted. Rode de novo o mesmo comando: os itens já triados são pulados.")
+    except CotaDiariaEsgotada as e:
+        status = "interrompida"
+        _avisar_cota_diaria(e, a.cmd, run_id)
+    except SystemExit:
         status = "falhou"
         raise
     except Exception:
@@ -216,6 +348,19 @@ def main():
         s.add_argument("--limite", type=int, help="max. items per stage (testing)")
         s.add_argument("--auditoria", type=int, default=0,
                        help="N URLs descartadas pelo pre-filtro de palavras-chave tambem sao baixadas e classificadas (auditoria)")
+    s = sub.add_parser("triar-escopo", help="pergunta ao modelo de linguagem, em lotes, se cada resultado coletado esta no escopo (so por amostra)")
+    s.add_argument("--fonte", required=True, choices=("artigos", "web"))
+    s.add_argument("--amostra", type=int, help="tamanho da amostra deterministica (regra 11: use amostras pequenas)")
+    s.add_argument("--estratificar", action="store_true", help="espalha a amostra por relevancia e termo (artigos) ou UF e download (web)")
+    s.add_argument("--semente", default="triagem-escopo", help="semente da amostra (a mesma semente repete a mesma amostra)")
+    s.add_argument("--lote", type=int, help=f"itens por chamada (padrao {TE.LOTE_PADRAO}, maximo {TE.LOTE_MAXIMO})")
+    s.add_argument("--limite", type=int, help="maximo de itens a enviar nesta execucao")
+    s.add_argument("--max-custo", type=float, help=f"teto de custo da execucao em US$ (padrao {TE.MAX_CUSTO_PADRAO_USD})")
+    s.add_argument("--refazer", action="store_true", help="triar de novo itens que ja tem triagem com este prompt")
+    s.add_argument("--estimar", action="store_true", help="mostra itens, chamadas e custo, sem nenhuma chamada e sem chave")
+    s.add_argument("--tudo", action="store_true", help="permite rodar sem --amostra nem --limite (mostra a estimativa antes)")
+    s.add_argument("--retomar", help="run_id de uma execucao interrompida (mesma configuracao e mesmo --lote)")
+    s.add_argument("--simulado", action="store_true", help="triador falso, sem custo")
     # C6: exportacao e importacoes tambem aceitam --simulado (usam o banco simulado)
     s = sub.add_parser("exportar"); s.add_argument("--saida"); s.add_argument("--simulado", action="store_true")
     sub.add_parser("manual-modelo")
@@ -246,6 +391,8 @@ def main():
         estimar(a)
     elif a.cmd in ETAPAS:
         rodar(a, ETAPAS[a.cmd])
+    elif a.cmd == "triar-escopo":
+        triar_escopo(a)
     elif a.cmd == "exportar":
         tabelas = exportacao.montar_tabelas(fab.repo, C.UFS)
         # C6: com --simulado o arquivo padrao ganha o prefixo "simulado_"

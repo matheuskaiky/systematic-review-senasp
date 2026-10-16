@@ -264,6 +264,37 @@ CREATE TABLE IF NOT EXISTS achados_revisoes (
     desfeita       INTEGER NOT NULL DEFAULT 0
 );
 
+-- ===== Triagem de escopo feita por LLM (opiniao registrada a parte: nunca altera `triagem` nem `achados`) =====
+-- Um item e um artigo (fonte='artigo', item_id = artigo_id, uf = '') ou um resultado web (fonte='web', item_id = url_id,
+-- uf = a UF da busca). 'excluido' so vale com confianca alta (a regra e do codigo); o item continua visivel (quarentena
+-- temporaria) para servir a analise das consultas.
+CREATE TABLE IF NOT EXISTS triagem_escopo (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id             TEXT NOT NULL REFERENCES execucoes(run_id),
+    chamada_id         INTEGER REFERENCES chamadas(chamada_id),     -- a chamada (lote) que respondeu
+    fonte              TEXT NOT NULL,                                -- artigo | web
+    item_id            INTEGER NOT NULL,
+    uf                 TEXT NOT NULL DEFAULT '',
+    provedor           TEXT,                                         -- serpapi_scholar, perplexity_search, serpapi_google
+    termos_consulta    TEXT,                                         -- JSON: textos das consultas (termos) que acharam o item
+    status             TEXT NOT NULL,                                -- elegivel | quarentena | excluido (depois da regra de seguranca)
+    status_bruto       TEXT,                                         -- o que o modelo disse, antes do rebaixamento
+    confianca          TEXT,                                         -- alta | media | baixa
+    categoria_motivo   TEXT,                                         -- taxonomia (NULL se elegivel)
+    justificativa      TEXT,                                         -- ate 20 palavras
+    termo_gerador      TEXT,                                         -- um dos termos da consulta (conferido pelo codigo)
+    sinal_negativo     TEXT,                                         -- trecho literal do titulo/resumo (conferido pelo codigo)
+    dominio_tematico   TEXT,
+    escopo_geografico  TEXT,                                         -- brasil | internacional | indeterminado
+    tipo_documento     TEXT,
+    valido             INTEGER NOT NULL DEFAULT 1,                   -- 0 = alguma conferencia falhou
+    problemas          TEXT,                                         -- JSON: o que falhou
+    prompt_versao      TEXT,
+    criado_em          TEXT NOT NULL,
+    UNIQUE (run_id, fonte, item_id, uf)
+);
+CREATE INDEX IF NOT EXISTS ix_triagem_escopo_item ON triagem_escopo(fonte, item_id, uf);
+
 -- ===== Execucoes dentro do relatorio =====
 -- As views agregadas leem estas views (r_*), que deixam de fora as execucoes marcadas com no_relatorio = 0
 -- (pilotos e testes: `python main.py execucao-excluir <run_id>`). Views por execucao e de auditoria usam as tabelas.

@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% import "_selos.html" as s %}
+{% block titulo %}Triagem de escopo (LLM){% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/triagem_escopo.css">{% endblock %}
+{% macro texto_ou_traco(v) -%}{% if v %}{{ v }}{% else %}—{% endif %}{%- endmacro %}
+{% block conteudo %}
+{% set r = rotulos_escopo %}
+<h1>Triagem de escopo pelo modelo</h1>
+<p class="sub">O modelo de linguagem leu o título e o resumo de cada item coletado e disse se ele serve ao escopo da pesquisa. Esta página usa as respostas para
+  ajustar as <strong>consultas</strong>: quais termos trazem ruído, de que áreas ele vem e quais palavras negativas poderiam ser acrescentadas sem perder item bom.
+  Nada aqui grava ou apaga dados.</p>
+<div class="aviso aviso-forte" role="note">
+  <strong>“Excluído pelo modelo” quer dizer: o modelo tem certeza de que o item é inútil.</strong> Mesmo assim o item não é apagado: fica oculto por padrão das listas de artigos
+  e da fila de triagem (quarentena temporária), e continua aparecendo nas tabelas de ruído abaixo, que dependem dele. Quem decide é você, e uma decisão sua (incluir ou excluir) sempre
+  prevalece sobre a opinião do modelo.
+</div>
+
+{% if vazio %}
+<section class="cartao" aria-labelledby="h-vazio"><h2 id="h-vazio">Ainda não há triagem de escopo</h2>
+  <p class="vazio">Nenhum item foi avaliado pelo modelo neste banco. A primeira rodada é um <strong>piloto</strong> pequeno (cerca de 100 itens: 60 artigos e 40 resultados web), para conferir se o formato
+    da resposta funciona, quantos itens o modelo manda para exclusão e se você concorda com eles, antes de ampliar para todos.
+    Comece estimando o custo, sem nenhuma chamada:</p>
+  <pre class="comando">{{ comando_estimar }}</pre>
+  <p class="explica">Depois, com a sua autorização do custo estimado, o mesmo comando sem <code>--estimar</code> grava os vereditos e esta página passa a mostrar os resultados.</p>
+</section>
+{% else %}
+
+<nav class="abas" aria-label="Fonte dos itens">
+  {% for chave, nome in fontes.items() %}<a href="{{ url(fonte=chave, status=none, categoria_motivo=none, termo=none, dominio_tematico=none, escopo_geografico=none, confianca=none, valido=none) }}"{% if chave == fonte %} aria-current="true"{% endif %}>{{ nome }} <span class="selo neutro">{{ fmt.numero(contagem_fontes.get(chave, 0)) }}</span></a>{% endfor %}
+</nav>
+
+<p class="contagem">{% if run %}Mostrando só as respostas da execução <a href="/execucoes/{{ run }}"><code>{{ run }}</code></a>. <a href="{{ url(run=none) }}">Voltar à avaliação mais recente de cada item</a>.
+  {% else %}Mostrando a avaliação <strong>mais recente de cada item</strong>, de qualquer execução.{% endif %}
+  Custo das chamadas que produziram estas respostas: <strong>{% if resumo.custo_usd is none %}não registrado{% else %}{{ fmt.moeda_usd(resumo.custo_usd) }}{% endif %}</strong>
+  ({{ fmt.numero(resumo.n_chamadas) }} chamada(s)).</p>
+
+{% if not resumo.n_total %}
+<p class="vazio">Esta fonte ainda não tem itens avaliados{% if run %} nesta execução{% endif %}. Use a outra aba ou rode <code>python main.py triar-escopo --fonte {{ "artigos" if fonte == "artigo" else "web" }} --amostra 40 --estimar</code>.</p>
+{% else %}
+
+<section class="kpis" aria-label="Resumo">
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(resumo.n_validos) }}</span><span class="kpi-rotulo">itens avaliados (conferência automática aprovada)</span></div>
+  {% for chave in ("elegivel", "quarentena", "excluido") %}
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(resumo.por_status[chave]) }} <small>{{ fmt.pct(resumo.por_status[chave], resumo.n_validos) }}</small></span>
+    <span class="kpi-rotulo">{{ s.llm(chave, none, 1, false) }}</span></div>
+  {% endfor %}
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(resumo.n_invalidos) }}</span><span class="kpi-rotulo">linhas em que a conferência automática falhou (fora dos percentuais)</span></div>
+  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(resumo.n_rebaixados) }}</span><span class="kpi-rotulo">exclusões rebaixadas para quarentena pela regra de segurança (exclusão exige confiança alta)</span></div>
+</section>
+
+<section class="distribuicoes" aria-label="Distribuições">
+  {% for titulo, dados, tabela in (("Por motivo", resumo.por_categoria, r.CATEGORIAS), ("Por escopo geográfico", resumo.por_escopo, r.ESCOPOS), ("Por área temática", resumo.por_dominio, r.DOMINIOS), ("Por confiança do modelo", resumo.por_confianca, rotulos.CONFIANCA)) %}
+  <div class="cartao"><h2>{{ titulo }}</h2>
+    {% if dados %}<div class="tabela-rolavel"><table>
+      <thead><tr><th scope="col">Valor</th><th scope="col" class="num">Itens</th><th scope="col" class="num">%</th></tr></thead>
+      <tbody>{% for k, v in dados.items() %}<tr><td>{{ r.rotulo(tabela, k) }}</td><td class="num">{{ fmt.numero(v) }}</td><td class="num">{{ fmt.pct(v, resumo.n_validos) }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="nao-avaliado">Sem dados.</p>{% endif %}
+  </div>{% endfor %}
+</section>
+
+<section class="cartao" aria-labelledby="h-ficha"><h2 id="h-ficha">Ficha de ruído por termo</h2>
+  <p class="explica">Cada linha é uma consulta (termo) da busca. Um item conta uma vez para cada termo que o encontrou. O <strong>ruído</strong> é a parcela de itens excluídos ou em quarentena.
+    Os mais ruidosos vêm primeiro. “Operadores seguros” são palavras negativas sugeridas pelo modelo que, neste termo, tirariam itens sem tirar nenhum bom (ganho/perda em itens).</p>
+  {% if fichas %}
+  <div class="tabela-rolavel"><table class="ficha-termos">
+    <thead><tr><th scope="col">Termo</th><th scope="col" class="num">Itens</th><th scope="col" class="num">% elegível</th><th scope="col" class="num">% quar.</th><th scope="col" class="num">% excluído</th>
+      <th scope="col" class="num">Ruído</th><th scope="col">Motivo principal</th><th scope="col">Área principal do ruído</th><th scope="col" class="num">% intern.</th><th scope="col">Operadores seguros</th></tr></thead>
+    <tbody>{% for f in fichas %}
+      <tr><th scope="row" class="quebra"><a href="{{ url(termo=f.termo, status='todos') }}#lista">{{ f.termo }}</a>{% if f.n_invalidos %}<br><small class="fornecedor">{{ f.n_invalidos }} linha(s) com conferência falha</small>{% endif %}</th>
+        <td class="num">{{ fmt.numero(f.n_itens) }}</td>
+        <td class="num">{{ fmt.pct(f.n_elegivel, f.n_itens) }}</td><td class="num">{{ fmt.pct(f.n_quarentena, f.n_itens) }}</td><td class="num">{{ fmt.pct(f.n_excluido, f.n_itens) }}</td>
+        <td class="num"><strong>{{ fmt.pct(f.n_quarentena + f.n_excluido, f.n_itens) }}</strong></td>
+        <td>{% if f.categoria_top %}{{ r.rotulo(r.CATEGORIAS, f.categoria_top) }}{% else %}—{% endif %}</td>
+        <td>{% if f.dominio_top %}{{ r.rotulo(r.DOMINIOS, f.dominio_top) }}{% else %}—{% endif %}</td>
+        <td class="num">{{ fmt.pct(f.n_internacional, f.n_itens) }}</td>
+        <td>{% set seguros = (por_termo.get(f.termo, [])|selectattr("seguro_no_termo")|list)[:3] %}{% for x in seguros %}<code>-"{{ x.sinal }}"</code> <small>+{{ x.ganho }}/−{{ x.perda_elegivel }}</small>{% if not loop.last %}<br>{% endif %}{% else %}<span class="nao-avaliado">nenhum</span>{% endfor %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<p class="vazio">Nenhum item avaliado tem os termos da consulta registrados.</p>{% endif %}
+</section>
+
+<section class="cartao" aria-labelledby="h-neg"><h2 id="h-neg">Operadores negativos sugeridos</h2>
+  <p class="aviso" role="note"><strong>Sugestão do modelo, validada contra os itens bons; a decisão é sua.</strong> Para cada palavra que o modelo apontou em itens excluídos, o programa conta quantos itens
+    do acervo inteiro a contêm e quantos deles são bons (elegíveis, em quarentena ou incluídos por você): o <em>dano colateral</em>. Nenhuma consulta é alterada por esta página.</p>
+  {% if negativos %}
+  <p class="contagem">{{ fmt.numero(n_negativos) }} operador(es) sugerido(s), {{ fmt.numero(n_perigosos) }} perigoso(s).{% if n_negativos > limite_negativos %} Mostrando os {{ limite_negativos }} primeiros (os seguros e os que mais tirariam itens excluídos).{% endif %}</p>
+  <div class="tabela-rolavel"><table class="negativos">
+    <thead><tr><th scope="col">Operador</th><th scope="col">Veredito</th><th scope="col" class="num">Itens excluídos que o sugeriram</th><th scope="col" class="num">Itens excluídos que ele tiraria</th>
+      <th scope="col" class="num">Itens do acervo que o contêm</th><th scope="col" class="num">Dano colateral</th><th scope="col">Itens bons que se perderiam</th></tr></thead>
+    <tbody>{% for n_ in negativos %}
+      <tr><th scope="row" class="quebra"><code>-"{{ n_.sinal }}"</code>{% if n_.protegida %}<br><small class="fornecedor">palavra central do tema</small>{% endif %}</th>
+        <td>{{ s.veredito_negativo(n_.veredito) }}</td>
+        <td class="num">{{ fmt.numero(n_.n_sugerido_por) }}</td><td class="num">{{ fmt.numero(n_.n_excluidos_atingidos) }}</td><td class="num">{{ fmt.numero(n_.n_no_corpus) }}</td>
+        <td class="num">{{ fmt.numero(n_.n_colateral) }}{% if n_.n_no_corpus %} <small>({{ fmt.decimal(n_.pct_colateral, 1) }}%)</small>{% endif %}</td>
+        <td>{% if n_.colaterais %}<ul class="lista-colateral">{% for x in n_.colaterais %}<li>
+          {% if fonte == "artigo" %}<a href="/literatura/artigos/{{ x.id }}">{{ (x.titulo or "sem título")|truncate(70, true) }}</a>
+          {% else %}{% set lig = ligacoes.get((x.id, x.uf)) %}{% if lig and lig.link and (lig.link|url_segura) != "#" %}<a href="{{ lig.link|url_segura }}" rel="noopener noreferrer" target="_blank">{{ (x.titulo or lig.link)|truncate(70, true) }}</a>{% else %}{{ (x.titulo or "sem título")|truncate(70, true) }}{% endif %}{% if x.uf %} <small>({{ x.uf }})</small>{% endif %}{% endif %}
+          <small>· {% if x.status %}{{ r.rotulo(r.STATUS, x.status)|lower }}{% endif %}{% if x.incluido_humano %}{% if x.status %}, {% endif %}incluído por você{% endif %}</small></li>{% endfor %}</ul>
+          {% if n_.n_colateral > n_.colaterais|length %}<small class="fornecedor">e mais {{ n_.n_colateral - n_.colaterais|length }}</small>{% endif %}{% else %}<span class="nao-avaliado">nenhum</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<p class="vazio">O modelo ainda não sugeriu nenhum operador negativo (ou nenhum item foi excluído).</p>{% endif %}
+</section>
+
+<section class="cartao" id="lista" aria-labelledby="h-lista"><h2 id="h-lista">Itens com o veredito do modelo</h2>
+  <form class="filtros" method="get" action="/triagem-escopo">
+    <input type="hidden" name="fonte" value="{{ fonte }}">{% if run %}<input type="hidden" name="run" value="{{ run }}">{% endif %}
+    <label>Status <select name="status">{% for k, v in r.FILTRO_STATUS.items() %}<option value="{{ k }}"{% if (filtros.status or "") == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    <label>Motivo <select name="categoria_motivo"><option value="">todos</option>{% for k in opcoes.categorias %}<option value="{{ k }}"{% if filtros.categoria_motivo == k %} selected{% endif %}>{{ r.rotulo(r.CATEGORIAS, k) }}</option>{% endfor %}</select></label>
+    <label class="larga">Termo <select name="termo"><option value="">todos</option>{% for t in opcoes.termos %}<option value="{{ t }}"{% if filtros.termo == t %} selected{% endif %}>{{ t|truncate(80, true) }}</option>{% endfor %}</select></label>
+    <label>Área temática <select name="dominio_tematico"><option value="">todas</option>{% for k in opcoes.dominios %}<option value="{{ k }}"{% if filtros.dominio_tematico == k %} selected{% endif %}>{{ r.rotulo(r.DOMINIOS, k) }}</option>{% endfor %}</select></label>
+    <label>Escopo geográfico <select name="escopo_geografico"><option value="">todos</option>{% for k in opcoes.escopos %}<option value="{{ k }}"{% if filtros.escopo_geografico == k %} selected{% endif %}>{{ r.rotulo(r.ESCOPOS, k) }}</option>{% endfor %}</select></label>
+    <label>Confiança <select name="confianca"><option value="">todas</option>{% for k in opcoes.confiancas %}<option value="{{ k }}"{% if filtros.confianca == k %} selected{% endif %}>{{ rotulos.rotulo(rotulos.CONFIANCA, k) }}</option>{% endfor %}</select></label>
+    <label>Conferência automática <select name="valido"><option value="">qualquer</option><option value="1"{% if filtros.valido == "1" %} selected{% endif %}>aprovada</option><option value="0"{% if filtros.valido == "0" %} selected{% endif %}>falhou</option></select></label>
+    <button class="botao" type="submit">Filtrar</button>{% if filtros %}<a href="{{ url(status=none, categoria_motivo=none, termo=none, dominio_tematico=none, escopo_geografico=none, confianca=none, valido=none) }}#lista">Limpar</a>{% endif %}
+  </form>
+  <p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> item(ns){% if not filtros.status %} (elegíveis e em quarentena){% endif %}</p>
+  {% if res.ocultos %}
+  <p class="aviso" role="status"><strong>{{ fmt.numero(res.ocultos) }}</strong> item(ns) excluído(s) pelo modelo estão ocultos desta lista (quarentena temporária: nada foi apagado e a decisão é sua).
+    <a href="{{ url(status='todos') }}#lista">Mostrar</a> · <a href="{{ url(status='excluido') }}#lista">ver só os excluídos</a></p>{% endif %}
+  {% if not res.itens and res.total %}
+  <p class="vazio">Não há itens nesta página: são {{ fmt.numero(res.total) }} em {{ paginas }} página(s). <a href="{{ url() }}#lista">Ir para a primeira</a>.</p>
+  {% elif not res.itens %}<p class="vazio">Nenhum item com estes filtros.{% if filtros %} <a href="{{ url(status=none, categoria_motivo=none, termo=none, dominio_tematico=none, escopo_geografico=none, confianca=none, valido=none) }}#lista">Limpar filtros</a>.{% endif %}</p>
+  {% else %}
+  <div class="tabela-rolavel"><table class="itens-escopo">
+    <thead><tr><th scope="col">Item</th><th scope="col">Veredito</th><th scope="col">Justificativa do modelo</th><th scope="col">Termo gerador</th><th scope="col">Sinal negativo</th><th scope="col">Área</th><th scope="col">Escopo</th></tr></thead>
+    <tbody>{% for it in res.itens %}
+      <tr><td class="quebra">
+          {% if fonte == "artigo" %}<a href="/literatura/artigos/{{ it.item_id }}">{{ it.titulo or "sem título" }}</a>
+            <br><small class="fornecedor">{{ it.ano or "s/ano" }}{% if it.autores_publicacao %} · {{ it.autores_publicacao|truncate(70, true) }}{% endif %}</small>
+            {% if it.decisao and it.decisao != "pendente" %}<br>{{ s.triagem(it.decisao) }}{% endif %}
+          {% else %}{{ it.titulo or "sem título" }}{% if it.uf %} <small>({{ it.uf }})</small>{% endif %}
+            {% if it.link and (it.link|url_segura) != "#" %}<br><small><a href="{{ it.link|url_segura }}" rel="noopener noreferrer" target="_blank">{{ it.link|truncate(60, true) }}</a></small>{% endif %}{% endif %}</td>
+        <td>{{ s.llm(it.status, none, it.valido, false) }}{% if it.categoria_motivo %}<br><small>{{ r.rotulo(r.CATEGORIAS, it.categoria_motivo) }}</small>{% endif %}{% if it.confianca %}<br><small class="fornecedor">confiança {{ rotulos.rotulo(rotulos.CONFIANCA, it.confianca)|lower }}</small>{% endif %}</td>
+        <td class="justificativa">{{ texto_ou_traco(it.justificativa) }}</td>
+        <td class="quebra">{{ texto_ou_traco(it.termo_gerador) }}</td>
+        <td>{% if it.sinal_negativo %}<code>{{ it.sinal_negativo }}</code>{% else %}—{% endif %}</td>
+        <td>{% if it.dominio_tematico %}{{ r.rotulo(r.DOMINIOS, it.dominio_tematico) }}{% else %}—{% endif %}</td>
+        <td>{% if it.escopo_geografico %}{{ r.rotulo(r.ESCOPOS, it.escopo_geografico) }}{% else %}—{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  <nav class="paginacao" aria-label="Páginas">
+    {% if n > 1 %}<a href="{{ url(p=n - 1) }}#lista">← Anterior</a>{% endif %}
+    <span>Página {{ n }} de {{ paginas }}</span>
+    {% if n < paginas %}<a href="{{ url(p=n + 1) }}#lista">Próxima →</a>{% endif %}
+  </nav>
+  {% endif %}
+</section>
+
+<section class="cartao" aria-labelledby="h-execs"><h2 id="h-execs">Execuções que gravaram vereditos</h2>
+  <div class="tabela-rolavel"><table>
+    <thead><tr><th scope="col">Execução</th><th scope="col">Fonte</th><th scope="col">Prompt</th><th scope="col" class="num">Linhas</th><th scope="col" class="num">Conferência falhou</th><th scope="col" class="num">Custo</th><th scope="col">Quando</th><th scope="col">Ver</th></tr></thead>
+    <tbody>{% for e in execucoes %}
+      <tr><th scope="row"><a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a></th><td>{{ e.fontes or "—" }}</td><td>{{ e.prompt_versao or "—" }}</td><td class="num">{{ fmt.numero(e.n_linhas) }}</td>
+        <td class="num">{{ fmt.numero(e.n_invalidos) }}</td><td class="num">{% if e.custo_usd is none %}—{% else %}{{ fmt.moeda_usd(e.custo_usd) }}{% endif %}</td>
+        <td>{{ fmt.data_hora(e.criado_em) }}</td><td>{% if e.run_id == run %}<span class="selo neutro">em exibição</span>{% else %}<a href="{{ url(run=e.run_id, status=none, categoria_motivo=none, termo=none, dominio_tematico=none, escopo_geografico=none, confianca=none, valido=none) }}">só esta execução</a>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+</section>
+{% endif %}
+{% endif %}
+
+<section class="cartao" id="como-ler" aria-labelledby="h-ler"><h2 id="h-ler">Como ler esta página</h2>
+  <h3>Veredito do modelo</h3>
+  <dl class="explicacoes">{% for k in ("elegivel", "quarentena", "excluido") %}<dt>{{ s.llm(k, none, 1, false) }}</dt><dd>{{ r.STATUS_EXPLICA[k] }}</dd>{% endfor %}</dl>
+  <h3>Motivo (categoria)</h3>
+  <dl class="explicacoes">{% for k, v in r.CATEGORIAS.items() %}<dt>{{ v }}</dt><dd>{{ r.CATEGORIAS_EXPLICA[k] }}</dd>{% endfor %}</dl>
+  <h3>Outros campos</h3>
+  <dl class="explicacoes">
+    <dt>Justificativa</dt><dd>Em até 20 palavras, por que o modelo deu aquele veredito. É a opinião dele, não um fato.</dd>
+    <dt>Termo gerador</dt><dd>Qual das consultas que encontraram o item provavelmente o trouxe por engano. O programa confere que é um dos termos da busca.</dd>
+    <dt>Sinal negativo</dt><dd>Palavra ou expressão (até três palavras) copiada do título ou do resumo que caracteriza aquele tipo de ruído e poderia virar um operador negativo (<code>-"palavra"</code>) na busca. O programa confere que o trecho existe no texto.</dd>
+    <dt>Dano colateral</dt><dd>Quantos itens bons (elegíveis, em quarentena ou incluídos por você) também contêm o sinal negativo e se perderiam se a consulta o excluísse. Zero é o desejável.</dd>
+    <dt>Veredito do operador</dt><dd>{% for k in ("seguro", "arriscado", "perigoso") %}<strong>{{ r.VEREDITOS[k] }}</strong>: {{ r.VEREDITO_EXPLICA[k] }} {% endfor %}</dd>
+    <dt>Área temática</dt><dd>A área de onde vem o item (saúde, educação, agropecuária...). Mostra de onde vem o ruído de cada termo.</dd>
+    <dt>Escopo geográfico</dt><dd>Brasil, internacional ou indeterminado. Item internacional não é excluído só por isso (pode servir de referência), mas termos que só trazem literatura estrangeira mostram que a consulta precisa de foco no Brasil.</dd>
+    <dt>Conferência automática</dt><dd>Depois de cada resposta o programa confere, sem modelo, se os campos são válidos, se o termo gerador é um dos termos da busca e se o sinal negativo existe no texto. Linhas que falham não entram nos percentuais.</dd>
+  </dl>
+  <p class="explica">Mais definições no <a href="/sobre#triagem-escopo">glossário</a>.</p>
+</section>
+{% endblock %}

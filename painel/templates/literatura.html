@@ -4,6 +4,8 @@
 {% block conteudo %}
 <h1>Literatura</h1>
 <p class="sub">Artigos do Google Scholar e das buscas manuais (IEEE, ACM, Scopus, SBC OpenLib), já sem duplicatas.</p>
+{% if d.n_ocultos_llm %}<p class="aviso" role="status"><strong>{{ fmt.numero(d.n_ocultos_llm) }}</strong> artigo(s) excluído(s) pelo modelo estão ocultos destas contagens e das listas (quarentena temporária: nada foi apagado e a decisão é sua).
+  <a href="/literatura/artigos?llm=todos">Mostrar</a> · <a href="/literatura/artigos?llm=excluido">ver só os excluídos</a> · <a href="/triagem-escopo">triagem do modelo</a></p>{% endif %}
 {% if not d.n_artigos %}
 <p class="vazio">Ainda não há artigos. Rode <code>python main.py academico --termos T01 --paginas 1</code> para o Scholar e use <code>python main.py manual-modelo</code> para as bases manuais.</p>
 {% else %}

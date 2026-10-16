@@ -1,0 +1,28 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "thought": true,
+            "text": "Raciocinio interno sintetico."
+          },
+          {
+            "text": "{\"itens\": [{\"id\": \"1\", \"status\": \"elegivel\", \"confianca\": \"alta\", \"categoria_motivo\": \"NENHUMA\", \"justificativa\": \"Trata"
+          }
+        ]
+      },
+      "finishReason": "MAX_TOKENS",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1800,
+    "candidatesTokenCount": 30,
+    "thoughtsTokenCount": 8162,
+    "totalTokenCount": 9992
+  },
+  "modelVersion": "gemini-3.5-flash-lite-sintetico",
+  "responseId": "resp-sintetico-triagem-0002"
+}

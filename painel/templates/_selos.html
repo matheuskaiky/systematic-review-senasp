@@ -29,3 +29,12 @@
 {% elif decisao == "excluir" %}<span class="selo st-descartado"><span aria-hidden="true">✕</span> Excluído ({{ etapa }})</span>
 {% else %}<span class="selo neutro"><span aria-hidden="true">○</span> Pendente ({{ etapa }})</span>{% endif %}
 {%- endmacro %}
+{% macro llm(status, categoria=none, valido=1, prefixo=true) -%}
+{% set r = rotulos_escopo %}
+{% set classe = {"elegivel": "ok", "quarentena": "alerta", "excluido": "st-descartado"}.get(status, "neutro") %}
+<span class="selo llm {{ classe }}"><span aria-hidden="true">{{ r.STATUS_ICONE.get(status, "•") }}</span> {% if prefixo %}Triagem LLM: {% endif %}{{ r.rotulo(r.STATUS, status)|lower if prefixo else r.rotulo(r.STATUS, status) }}{% if categoria and status != "elegivel" %} · {{ r.rotulo(r.CATEGORIAS, categoria) }}{% endif %}{% if valido is not none and not valido %} · conferência falhou{% endif %}</span>
+{%- endmacro %}
+{% macro veredito_negativo(v) -%}
+{% set r = rotulos_escopo %}
+<span class="selo {{ {"seguro": "ok", "arriscado": "alerta", "perigoso": "st-descartado"}.get(v, "neutro") }}"><span aria-hidden="true">{{ r.VEREDITO_ICONE.get(v, "•") }}</span> {{ r.rotulo(r.VEREDITOS, v) }}</span>
+{%- endmacro %}

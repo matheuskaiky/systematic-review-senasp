@@ -15,10 +15,11 @@ ORDEM_FILA = ("verificado, COALESCE(evidencia_confere, 0), COALESCE(evidencia_ci
 
 from adaptadores.leitura_classificadores import LeituraClassificadores
 from adaptadores.leitura_metodologia import LeituraMetodologia
+from adaptadores.leitura_triagem_escopo import LeituraTriagemEscopo
 from dominio.relevancia import NIVEIS, pontuar_relevancia
 
 
-class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
+class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTriagemEscopo):
     def __init__(self, caminho):
         self._caminho = Path(caminho)
 
@@ -163,14 +164,18 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
 
     # ---------- literatura ----------
     _ORDEM_ARTIGOS = "(n_termos + n_bases_manuais) DESC, COALESCE(citacoes, 0) DESC, artigo_id"
-    _BASE_ARTIGOS = """
+    @property
+    def _BASE_ARTIGOS(self):
+        """Artigos com a triagem humana e, quando existe, o veredito atual da triagem de escopo por LLM (`llm_*`)."""
+        juncao, colunas = self.juncao_triagem_escopo_artigos()
+        return f"""
         SELECT a.artigo_id, a.titulo, a.ano, a.citacoes, a.link, a.autores_publicacao, a.snippet,
                (SELECT COUNT(DISTINCT o.termo_id) FROM r_ocorrencias o WHERE o.artigo_id=a.artigo_id) AS n_termos,
                (SELECT COUNT(DISTINCT m.base) FROM ocorrencias_manuais m WHERE m.artigo_id=a.artigo_id) AS n_bases_manuais,
                COALESCE(t.decisao, 'pendente') AS decisao, t.motivo, t.revisor, t.revisado_em,
                COALESCE(t.decisao_texto_completo, 'pendente') AS decisao_texto_completo, t.motivo_texto_completo,
-               t.confirmado_em_base, t.link_confirmado
-        FROM r_artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id"""
+               t.confirmado_em_base, t.link_confirmado, {colunas}
+        FROM r_artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id {juncao}"""
 
     @staticmethod
     def _onde_artigos(filtros):
@@ -178,6 +183,16 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
         if filtros.get("decisao") in ("pendente", "incluir", "excluir"):
             cond.append("decisao = ?")
             args.append(filtros["decisao"])
+        llm = filtros.get("llm")
+        if llm == "sem_avaliacao":
+            cond.append("llm_status IS NULL")
+        elif llm in ("elegivel", "quarentena", "excluido"):
+            cond.append("llm_status = ?")
+            args.append(llm)
+        elif llm == "oculto":
+            cond.append("llm_oculto = 1")
+        elif llm != "todos":                       # padrao: some o que o modelo excluiu, salvo decisao humana (nunca apaga)
+            cond.append("llm_oculto = 0")
         if filtros.get("multi") == "1":
             cond.append("(n_termos + n_bases_manuais) >= 2")
         if filtros.get("termo"):
@@ -223,11 +238,23 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
         if self._precisa_de_pontuacao(filtros):
             todos = self._artigos_em_memoria(filtros, onde, args)
             inicio = (pagina - 1) * por_pagina
-            return {"total": len(todos), "pagina": pagina, "por_pagina": por_pagina, "itens": todos[inicio:inicio + por_pagina]}
+            return {"total": len(todos), "pagina": pagina, "por_pagina": por_pagina, "itens": todos[inicio:inicio + por_pagina],
+                    "ocultos_llm": self._n_ocultos_llm(filtros)}
         base = f"SELECT * FROM ({self._BASE_ARTIGOS}){onde}"
         total = self._um(f"SELECT COUNT(*) AS n FROM ({base})", args)["n"]
         itens = self._consulta(f"{base} ORDER BY {self._ORDEM_ARTIGOS} LIMIT ? OFFSET ?", args + [por_pagina, (pagina - 1) * por_pagina])
-        return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": [self._pontuar(i) for i in itens]}
+        return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": [self._pontuar(i) for i in itens],
+                "ocultos_llm": self._n_ocultos_llm(filtros)}
+
+    def _n_ocultos_llm(self, filtros):
+        """Quantos artigos os mesmos filtros mostrariam a mais se os excluidos pelo modelo aparecessem (0 se o filtro ja os mostra)."""
+        if filtros.get("llm") in ("todos", "sem_avaliacao", "elegivel", "quarentena", "excluido", "oculto"):
+            return 0
+        f = {**filtros, "llm": "oculto"}
+        onde, args = self._onde_artigos(f)
+        if self._precisa_de_pontuacao(f):
+            return len(self._artigos_em_memoria(f, onde, args))
+        return self._um(f"SELECT COUNT(*) AS n FROM (SELECT * FROM ({self._BASE_ARTIGOS}){onde})", args)["n"]
 
     def ids_fila_triagem(self, filtros):
         onde, args = self._onde_artigos({**filtros, "decisao": "pendente"})
@@ -237,9 +264,9 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
             f"SELECT artigo_id FROM (SELECT * FROM ({self._BASE_ARTIGOS}){onde}) ORDER BY {self._ORDEM_ARTIGOS}", args)]
 
     def contagem_relevancia(self):
-        """Quantos artigos do relatorio caem em cada nivel de relevancia (alta, media, baixa)."""
+        """Quantos artigos do relatorio caem em cada nivel de relevancia (alta, media, baixa), sem os ocultos pelo modelo."""
         contagem = {n: 0 for n in NIVEIS}
-        for l in self._consulta("SELECT titulo, snippet, autores_publicacao, link FROM r_artigos"):
+        for l in self._consulta(f"SELECT titulo, snippet, autores_publicacao, link FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0"):
             contagem[pontuar_relevancia(l["titulo"], l["snippet"], l["autores_publicacao"], l["link"])["nivel"]] += 1
         return contagem
 
@@ -248,6 +275,7 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
         if a is None:
             return None
         self._pontuar(a)
+        a["llm"] = self.veredito_artigo(artigo_id)
         a["ocorrencias"] = self._consulta("""SELECT o.termo_id, o.run_id, o.posicao, o.citacoes_no_momento, c.pagina
                                              FROM r_ocorrencias o LEFT JOIN chamadas c ON c.chamada_id=o.chamada_id
                                              WHERE o.artigo_id=? ORDER BY o.termo_id, o.ocorrencia_id""", (artigo_id,))
@@ -258,10 +286,13 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
         return a
 
     def contagem_triagem(self):
-        return self._um("""SELECT COUNT(*) AS total,
-                                  COALESCE(SUM(decisao='incluir'), 0) AS incluidos, COALESCE(SUM(decisao='excluir'), 0) AS excluidos,
-                                  COALESCE(SUM(decisao='pendente'), 0) AS pendentes
-                           FROM (SELECT COALESCE(t.decisao, 'pendente') AS decisao FROM r_artigos a LEFT JOIN triagem t ON t.artigo_id=a.artigo_id)""")
+        """Triagem humana dos artigos que aparecem por padrao; `ocultos_llm` = excluidos pelo modelo e ainda sem decisao humana."""
+        d = self._um(f"""SELECT COUNT(*) AS total,
+                                COALESCE(SUM(decisao='incluir'), 0) AS incluidos, COALESCE(SUM(decisao='excluir'), 0) AS excluidos,
+                                COALESCE(SUM(decisao='pendente'), 0) AS pendentes
+                         FROM (SELECT decisao FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0)""")
+        d["ocultos_llm"] = self._um(f"SELECT COALESCE(SUM(llm_oculto), 0) AS n FROM ({self._BASE_ARTIGOS})")["n"]
+        return d
 
     def literatura(self):
         return {
@@ -273,8 +304,10 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia):
             "mais_citados": self._consulta("""SELECT artigo_id, titulo, ano, citacoes FROM r_artigos WHERE citacoes IS NOT NULL
                                               ORDER BY citacoes DESC, artigo_id LIMIT 10"""),
             "manuais": self._consulta("SELECT * FROM v_manuais_resumo ORDER BY base"),
-            "n_artigos": self._um("SELECT COUNT(*) AS n FROM r_artigos")["n"],
-            "n_multi": self._um("SELECT COUNT(*) AS n FROM v_artigos_multi_termo WHERE n_termos >= 2")["n"],
+            "n_artigos": self._um(f"SELECT COUNT(*) AS n FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0")["n"],
+            "n_multi": self._um(f"""SELECT COUNT(*) AS n FROM v_artigos_multi_termo WHERE n_termos >= 2 AND artigo_id IN
+                                    (SELECT artigo_id FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0)""")["n"],
+            "n_ocultos_llm": self._um(f"SELECT COALESCE(SUM(llm_oculto), 0) AS n FROM ({self._BASE_ARTIGOS})")["n"],
             "sem_citacoes": self._um("SELECT COUNT(*) AS n FROM r_artigos WHERE citacoes IS NULL")["n"],
         }
 

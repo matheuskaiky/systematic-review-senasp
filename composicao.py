@@ -4,6 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 import config.settings as S
+from config import triagem_escopo as TE
 from adaptadores import REGISTROS, simulados
 from adaptadores.leitura_sqlite import LeituraPainelSQLite
 
@@ -49,6 +50,24 @@ class Fabrica:
             opcoes["user_agent"] = opcoes["user_agent"].replace("{email}", email)
         return cls(**opcoes)
 
+    def _criar_triador(self):
+        """Triador de escopo: mesmas opcoes, mesmo provedor, modelo e chave do classificador configurado (nao ha porta
+        propria em `config/settings.py`), com o limite de tokens de saida proprio dos lotes. Se o provedor do classificador
+        nao tiver um adaptador de triagem registrado, encerra com uma mensagem clara."""
+        if self.simulado:
+            return simulados.POR_PORTA["triador"]()
+        nome = S.PROVEDORES["classificador"]
+        if nome not in REGISTROS["triador"]:
+            raise SystemExit(f"Adapter '{nome}' is not registered for port 'triador'")
+        opcoes = dict(S.OPCOES[nome])
+        opcoes["max_tokens_saida"] = TE.MAX_TOKENS_SAIDA
+        env = S.SEGREDOS[nome]
+        chave = os.environ.get(env)
+        if not chave:
+            raise SystemExit(f"Set {env} in .env to use '{nome}'")
+        opcoes["chave"] = chave
+        return REGISTROS["triador"][nome](**opcoes)
+
     @property
     def caminho_banco(self):
         if self.demo:
@@ -70,4 +89,5 @@ class Fabrica:
     fetcher = cached_property(lambda self: self._criar("fetcher"))
     extrator = cached_property(lambda self: self._criar("extrator"))
     classificador = cached_property(lambda self: self._criar("classificador"))
+    triador = cached_property(lambda self: self._criar_triador())
     exportador = cached_property(lambda self: self._criar("exportador"))

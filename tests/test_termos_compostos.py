@@ -37,11 +37,34 @@ ESPERADOS = [
     ("T57", "T33", '"predictive policing" AND ' + EN_A),
     ("T58", "T33", '"predictive policing" Brazil police'),
 ]
+# Ampliacao (RD4, 17/10/2026): variante B para os pais com total >= 100 ainda nao testados; A tambem nos genericos
+# (total >= 5000), onde A e B trouxeram artigos diferentes no piloto. Sem T06 (o composto quase nao trouxe resultados).
+EN_B = " Brazil police"
+AMPLIACAO = [
+    ("T59", "T03", '"biometria facial" "segurança pública"'),
+    ("T60", "T04", '"reconhecimento de voz" "segurança pública"'),
+    ("T61", "T07", '"câmeras inteligentes" "segurança pública"'),
+    ("T62", "T16", '"análise de vínculos" "segurança pública"'),
+    ("T63", "T26", '"real-time facial recognition"' + EN_B),
+    ("T64", "T27", '"facial biometrics"' + EN_B),
+    ("T65", "T28", '"voice recognition"' + EN_B),
+    ("T66", "T28", '"voice recognition" AND ' + EN_A),
+    ("T67", "T29", '"intelligent video surveillance"' + EN_B),
+    ("T68", "T30", '"video analytics"' + EN_B),
+    ("T69", "T31", '"smart cameras"' + EN_B),
+    ("T70", "T31", '"smart cameras" AND ' + EN_A),
+    ("T71", "T32", '"automatic license plate recognition"' + EN_B),
+    ("T72", "T35", '"crime hotspot mapping"' + EN_B),
+    ("T73", "T36", '"algorithmic risk assessment"' + EN_B),
+    ("T74", "T41", '"link analysis"' + EN_B),
+    ("T75", "T41", '"link analysis" AND ' + EN_A),
+    ("T76", "T44", '"gunshot detection"' + EN_B),
+]
 
 
 # ====================== configuracao ======================
 def test_termos_compostos_do_piloto():
-    assert [(t.id, t.pai, t.query) for t in C.TERMOS_COMPOSTOS] == ESPERADOS
+    assert [(t.id, t.pai, t.query) for t in C.TERMOS_COMPOSTOS] == ESPERADOS + AMPLIACAO
 
 
 def test_composto_herda_idioma_e_grupo_do_pai():
@@ -54,7 +77,7 @@ def test_compostos_ficam_fora_da_lista_principal():
     """A lista principal continua com os 46 termos; nenhum id se repete entre as duas listas."""
     assert len(C.TERMOS) == 46 and not any(t.pai for t in C.TERMOS)
     ids = [t.id for t in C.TERMOS + C.TERMOS_COMPOSTOS]
-    assert len(ids) == len(set(ids)) == 58
+    assert len(ids) == len(set(ids)) == 76
 
 
 def test_ano_inicial_2022_e_sem_filtro_de_idioma_por_padrao():
@@ -70,7 +93,7 @@ def test_filtro_de_idioma_e_opcional_no_dominio():
 def test_snapshot_da_configuracao_guarda_os_compostos_com_o_pai():
     termos = {t["id"]: t for t in json.loads(S.snapshot_config()["json"])["termos"]}
     assert termos["T47"]["pai"] == "T15" and termos["T47"]["query"] == ESPERADOS[0][2]
-    assert "T01" in termos and len(termos) == 58
+    assert "T01" in termos and len(termos) == 76
 
 
 # ====================== adaptador ======================
@@ -106,10 +129,11 @@ def test_sem_filtro_de_idioma_nao_envia_lr(monkeypatch):
     assert "lr" not in visto["params"]
 
 
-def test_todo_verificar_do_lr_no_adaptador():
-    """`lang_pt` ainda nao foi confirmado na documentacao (RI4): o adaptador deixa a marca."""
-    fonte = open(modulo.__file__, encoding="utf-8").read()
-    assert any("TODO(verificar)" in l and "lr" in l for l in fonte.splitlines())
+def test_lr_confirmado_sem_todo_no_adaptador():
+    """`lr=lang_pt` confirmado em chamada real (17/10/2026, execucao 20261017_192037_9b607d): o TODO sai e fica o registro."""
+    linhas = open(modulo.__file__, encoding="utf-8").read().splitlines()
+    assert not any("TODO(verificar)" in l and "lr" in l for l in linhas)
+    assert any("lr" in l and "20261017_192037_9b607d" in l for l in linhas)
 
 
 # ====================== linha de comando ======================

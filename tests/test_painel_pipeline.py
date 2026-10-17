@@ -35,7 +35,7 @@ def test_detalhe_da_execucao_traz_funil_custos_falhas_config_e_nao_mostra_json_c
     cli, copia, _ = ctx
     run = _um(copia, "SELECT run_id FROM execucoes WHERE comando='classificar' AND no_relatorio=1")
     h = cli.get(f"/execucoes/{run}").text
-    for esperado in ("Funil", "Custo e latência por etapa", "Falhas", "Configuração desta execução", "Prompt v5", "Termos acadêmicos (58)", "Provedores"):
+    for esperado in ("Funil", "Custo e latência por etapa", "Falhas", "Configuração desta execução", "Prompt v5", "Termos acadêmicos (76)", "Provedores"):
         assert esperado in h, esperado
     assert "&#34;" not in h.split("Configuração desta execução")[1][:3000]          # nada de JSON cru, so tabelas e arvores
     busca = _um(copia, "SELECT run_id FROM execucoes WHERE comando='busca-web' AND no_relatorio=1")

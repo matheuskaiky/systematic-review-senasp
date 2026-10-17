@@ -39,7 +39,7 @@ def test_v_termos_vem_do_snapshot(ac):
     t = _um(ac, "v_termos", "WHERE termo_id='T25'")
     assert (t["idioma"], t["query"], t["grupo"]) == ("en", '"facial recognition"', "reconhecimento_identificacao")
     assert _um(ac, "v_termos", "WHERE termo_id='T05'")["idioma"] == "pt"
-    assert len(_linhas(ac, "v_termos")) == len(C.TERMOS) + len(C.TERMOS_COMPOSTOS) == 58
+    assert len(_linhas(ac, "v_termos")) == len(C.TERMOS) + len(C.TERMOS_COMPOSTOS) == 76
 
 
 def test_rendimento_termo_traz_resultados_exclusivos_e_precisao(ac):

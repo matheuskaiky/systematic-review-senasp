@@ -64,35 +64,63 @@ TERMOS = [
     Termo("T45", '"drones with artificial intelligence"', "en", "outras_aplicacoes"),               # J1 de T20
     Termo("T46", '"integrated command and control center with AI"', "en", "outras_aplicacoes"),     # J1 de T21
 ]
-# Termos compostos do piloto (6 termos-pai x 2 sintaxes): desligados por padrao, rodam apenas quando citados em --termos.
+# Termos compostos (piloto de 6 termos-pai x 2 sintaxes e ampliacao): desligados por padrao, rodam apenas quando citados em --termos.
 from dominio.servicos import termo_composto
 
 _PAIS_TERMOS = {t.id: t for t in TERMOS}
-_CONFIG_COMPOSTOS = (
-    ("T47", "T48", "T15"),
-    ("T49", "T50", "T06"),
-    ("T51", "T52", "T01"),
-    ("T53", "T54", "T25"),
-    ("T55", "T56", "T40"),
-    ("T57", "T58", "T33"),
-)
-_CONTEXTOS_PILOTO = {
+_CONTEXTOS_COMPOSTOS = {
     "pt": {
-        "contexto_a": '"segurança pública" OR polícia OR policiamento',
-        "sufixo_b": '"segurança pública"',
+        "A": '"segurança pública" OR polícia OR policiamento',
+        "B": '"segurança pública"',
     },
     "en": {
-        "contexto_a": '(Brazil OR Brazilian) AND ("public security" OR police OR policing)',
-        "sufixo_b": "Brazil police",
+        "A": '(Brazil OR Brazilian) AND ("public security" OR police OR policing)',
+        "B": "Brazil police",
     },
 }
 
-TERMOS_COMPOSTOS = []
-for _id_a, _id_b, _pai_id in _CONFIG_COMPOSTOS:
-    _pai = _PAIS_TERMOS[_pai_id]
-    _cfg = _CONTEXTOS_PILOTO[_pai.idioma]
-    TERMOS_COMPOSTOS.append(termo_composto(_id_a, _pai, _cfg["contexto_a"]))
-    TERMOS_COMPOSTOS.append(Termo(_id_b, f"{_pai.query} {_cfg['sufixo_b']}", _pai.idioma, _pai.grupo, _pai.id))
+# Piloto inicial (6 termos-pai x 2 sintaxes: T47 a T58)
+_COMPOSTOS_PILOTO = (
+    ("T47", "T15", "A"), ("T48", "T15", "B"),
+    ("T49", "T06", "A"), ("T50", "T06", "B"),
+    ("T51", "T01", "A"), ("T52", "T01", "B"),
+    ("T53", "T25", "A"), ("T54", "T25", "B"),
+    ("T55", "T40", "A"), ("T56", "T40", "B"),
+    ("T57", "T33", "A"), ("T58", "T33", "B"),
+)
+
+# Ampliacao de 17/10/2026: variante B nos pais com total >= 100 ainda nao testados, A tambem nos genericos (total >= 5000); sem T06.
+_COMPOSTOS_AMPLIACAO = (
+    ("T59", "T03", "B"),
+    ("T60", "T04", "B"),
+    ("T61", "T07", "B"),
+    ("T62", "T16", "B"),
+    ("T63", "T26", "B"),
+    ("T64", "T27", "B"),
+    ("T65", "T28", "B"),
+    ("T66", "T28", "A"),
+    ("T67", "T29", "B"),
+    ("T68", "T30", "B"),
+    ("T69", "T31", "B"),
+    ("T70", "T31", "A"),
+    ("T71", "T32", "B"),
+    ("T72", "T35", "B"),
+    ("T73", "T36", "B"),
+    ("T74", "T41", "B"),
+    ("T75", "T41", "A"),
+    ("T76", "T44", "B"),
+)
+
+
+def _montar_composto(termo_id, pai_id, variante):
+    pai = _PAIS_TERMOS[pai_id]
+    cfg = _CONTEXTOS_COMPOSTOS[pai.idioma]
+    if variante == "A":
+        return termo_composto(termo_id, pai, cfg["A"])
+    return Termo(termo_id, f"{pai.query} {cfg['B']}", pai.idioma, pai.grupo, pai.id)
+
+
+TERMOS_COMPOSTOS = [_montar_composto(tid, pid, var) for tid, pid, var in _COMPOSTOS_PILOTO + _COMPOSTOS_AMPLIACAO]
 
 BASES_MANUAIS = ("IEEE", "ACM", "Scopus", "SBC OpenLib")
 

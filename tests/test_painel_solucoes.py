@@ -284,3 +284,33 @@ def test_sem_servidor_nao_ha_aquecimento_e_falha_do_aquecimento_nao_derruba(mode
         app2.state.aquecimento_cache_texto.join(timeout=10)
         assert app2.state.cache_textos.tamanho() == 0
         assert c2.get("/buscar-texto").status_code in (200, 503)
+
+
+# ---------- Etapa 4 do front-end: a cadeia de drill-down solucoes -> buscar-texto -> achados ----------
+def _hrefs(html, prefixo):
+    import html as h
+    import re as _re
+    return [h.unescape(x) for x in _re.findall(r'href="(' + _re.escape(prefixo) + r'[^"]*)"', html)]
+
+
+def test_cadeia_solucoes_busca_no_texto_achado(cli):
+    """Segue os links como uma pessoa: soluções -> busca no texto (com <mark>) -> achado, tudo respondendo 200."""
+    s = cli.get("/solucoes")
+    assert s.status_code == 200
+    buscas = _hrefs(s.text, "/buscar-texto?")
+    assert buscas, "a tela de soluções deveria ligar as páginas baixadas à busca no texto"
+    achou_marca, achou_achado = False, False
+    for url in dict.fromkeys(buscas):
+        b = cli.get(url)
+        assert b.status_code == 200, url
+        if "<mark>" in b.text:
+            achou_marca = True
+        for url_achado in dict.fromkeys(_hrefs(b.text, "/achados/")):
+            a = cli.get(url_achado)
+            assert a.status_code == 200, url_achado
+            achou_achado = True
+    assert achou_marca, "a busca aberta pelo link deveria destacar o termo com <mark>"
+    assert achou_achado, "algum resultado deveria levar a um achado da página"
+    # o outro caminho: o número de achados leva à lista de achados já filtrada
+    for url in dict.fromkeys(_hrefs(s.text, "/achados?")):
+        assert cli.get(url).status_code == 200, url

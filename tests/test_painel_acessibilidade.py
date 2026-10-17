@@ -383,3 +383,23 @@ def test_o_parser_de_css_acha_os_tokens_dos_dois_temas():
     assert claro["tokens"]["--fundo"] != escuro["tokens"]["--fundo"]
     assert contraste((0, 0, 0), (255, 255, 255)) == pytest.approx(21)
     assert contraste((255, 255, 255), (255, 255, 255)) == pytest.approx(1)
+
+
+# ---------- Etapa 4 do front-end: navegação em grupos e destaque da busca ----------
+def test_navegacao_em_tres_grupos_com_grupo_atual_aberto_em_toda_pagina_principal(cliente):
+    cli_demo = cliente[0]
+    import re
+    for rota in ("/", "/estados", "/achados", "/analises", "/solucoes", "/buscar-texto", "/chamadas", "/execucoes", "/sobre"):
+        pagina = cli_demo.get(rota).text
+        html = re.search(r'<nav class="menu".*?</nav>', pagina, re.S).group(0)     # so o menu lateral (as abas de /analises tem o proprio aria-current)
+        assert html.count("<details") >= 3, rota
+        assert len(re.findall(r'aria-current="page"', html)) == 1, rota
+        assert re.search(r"<details[^>]*\sopen[^>]*>(?:(?!</details>).)*aria-current=\"page\"", html, re.S), rota
+
+
+def test_busca_no_texto_destaca_com_mark_e_nao_usa_html_do_usuario(cliente):
+    cli_demo = cliente[0]
+    html = cli_demo.get("/buscar-texto?q=reconhecimento").text
+    assert "<mark>" in html
+    assert "<script" not in html.split("</head>")[1].replace('<script src="/static/painel.js" defer></script>', "")
+    assert cli_demo.get("/buscar-texto?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E").status_code in (200, 400)

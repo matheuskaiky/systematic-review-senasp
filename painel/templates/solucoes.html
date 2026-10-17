@@ -19,7 +19,7 @@
 <p class="vazio">Nenhuma solução conhecida foi informada. Acrescente nomes (e apelidos) em <code>config/solucoes_conhecidas.py</code> e abra esta página de novo.</p>
 {% else %}
 <section class="cartao" aria-labelledby="h-resumo"><h2 id="h-resumo">Resumo</h2>
-  <div class="tabela-rolavel"><table>
+  <div class="tabela-rolavel"><table data-ordenavel>
     <caption class="so-leitor">Situação de cada solução conhecida</caption>
     <thead><tr><th scope="col">Solução</th><th scope="col">UF</th><th scope="col" class="num">Resultados de busca</th><th scope="col" class="num">Páginas baixadas</th><th scope="col" class="num">Achados</th><th scope="col">Situação</th></tr></thead>
     <tbody>{% for k in cartoes %}
@@ -29,7 +29,7 @@
         <td class="num">{{ indicador(k.resultados|length, "#solucao-" ~ loop.index, "Ver os " ~ (k.resultados|length) ~ " resultados de busca que citam " ~ k.solucao.nome) }}</td>
         <td class="num">{{ indicador(k.paginas|length, href_paginas, "Buscar " ~ k.solucao.nome ~ " no texto das " ~ (k.paginas|length) ~ " páginas baixadas") }}</td>
         <td class="num">{{ indicador(k.achados|length, href_achados, "Ver os achados que citam " ~ k.solucao.nome, "Busca pelo nome exato; apelidos não entram") }}</td>
-        <td class="quebra">{{ k.rotulo }}</td></tr>{% endfor %}</tbody></table></div>
+        <td class="quebra" data-valor="{{ ordem_situacao[k.situacao] }}">{{ k.rotulo }}</td></tr>{% endfor %}</tbody></table></div>
   <p class="explica">“Resultados de busca” conta os resultados da busca web da UF cujo título ou resumo cita o nome; “Páginas baixadas”, as páginas cujo <strong>texto extraído</strong> o cita;
     “Achados”, os achados cuja evidência (ou nome da solução) o cita. Cada número é a etapa seguinte do funil; um número zero depois de um positivo é onde a coleta perdeu a solução.
     <strong>Os números positivos são links</strong>: “Resultados de busca” leva à lista deste cartão, “Páginas baixadas” à busca no texto das páginas da UF e “Achados” à lista de achados da UF com o nome exato (apelidos não entram na lista). Zero não é link.

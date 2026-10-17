@@ -11,7 +11,7 @@
   <label>Resultado <select name="resultado"><option value="">todos</option><option value="ok"{% if filtros.resultado == "ok" %} selected{% endif %}>com sucesso</option><option value="falha"{% if filtros.resultado == "falha" %} selected{% endif %}>com falha</option>
     <optgroup label="Bloqueios pelo robots.txt"><option value="robots_proibido"{% if filtros.resultado == "robots_proibido" %} selected{% endif %}>✕ proibido pelo site (Disallow)</option><option value="robots_inacessivel"{% if filtros.resultado == "robots_inacessivel" %} selected{% endif %}>⚠ bloqueio preventivo (robots.txt indisponível)</option></optgroup></select></label>
   <label>UF <select name="uf"><option value="">todas</option>{% for sigla in ctx.ufs %}<option value="{{ sigla }}"{% if filtros.uf == sigla %} selected{% endif %}>{{ sigla }}</option>{% endfor %}</select></label>
-  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="mensagem de erro ou alvo"></label>
+  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="mensagem de erro ou alvo" aria-keyshortcuts="/" data-atalho-busca></label>
   <button class="botao" type="submit">Filtrar</button>{% if filtros %}<a href="/chamadas">Limpar</a>{% endif %}
 </form>
 <p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> chamada(s)</p>
@@ -23,15 +23,16 @@
 {% elif not res.itens %}
 <p class="vazio">Nenhuma chamada com estes filtros.{% if filtros %} <a href="/chamadas">Limpar filtros</a>.{% endif %}</p>
 {% else %}
-<div class="tabela-rolavel"><table>
+<p class="dica-ordenar" data-dica-ordenar hidden>Clique no título de uma coluna para ordenar. A ordenação vale só para as linhas desta página: não reordena as demais páginas da lista.</p>
+<div class="tabela-rolavel"><table data-ordenavel>
   <thead><tr><th>Nº</th><th>Quando</th><th>Etapa</th><th>Provedor</th><th>Alvo</th><th>Resultado</th><th class="num">Latência</th><th class="num">Custo</th></tr></thead>
   <tbody>{% for c in res.itens %}
-    <tr><td><a href="/chamadas/{{ c.chamada_id }}">{{ c.chamada_id }}</a></td><td>{{ fmt.data_hora(c.requisitado_em) }}</td><td>{{ c.etapa }}</td><td>{{ c.provedor }}</td>
+    <tr><td><a href="/chamadas/{{ c.chamada_id }}">{{ c.chamada_id }}</a></td><td data-valor="{{ c.requisitado_em or '' }}">{{ fmt.data_hora(c.requisitado_em) }}</td><td>{{ c.etapa }}</td><td>{{ c.provedor }}</td>
       <td>{{ c.alvo_id or "—" }}{% if c.uf %} <small>({{ c.uf }})</small>{% endif %}</td>
       {% set mr = rotulos.motivo_robots(c.erro) if not c.sucesso else none %}
       <td>{% if c.sucesso %}<span class="selo ok">✔ ok</span>{% elif mr %}{{ s.robots(c.erro) }}{% if mr.apos_redirecionamento %}<br><small>{{ (c.erro or "")[:100] }}</small>{% endif %}{% else %}<span class="selo st-descartado">✕ falha</span><br><small>{{ (c.erro or "")[:80] }}</small>{% endif %}
         {% if c.tentativas and c.tentativas > 1 %}<br><small>{{ c.tentativas }} tentativas</small>{% endif %}</td>
-      <td class="num">{{ fmt.numero(c.latencia_ms) }} ms</td><td class="num">{{ fmt.moeda_usd(c.custo_usd) if c.custo_usd is not none else "—" }}</td></tr>
+      <td class="num" data-valor="{{ c.latencia_ms if c.latencia_ms is not none else '' }}">{{ fmt.numero(c.latencia_ms) }} ms</td><td class="num" data-valor="{{ c.custo_usd if c.custo_usd is not none else '' }}">{{ fmt.moeda_usd(c.custo_usd) if c.custo_usd is not none else "—" }}</td></tr>
   {% endfor %}</tbody></table></div>
 <nav class="paginacao" aria-label="Páginas">
   {% if n > 1 %}<a href="/chamadas?{{ base }}{{ '&' if base }}p={{ n - 1 }}">← Anterior</a>{% endif %}

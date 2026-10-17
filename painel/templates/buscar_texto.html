@@ -9,7 +9,7 @@
 
 <form class="form-busca" method="get" action="/buscar-texto" role="search">
   <label for="q">Nome ou frase ({{ q_min }} a {{ q_max }} caracteres)
-    <input type="search" id="q" name="q" value="{{ q }}" minlength="{{ q_min }}" maxlength="{{ q_max }}" required placeholder="por exemplo: BO Fácil"></label>
+    <input type="search" id="q" name="q" value="{{ q }}" minlength="{{ q_min }}" maxlength="{{ q_max }}" required placeholder="por exemplo: BO Fácil" aria-keyshortcuts="/" data-atalho-busca></label>
   <label for="uf">UF
     <select id="uf" name="uf"><option value="">todas</option>{% for sigla in ufs %}<option value="{{ sigla }}"{% if uf == sigla %} selected{% endif %}>{{ sigla }}</option>{% endfor %}</select></label>
   <label class="marcar" for="inteira"><input type="checkbox" id="inteira" name="inteira" value="1"{% if inteira %} checked{% endif %}> Só palavra inteira</label>

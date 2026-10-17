@@ -563,7 +563,8 @@ def test_calibracao_tokens_razao_e_regressao(minimo):
 
 def test_calibracao_tokens_demo(L, demo):
     r = L.analise_calibracao_tokens()
-    n = _sql(demo, """SELECT COUNT(*) FROM r_classificacoes k JOIN r_chamadas c ON c.chamada_id = k.chamada_id
+    # a funcao le o HISTORICO (toda chamada feita): a demonstracao tem paginas reclassificadas, e ai a vigente nao e a unica chamada
+    n = _sql(demo, """SELECT COUNT(*) FROM r_classificacoes_historico k JOIN r_chamadas c ON c.chamada_id = k.chamada_id
                       WHERE c.tokens_entrada > 0 AND k.n_chars_enviados > 0""")[0][0]
     assert r["n"] == len(r["pares"]) == n and r["razao_mediana"] > 0
 
@@ -584,7 +585,7 @@ def test_tamanho_texto_faixas_e_json_invalido(minimo):
 
 def test_tamanho_texto_filtra_origem_e_demo(L, demo):
     todos = L.analise_tamanho_texto_achados()
-    assert todos["n"] == _sql(demo, "SELECT COUNT(*) FROM r_classificacoes")[0][0] == sum(f["n"] for f in todos["faixas"])
+    assert todos["n"] == _sql(demo, "SELECT COUNT(*) FROM r_classificacoes_historico")[0][0] == sum(f["n"] for f in todos["faixas"])   # historico, como a funcao
     assert L.analise_tamanho_texto_achados("snippet")["n"] + L.analise_tamanho_texto_achados("pagina")["n"] == todos["n"]
     assert all(f["taxa_json_invalido"] is None for f in L.analise_tamanho_texto_achados("inexistente")["faixas"])
 

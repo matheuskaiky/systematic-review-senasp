@@ -21,9 +21,11 @@ from dominio.esquemas import esquema_classificacao
 from dominio.modelos import (Achado, ArtigoAcademico, ModeloConsultaWeb, PaginaAcademica, ArquivoBaixado, ParametrosClassificacao, RegistroChamada, ResultadoClassificacao,
                              ResultadoWeb, RespostaBusca, TextoExtraido)
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia
+from dominio.solucoes import SolucaoConhecida
 from infra.util import agora
 
 SEMENTE = 2026
+RECLASSIFICADAS_DEMO = 4              # paginas reclassificadas com outro prompt (achado antigo substituido pelo novo)
 # cidades FICTICIAS: a demonstracao nao usa nomes de municipios nem de orgaos reais
 MUNICIPIOS_DEMO = {"SP": ["Vila Modelo", "Porto Exemplo"], "PE": ["Campo Demo"]}
 MODELOS_MUNICIPAIS_DEMO = [ModeloConsultaWeb("M11", "{tec} Secretaria Municipal de Segurança {cidade} {uf}", perfil="oficial")]
@@ -47,9 +49,40 @@ NOMES_SOLUCAO_DEMO = {"reconhecimento_facial": "Rosto Seguro", "leitura_placas":
 NOME_INVENTADO_DEMO = "Plataforma Fantasma"      # o "modelo" devolve este nome sem que o texto o cite: o sistema o descarta
 
 
+# Variantes do MESMO sistema, como o modelo as copia do texto (a pagina cita cada grafia): a demonstracao as forca em URLs fixas, para a tela mostrar
+# grafias diferentes do mesmo nome (como "BO Facil" e "B.O. Facil" na coleta real). `.exemplo.gov.br`: nomes e orgaos ficticios.
+VARIANTES_FORCADAS_DEMO = {
+    "https://ssp.sp.exemplo.gov.br/noticias/reconhecimento_facial-1": "Rosto Seguro",
+    "https://ssp.sp.exemplo.gov.br/noticias/reconhecimento_facial-2": "Rosto-Seguro",
+    "https://ssp.rj.exemplo.gov.br/noticias/leitura_placas-1": "Placa Atenta",
+    "https://ssp.rj.exemplo.gov.br/noticias/leitura_placas-2": "P. Atenta",
+}
+# O nome aparece no TEXTO desta pagina, mas o classificador demonstrativo nao o devolve (so aparece na etapa "paginas baixadas" de /solucoes)
+NOME_SO_NA_PAGINA_DEMO = {"https://ssp.pe.exemplo.gov.br/noticias/videomonitoramento_inteligente-1": "Guardião Digital"}
+# O nome aparece so no resumo (snippet) de um resultado nao oficial, que nunca e baixado (etapa "resultados de busca" de /solucoes)
+NOME_SO_NO_RESULTADO_DEMO = {("CE", "analise_preditiva"): "Vigia Nuvem"}
+
+
 def _nome_demo(url, tec):
-    """Nome fiel ao texto (a pagina o cita) em parte das URLs; nada nas demais."""
+    """Nome fiel ao texto (a pagina o cita) em parte das URLs; nada nas demais. Nas URLs de `VARIANTES_FORCADAS_DEMO` e sempre a grafia forcada."""
+    if url in VARIANTES_FORCADAS_DEMO:
+        return VARIANTES_FORCADAS_DEMO[url]
+    if url in NOME_SO_NA_PAGINA_DEMO:
+        return ""
     return NOMES_SOLUCAO_DEMO.get(tec, "") if _h(url + "|nome", 4) == 0 else ""
+
+
+# Solucoes conhecidas da DEMONSTRACAO (o painel com --demo usa esta lista, nao a real de config/solucoes_conhecidas.py). Cobrem os quatro
+# vereditos de /solucoes; os nomes sao ficticios e existem nos dados da demonstracao.
+SOLUCOES_CONHECIDAS_DEMO = (
+    SolucaoConhecida("Rosto Seguro", "SP", apelidos=("Rosto-Seguro",),
+                     observacao="Demonstração: citada na evidência de achados (duas grafias do mesmo nome)."),
+    SolucaoConhecida("Placa Atenta", "RJ", apelidos=("P. Atenta",),
+                     observacao="Demonstração: citada em achados; o apelido cobre a grafia abreviada."),
+    SolucaoConhecida("Guardião Digital", "PE", observacao="Demonstração: a página baixada cita o nome, mas nenhum achado o cita."),
+    SolucaoConhecida("Vigia Nuvem", "CE", observacao="Demonstração: só um resultado de busca cita o nome; a página nunca foi baixada."),
+    SolucaoConhecida("Sentinela Norte", "AM", observacao="Demonstração: o nome não aparece em nada que a coleta trouxe."),
+)
 
 
 PREAMBULO = ("Notícias da Secretaria. {a}\n\nA pasta informou que o investimento segue o planejamento do exercício. "
@@ -84,8 +117,9 @@ class BuscaDemo:
                 res.append(ResultadoWeb(f"https://ssp.{uf.lower()}.exemplo.gov.br/noticias/{tec}-{n}",
                                         f"{FRASES[tec].split(' ', 1)[0].capitalize()} {tec.replace('_', ' ')} em {uf}",
                                         f"A secretaria {FRASES[tec]}.", "2025-0%d-1%d" % (1 + _h(uf + tec, 8), n), len(res) + 1))
+            extra = NOME_SO_NO_RESULTADO_DEMO.get((uf, tec))
             res.append(ResultadoWeb(f"https://noticias-{uf.lower()}.example/materia/{tec}", f"Reportagem: {tec.replace('_', ' ')} em {uf}",
-                                    f"Segundo a imprensa, {FRASES[tec]}.", None, len(res) + 1))
+                                    f"Segundo a imprensa, {FRASES[tec]}." + (f" A reportagem cita o sistema {extra}." if extra else ""), None, len(res) + 1))
         res.append(ResultadoWeb(f"https://ssp.{uf.lower()}.exemplo.gov.br/institucional/{_h(consulta.id, 3)}", "Institucional",
                                 "Conheça a estrutura da secretaria.", None, len(res) + 1))
         if _h(consulta.id, 11) == 0:
@@ -120,6 +154,8 @@ class FetcherDemo:
         frase = FRASES.get(tec, "mantém suas ações institucionais")
         nome = _nome_demo(url, tec)
         citacao = f"A ferramenta, batizada de {nome}, foi apresentada à imprensa. " if nome else ""    # o nome fica fora do trecho da evidencia
+        if url in NOME_SO_NA_PAGINA_DEMO:
+            citacao = f"A nota menciona ainda o sistema {NOME_SO_NA_PAGINA_DEMO[url]}, sem detalhar seu uso. "
         corpo = (PREAMBULO.format(a=f"A Secretaria de Segurança Pública do estado {frase}.") + f"Contexto: {frase}, segundo nota oficial de {uf}. "
                  + citacao + "Texto de relleno. " * 12 + POSFACIO).encode()
         return ArquivoBaixado(url, 200, "text/html", corpo, False, _reg(self.nome, "baixar", raw=corpo, raw_ext="html", latencia_ms=300 + _h(url, 900)))
@@ -240,6 +276,20 @@ def _run(repo, comando, origem=None):
     return repo.iniciar_execucao(comando, snap["hash"], snap["json"], "demo", run_origem=origem)
 
 
+def _reclassificar(repo, bruto, run_b, run_c):
+    """Le de novo, com outra versao do prompt e na mesma execucao, as ultimas `RECLASSIFICADAS_DEMO` paginas classificadas com texto completo:
+    a classificacao nova vira a vigente e a antiga (que ninguem verificou) abre com o aviso "substituido por uma classificacao mais recente".
+    Fica na execucao `run_c` (e nao numa execucao nova) para a demonstracao continuar com so duas execucoes de classificacao."""
+    metrica = lambda: (repo.conn.execute("SELECT valor FROM metricas_run WHERE run_id=? AND chave='classificacao_nome_solucao_descartado'",
+                                         (run_c,)).fetchone() or [0])[0]
+    antes = metrica()
+    alvos = [r[0] for r in repo.conn.execute("""SELECT DISTINCT k.url_id FROM classificacoes k JOIN achados a ON a.classificacao_id=k.classificacao_id
+             WHERE k.run_id=? AND k.origem_texto='pagina' ORDER BY k.url_id DESC LIMIT ?""", (run_c, RECLASSIFICADAS_DEMO))]
+    classificacao.executar(repo, bruto, ClassificadorDemo(), run_c, run_b, replace(_params(), versao_prompt="v4-demo"), C.UFS, [], 0, urls=alvos)
+    repo.registrar_metrica(run_c, "classificacao_nome_solucao_descartado", antes + metrica())     # a segunda leitura nao apaga a conta da primeira
+    repo.confirmar()
+
+
 def construir(pasta_dados=None):
     """Recria `demo.db` e `raw_demo/` do zero (sempre os mesmos dados) e devolve o caminho do banco."""
     pasta = Path(pasta_dados or S.DATA_DIR)
@@ -259,6 +309,7 @@ def construir(pasta_dados=None):
         repo.finalizar_execucao(run_b, "concluida")
         run_c = _run(repo, "classificar", run_b)
         classificacao.executar(repo, bruto, ClassificadorDemo(), run_c, run_b, _params(), C.UFS, [], 0)
+        _reclassificar(repo, bruto, run_b, run_c)
         repo.finalizar_execucao(run_c, "concluida")
         # um segundo modelo sobre as mesmas paginas (comparacao): fora do relatorio para nao contar em dobro
         run_d = _run(repo, "classificar", run_b)
@@ -277,7 +328,8 @@ def construir(pasta_dados=None):
         permitidos = set(V.STATUS) | set(V.STATUS_FINAL_EXTRA)
         rnd = random.Random(SEMENTE)
         ids = [r[0] for r in repo.conn.execute("""SELECT a.achado_id FROM achados a JOIN classificacoes k
-                 ON k.classificacao_id=a.classificacao_id WHERE k.run_id=? ORDER BY a.achado_id""", (run_c,))]
+                 ON k.classificacao_id=a.classificacao_id WHERE k.run_id=?
+                 AND k.classificacao_id IN (SELECT classificacao_id FROM r_classificacoes) ORDER BY a.achado_id""", (run_c,))]
         for i in ids:
             if rnd.random() < 0.3:
                 r = repo.conn.execute("SELECT status_reportado, evidencia_confere FROM achados WHERE achado_id=?", (i,)).fetchone()

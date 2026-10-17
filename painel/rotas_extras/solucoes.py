@@ -197,4 +197,5 @@ def registrar(c):
             paginas_da_uf = {u: leitura.paginas_para_busca_texto([u]) for u in ufs}
             textos = cache.obter(p["texto_path"] for ps in paginas_da_uf.values() for p in ps)
             cartoes = [_conferir(s, paginas_da_uf, textos) for s in lista]
-        return c.pagina(request, "solucoes.html", cartoes=cartoes, max_links=MAX_LINKS, sem_lista=not lista)
+        return c.pagina(request, "solucoes.html", cartoes=cartoes, max_links=MAX_LINKS, sem_lista=not lista,
+                        ordem_situacao={s: i for i, s in enumerate(dom.SITUACOES)})   # chave de ordenação da coluna "Situação": quão longe o funil chegou

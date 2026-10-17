@@ -16,11 +16,11 @@
   </section>
   <section class="cartao">
     <h2>Tabela</h2>
-    <div class="tabela-rolavel"><table>
+    <div class="tabela-rolavel"><table data-ordenavel>
       <thead><tr><th>UF</th><th>Estado</th><th class="num">Achados</th><th class="num">Verificados</th><th class="num">Confirmados</th></tr></thead>
       <tbody>{% for l in linhas %}
-        <tr><td><a href="/estados/{{ l.uf }}">{{ l.uf }}</a></td><td>{{ l.nome }}</td><td class="num">{{ fmt.numero(l.n_achados) }}</td>
-            <td class="num">{{ fmt.numero(l.n_verificados) }}</td><td class="num">{{ fmt.numero(l.n_confirmados) }}</td></tr>
+        <tr><td><a href="/estados/{{ l.uf }}">{{ l.uf }}</a></td><td>{{ l.nome }}</td><td class="num" data-valor="{{ l.n_achados or 0 }}">{{ fmt.numero(l.n_achados) }}</td>
+            <td class="num" data-valor="{{ l.n_verificados or 0 }}">{{ fmt.numero(l.n_verificados) }}</td><td class="num" data-valor="{{ l.n_confirmados or 0 }}">{{ fmt.numero(l.n_confirmados) }}</td></tr>
       {% endfor %}</tbody></table></div>
   </section>
 </div>

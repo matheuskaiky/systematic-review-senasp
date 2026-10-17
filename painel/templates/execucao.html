@@ -7,7 +7,7 @@
 <h1>{{ e.comando }} <small><code>{{ e.run_id }}</code></small></h1>
 <p class="selos">
   {% if e.status == "concluida" %}<span class="selo ok">✔ concluída</span>{% elif e.status == "em_andamento" %}<span class="selo alerta">● em andamento (a página se atualiza sozinha a cada 5 s)</span>{% else %}<span class="selo st-descartado">✕ {{ e.status }}</span>{% endif %}
-  {% if e.no_relatorio %}<span class="selo ok">dentro do relatório</span>{% else %}<span class="selo alerta">fora do relatório{% if e.motivo_exclusao %}: {{ e.motivo_exclusao }}{% endif %}</span>{% endif %}
+  {% if e.no_relatorio %}<span class="selo ok">dentro do relatório</span>{% else %}<span class="selo alerta selo-longo">fora do relatório{% if e.motivo_exclusao %}: {{ e.motivo_exclusao }}{% endif %}</span>{% endif %}
 </p>
 <dl class="ficha">
   <dt>Início</dt><dd>{{ fmt.data_hora(e.iniciado_em) }}{% if e.finalizado_em %} · duração {{ fmt.duracao(e.iniciado_em, e.finalizado_em) }}{% endif %}</dd>

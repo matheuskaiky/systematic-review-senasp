@@ -379,6 +379,113 @@ def test_demo_cobre_todos_os_casos_de_tela(demo):
     assert not re.search(r"\.gov\.br|\.com\.br", " ".join(r[0] for r in c.execute("SELECT url_original FROM urls")).replace("exemplo.gov.br", ""))
 
 
+def _app_demo_com_solucoes(demo, tmp_path):
+    """O painel sobre a demonstracao com a lista de solucoes da PROPRIA demonstracao (a mesma que `painel --demo` usa)."""
+    banco, raw = demo
+    app, ctx = _app(banco, raw, tmp_path)
+    ctx.solucoes_conhecidas = painel_demo.SOLUCOES_CONHECIDAS_DEMO
+    return TestClient(app), ctx
+
+
+def test_demo_cobre_os_nomes_de_solucao_e_a_reclassificacao(demo):
+    """(a) nome_solucao em boa parte dos achados, com grafias diferentes do mesmo sistema e um nome descartado; (d) texto completo e snippet;
+    (e) uma pagina reclassificada, com a classificacao antiga substituida pela mais recente."""
+    c = sqlite3.connect(demo[0])
+    um = lambda q: c.execute(q).fetchone()[0]
+    total = um("SELECT COUNT(*) FROM achados")
+    nomeados = um("SELECT COUNT(*) FROM achados WHERE TRIM(COALESCE(nome_solucao, '')) <> ''")
+    assert nomeados >= 0.12 * total, (nomeados, total)
+    nomes = {r[0] for r in c.execute("SELECT DISTINCT nome_solucao FROM achados WHERE nome_solucao IS NOT NULL")}
+    assert {"Rosto Seguro", "Rosto-Seguro"} <= nomes and {"Placa Atenta", "P. Atenta"} <= nomes     # duas grafias do mesmo sistema
+    assert um("SELECT COALESCE(SUM(valor), 0) FROM metricas_run WHERE chave='classificacao_nome_solucao_descartado'") >= 1   # nome inventado, descartado
+    assert um("SELECT COUNT(*) FROM classificacoes WHERE origem_texto='pagina'") > 0 and um("SELECT COUNT(*) FROM classificacoes WHERE origem_texto='snippet'") > 0
+    substituidos = um("""SELECT COUNT(*) FROM achados a JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
+                         JOIN execucoes e ON e.run_id=k.run_id WHERE e.no_relatorio=1
+                         AND a.classificacao_id NOT IN (SELECT classificacao_id FROM r_classificacoes)""")
+    assert substituidos >= 1
+    assert um("SELECT COUNT(DISTINCT prompt_versao) FROM classificacoes") >= 2          # o prompt mudou entre a classificacao antiga e a nova
+
+
+def test_demo_cobre_as_duas_razoes_de_robots_e_as_paginas_nao_verificaveis(demo):
+    """(c) bloqueio pelo robots.txt (Disallow, status 200) e robots.txt indisponivel (503, varias tentativas), texto insuficiente e 404."""
+    c = sqlite3.connect(demo[0])
+    um = lambda q: c.execute(q).fetchone()[0]
+    assert um("""SELECT COUNT(*) FROM chamadas WHERE erro='bloqueado_por_robots' AND json_extract(extras_json, '$.robots_status')=200
+                 AND json_extract(extras_json, '$.robots_inacessivel')=0""") >= 1
+    assert um("""SELECT COUNT(*) FROM chamadas WHERE erro='robots_inacessivel' AND json_extract(extras_json, '$.robots_status')=503
+                 AND json_extract(extras_json, '$.robots_inacessivel')=1 AND json_extract(extras_json, '$.robots_tentativas')>1""") >= 1
+    assert um("SELECT COUNT(*) FROM paginas WHERE motivo_falha='texto_insuficiente'") >= 1
+    assert um("SELECT COUNT(*) FROM chamadas WHERE etapa='download' AND http_status=404") >= 1
+
+
+def test_demo_mostra_as_telas_novas_com_dados(demo, tmp_path):
+    cli, _ = _app_demo_com_solucoes(demo, tmp_path)
+    operacao = cli.get("/analises?secao=operacao").text
+    assert 'id="nao_verificaveis"' in operacao and "robots" in operacao.lower()
+    for resultado in ("robots_proibido", "robots_inacessivel"):
+        pagina = cli.get(f"/chamadas?resultado={resultado}")
+        assert pagina.status_code == 200 and "Nenhuma chamada com estes filtros" not in pagina.text, resultado
+    c = sqlite3.connect(demo[0])
+    antigo = c.execute("""SELECT a.achado_id FROM achados a JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
+                          JOIN execucoes e ON e.run_id=k.run_id WHERE e.no_relatorio=1
+                          AND a.classificacao_id NOT IN (SELECT classificacao_id FROM r_classificacoes) ORDER BY a.achado_id LIMIT 1""").fetchone()[0]
+    assert "substituído por uma classificação mais recente" in cli.get(f"/achados/{antigo}").text
+    assert "Solução nomeada" in cli.get("/achados?solucao=nomeada").text
+    snippet = cli.get("/achados?origem=snippet")
+    assert snippet.status_code == 200 and "Somente snippet" in snippet.text
+
+
+def test_demo_solucoes_mostra_os_quatro_vereditos_e_a_busca_no_texto_acha_os_nomes(demo, tmp_path):
+    """(b) /solucoes na demonstracao: uma solucao em cada veredito, todas com nomes ficticios que existem nos dados da demonstracao."""
+    from dominio import solucoes as dom
+    cli, ctx = _app_demo_com_solucoes(demo, tmp_path)
+    r = cli.get("/solucoes")
+    assert r.status_code == 200 and "DEMONSTRAÇÃO (dados fictícios)" in r.text
+    for situacao in dom.SITUACOES:
+        assert dom.rotulo_da_situacao(situacao) in r.text, situacao
+    esperado = {"Rosto Seguro": dom.EM_ACHADOS, "Placa Atenta": dom.EM_ACHADOS, "Guardião Digital": dom.PAGINA_SEM_ACHADO,
+                "Vigia Nuvem": dom.SO_NOS_RESULTADOS, "Sentinela Norte": dom.NAO_APARECEU}
+    assert {s.nome for s in ctx.solucoes_conhecidas} == set(esperado)
+    for nome, situacao in esperado.items():
+        assert f"{nome} <small>" in r.text and dom.rotulo_da_situacao(situacao) in r.text
+    for q in ("Rosto Seguro", "Guardião Digital", "P. Atenta"):
+        b = cli.get("/buscar-texto", params={"q": q, "inteira": 1})
+        assert b.status_code == 200 and "<mark>" in b.text and "Nenhuma página baixada cita" not in b.text, q
+    assert "Nenhuma página baixada cita" in cli.get("/buscar-texto", params={"q": "Sentinela Norte", "inteira": 1}).text
+    assert "Nenhuma solução conhecida foi informada" not in r.text
+
+
+def test_painel_demo_usa_a_lista_de_solucoes_da_demonstracao_e_o_real_usa_a_do_pesquisador(ambiente_cli, monkeypatch):
+    """`painel --demo` usa `painel_demo.SOLUCOES_CONHECIDAS_DEMO`; sem --demo vale `config/solucoes_conhecidas.py`. Sem subir servidor."""
+    import types
+    import uvicorn
+    import main
+    import painel.app as painel_app
+    from composicao import Fabrica
+    from config.solucoes_conhecidas import SOLUCOES_CONHECIDAS
+    capturado = {}
+    criar_original = painel_app.criar_app
+    monkeypatch.setattr(painel_app, "criar_app", lambda leitura, fab, bruto, contexto: capturado.update(contexto=contexto) or criar_original(leitura, fab, bruto, contexto))
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: capturado.update(app=app))
+    painel_demo.construir(main.S.DATA_DIR)
+    a = types.SimpleNamespace(host="127.0.0.1", porta=8000, somente_leitura=True, demo=True, simulado=False)
+    main.abrir_painel(a, Fabrica(demo=True))
+    assert capturado["contexto"].banco == "demo" and capturado["contexto"].solucoes_conhecidas == tuple(painel_demo.SOLUCOES_CONHECIDAS_DEMO)
+    cli = TestClient(capturado["app"], base_url="http://127.0.0.1")
+    r = cli.get("/solucoes")
+    assert r.status_code == 200 and "Rosto Seguro" in r.text and "BO Fácil" not in r.text
+    a = types.SimpleNamespace(host="127.0.0.1", porta=8000, somente_leitura=True, demo=False, simulado=True)
+    main.abrir_painel(a, Fabrica(simulado=True))
+    assert capturado["contexto"].banco == "simulado" and capturado["contexto"].solucoes_conhecidas == tuple(SOLUCOES_CONHECIDAS)
+
+
+def test_painel_demo_do_cli_gera_o_banco_com_as_solucoes(ambiente_cli, monkeypatch, capsys):
+    import main
+    monkeypatch.setattr("sys.argv", ["main.py", "painel-demo"])
+    main.main()
+    assert "demo.db" in capsys.readouterr().out and (main.S.DATA_DIR / "demo.db").exists()
+
+
 def test_bruto_local_recusa_caminho_fora_da_raiz(tmp_path):
     raiz = tmp_path / "raw"
     raiz.mkdir()

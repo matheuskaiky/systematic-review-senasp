@@ -11,7 +11,7 @@ from dominio import refinamento_busca as refino
 from painel import analises_blocos_ruido as br
 
 HOSTIL = "<b>x</b>&"
-CHAVES = {"id", "titulo", "subtitulo", "grafico", "texto", "selo", "aviso", "pares", "tabela", "link"}
+CHAVES = {"id", "titulo", "subtitulo", "grafico", "texto", "selo", "aviso", "pares", "tabela", "link", "motivos"}   # `motivos` entrou na Etapa 2 do front-end
 PALAVRAS_DE_VEREDITO = ("recomendamos", "recomenda-se", "ótimo", "otimo", "excelente", "péssimo", "pessimo", "vale a pena", "deve usar")
 
 

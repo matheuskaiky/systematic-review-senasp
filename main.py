@@ -399,9 +399,12 @@ def abrir_painel(a, fab):
         raise SystemExit("O painel só aceita conexões locais (127.0.0.1): ele não tem autenticação.")
     import uvicorn
     from adaptadores.repositorio_sqlite import RepositorioSQLite
-    from config.solucoes_conhecidas import SOLUCOES_CONHECIDAS
     from painel.app import Contexto, criar_app
     banco = "demo" if a.demo else "simulado" if a.simulado else "real"
+    if a.demo:        # a demonstração tem as suas soluções (fictícias, presentes nos dados dela); a lista real é do pesquisador e vale para o banco real e o simulado
+        from painel_demo import SOLUCOES_CONHECIDAS_DEMO as SOLUCOES_CONHECIDAS
+    else:
+        from config.solucoes_conhecidas import SOLUCOES_CONHECIDAS
     contexto = Contexto(
         banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
         pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),

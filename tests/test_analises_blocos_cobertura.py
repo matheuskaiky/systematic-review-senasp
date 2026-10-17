@@ -8,7 +8,7 @@ from markupsafe import Markup
 from adaptadores.leitura_termos_cobertura import LeituraTermosCobertura
 from painel import analises_blocos_cobertura as B
 
-CHAVES_BLOCO = {"id", "titulo", "subtitulo", "grafico", "texto", "selo", "aviso", "pares", "tabela", "link"}
+CHAVES_BLOCO = {"id", "titulo", "subtitulo", "grafico", "texto", "selo", "aviso", "pares", "tabela", "link", "motivos"}   # `motivos` entrou na Etapa 2 do front-end
 
 
 class Falso(LeituraTermosCobertura):

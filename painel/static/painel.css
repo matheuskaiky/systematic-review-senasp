@@ -135,7 +135,8 @@ h3 { font-size: var(--fs-md); margin: 0 0 var(--esp-2); }
 .selo.robots-proibido { color: var(--perigo); background: var(--perigo-fundo); border: 2px solid var(--perigo); font-weight: 700; }
 .selo.robots-preventivo { color: var(--alerta); background: var(--alerta-fundo); border: 2px dashed var(--alerta); }
 /* nomes e motivos são longos: o selo quebra linha (telas estreitas) em vez de alargar a página */
-.selo.solucao-nomeada, .selo.robots-proibido, .selo.robots-preventivo, .selo.origem-snippet { white-space: normal; text-align: left; }
+.selo.solucao-nomeada, .selo.robots-proibido, .selo.robots-preventivo, .selo.origem-snippet, .selo.selo-longo { white-space: normal; text-align: left; }
+.selo.selo-longo { max-width: 100%; overflow-wrap: anywhere; }   /* texto livre (motivo de exclusão da execução): sem isto a página inteira ganha rolagem horizontal */
 a.selo { text-decoration: none; }
 a.selo:hover { filter: brightness(.95); }
 .sem-nome, .sem-nome-dica, .explica-origem { color: var(--texto-suave); font-size: var(--fs-sm); }
@@ -216,6 +217,17 @@ tbody th[scope="row"] { text-transform: none; letter-spacing: 0; font-size: var(
 details.revogar { margin-top: var(--esp-4); border-top: 1px solid var(--borda); padding-top: var(--esp-3); }
 details.revogar summary { cursor: pointer; color: var(--perigo); font-weight: 600; }
 .atalhos { font-size: var(--fs-md); color: var(--texto-suave); }
+/* ordenação de colunas (etapa 3): o <button> só existe com JavaScript; o texto do título é o mesmo de antes. A seta nunca é a única pista (aria-sort no <th>) */
+button.ordenar { display: inline-flex; align-items: center; gap: .35em; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit;
+  text-transform: inherit; letter-spacing: inherit; font-weight: inherit; text-align: inherit; cursor: pointer; border-radius: var(--raio-xs); }
+th.num button.ordenar { flex-direction: row-reverse; }
+button.ordenar:hover { color: var(--texto); }
+.ordenar-seta::before { content: "\21C5"; opacity: .8; }
+th[aria-sort="ascending"] .ordenar-seta::before { content: "\25B2"; opacity: 1; }
+th[aria-sort="descending"] .ordenar-seta::before { content: "\25BC"; opacity: 1; }
+th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--texto); box-shadow: inset 0 -3px 0 var(--acento); }
+.dica-ordenar { margin: 0 0 var(--esp-2); font-size: var(--fs-sm); color: var(--texto-suave); }
+.atalho-dica { font-size: var(--fs-xs); }
 
 svg.grafico, svg.mapa, svg.barra-empilhada { width: 100%; height: auto; display: block; }
 svg.barra-empilhada { height: 22px; margin: var(--esp-1) 0 var(--esp-3); }
@@ -324,5 +336,8 @@ span.amostra.calor-diag { background: var(--borda); } span.amostra.calor-1 { bac
   tbody tr:hover { background: none; }
   .texto-pagina, pre.bruto { max-height: none; overflow: visible; }
   svg, .selo { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  th button.ordenar { display: inline !important; font: inherit; }   /* o título da coluna é um botão (criado pelo script): no papel volta a ser texto, sem a seta */
+  .ordenar-seta, .dica-ordenar, .atalho-dica { display: none !important; }
+  th[aria-sort] { box-shadow: none; }
   a { color: inherit; }
 }

@@ -16,7 +16,7 @@
   <label>Texto <select name="origem"><option value="">todos</option>{% for k, v in rotulos.ORIGEM_TEXTO.items() %}<option value="{{ k }}"{% if filtros.origem == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
   <label>Solução <select name="solucao"><option value="">todas</option><option value="nomeada"{% if filtros.solucao == "nomeada" %} selected{% endif %}>só as nomeadas</option></select></label>
   <label>Verificação <select name="verificacao"><option value="">todas</option>{% for k, v in rotulos.VERIFICACAO.items() %}<option value="{{ k }}"{% if filtros.verificacao == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
-  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="trecho, nome da solução, fornecedor ou endereço"></label>
+  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="trecho, nome da solução, fornecedor ou endereço" aria-keyshortcuts="/" data-atalho-busca></label>
   <button class="botao" type="submit">Filtrar</button>
   {% if filtros %}<a href="/achados">Limpar</a>{% endif %}
 </form>

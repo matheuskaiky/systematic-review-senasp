@@ -92,8 +92,9 @@ def test_numeros_da_demo_batem_com_o_sql(ctx):
     a, b = _runs(copia)
     t = _texto(cli.get(_url(a, b)).text)
     n = _sql(copia, "SELECT COUNT(*) " + JOIN_PARES, a, b)[0][0]
-    total_a = _sql(copia, "SELECT COUNT(*) FROM classificacoes WHERE run_id=?", a)[0][0]
-    total_b = _sql(copia, "SELECT COUNT(*) FROM classificacoes WHERE run_id=?", b)[0][0]
+    # a pagina compara PAGINAS (url + UF): a execucao A tem paginas reclassificadas (duas linhas para a mesma pagina), que contam uma vez
+    total_a = _sql(copia, "SELECT COUNT(*) FROM (SELECT DISTINCT url_id, uf FROM classificacoes WHERE run_id=?)", a)[0][0]
+    total_b = _sql(copia, "SELECT COUNT(*) FROM (SELECT DISTINCT url_id, uf FROM classificacoes WHERE run_id=?)", b)[0][0]
     assert n == 15 and total_a > n
     assert f"{n} páginas nas duas execuções" in t
     assert f"{total_a - n} só em A" in t and f"{total_b - n} só em B" in t
@@ -119,8 +120,11 @@ def test_numeros_da_demo_batem_com_o_sql(ctx):
     assert fmt.moeda_usd(custo_a / n_a) in t and fmt.moeda_usd(custo_b / n_b) in t
     ach_a = _sql(copia, "SELECT COUNT(*) FROM achados a JOIN classificacoes k USING(classificacao_id) WHERE k.run_id=?", a)[0][0]
     assert fmt.moeda_usd(custo_a / ach_a) in t
+    # a conferencia da evidencia vale so para a classificacao mais recente de cada pagina da execucao (dominio/concordancia.py): na demonstracao
+    # algumas paginas foram reclassificadas dentro da execucao A, e a leitura antiga delas nao entra
     ok_a, av_a = _sql(copia, """SELECT SUM(a.evidencia_confere), COUNT(a.evidencia_confere) FROM achados a
-                                JOIN classificacoes k USING(classificacao_id) WHERE k.run_id=?""", a)[0]
+                                JOIN classificacoes k USING(classificacao_id) WHERE k.run_id=? AND k.classificacao_id =
+                                (SELECT MAX(k2.classificacao_id) FROM classificacoes k2 WHERE k2.run_id=k.run_id AND k2.url_id=k.url_id AND k2.uf=k.uf)""", a)[0]
     assert f"({ok_a} de {av_a})" in t
 
 

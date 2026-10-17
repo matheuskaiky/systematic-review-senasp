@@ -236,11 +236,12 @@ def test_telas_mostram_a_solucao_escapada_e_travessao_quando_vazia(tmp_path, sil
     repo.conn.close()
     cli = _cliente(tmp_path)
     lista = cli.get("/achados").text
-    assert "<th>Solução</th>" in lista and "&lt;b&gt;BO Fácil&lt;/b&gt;" in lista and "<b>BO Fácil</b>" not in lista
-    assert lista.count("<td>—</td>") == 1
+    # contrato da Etapa 2 do front-end: o nome vira um selo de destaque (escapado); o achado sem nome mostra "sem nome"
+    assert "Solução" in lista and "&lt;b&gt;BO Fácil&lt;/b&gt;" in lista and "<b>BO Fácil</b>" not in lista
+    assert lista.count("sem nome") == 1
     achado = cli.get("/achados/1").text
-    assert "<dt>Solução</dt>" in achado and "&lt;b&gt;BO Fácil&lt;/b&gt;" in achado and "<b>BO Fácil</b>" not in achado
-    assert "<dt>Solução</dt><dd>—</dd>" in cli.get("/achados/3").text
+    assert "Solução nomeada" in achado and "&lt;b&gt;BO Fácil&lt;/b&gt;" in achado and "<b>BO Fácil</b>" not in achado
+    assert "Achado sem nome de solução" in cli.get("/achados/3").text
     assert "&lt;b&gt;BO Fácil&lt;/b&gt;" in cli.get("/estados/PI").text
     assert cli.get("/achados?q=" + "BO F%C3%A1cil").status_code == 200
     assert "Nenhum achado com estes filtros" not in cli.get("/achados?q=%3Cb%3EBO").text           # a busca acha pelo nome da solucao

@@ -1,0 +1,8 @@
+# Dependências do ambiente de pesquisa (separado do sistema). Instale só dentro de analises/.venv.
+# Sem versões fixas aqui; as versões resolvidas ficam em requirements-analise.lock.txt.
+pandas
+numpy
+scipy
+statsmodels
+scikit-learn
+matplotlib

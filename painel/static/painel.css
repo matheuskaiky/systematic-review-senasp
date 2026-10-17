@@ -341,3 +341,17 @@ span.amostra.calor-diag { background: var(--borda); } span.amostra.calor-1 { bac
   th[aria-sort] { box-shadow: none; }
   a { color: inherit; }
 }
+
+/* Entidades de nome_solucao (RC23): resumo acima da lista, grafias unificadas e a tabela de auditoria. Usa so os tokens de painel.css. */
+.inclui { color: var(--texto-suave); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.resumo-entidades { margin: 0 0 var(--esp-4); }
+.resumo-entidades .corrente { margin: 0 0 var(--esp-2); }
+.resumo-entidades ul { list-style: none; display: flex; flex-wrap: wrap; gap: var(--esp-2); margin: 0; padding: 0; }
+.resumo-entidades li a { display: inline-block; padding: .15em .65em; border: 1px solid var(--acento); border-radius: var(--raio-pilula); background: var(--acento-fundo); color: var(--acento); text-decoration: none; overflow-wrap: anywhere; }
+.resumo-entidades li a:hover { background: var(--acento); color: var(--texto-botao); }
+.resumo-entidades li a[aria-current="true"] { border-width: 2px; font-weight: 700; }
+.resumo-entidades .n { font-weight: 700; }
+.selo.camada { white-space: normal; text-align: left; }
+.lista-grafias { list-style: none; margin: var(--esp-2) 0 0; padding: 0; }
+.lista-grafias li { margin: 0 0 var(--esp-2); overflow-wrap: anywhere; }
+td.col-grafias { min-width: 14rem; }

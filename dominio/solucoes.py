@@ -26,6 +26,7 @@ class SolucaoConhecida:
     uf: str
     apelidos: tuple = ()
     observacao: str = ""
+    outras_ufs: tuple = ()      # UFs em que o mesmo nome identifica a mesma solucao ("*" = todas); sem isto, so a UF acima a reconhece (RC23)
 
 
 def _base(texto):

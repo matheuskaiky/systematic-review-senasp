@@ -314,3 +314,259 @@ def test_cadeia_solucoes_busca_no_texto_achado(cli):
     # o outro caminho: o número de achados leva à lista de achados já filtrada
     for url in dict.fromkeys(_hrefs(s.text, "/achados?")):
         assert cli.get(url).status_code == 200, url
+
+
+# =====================================================================================================================
+# RC23: entidades de nome_solucao no painel (agrupamento pelo nome canonico, filtro, dica, valor bruto intacto)
+# =====================================================================================================================
+from urllib.parse import quote  # noqa: E402
+
+from dominio.entidades_solucao import resolver_entidades  # noqa: E402
+from dominio.solucoes import SolucaoConhecida  # noqa: E402
+
+POLI = SolucaoConhecida("Policiamento Preditivo Inteligente", "SP")
+BO_SP = SolucaoConhecida("BO Fácil", "SP", apelidos=("B.O. Fácil",))
+NOMES_SP = ["Policiamento Preditivo Inteligente", "Policiamnto Preditivo Inteligente", "SNA", "Sistema Sigma Nacional Aberto", "Operação Zeta I",
+            "Operação Zeta II", "Radar Alfa", "Radar Alfa", "BO Fácil", "B.O. Fácil", "<i>Raro</i>", "Delta Bot"]
+
+
+@pytest.fixture(scope="module")
+def modelo_entidades(demo, tmp_path_factory):
+    """Demonstracao com o cenario das solucoes e nomes de solucao escritos de varios jeitos, todos em achados vigentes: o cadastro Delta Bot (PI) com
+    tres grafias; no SP, um cadastro com typo, sigla e nome por extenso, romanos e a mesma grafia de outra UF."""
+    banco0, raw0 = demo
+    pasta = tmp_path_factory.mktemp("painel_entidades")
+    banco, raw = pasta / "demo.db", pasta / "raw"
+    shutil.copy(banco0, banco)
+    shutil.copytree(raw0, raw)
+    ids = semear(banco, raw)
+
+    def vigentes(uf):
+        con = sqlite3.connect(banco)
+        try:
+            return [r[0] for r in con.execute("SELECT achado_id FROM v_achados_revisao WHERE uf=? ORDER BY achado_id", (uf,))]
+        finally:
+            con.close()
+
+    def sql_(comando, args=()):
+        con = sqlite3.connect(banco)
+        try:
+            cur = con.execute(comando, args)
+            con.commit()
+            return cur.lastrowid
+        finally:
+            con.close()
+
+    sp, rj = vigentes("SP"), vigentes("RJ")
+    assert len(sp) >= len(NOMES_SP) and len(rj) >= 1, (len(sp), len(rj))
+    sql_("UPDATE achados SET nome_solucao='Delta Bot' WHERE achado_id=?", (ids["a_delta"],))
+    sql_("UPDATE achados SET nome_solucao='Gama App' WHERE achado_id=?", (ids["a_gama"],))
+    con = sqlite3.connect(banco)
+    k = con.execute("SELECT classificacao_id FROM achados WHERE achado_id=?", (ids["a_delta"],)).fetchone()[0]
+    con.close()
+    ids["db_bot"], ids["delta_hifen"] = [sql_("""INSERT INTO achados(classificacao_id, uf, tecnologia, status_reportado, evidencia, confianca, nome_solucao)
+                                                 VALUES (?, 'PI', 'outra_ia', 'em_uso', 'outro trecho', 'alta', ?)""", (k, nome)) for nome in ("DB Bot", "Delta-Bot")]
+    ids["sp"] = {}
+    for i, nome in zip(sp, NOMES_SP):
+        sql_("UPDATE achados SET nome_solucao=? WHERE achado_id=?", (nome, i))
+        ids["sp"].setdefault(nome, []).append(i)
+    ids["rj"] = rj[0]
+    sql_("UPDATE achados SET nome_solucao='Radar Alfa' WHERE achado_id=?", (rj[0],))
+    app, ctx = _app(banco, raw, pasta)
+    ctx.solucoes_conhecidas = SOLUCOES + (POLI, BO_SP)
+    return TestClient(app), ids, banco, ctx
+
+
+def _nomes_no_banco(banco):
+    con = sqlite3.connect(banco)
+    try:
+        return con.execute("SELECT achado_id, nome_solucao FROM achados ORDER BY achado_id").fetchall()
+    finally:
+        con.close()
+
+
+def _contagens(banco):
+    con = sqlite3.connect(banco)
+    try:
+        return {(n, u): k for n, u, k in con.execute(
+            "SELECT nome_solucao, uf, COUNT(*) FROM r_achados WHERE TRIM(COALESCE(nome_solucao,'')) <> '' GROUP BY 1, 2")}
+    finally:
+        con.close()
+
+
+def _total(html):
+    return int(re.search(r"<strong>([\d.]+)</strong> achado\(s\)", html).group(1).replace(".", ""))
+
+
+def test_entidades_o_resumo_conta_entidades_e_achados_nomeados(modelo_entidades):
+    cli, ids, banco, ctx = modelo_entidades
+    contagens = _contagens(banco)
+    res = resolver_entidades(contagens, ctx.solucoes_conhecidas)
+    h = cli.get("/achados").text
+    assert f"Soluções nomeadas: {len(res.entidades)} entidade(s), {sum(contagens.values())} achado(s)" in texto(h)
+    assert 'href="/achados?solucao=nomeada"' in h
+    # cada entidade do resumo e um link para o filtro pelo nome canonico (a UF vai junto quando a entidade e de uma UF so)
+    assert 'href="/achados?solucao=Delta+Bot&amp;uf=PI"' in h and 'href="/achados?solucao=Delta+Bot&amp;uf=SP"' in h
+    assert verificar(h) == []
+
+
+def test_entidades_o_filtro_por_nome_canonico_traz_todas_as_grafias_da_entidade(modelo_entidades):
+    cli, ids, banco, _ = modelo_entidades
+    h = cli.get("/achados?solucao=Delta+Bot&uf=PI").text
+    assert _total(h) == 3                                                 # "Delta Bot", "DB Bot" e "Delta-Bot": a mesma solucao do cadastro
+    for i in (ids["a_delta"], ids["db_bot"], ids["delta_hifen"]):
+        assert f'href="/achados/{i}"' in h
+    assert f'href="/achados/{ids["sp"]["Delta Bot"][0]}"' not in h        # a mesma grafia no SP e outra entidade
+    assert _total(cli.get("/achados?solucao=Delta+Bot&uf=SP").text) == 1
+    assert _total(cli.get("/achados?solucao=Delta+Bot").text) == 4        # sem UF: as entidades que tem o mesmo nome canonico
+    assert _total(cli.get("/achados?solucao=Policiamento+Preditivo+Inteligente").text) == 2     # typo unido por semelhanca
+    assert _total(cli.get("/achados?solucao=BO+F%C3%A1cil").text) == 2
+    # a busca q continua valendo sobre o texto bruto, sem unir nada
+    assert _total(cli.get("/achados?q=Delta-Bot").text) == 1 and _total(cli.get("/achados?q=DB+Bot").text) == 2     # o texto bruto, tambem na evidencia
+    assert _total(cli.get("/achados?q=Delta").text) >= 3
+
+
+def test_entidades_filtro_combina_com_outros_filtros_e_com_a_fila(modelo_entidades):
+    cli, ids, banco, _ = modelo_entidades
+    assert "solucao=Delta+Bot" in cli.get("/achados?solucao=Delta+Bot&uf=PI&verificacao=pendente").text
+    r = cli.get("/revisao/achados?solucao=Delta+Bot&uf=PI", follow_redirects=False)
+    assert r.status_code == 303 and "solucao=Delta+Bot" in r.headers["location"]
+    assert int(re.search(r"/achados/(\d+)", r.headers["location"]).group(1)) in (ids["a_delta"], ids["db_bot"], ids["delta_hifen"])
+    assert verificar(cli.get(r.headers["location"]).text) == []
+
+
+def test_entidades_nome_desconhecido_nao_filtra_e_nomeada_continua(modelo_entidades):
+    cli, *_ = modelo_entidades
+    todos = _total(cli.get("/achados").text)
+    assert _total(cli.get("/achados?solucao=Nome+Que+Nao+E+De+Ninguem").text) == todos
+    nomeadas = _total(cli.get("/achados?solucao=nomeada").text)
+    assert 0 < nomeadas < todos
+
+
+def test_entidades_o_selo_mostra_o_canonico_com_dica_das_grafias_reunidas(modelo_entidades):
+    cli, ids, _, _ = modelo_entidades
+    h = cli.get("/achados?solucao=Delta+Bot&uf=PI").text
+    assert 'title="Delta Bot (inclui: DB Bot; Delta-Bot)"' in h
+    assert h.count('<span class="solucao-nome">Delta Bot</span>') == 3           # o selo mostra sempre o nome canonico
+    assert '<span class="solucao-nome">DB Bot</span>' not in h and '<span class="solucao-nome">Delta-Bot</span>' not in h
+    assert 'class="so-leitor"> (inclui: DB Bot; Delta-Bot)</span>' in h             # leitor de tela tambem ouve a dica
+    assert "Entidade «Delta Bot»" in texto(h)
+    # sem nada unificado nao ha dica no selo
+    h2 = cli.get("/achados?solucao=Radar+Alfa&uf=SP").text
+    assert "inclui:" not in h2.split("<table", 1)[1]
+
+
+def test_entidades_detalhe_mostra_o_canonico_e_o_valor_bruto_como_o_modelo_escreveu(modelo_entidades):
+    cli, ids, _, _ = modelo_entidades
+    d = cli.get(f"/achados/{ids['db_bot']}").text                                  # grafia bruta "DB Bot"
+    assert '<span class="solucao-nome">Delta Bot</span>' in d
+    assert "Como o modelo escreveu: <q>DB Bot</q>" in d
+    assert "<dt>Como o modelo escreveu</dt><dd>DB Bot</dd>" in d
+    assert 'href="/achados?solucao=Delta+Bot&amp;uf=PI"' in d and "ver os 3 achado(s) desta solução" in d
+    assert "O painel a reúne ao nome «Delta Bot» (cadastro: «DB Bot» equivale ao apelido cadastrado «DB Bot» de Delta Bot)" in texto(d)
+    assert "/achados?q=DB%20Bot" in d                                                  # o link da busca pelo texto bruto continua
+    so = cli.get(f"/achados/{ids['sp']['Radar Alfa'][0]}").text                        # "Radar Alfa": nada unificado
+    assert "Como o modelo escreveu: <q>Radar Alfa</q>" in so and "O painel a reúne" not in so
+    assert verificar(d) == []
+
+
+def test_entidades_pagina_do_estado_mostra_o_canonico(modelo_entidades):
+    cli, *_ = modelo_entidades
+    h = cli.get("/estados/PI").text
+    assert '<span class="solucao-nome">Delta Bot</span>' in h and 'title="Delta Bot (inclui: DB Bot; Delta-Bot)"' in h
+    assert '<span class="solucao-nome">DB Bot</span>' not in h
+
+
+def test_entidades_regra_da_uf_e_siglas_na_lista(modelo_entidades):
+    cli, ids, banco, ctx = modelo_entidades
+    r = resolver_entidades(_contagens(banco), ctx.solucoes_conhecidas)
+    assert r.entidade_de("Delta Bot", "PI").conhecida is not None and r.entidade_de("Delta Bot", "SP").conhecida is None
+    assert r.entidade_de("SNA", "SP") is r.entidade_de("Sistema Sigma Nacional Aberto", "SP")
+    assert r.entidade_de("Operação Zeta I", "SP") is not r.entidade_de("Operação Zeta II", "SP")
+    assert r.entidade_de("Radar Alfa", "SP") is not r.entidade_de("Radar Alfa", "RJ")
+    h = cli.get("/achados?solucao=SNA&uf=SP").text
+    assert _total(h) == 2 and "inclui:" in h
+    assert _total(cli.get("/achados?solucao=Opera%C3%A7%C3%A3o+Zeta+I&uf=SP").text) == 1
+    assert _total(cli.get("/achados?solucao=Radar+Alfa&uf=SP").text) == 2 and _total(cli.get("/achados?solucao=Radar+Alfa&uf=RJ").text) == 1
+
+
+def test_entidades_nome_com_html_e_escapado_nas_opcoes_no_resumo_e_na_dica(modelo_entidades):
+    cli, ids, _, _ = modelo_entidades
+    for url in ("/achados", f"/achados/{ids['sp']['<i>Raro</i>'][0]}", "/estados/SP", "/solucoes", "/achados?solucao=" + quote("<i>Raro</i>")):
+        h = cli.get(url).text
+        assert "<i>Raro</i>" not in h and "&lt;i&gt;Raro&lt;/i&gt;" in h, url
+        assert verificar(h) == [], url
+
+
+def test_entidades_seletor_de_solucao_lista_os_nomes_canonicos(modelo_entidades):
+    cli, *_ = modelo_entidades
+    h = cli.get("/achados?solucao=Delta+Bot&uf=PI").text
+    assert '<option value="Delta Bot" selected>Delta Bot</option>' in h and '<option value="nomeada">só as nomeadas</option>' in h
+    assert h.count('<option value="Delta Bot"') == 1                                 # duas entidades com o mesmo nome: uma opcao so
+    assert '<option value="DB Bot"' not in h                                         # grafia bruta nao e opcao
+
+
+def test_entidades_solucoes_cartoes_somam_as_variantes_ao_cadastro(modelo_entidades):
+    cli, ids, banco, ctx = modelo_entidades
+    h = cli.get("/solucoes").text
+    delta = cartao(h, "Delta Bot")
+    assert "<code>DB Bot</code>" in delta and "<code>Delta-Bot</code>" in delta and "pelo cadastro" in delta
+    assert "unificado por semelhança" not in delta
+    assert linha_do_resumo(h, "Delta Bot")[4] == "3"                                    # os tres achados do PI; o "Delta Bot" do SP e de outra entidade
+    poli = cartao(h, "Policiamento Preditivo Inteligente")
+    assert "<code>Policiamnto Preditivo Inteligente</code>" in poli and "unificado por semelhança" in poli
+    assert "semelhança lexical" in poli and "Ver os 2 achados da entidade" in texto(poli)
+    assert linha_do_resumo(h, "Policiamento Preditivo Inteligente")[4] == "2"           # o typo entra na conta mesmo sem citar o nome exato
+    assert "pela grafia «Policiamnto Preditivo Inteligente», unificada a este nome" in texto(poli)
+    assert "Situação: Citada em achados" in texto(poli)
+
+
+def test_entidades_solucoes_tabela_de_todas_as_nomeadas_marca_as_camadas(modelo_entidades):
+    cli, *_ = modelo_entidades
+    h = cli.get("/solucoes").text
+    secao = re.search(r'<section class="cartao" aria-labelledby="todas-nomeadas-h".*?</section>', h, re.S).group(0)
+    assert "pelo cadastro" in secao and "sigla e nome por extenso" in secao and "unificado por semelhança" in secao
+    assert "<code>Sistema Sigma Nacional Aberto</code>" in secao and "<code>SNA</code>" in secao
+    assert "fora da lista" in secao and "solução conhecida" in secao
+    assert ">Operação Zeta I</a>" in secao and ">Operação Zeta II</a>" in secao                     # nada escondido: sao entidades diferentes
+    assert "&lt;i&gt;Raro&lt;/i&gt;" in secao
+    assert verificar(h) == []
+
+
+def test_entidades_nunca_alteram_o_valor_bruto_nem_o_banco(modelo_entidades):
+    cli, ids, banco, _ = modelo_entidades
+    antes_nomes, antes_bytes = _nomes_no_banco(banco), banco.read_bytes()
+    for url in ("/achados", "/achados?solucao=Delta+Bot&uf=PI", "/achados?solucao=nomeada&p=2", f"/achados/{ids['db_bot']}", "/estados/PI", "/solucoes",
+                "/revisao/achados?solucao=Delta+Bot&uf=PI"):
+        assert cli.get(url, follow_redirects=True).status_code == 200, url
+    assert _nomes_no_banco(banco) == antes_nomes and banco.read_bytes() == antes_bytes
+    assert dict(antes_nomes)[ids["db_bot"]] == "DB Bot" and dict(antes_nomes)[ids["delta_hifen"]] == "Delta-Bot"       # como o modelo escreveu
+
+
+def test_entidades_cache_e_invalidado_quando_o_conjunto_de_nomes_muda(modelo_entidades, tmp_path):
+    cli, ids, banco, ctx = modelo_entidades
+    copia = tmp_path / "c.db"
+    shutil.copy(banco, copia)
+    app, ctx2 = _app(copia, banco.parent / "raw", tmp_path)
+    ctx2.solucoes_conhecidas = ctx.solucoes_conhecidas
+    c2 = TestClient(app)
+    assert _total(c2.get("/achados?solucao=Radar+Alfa&uf=SP").text) == 2
+    con = sqlite3.connect(copia)
+    con.execute("UPDATE achados SET nome_solucao='RADAR ALFA' WHERE achado_id=?", (ids["sp"]["B.O. Fácil"][0],))        # uma grafia nova na base
+    con.commit()
+    con.close()
+    assert _total(c2.get("/achados?solucao=Radar+Alfa&uf=SP").text) == 3                                              # entrou na entidade existente
+    assert _total(c2.get("/achados?solucao=B.O.+F%C3%A1cil&uf=SP").text) == _total(c2.get("/achados?uf=SP").text)   # grafia bruta (nao e nome canonico): nao filtra
+
+
+def test_entidades_a_demonstracao_mostra_cada_camada_e_a_regra_da_uf(demo):
+    import painel_demo
+    banco, _ = demo
+    r = resolver_entidades(_contagens(banco), painel_demo.SOLUCOES_CONHECIDAS_DEMO)
+    assert {v.camada for e in r.entidades for v in e.variantes} == {0, 1, 2, 3}
+    assert r.entidade_de("Rosto-Seguro", "SP") is r.entidade_de("Rosto Seguro", "SP") and r.entidade_de("Rosto Seguro", "SP").canonico == "Rosto Seguro"
+    assert r.entidade_de("P. Atenta", "RJ").camada_max == 1 and r.entidade_de("P. Atenta", "RJ").canonico == "Placa Atenta"
+    assert r.entidade_de("STIO", "BA") is r.entidade_de("Sistema de Triagem Inteligente de Ocorrências", "BA")
+    assert r.entidade_de("SIPAT", "GO") is r.entidade_de("SIPAT - Sistema Integrado de Patrulhamento", "GO")
+    assert r.entidade_de("PlacaAtenta", "PR") is r.entidade_de("Placa Atenta", "PR") and r.entidade_de("Placa Atenta", "PR").conhecida is None
+    assert r.entidade_de("Placa Atenta", "PR") is not r.entidade_de("Placa Atenta", "RJ")          # o cadastro do RJ nao absorve o nome de outra UF

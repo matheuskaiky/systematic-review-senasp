@@ -24,8 +24,11 @@
   <article class="cartao">
     {% if a.nome_solucao and a.nome_solucao|trim %}<div class="solucao-destaque">
       <span class="rotulo-mini" aria-hidden="true">Solução nomeada</span>
-      <p class="solucao-destaque-nome">{{ s.solucao(a.nome_solucao) }}
-        <a href="/achados?q={{ a.nome_solucao|trim|urlencode }}">ver os achados que citam “{{ a.nome_solucao|trim }}”</a></p>
+      {% set e = ent.entidade_de(a.nome_solucao, a.uf) %}
+      <p class="solucao-destaque-nome">{{ s.solucao(a.nome_solucao, e) }}
+        <a href="/achados?q={{ a.nome_solucao|trim|urlencode }}">ver os achados que citam “{{ a.nome_solucao|trim }}”</a>
+        {% if e and e.unificada %}<a href="{{ link_entidade(e) }}">ver os {{ e.n }} achado(s) desta solução, com todas as grafias</a>{% endif %}</p>
+      <p class="inclui">Como o modelo escreveu: <q>{{ a.nome_solucao|trim }}</q>{% if e and e.unificada %}. O painel a reúne ao nome «{{ e.canonico }}»{% for v in e.variantes if v.bruto == a.nome_solucao and v.motivo %} ({{ v.motivo }}){% endfor %}.{% endif %}</p>
     </div>{% else %}<p class="sem-nome-dica">Achado sem nome de solução: o modelo descreveu a ideia sem citar um nome próprio.</p>{% endif %}
     <h1>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} <small>em {% if a.cidade %}{{ a.cidade }}, {% endif %}{{ ctx.ufs.get(a.uf, a.uf) }} ({{ a.uf }})</small></h1>
     <p class="selos">{{ s.status(a.status_reportado) }} {{ s.confianca(a.confianca) }} {{ s.verificacao(a) }}
@@ -33,7 +36,8 @@
     {% if a.origem_texto == "snippet" %}<div class="aviso aviso-forte" role="note"><strong>Modo degradado: somente snippet.</strong> {{ rotulos.EXPLICACAO_SNIPPET }}</div>{% endif %}
     <dl class="ficha">
       <dt>Secretaria</dt><dd>{% if a.cidade %}Municipal: {{ a.cidade }} ({{ a.uf }}){% else %}Estadual: {{ ctx.ufs.get(a.uf, a.uf) }}{% endif %}</dd>
-      <dt>Solução</dt><dd>{% if a.nome_solucao and a.nome_solucao|trim %}<a href="/achados?q={{ a.nome_solucao|trim|urlencode }}">{{ a.nome_solucao|trim }}</a>{% else %}<span class="sem-nome">sem nome</span>{% endif %}</dd>
+      <dt>Solução</dt><dd>{% if a.nome_solucao and a.nome_solucao|trim %}<a href="{{ link_entidade(e) if e else '/achados?q=' ~ (a.nome_solucao|trim|urlencode) }}">{{ e.canonico if e else a.nome_solucao|trim }}</a>{% else %}<span class="sem-nome">sem nome</span>{% endif %}</dd>
+      {% if a.nome_solucao and a.nome_solucao|trim %}<dt>Como o modelo escreveu</dt><dd>{{ a.nome_solucao|trim }}</dd>{% endif %}
       <dt>Fornecedor</dt><dd>{{ a.fornecedor or "não informado" }}</dd>
       <dt>Menciona LGPD</dt><dd>{{ "sim" if a.menciona_lgpd else "não" }}{% if a.menciona_lgpd %} <small>({{ "o trecho cita LGPD" if a.evidencia_cita_lgpd else "mas o trecho citado não fala de LGPD" }})</small>{% endif %}</dd>
       <dt>Trecho cita a tecnologia</dt><dd>{{ "sim" if a.evidencia_cita_tecnologia else "não" }}</dd>

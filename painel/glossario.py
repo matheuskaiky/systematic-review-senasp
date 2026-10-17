@@ -314,6 +314,14 @@ _SOLUCOES = [
        "Sistema de IA de segurança pública que o pesquisador sabe que existe e informa em config/solucoes_conhecidas.py (nome, UF e, se quiser, "
        "apelidos). A página Soluções conhecidas mostra se a coleta o encontrou nos resultados da busca, no texto das páginas baixadas e nos achados. "
        "É uma medida de revocação da coleta, não um resultado da pesquisa; a lista é sua e não entra na configuração das execuções."),
+    _e("entidade-solucao", "Entidade de solução",
+       "O mesmo sistema, mesmo escrito de jeitos diferentes pelo modelo (“SPiA”, “SPIA”, “Sistema de Policiamento por Inteligência Artificial”; "
+       "“BO Fácil”, “B.O. Fácil”). O painel reúne essas grafias em uma entidade, só com regras fixas e sem usar o modelo, em três camadas de confiança: "
+       "pelo cadastro (nome ou apelido de uma solução conhecida, na mesma UF), sigla e nome por extenso (as iniciais do nome formam a sigla, ou o formato "
+       "“Nome (SIGLA)”) e unificado por semelhança (a mais fraca: grafia equivalente ou muito parecida, com os mesmos números e na mesma UF, o que separa "
+       "“Operação Paz I” de “Operação Paz II”). Nunca se reúne entre UFs diferentes, e o valor que o modelo escreveu fica intacto no banco e na planilha: a "
+       "tela da ocorrência o mostra em “Como o modelo escreveu”. O nome mostrado é o oficial do cadastro ou, nas soluções novas, a grafia mais frequente. "
+       "Cada grafia reunida mostra a camada e o motivo, para você conferir e, se discordar, cadastrar a solução com seus apelidos."),
     _e("busca-no-texto", "Busca no texto",
        "Procura de um nome ou frase em todo o texto extraído das páginas já baixadas, e não só na evidência dos achados. Ignora acentos e maiúsculas "
        "e, com a opção de palavra inteira, não acha o nome dentro de outra palavra. Só enxerga páginas baixadas: não achar o nome não prova "

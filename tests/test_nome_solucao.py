@@ -256,3 +256,94 @@ def test_relatorio_mostra_a_solucao_dos_achados_confirmados(tmp_path, silencio):
     d = relatorio.coletar_dados(leitura, dict(C.UFS), {}, [], "real", "n.db", "16/10/2026")
     assert [a["nome_solucao"] for a in d["confirmados"]] == ["BO Fácil"]
     assert "Solução: <strong>BO Fácil</strong>" in relatorio._linha_achado(d["confirmados"][0], True)[0]
+
+
+# ---------- RC23: entidades de nome_solucao (leitura, filtro e telas); o valor bruto nunca muda ----------
+def _renomear(tmp_path, nomes):
+    """Banco com tres achados de BO Fácil cujos nomes brutos viram `nomes` (UF PI)."""
+    repo, _ = _estagio(tmp_path, ClassificadorQueDevolve("BO Fácil"))
+    for i, nome in enumerate(nomes, 1):
+        repo.conn.execute("UPDATE achados SET nome_solucao=? WHERE achado_id=?", (nome, i))
+    repo.confirmar()
+    repo.conn.close()
+    return LeituraPainelSQLite(tmp_path / "n.db")
+
+
+def _valores_brutos(tmp_path):
+    import sqlite3
+    con = sqlite3.connect(tmp_path / "n.db")
+    try:
+        return con.execute("SELECT achado_id, nome_solucao FROM achados ORDER BY achado_id").fetchall()
+    finally:
+        con.close()
+
+
+def test_leitura_nomes_por_uf_conta_so_achados_vigentes_com_nome(tmp_path, silencio):
+    leitura = _renomear(tmp_path, ["BO Fácil", "B.O. Fácil", "   "])
+    assert leitura.nomes_solucao_por_uf() == {("BO Fácil", "PI"): 1, ("B.O. Fácil", "PI"): 1}        # em branco nao conta; o valor e o bruto
+    leitura = _renomear(tmp_path / "x", ["BO Fácil", "BO Fácil", None])
+    assert leitura.nomes_solucao_por_uf() == {("BO Fácil", "PI"): 2}
+    assert LeituraPainelSQLite(tmp_path / "nao_existe.db").nomes_solucao_por_uf() == {}
+
+
+def test_leitura_nomes_por_uf_em_banco_sem_a_coluna_devolve_vazio(tmp_path, silencio):
+    import sqlite3
+    repo, _ = _estagio(tmp_path, ClassificadorQueDevolve("BO Fácil"))
+    repo.conn.close()
+    con = sqlite3.connect(tmp_path / "n.db")
+    definicao = con.execute("SELECT sql FROM sqlite_master WHERE name='v_achados_revisao'").fetchone()[0]
+    con.execute("DROP VIEW v_achados_revisao")
+    con.execute("DROP VIEW v_secretarias_confirmadas")
+    con.execute("ALTER TABLE achados DROP COLUMN nome_solucao")
+    con.execute(definicao.replace(", a.nome_solucao", ""))
+    con.commit()
+    con.close()
+    leitura = LeituraPainelSQLite(tmp_path / "n.db")
+    assert leitura.nomes_solucao_por_uf() == {} and leitura.achados_das_variantes([("BO Fácil", "PI")]) == []
+    assert leitura.achados({"solucao_pares": [("BO Fácil", "PI")]})["total"] == 0                      # sem coluna: nenhum achado tem nome
+
+
+def test_leitura_filtro_por_grafias_brutas_de_uma_entidade(tmp_path, silencio):
+    leitura = _renomear(tmp_path, ["BO Fácil", "B.O. Fácil", "Outro"])
+    assert leitura.achados({"solucao_pares": [("BO Fácil", "PI"), ("B.O. Fácil", "PI")]})["total"] == 2
+    assert leitura.achados({"solucao_pares": [("BO Fácil", "PI")]})["total"] == 1
+    assert leitura.achados({"solucao_pares": [("BO Fácil", "TO")]})["total"] == 0                      # a UF faz parte do par
+    assert leitura.achados({"solucao_pares": []})["total"] == 0                                        # lista vazia: nenhum achado
+    assert leitura.achados({"solucao_pares": [("BO Fácil", "PI")], "uf": "PI"})["total"] == 1
+    assert leitura.achados({"solucao_pares": [("BO Fácil", "PI")], "q": "Outro"})["total"] == 0
+    assert leitura.achados({})["total"] == 3                                                           # sem o filtro: tudo
+    assert leitura.ids_fila_revisao({"solucao_pares": [("Outro", "PI")]}) == [3]
+    assert leitura.achados({"solucao_pares": [("BO' OR '1'='1", "PI")]})["total"] == 0                 # parametrizado: nada de injecao
+
+
+def test_leitura_achados_das_variantes(tmp_path, silencio):
+    leitura = _renomear(tmp_path, ["BO Fácil", "B.O. Fácil", "Outro"])
+    r = leitura.achados_das_variantes([("B.O. Fácil", "PI"), ("BO Fácil", "PI"), ("Nada", "PI"), ("Outro", "SP")])
+    assert [a["achado_id"] for a in r] == [1, 2] and {a["citado_em"] for a in r} == {"variante"}
+    assert [a["nome_solucao"] for a in r] == ["BO Fácil", "B.O. Fácil"] and "evidencia" in r[0] and "run_id" in r[0]
+    assert leitura.achados_das_variantes([]) == []
+
+
+def test_telas_unem_as_grafias_sem_alterar_o_valor_do_banco(tmp_path, silencio):
+    _renomear(tmp_path, ["BO Fácil", "B.O. Fácil", "B.O Fácil"])
+    antes, bytes_antes = _valores_brutos(tmp_path), (tmp_path / "n.db").read_bytes()
+    cli = _cliente(tmp_path)
+    import re
+    total = lambda h: int(re.search(r"<strong>([\d.]+)</strong> achado\(s\)", h).group(1))        # noqa: E731
+    h = cli.get("/achados").text
+    assert h.count('<span class="solucao-nome">BO Fácil</span>') == 3                               # o rotulo e o canonico, nos tres
+    assert 'title="BO Fácil (inclui: B.O Fácil; B.O. Fácil)"' in h
+    assert total(cli.get("/achados?solucao=BO+F%C3%A1cil&uf=PI").text) == 3
+    assert total(cli.get("/achados?q=B.O.+F%C3%A1cil").text) == 1                                   # a busca continua sobre o texto bruto
+    d = cli.get("/achados/2").text
+    assert "Como o modelo escreveu: <q>B.O. Fácil</q>" in d and '<span class="solucao-nome">BO Fácil</span>' in d
+    assert _valores_brutos(tmp_path) == antes == [(1, "BO Fácil"), (2, "B.O. Fácil"), (3, "B.O Fácil")]
+    assert (tmp_path / "n.db").read_bytes() == bytes_antes
+
+
+def test_exportacao_e_dominio_nao_dependem_da_resolucao_de_entidades():
+    """O Excel sai do banco como esta: nada de `aplicacao/` ou do exportador importa a resolucao de entidades."""
+    import pathlib
+    raiz = pathlib.Path(__file__).resolve().parent.parent
+    for arquivo in ("aplicacao/exportacao.py", "adaptadores/exportador_excel.py", "adaptadores/repositorio_sqlite.py"):
+        assert "entidades_solucao" not in (raiz / arquivo).read_text(encoding="utf-8"), arquivo

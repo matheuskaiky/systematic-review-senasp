@@ -387,6 +387,13 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             args.append(int(filtros["oficial"]))
         if filtros.get("solucao") == "nomeada":                 # so achados em que o modelo citou o nome proprio da solucao
             cond.append("(nome_solucao IS NOT NULL AND TRIM(nome_solucao) <> '')" if com_solucao else "0")   # banco antigo: nenhuma tem nome
+        pares = filtros.get("solucao_pares")                    # entidade (RC23): todas as grafias brutas (nome, uf) reunidas sob um nome canonico
+        if pares is not None:
+            if com_solucao and pares:
+                cond.append("(" + " OR ".join("(nome_solucao = ? AND uf = ?)" for _ in pares) + ")")
+                args += [x for par in pares for x in par]
+            else:
+                cond.append("0")                                # nome desconhecido, ou banco antigo sem a coluna: nenhum achado
         v = filtros.get("verificacao")
         if v == "pendente":
             cond.append("verificado = 0")

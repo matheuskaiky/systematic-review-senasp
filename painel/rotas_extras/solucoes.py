@@ -163,8 +163,9 @@ def registrar(c):
             "truncado": len(achadas) > MAX_RESULTADOS, "link_achados": "/achados?" + urlencode({"q": q}),
             "link_achados_uf": "/achados?" + urlencode({"q": q, "uf": uf}) if uf else None})
 
-    def _conferir(s, paginas_da_uf, textos):
-        """O que a coleta fez com a solucao `s`: resultados, paginas e achados que a citam, e o veredito."""
+    def _conferir(s, paginas_da_uf, textos, entidade=None):
+        """O que a coleta fez com a solucao `s`: resultados, paginas e achados que a citam, e o veredito. Com `entidade` (RC23), os achados
+        incluem os das grafias que o modelo escreveu de outro jeito e que foram reunidas ao cadastro (nome canonico = nome oficial)."""
         termos = dom.variantes_da_solucao(s)
         resultados = leitura.resultados_busca_que_citam(termos, s.uf)
         paginas = []
@@ -173,6 +174,11 @@ def registrar(c):
             if t is not None and any(dom.casar(t[1], x) for x in termos):
                 paginas.append(p)
         citam = leitura.achados_que_citam(termos, s.uf)
+        das_variantes = []
+        if entidade is not None:
+            ja = {a["achado_id"] for a in citam}
+            das_variantes = [a for a in leitura.achados_das_variantes(entidade.pares) if a["achado_id"] not in ja]
+            citam = sorted(citam + das_variantes, key=lambda a: a["achado_id"])
         ids_citam = {a["achado_id"] for a in citam}
         das_paginas = leitura.achados_das_urls({(p["url_id"], p["uf"]) for p in paginas})
         paginas_ricas = [{**p, "link_externo": p["url"], "achados_sem_nome": _agrupar(
@@ -184,18 +190,20 @@ def registrar(c):
             "rotulo": dom.rotulo_da_situacao(situacao), "explicacao": dom.explicacao_da_situacao(situacao),
             "resultados": resultados, "n_urls_resultados": len({r["url_id"] for r in resultados}),
             "n_urls_nunca_baixadas": len(urls_sem_pagina), "so_fora_do_relatorio": bool(resultados) and not any(r["no_relatorio"] for r in resultados),
-            "paginas": paginas_ricas, "achados": citam}
+            "paginas": paginas_ricas, "achados": citam, "entidade": entidade, "n_das_variantes": len(das_variantes)}
 
     @app.get("/solucoes", response_class=HTMLResponse)
     def solucoes(request: Request):
         if not leitura.existe():
             return c.sem_banco(request)
         lista = tuple(c.contexto.solucoes_conhecidas)
+        resolucao = c.entidades.obter()
         cartoes = []
         if lista:
             ufs = sorted({s.uf for s in lista})
             paginas_da_uf = {u: leitura.paginas_para_busca_texto([u]) for u in ufs}
             textos = cache.obter(p["texto_path"] for ps in paginas_da_uf.values() for p in ps)
-            cartoes = [_conferir(s, paginas_da_uf, textos) for s in lista]
+            cartoes = [_conferir(s, paginas_da_uf, textos, resolucao.entidade_da_conhecida(s)) for s in lista]
         return c.pagina(request, "solucoes.html", cartoes=cartoes, max_links=MAX_LINKS, sem_lista=not lista,
+                        entidades=resolucao.entidades, n_achados_nomeados=resolucao.n_achados,
                         ordem_situacao={s: i for i, s in enumerate(dom.SITUACOES)})   # chave de ordenação da coluna "Situação": quão longe o funil chegou

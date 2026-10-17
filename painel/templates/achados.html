@@ -14,12 +14,24 @@
   <label>Evidência <select name="evidencia"><option value="">todas</option><option value="1"{% if filtros.evidencia == "1" %} selected{% endif %}>confere</option><option value="0"{% if filtros.evidencia == "0" %} selected{% endif %}>não localizada</option></select></label>
   <label>Fonte <select name="oficial"><option value="">todas</option><option value="1"{% if filtros.oficial == "1" %} selected{% endif %}>oficial</option><option value="0"{% if filtros.oficial == "0" %} selected{% endif %}>não oficial</option></select></label>
   <label>Texto <select name="origem"><option value="">todos</option>{% for k, v in rotulos.ORIGEM_TEXTO.items() %}<option value="{{ k }}"{% if filtros.origem == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
-  <label>Solução <select name="solucao"><option value="">todas</option><option value="nomeada"{% if filtros.solucao == "nomeada" %} selected{% endif %}>só as nomeadas</option></select></label>
+  <label>Solução <select name="solucao"><option value="">todas</option><option value="nomeada"{% if filtros.solucao == "nomeada" %} selected{% endif %}>só as nomeadas</option>{% for nome in nomes_canonicos %}<option value="{{ nome }}"{% if filtros.solucao == nome %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select></label>
   <label>Verificação <select name="verificacao"><option value="">todas</option>{% for k, v in rotulos.VERIFICACAO.items() %}<option value="{{ k }}"{% if filtros.verificacao == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
   <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="trecho, nome da solução, fornecedor ou endereço" aria-keyshortcuts="/" data-atalho-busca></label>
   <button class="botao" type="submit">Filtrar</button>
   {% if filtros %}<a href="/achados">Limpar</a>{% endif %}
 </form>
+
+{% if entidades_resumo %}
+<section class="resumo-entidades" aria-labelledby="h-entidades">
+  <p class="sub" id="h-entidades"><strong>Soluções nomeadas:</strong> <span class="n">{{ fmt.numero(entidades_resumo.n_entidades) }}</span> entidade(s), <span class="n">{{ fmt.numero(entidades_resumo.n_achados) }}</span> achado(s) no levantamento. Grafias do mesmo sistema (“SPiA”, “SPIA”, o nome por extenso) são reunidas pelo nome canônico; o valor do modelo nunca é alterado. <a href="/achados?solucao=nomeada">Ver todos os nomeados</a>.</p>
+  {% if entidade_atual %}<p class="corrente" role="status"><strong>Entidade «{{ entidade_atual[0].canonico }}»</strong>: {{ fmt.numero(entidade_atual|map(attribute="n")|sum) }} achado(s) com as grafias
+    {% for e in entidade_atual %}{% for v in e.variantes %}<span>{{ s.grafia(v, false) }}</span>{% if not loop.last %}; {% endif %}{% endfor %}{% endfor %}.</p>{% endif %}
+  <ul aria-label="Soluções nomeadas, da mais citada para a menos">{% for e in entidades_resumo.topo %}
+    <li><a href="{{ link_entidade(e) }}"{% if filtros.solucao == e.canonico %} aria-current="true"{% endif %}{% if dica_entidade(e) %} title="{{ e.canonico }} ({{ dica_entidade(e) }})"{% endif %}>{{ e.canonico }}{% if e.ufs|length == 1 and e.ufs[0] %} ({{ e.ufs[0] }}){% endif %} · {{ e.n }}</a></li>{% endfor %}
+  </ul>
+  {% if entidades_resumo.n_entidades > entidades_resumo.topo|length %}<p class="inclui">Mostrando as {{ entidades_resumo.topo|length }} mais citadas; as demais estão no filtro “Solução” e na página <a href="/solucoes#todas-nomeadas">Soluções conhecidas</a>.</p>{% endif %}
+</section>
+{% endif %}
 
 <p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> achado(s){% if filtros.get("verificacao") == "pendente" or not filtros %} · <a href="/revisao/achados?{{ base }}">revisar esta fila</a>{% endif %}</p>
 {% if not res.itens and res.total %}
@@ -37,7 +49,7 @@
       <td>{{ a.uf }}</td>
       <td>{% if a.cidade %}{{ a.cidade }}{% else %}<small class="fornecedor">estadual</small>{% endif %}</td>
       <td>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }}<br><small class="fornecedor">{{ a.fornecedor or "fornecedor não informado" }}</small></td>
-      <td class="col-solucao">{% if a.nome_solucao and a.nome_solucao|trim %}<a class="link-solucao" href="/achados?q={{ a.nome_solucao|trim|urlencode }}" title="Ver os achados que citam esta solução">{{ s.solucao(a.nome_solucao) }}</a>{% else %}{{ s.sem_nome() }}{% endif %}</td>
+      <td class="col-solucao">{% if a.nome_solucao and a.nome_solucao|trim %}{% set e = ent.entidade_de(a.nome_solucao, a.uf) %}<a class="link-solucao" href="{{ link_entidade(e) if e else '/achados?q=' ~ (a.nome_solucao|trim|urlencode) }}" title="Ver os achados desta solução{% if e and dica_entidade(e) %} ({{ dica_entidade(e) }}){% endif %}">{{ s.solucao(a.nome_solucao, e) }}</a>{% else %}{{ s.sem_nome() }}{% endif %}</td>
       <td>{{ s.status(a.status_reportado) }}<br>{{ s.confianca(a.confianca) }}</td>
       <td>{{ s.origem(a.origem_texto) }}</td>
       <td>{{ s.evidencia(a.evidencia_confere) }}</td>

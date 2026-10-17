@@ -96,6 +96,37 @@ class LeituraSolucoes:
         achados.sort(key=lambda l: (-l["no_relatorio"], _inverter(l["run_id"]), l["posicao"] or 0))
         return achados
 
+    @_defensivo(dict)
+    def nomes_solucao_por_uf(self):
+        """{(nome_solucao como esta no banco, uf): n} dos achados VIGENTES (`r_achados`) com nome preenchido (RC23). So le: o valor bruto nunca
+        e alterado; a resolucao de entidades (dominio/entidades_solucao.py) agrupa em memoria. Banco sem a coluna: dicionario vazio."""
+        if not self._tem_coluna("achados", "nome_solucao"):
+            return {}
+        return {(l["nome_solucao"], l["uf"]): l["n"] for l in self._consulta("""
+            SELECT nome_solucao, uf, COUNT(*) AS n FROM r_achados
+            WHERE nome_solucao IS NOT NULL AND TRIM(nome_solucao) <> '' GROUP BY nome_solucao, uf""")}
+
+    @_defensivo(list)
+    def achados_das_variantes(self, pares):
+        """Achados (de qualquer classificacao, como `achados_que_citam`) cujo `nome_solucao` bruto e UF estao em `pares` [(nome, uf)]. Colunas:
+        achado_id, url_id, tecnologia, status_reportado, confianca, evidencia, run_id, nome_solucao, citado_em = 'variante'."""
+        if not self._tem_coluna("achados", "nome_solucao"):
+            return []
+        por_uf = {}
+        for nome, uf in pares:
+            por_uf.setdefault(uf, set()).add(nome)
+        saida = []
+        for uf, nomes in sorted(por_uf.items()):
+            nomes = sorted(nomes)
+            for i in range(0, len(nomes), LOTE_SQL):
+                lote = nomes[i:i + LOTE_SQL]
+                for l in self._consulta(f"""
+                    SELECT a.achado_id, k.url_id, a.tecnologia, a.status_reportado, a.confianca, a.evidencia, k.run_id, a.nome_solucao
+                    FROM achados a JOIN classificacoes k ON k.classificacao_id = a.classificacao_id
+                    WHERE a.uf = ? AND a.nome_solucao IN ({','.join('?' * len(lote))}) ORDER BY a.achado_id""", (uf, *lote)):
+                    saida.append({**l, "citado_em": "variante"})
+        return sorted(saida, key=lambda l: l["achado_id"])
+
     @_defensivo(list)
     def achados_que_citam(self, termos_normalizados, uf):
         """Achados da UF cuja evidencia (ou `nome_solucao`, se a coluna existir) cita algum dos termos. Colunas: achado_id, url_id,

@@ -17,8 +17,18 @@
 {% elif sempre and chave == "pagina" %}<span class="selo texto-completo origem-pagina" title="O modelo leu o texto extraído da página inteira."><span aria-hidden="true">●</span> Texto completo</span>{% endif %}
 {%- endmacro %}
 {# Solução nomeada (nome_solucao preenchido): selo PRIMÁRIO, sólido. O nome acessível é "Solução nomeada: <nome>". Sem nome, não desenha nada. #}
-{% macro solucao(nome) -%}
-{% if nome and nome|trim %}<span class="selo solucao-nomeada"><span aria-hidden="true">★</span><span class="so-leitor">Solução nomeada: </span><span class="solucao-nome">{{ nome|trim }}</span></span>{% endif %}
+{# Com `entidade` (RC23), mostra o NOME CANÔNICO; se outras grafias foram reunidas, a dica ("inclui: ...") vai no title e, para leitor de tela, depois do nome.
+   O valor bruto nunca é trocado no banco: a tela da ocorrência o mostra em "Como o modelo escreveu". #}
+{% macro solucao(nome, entidade=none) -%}
+{% if nome and nome|trim %}{% set rotulo = entidade.canonico if entidade else nome|trim %}{% set dica = dica_entidade(entidade) if entidade else "" %}<span class="selo solucao-nomeada"{% if dica %} title="{{ rotulo }} ({{ dica }})"{% endif %}><span aria-hidden="true">★</span><span class="so-leitor">Solução nomeada: </span><span class="solucao-nome">{{ rotulo }}</span>{% if dica %}<span class="so-leitor"> ({{ dica }})</span>{% endif %}</span>{% endif %}
+{%- endmacro %}
+{# Uma grafia bruta reunida a uma entidade: o texto como o modelo escreveu, quantos achados e QUAL camada a reuniu (nunca só por cor: glifo e texto). #}
+{% macro grafia(v, motivo=true) -%}
+<code>{{ v.bruto }}</code> <small class="fornecedor">×{{ v.n }}</small>
+{%- if v.camada == 1 %} <span class="selo ok camada" title="{{ v.motivo }}"><span aria-hidden="true">◆</span> pelo cadastro</span>
+{%- elif v.camada == 2 %} <span class="selo neutro camada" title="{{ v.motivo }}"><span aria-hidden="true">⇄</span> sigla e nome por extenso</span>
+{%- elif v.camada == 3 %} <span class="selo alerta camada" title="{{ v.motivo }}"><span aria-hidden="true">≈</span> unificado por semelhança</span>{% endif %}
+{%- if motivo and v.motivo %}<br><small class="inclui">{{ v.motivo }}</small>{% endif %}
 {%- endmacro %}
 {# Dica discreta para achado sem nome de solução (o modelo não citou um nome próprio). #}
 {% macro sem_nome() -%}

@@ -13,7 +13,7 @@
   <h2>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, tec) }}</h2>
   <ul class="lista-achados">{% for a in itens %}
     <li>
-      {% if a.nome_solucao and a.nome_solucao|trim %}<p class="solucao-linha">{{ s.solucao(a.nome_solucao) }}</p>{% endif %}
+      {% if a.nome_solucao and a.nome_solucao|trim %}<p class="solucao-linha">{% set e = ent.entidade_de(a.nome_solucao, a.uf) %}{{ s.solucao(a.nome_solucao, e) }}</p>{% endif %}
       <a class="achado-link" href="/achados/{{ a.achado_id }}">
         {{ s.status(a.status_reportado) }}
         <span class="fornecedor">{% if a.cidade %}{{ a.cidade }} · {% endif %}{{ a.fornecedor or "fornecedor não informado" }}</span>

@@ -56,6 +56,13 @@ VARIANTES_FORCADAS_DEMO = {
     "https://ssp.sp.exemplo.gov.br/noticias/reconhecimento_facial-2": "Rosto-Seguro",
     "https://ssp.rj.exemplo.gov.br/noticias/leitura_placas-1": "Placa Atenta",
     "https://ssp.rj.exemplo.gov.br/noticias/leitura_placas-2": "P. Atenta",
+    # RC23, entidades de nome_solucao fora do cadastro (cada uma mostra uma camada em /solucoes e em /achados):
+    "https://ssp.ba.exemplo.gov.br/noticias/videomonitoramento_inteligente-1": "Sistema de Triagem Inteligente de Ocorrências",  # camada 2: o nome por extenso ...
+    "https://ssp.ba.exemplo.gov.br/noticias/outra_ia-2": "STIO",                                                # ... e a sigla formada pelas iniciais
+    "https://ssp.go.exemplo.gov.br/noticias/analise_preditiva-1": "SIPAT - Sistema Integrado de Patrulhamento",  # camada 2: formato "SIGLA - Nome"
+    "https://ssp.go.exemplo.gov.br/noticias/analise_preditiva-2": "SIPAT",
+    "https://ssp.pr.exemplo.gov.br/noticias/leitura_placas-1": "Placa Atenta",                                  # outra UF: nao e a solucao do cadastro do RJ
+    "https://ssp.pr.exemplo.gov.br/noticias/leitura_placas-2": "PlacaAtenta",                                   # camada 3: mesma grafia sem espaco
 }
 # O nome aparece no TEXTO desta pagina, mas o classificador demonstrativo nao o devolve (so aparece na etapa "paginas baixadas" de /solucoes)
 NOME_SO_NA_PAGINA_DEMO = {"https://ssp.pe.exemplo.gov.br/noticias/videomonitoramento_inteligente-1": "Guardião Digital"}

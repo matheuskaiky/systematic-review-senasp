@@ -48,6 +48,11 @@
   </ul>
   {% if k.solucao.observacao %}<p class="explica">{{ k.solucao.observacao }}</p>{% endif %}
   <p class="explica">Nomes procurados: {% for v in k.variantes %}<code>{{ v }}</code>{% if not loop.last %}, {% endif %}{% endfor %} (sem acento, em minúsculas).</p>
+  {% if k.entidade and k.entidade.unificada %}
+  <div class="grafias-unificadas"><p class="explica">Grafias que o modelo escreveu nos achados e que o painel reuniu a esta solução ({{ k.entidade.n }} achado(s) no total; o valor de cada achado continua como o modelo o escreveu):</p>
+    <ul class="lista-grafias">{% for v in k.entidade.variantes %}<li>{{ s.grafia(v) }}</li>{% endfor %}</ul>
+    {% if k.n_das_variantes %}<p class="explica"><strong>{{ k.n_das_variantes }}</strong> dos achados abaixo só entram na conta por causa dessas grafias (o nome exato não aparece na evidência). <a href="{{ link_entidade(k.entidade) }}">Ver os {{ k.entidade.n }} achados da entidade</a>.</p>{% endif %}</div>
+  {% endif %}
   <p class="veredito" role="status">Situação: {{ k.rotulo }}.</p>
   <p>{{ k.explicacao }}</p>
   <p><a href="{{ href_paginas }}">Buscar “{{ k.solucao.nome }}” no texto das páginas da UF</a></p>
@@ -78,10 +83,27 @@
   {% if k.achados %}
     <ul>{% for a in k.achados[:max_links] %}
       <li><a href="/achados/{{ a.achado_id }}">Achado {{ a.achado_id }}</a>: {{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} · {{ rotulos.rotulo(rotulos.STATUS, a.status_reportado) }}
-        <small class="fornecedor">· citado {{ "no nome da solução" if a.citado_em == "nome_solucao" else "na evidência" }}</small></li>{% endfor %}</ul>
+        <small class="fornecedor">· citado {% if a.citado_em == "nome_solucao" %}no nome da solução{% elif a.citado_em == "variante" %}pela grafia «{{ a.nome_solucao }}», unificada a este nome{% else %}na evidência{% endif %}</small></li>{% endfor %}</ul>
     {% if k.achados|length > max_links %}<p class="explica">Mostrando os {{ max_links }} primeiros de {{ k.achados|length }}.</p>{% endif %}
   {% else %}<p class="nao-avaliado">Nenhum achado cita o nome na evidência{% if k.paginas %}; veja acima os achados das páginas que o citam{% endif %}.</p>{% endif %}
 </section>
 {% endfor %}
 {% endif %}
+
+<section class="cartao" aria-labelledby="todas-nomeadas-h" id="todas-nomeadas"><h2 id="todas-nomeadas-h">Todas as soluções nomeadas nos achados</h2>
+  {% if not entidades %}<p class="vazio">Nenhum achado vigente tem nome de solução.</p>
+  {% else %}
+  <p class="explica">{{ entidades|length }} entidade(s) e {{ n_achados_nomeados }} achado(s). O modelo escreve o mesmo sistema de várias formas; o painel as reúne em uma entidade, por três regras em ordem de confiança:
+    <span class="selo ok camada"><span aria-hidden="true">◆</span> pelo cadastro</span> (nome ou apelido de uma solução conhecida, na mesma UF),
+    <span class="selo neutro camada"><span aria-hidden="true">⇄</span> sigla e nome por extenso</span> (as iniciais do nome formam a sigla, ou o formato “Nome (SIGLA)”) e
+    <span class="selo alerta camada"><span aria-hidden="true">≈</span> unificado por semelhança</span> (grafia equivalente ou muito parecida, sempre com os mesmos números e na mesma UF), a mais fraca: confira-a. Nada é fundido entre UFs diferentes e nenhum valor do banco é alterado. Nomes sem par aparecem sozinhos.</p>
+  <div class="tabela-rolavel"><table>
+    <caption class="so-leitor">Entidades de nome de solução e as grafias reunidas em cada uma</caption>
+    <thead><tr><th scope="col">Entidade</th><th scope="col">UF</th><th scope="col" class="num">Achados</th><th scope="col">Cadastro</th><th scope="col">Grafias reunidas</th></tr></thead>
+    <tbody>{% for e in entidades %}
+      <tr><th scope="row"><a href="{{ link_entidade(e) }}">{{ e.canonico }}</a></th><td>{{ e.ufs|join(", ") }}</td><td class="num">{{ e.n }}</td>
+        <td>{% if e.conhecida %}solução conhecida{% else %}<small class="fornecedor">fora da lista</small>{% endif %}</td>
+        <td class="col-grafias">{% if e.variantes|length > 1 or e.outras_grafias %}<ul class="lista-grafias">{% for v in e.variantes %}<li>{{ s.grafia(v) }}</li>{% endfor %}</ul>{% else %}<small class="fornecedor">uma grafia só</small>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  {% endif %}
+</section>
 {% endblock %}

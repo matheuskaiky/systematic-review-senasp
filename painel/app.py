@@ -19,6 +19,7 @@ from aplicacao import revisao
 from dominio import relevancia as relev
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import formatacao as fmt, mapa_ufs, navegacao, rotulos
+from painel.entidades import Entidades, explicacao_da_entidade, link_entidade
 from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_do_brasil, mapa_de_calor
 
 AQUI = Path(__file__).parent
@@ -31,6 +32,7 @@ JANELA_CONTEXTO = 2500            # caracteres de cada lado da evidencia na visa
 LIMITE_TEXTO = 200_000            # o visor nunca mostra mais que isto
 MAX_PAGINA = 1_000_000            # teto do ?p= (o OFFSET do SQLite estoura acima de 2**63)
 MAX_BUSCA = 200
+MAX_ENTIDADES_NO_RESUMO = 12      # entidades listadas no resumo de /achados (as demais estao no filtro e em /solucoes)
 LIMITE_BRUTO = 200_000            # o visor de arquivos brutos mostra no maximo isto; o arquivo inteiro vai por download
 
 
@@ -66,11 +68,20 @@ def _filtros(params):
     return {k: str(params[k])[:MAX_BUSCA] for k in FILTROS if params.get(k) not in (None, "")}
 
 
+def _filtros_sql(filtros, ent):
+    """Filtros para a leitura: `solucao=<nome canonico>` vira a lista de grafias brutas (nome, uf) da entidade (RC23); `nomeada`, vazio e nome desconhecido nao filtram por entidade."""
+    nome = filtros.get("solucao")
+    pares = ent.pares_do_canonico(nome) if nome not in (None, "", "nomeada") else []
+    return {**filtros, "solucao_pares": pares} if pares else filtros       # nome que nao e de nenhuma entidade nao filtra (como antes)
+
+
 def criar_app(leitura, repositorio_fabrica, bruto, contexto):
     app = FastAPI(title="Painel de resultados", docs_url=None, redoc_url=None, openapi_url=None)
     modelos = Jinja2Templates(directory=str(AQUI / "templates"))
     modelos.env.filters["url_segura"] = lambda u: u if str(u or "").lower().startswith(("http://", "https://")) else "#"
-    modelos.env.globals.update(fmt=fmt, rotulos=rotulos, ctx=contexto, quote=quote, urlencode=urlencode, menu_grupos=navegacao.grupos)
+    modelos.env.globals.update(fmt=fmt, rotulos=rotulos, ctx=contexto, quote=quote, urlencode=urlencode, menu_grupos=navegacao.grupos,
+                               link_entidade=link_entidade, dica_entidade=explicacao_da_entidade)
+    entidades = Entidades(leitura, contexto)            # nomes de solucao unificados em entidades (RC23), com cache por conjunto de nomes
     app.mount("/static", StaticFiles(directory=str(AQUI / "static")), name="static")
 
     # ---------- seguranca: cabecalhos, CSRF (cookie duplicado no formulario) e cookies SameSite=Strict ----------
@@ -188,7 +199,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         for a in itens:
             grupos.setdefault(a["tecnologia"], []).append(a)
         return pagina(request, "estado.html", uf=uf, nome=contexto.ufs[uf], grupos=grupos, total=res["total"],
-                      mostrados=len(itens))
+                      mostrados=len(itens), ent=entidades.obter())
 
     # ---------- execucoes ----------
     def _json(texto):
@@ -414,11 +425,16 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         n = _inteiro(request.query_params.get("p"), 1)
         if n is None:
             return erro(request, 404, "Página inválida", "O número da página não é válido.")
-        res = leitura.achados(filtros, n, 50)
+        ent = entidades.obter()
+        res = leitura.achados(_filtros_sql(filtros, ent), n, 50)
         paginas = max((res["total"] + res["por_pagina"] - 1) // res["por_pagina"], 1)
         base = urlencode(filtros)
+        nomeadas = ent.entidades
+        resumo = {"n_entidades": len(nomeadas), "n_achados": ent.n_achados, "topo": nomeadas[:MAX_ENTIDADES_NO_RESUMO]} if nomeadas else None
+        nomes = list(dict.fromkeys(e.canonico for e in nomeadas))
         return pagina(request, "achados.html", res=res, filtros=filtros, paginas=paginas, base=base, n=n,
-                      cidades=leitura.cidades())
+                      cidades=leitura.cidades(), ent=ent, entidades_resumo=resumo, nomes_canonicos=nomes,
+                      entidade_atual=ent.entidades_do_nome(filtros.get("solucao", "")) if filtros.get("solucao") not in (None, "", "nomeada") else [])
 
     def _texto_enviado(a):
         """Texto que foi enviado ao classificador: a pagina extraida (cortada no que foi enviado) ou titulo + snippet."""
@@ -473,10 +489,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         if a is None:
             return erro(request, 404, "Achado não encontrado", f"Não existe o achado nº {achado_id}.")
         em_fila = "fila" in request.query_params
-        ids = leitura.ids_fila_revisao(_filtros(request.query_params)) if em_fila else []
+        ent = entidades.obter()
+        ids = leitura.ids_fila_revisao(_filtros_sql(_filtros(request.query_params), ent)) if em_fila else []
         rev = leitura.contagem_revisao()
         proximo = _proximo(ids, achado_id)
-        return pagina(request, "achado.html", a=a, ev=_contexto_evidencia(a, bool(completo)), completo=bool(completo),
+        return pagina(request, "achado.html", a=a, ev=_contexto_evidencia(a, bool(completo)), completo=bool(completo), ent=ent,
                       historico=leitura.historico_achado(achado_id), em_fila=em_fila, rev=rev, proximo=proximo,
                       query=_query_fila(request), ok=ok, restantes=len(ids),
                       pode_desfazer=leitura.tem_decisao_para_desfazer(achado_id),
@@ -487,14 +504,14 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         if not leitura.existe():
             return sem_banco(request)
         filtros = _filtros(request.query_params)
-        ids = leitura.ids_fila_revisao(filtros)
+        ids = leitura.ids_fila_revisao(_filtros_sql(filtros, entidades.obter()))
         if ids:
             return RedirectResponse("/achados/%d?%s" % (ids[0], urlencode({**filtros, "fila": 1})), status_code=303)
         return pagina(request, "fila_vazia.html", rev=leitura.contagem_revisao(), filtros=filtros)
 
     def _voltar(request, achado_id, ok=None):
         filtros = _filtros(request.query_params)
-        ids = leitura.ids_fila_revisao(filtros)
+        ids = leitura.ids_fila_revisao(_filtros_sql(filtros, entidades.obter()))
         q = urlencode({**filtros, "fila": 1})
         if ids:
             return "/achados/%d?%s&ok=%d" % (ids[0], q, ok or 0)
@@ -570,6 +587,6 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         return resposta
 
     from painel import rotas_extras
-    rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos,
+    rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos, entidades=entidades,
                                                  pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita))
     return app

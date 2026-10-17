@@ -13,3 +13,12 @@ td.quebra { overflow-wrap: anywhere; min-width: 11rem; max-width: 26rem; }
 @media (max-width: 640px) {
   .form-busca { grid-template-columns: 1fr; }
 }
+
+/* indicadores de presença clicáveis (drill-down) e link para a página original */
+.indicador { display: inline-block; min-width: 2.2em; text-align: center; padding: .05em .5em; border-radius: var(--raio-pilula); border: 1px solid var(--acento); background: var(--acento-fundo); color: var(--acento); font-weight: 700; text-decoration: none; }
+.indicador:hover { background: var(--acento); color: var(--texto-botao); }
+.indicador-zero { color: var(--texto-suave); font-weight: 400; }
+.presenca { list-style: none; display: flex; flex-wrap: wrap; gap: var(--esp-2) var(--esp-5); margin: 0 0 var(--esp-3); padding: 0; }
+.presenca-rotulo { color: var(--texto-suave); font-size: var(--fs-md); }
+.link-original { overflow-wrap: anywhere; }
+.tabela-busca-texto .selo.solucao-nomeada { white-space: normal; }

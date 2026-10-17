@@ -11,8 +11,24 @@
 {% macro fonte(oficial, curto=false) -%}
 {% if oficial %}<span class="selo ok"><span aria-hidden="true">◆</span> {{ "Oficial" if curto else "Fonte oficial (.gov.br)" }}</span>{% else %}<span class="selo neutro">{{ "Não oficial" if curto else "Fonte não oficial" }}</span>{% endif %}
 {%- endmacro %}
-{% macro origem(chave, sempre=true) -%}
-{% if chave == "snippet" %}<span class="selo alerta">Somente snippet</span>{% elif sempre %}<span class="selo neutro">Texto da página</span>{% endif %}
+{# Origem do texto: "Texto completo" (o modelo leu a página) ou "Somente snippet" (modo degradado, em âmbar). `explicar` põe a explicação por extenso ao lado. #}
+{% macro origem(chave, sempre=true, explicar=false) -%}
+{% if chave == "snippet" %}<span class="selo alerta origem-snippet" title="{{ rotulos.EXPLICACAO_SNIPPET }}"><span aria-hidden="true">◔</span> Somente snippet</span>{% if explicar %} <small class="explica-origem">{{ rotulos.EXPLICACAO_SNIPPET }}</small>{% endif %}
+{% elif sempre and chave == "pagina" %}<span class="selo texto-completo origem-pagina" title="O modelo leu o texto extraído da página inteira."><span aria-hidden="true">●</span> Texto completo</span>{% endif %}
+{%- endmacro %}
+{# Solução nomeada (nome_solucao preenchido): selo PRIMÁRIO, sólido. O nome acessível é "Solução nomeada: <nome>". Sem nome, não desenha nada. #}
+{% macro solucao(nome) -%}
+{% if nome and nome|trim %}<span class="selo solucao-nomeada"><span aria-hidden="true">★</span><span class="so-leitor">Solução nomeada: </span><span class="solucao-nome">{{ nome|trim }}</span></span>{% endif %}
+{%- endmacro %}
+{# Dica discreta para achado sem nome de solução (o modelo não citou um nome próprio). #}
+{% macro sem_nome() -%}
+<span class="sem-nome">sem nome</span>
+{%- endmacro %}
+{# Motivo de bloqueio pelo robots.txt a partir do texto de erro da chamada de download; nada se o erro não é de robots.txt. #}
+{% macro robots(erro) -%}
+{% set m = rotulos.motivo_robots(erro) %}
+{% if m %}{% if m.chave == "bloqueado_por_robots" %}<span class="selo robots-proibido" title="{{ m.explicacao }}"><span aria-hidden="true">✕</span> {{ m.rotulo }}</span>
+{% else %}<span class="selo robots-preventivo" title="{{ m.explicacao }}"><span aria-hidden="true">⚠</span> {{ m.rotulo }}</span>{% endif %}{% endif %}
 {%- endmacro %}
 {% macro verificacao(a) -%}
 {% if a.verificado and a.status_final == "descartado" %}<span class="selo st-descartado"><span aria-hidden="true">✕</span> Descartado</span>

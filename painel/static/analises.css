@@ -455,6 +455,7 @@ a.an-link:focus-visible { outline: 3px solid var(--an-acento); outline-offset: 2
 tr.an-nivel-fechado th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-perigo); }
 tr.an-nivel-parcial th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-alerta); }
 tr.an-nivel-aberto th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-ok); }
+.an-ranking thead th { white-space: normal; vertical-align: bottom; }
 .an-celula-barra { min-width: 130px; }
 .an-barra-semaforo { width: 120px; max-width: none; height: 12px; display: block; }
 .an-barra-nivel { stroke: var(--an-texto); stroke-width: .6; }
@@ -463,6 +464,14 @@ tr.an-nivel-aberto th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-ok); }
 .an-situacao-aberto { color: var(--an-ok); } .an-situacao-aberto::before { content: "\2713"; }
 .an-situacao-parcial { color: var(--an-alerta); } .an-situacao-parcial::before { content: "\25D0"; }
 .an-situacao-fechado { color: var(--an-perigo); } .an-situacao-fechado::before { content: "\2715"; }
+
+/* ---------- razões de bloqueio pelo robots.txt (os selos .robots-* vêm de painel.css; aqui só o entorno) ---------- */
+.an-zero { color: var(--an-suave); }
+.an-nota-coluna { display: block; font-size: var(--fs-xs); font-weight: 400; text-transform: none; letter-spacing: 0; white-space: normal; }
+.an-glifo-proibido { color: var(--an-perigo); } .an-glifo-preventivo { color: var(--an-alerta); }
+.an-legenda-motivos, .an-motivos { list-style: none; margin: var(--esp-2) 0 var(--esp-3); padding: 0; display: grid; gap: var(--esp-2); font-size: var(--fs-md); }
+.an-legenda-motivos li, .an-motivos li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--esp-1) var(--esp-3); color: var(--an-suave); }
+.an-motivos .selo { white-space: normal; }
 
 /* ---------- selos estatísticos (selos_estatisticos.py); combinam com `.selo` de painel.css ---------- */
 .selo.ev-forte { color: var(--an-ok); background: var(--an-ok-fundo); border-color: var(--an-ok); }

@@ -14,8 +14,9 @@
   <label>Evidência <select name="evidencia"><option value="">todas</option><option value="1"{% if filtros.evidencia == "1" %} selected{% endif %}>confere</option><option value="0"{% if filtros.evidencia == "0" %} selected{% endif %}>não localizada</option></select></label>
   <label>Fonte <select name="oficial"><option value="">todas</option><option value="1"{% if filtros.oficial == "1" %} selected{% endif %}>oficial</option><option value="0"{% if filtros.oficial == "0" %} selected{% endif %}>não oficial</option></select></label>
   <label>Texto <select name="origem"><option value="">todos</option>{% for k, v in rotulos.ORIGEM_TEXTO.items() %}<option value="{{ k }}"{% if filtros.origem == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Solução <select name="solucao"><option value="">todas</option><option value="nomeada"{% if filtros.solucao == "nomeada" %} selected{% endif %}>só as nomeadas</option></select></label>
   <label>Verificação <select name="verificacao"><option value="">todas</option>{% for k, v in rotulos.VERIFICACAO.items() %}<option value="{{ k }}"{% if filtros.verificacao == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
-  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="trecho, solução, fornecedor ou endereço"></label>
+  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="trecho, nome da solução, fornecedor ou endereço"></label>
   <button class="botao" type="submit">Filtrar</button>
   {% if filtros %}<a href="/achados">Limpar</a>{% endif %}
 </form>
@@ -26,16 +27,20 @@
 {% elif not res.itens %}
 <p class="vazio">Nenhum achado com estes filtros.{% if filtros %} <a href="/achados">Limpar filtros</a>.{% else %} Rode a classificação (<code>python main.py classificar --de &lt;run_id&gt; --ufs PI --limite 5</code>).{% endif %}</p>
 {% else %}
+<p class="legenda-origem"><span class="selo texto-completo"><span aria-hidden="true">●</span> Texto completo</span> o modelo leu a página extraída.
+  <span class="selo alerta"><span aria-hidden="true">◔</span> Somente snippet</span> {{ rotulos.EXPLICACAO_SNIPPET }}
+  <span class="selo solucao-nomeada"><span aria-hidden="true">★</span> Solução nomeada</span> o modelo citou o nome próprio do sistema.</p>
 <div class="tabela-rolavel"><table class="tabela-achados">
-  <thead><tr><th>UF</th><th>Cidade</th><th>Tecnologia</th><th>Solução</th><th>Status</th><th>Evidência</th><th>Fonte</th><th>Verificação</th><th></th></tr></thead>
+  <thead><tr><th>UF</th><th>Cidade</th><th>Tecnologia</th><th>Solução</th><th>Status</th><th>Texto</th><th>Evidência</th><th>Fonte</th><th>Verificação</th><th></th></tr></thead>
   <tbody>{% for a in res.itens %}
     <tr>
       <td>{{ a.uf }}</td>
       <td>{% if a.cidade %}{{ a.cidade }}{% else %}<small class="fornecedor">estadual</small>{% endif %}</td>
       <td>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }}<br><small class="fornecedor">{{ a.fornecedor or "fornecedor não informado" }}</small></td>
-      <td>{% if a.nome_solucao %}<a href="/achados?q={{ a.nome_solucao|urlencode }}">{{ a.nome_solucao }}</a>{% else %}—{% endif %}</td>
+      <td class="col-solucao">{% if a.nome_solucao and a.nome_solucao|trim %}<a class="link-solucao" href="/achados?q={{ a.nome_solucao|trim|urlencode }}" title="Ver os achados que citam esta solução">{{ s.solucao(a.nome_solucao) }}</a>{% else %}{{ s.sem_nome() }}{% endif %}</td>
       <td>{{ s.status(a.status_reportado) }}<br>{{ s.confianca(a.confianca) }}</td>
-      <td>{{ s.evidencia(a.evidencia_confere) }}{% if a.origem_texto == 'snippet' %}<br>{{ s.origem(a.origem_texto, false) }}{% endif %}</td>
+      <td>{{ s.origem(a.origem_texto) }}</td>
+      <td>{{ s.evidencia(a.evidencia_confere) }}</td>
       <td>{{ s.fonte(a.fonte_oficial_final if a.fonte_oficial_final is not none else a.fonte_oficial, true) }}<br><small>{{ a.dominio_final or a.dominio }}</small></td>
       <td>{{ s.verificacao(a) }}</td>
       <td><a class="botao pequeno" href="/achados/{{ a.achado_id }}">Abrir</a></td>

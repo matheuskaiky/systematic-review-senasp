@@ -29,10 +29,13 @@ def _tec(chave):
     return rotulos.TECNOLOGIAS.get(chave, chave or "—")
 
 
-def _bloco(id_, titulo, grafico=None, subtitulo="", texto=(), selo=None, aviso=None, pares=(), tabela=None, link=None):
-    """`grafico` ja e HTML seguro vindo de `graficos_analises` (por isso Markup). `texto` = paragrafos simples (escapados)."""
+def _bloco(id_, titulo, grafico=None, subtitulo="", texto=(), selo=None, aviso=None, pares=(), tabela=None, link=None, motivos=()):
+    """`grafico` ja e HTML seguro vindo de `graficos_analises` (por isso Markup). `texto` = paragrafos simples (escapados).
+    `motivos` = [{"chave": "bloqueado_por_robots" | "robots_inacessivel", "n": int}]: as razoes de bloqueio pelo robots.txt, mostradas
+    com selo proprio (cor, glifo e texto; ver `rotulos.MOTIVOS_DOWNLOAD`)."""
     return {"id": id_, "titulo": titulo, "subtitulo": subtitulo, "grafico": Markup(grafico) if grafico else None,
-            "texto": [t for t in texto if t], "selo": selo, "aviso": aviso, "pares": list(pares), "tabela": tabela, "link": link}
+            "texto": [t for t in texto if t], "selo": selo, "aviso": aviso, "pares": list(pares), "tabela": tabela, "link": link,
+            "motivos": list(motivos)}
 
 
 def _pct(parte, total):
@@ -523,9 +526,11 @@ def bloco_opacidade(d):
                   f"{rotulos.MOTIVOS_DOWNLOAD['robots_inacessivel']}: {fmt.numero(n_inacessivel)} páginas",
                   texto,
                   pares=[("Páginas tentadas", fmt.numero(d["n_tentadas"])), ("Lidas com sucesso", fmt.numero(d["n_ok"])),
-                         (rotulos.MOTIVOS_DOWNLOAD["bloqueado_por_robots"], fmt.numero(d["n_robots"] + d["n_http_bloqueio"])),
+                         (rotulos.MOTIVOS_DOWNLOAD["bloqueado_por_robots"], fmt.numero(d["n_robots"])),
+                         ("Proibido pelo site (erro HTTP 401, 403 ou 429)", fmt.numero(d["n_http_bloqueio"])),
                          (rotulos.MOTIVOS_DOWNLOAD["robots_inacessivel"], fmt.numero(n_inacessivel)),
-                         ("Outros erros (404, extração…)", fmt.numero(d["n_outros"]))])
+                         ("Outros erros (404, extração…)", fmt.numero(d["n_outros"]))],
+                  motivos=[{"chave": "bloqueado_por_robots", "n": d["n_robots"]}, {"chave": "robots_inacessivel", "n": n_inacessivel}])
 
 
 def bloco_tokens(d):
@@ -609,4 +614,7 @@ def bloco_nao_verificaveis(d):
                   f"Última tentativa de download de cada uma das {fmt.numero(n_url)} páginas; "
                   "não verificável = robots.txt inacessível em 3 leituras ou em ao menos 2 tentativas",
                   texto, pares=pares, tabela={"cabecalho": ["Situação", "Páginas", "Domínios", "UFs"], "linhas": linhas},
-                  link={"href": _href("/chamadas", etapa="download", q="robots_inacessivel"), "rotulo": "Ver as chamadas de download com robots.txt inacessível"})
+                  link={"href": _href("/chamadas", etapa="download", resultado="robots_inacessivel"),
+                        "rotulo": "Ver as chamadas de download com robots.txt inacessível"},
+                  motivos=[{"chave": "bloqueado_por_robots", "n": n("proibido_pelo_site")},
+                           {"chave": "robots_inacessivel", "n": nv}])

@@ -26,7 +26,7 @@ CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src '
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 FILTROS_CHAMADAS = ("run", "etapa", "provedor", "uf", "resultado", "q")
 FILTROS_ARTIGOS = ("q", "decisao", "multi", "termo", "base", "ano_de", "ano_ate", "rel", "brasil", "ordem", "llm")
-FILTROS = ("uf", "esfera", "cidade", "tecnologia", "status", "confianca", "evidencia", "oficial", "origem", "verificacao", "q")
+FILTROS = ("uf", "esfera", "cidade", "tecnologia", "status", "confianca", "evidencia", "oficial", "origem", "solucao", "verificacao", "q")
 JANELA_CONTEXTO = 2500            # caracteres de cada lado da evidencia na visao resumida
 LIMITE_TEXTO = 200_000            # o visor nunca mostra mais que isto
 MAX_PAGINA = 1_000_000            # teto do ?p= (o OFFSET do SQLite estoura acima de 2**63)

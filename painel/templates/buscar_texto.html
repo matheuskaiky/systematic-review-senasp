@@ -42,11 +42,12 @@
   <tbody>{% for r in resultados %}
     <tr>
       <td>{{ r.uf }}</td>
-      <td class="quebra">{% if r.link_externo|url_segura != "#" %}<a href="{{ r.link_externo|url_segura }}" rel="noopener noreferrer">{{ r.dominio or r.url }}</a>{% else %}{{ r.dominio or "endereço não é http/https" }}{% endif %}
+      <td class="quebra"><strong>{{ r.dominio or r.url }}</strong>
+        <br>{% if r.link_externo|url_segura != "#" %}<a class="link-original" href="{{ r.link_externo|url_segura }}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span> Abrir a página original<span class="so-leitor"> ({{ r.dominio or r.url }}, abre em outra aba)</span></a>{% else %}<small class="fornecedor">endereço não é http/https: sem link</small>{% endif %}
         <br><small class="fornecedor">execução <a href="/execucoes/{{ r.run_id|urlencode }}"><code>{{ r.run_id }}</code></a>{% if not r.no_relatorio %} · fora do relatório{% endif %}</small></td>
       <td class="num">{{ r.n_ocorrencias }}</td>
-      <td>{% for antes, achado, depois in r.trechos %}<p class="trecho">{{ antes }}<mark>{{ achado }}</mark>{{ depois }}</p>{% endfor %}</td>
-      <td>{% if r.achados %}<ul class="lista-colateral">{% for a in r.achados %}<li><a href="/achados/{{ a.achado_id }}">{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }}</a> · {{ rotulos.rotulo(rotulos.STATUS, a.status_reportado) }}{% if a.n > 1 %} <small class="fornecedor">×{{ a.n }}</small>{% endif %}</li>{% endfor %}</ul>
+      <td>{% for t in r.trechos %}<p class="trecho">{% for pedaco, marcado in t %}{% if marcado %}<mark>{{ pedaco }}</mark>{% else %}{{ pedaco }}{% endif %}{% endfor %}</p>{% endfor %}</td>
+      <td>{% if r.achados %}<ul class="lista-colateral">{% for a in r.achados %}<li>{% if a.nome_solucao and a.nome_solucao|trim %}{{ s.solucao(a.nome_solucao) }} {% endif %}<a href="/achados/{{ a.achado_id }}">{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }}</a> · {{ rotulos.rotulo(rotulos.STATUS, a.status_reportado) }}{% if a.n > 1 %} <small class="fornecedor">×{{ a.n }}</small>{% endif %}</li>{% endfor %}</ul>
         {% else %}<small class="fornecedor">nenhum achado nesta página</small>{% endif %}</td>
     </tr>{% endfor %}</tbody></table></div>
 {% endif %}

@@ -16,7 +16,7 @@ from collections.abc import Mapping
 from html import escape
 
 from dominio.concordancia import interpretar_kappa
-from painel import formatacao as fmt
+from painel import formatacao as fmt, rotulos
 
 # ============================== utilidades comuns ==============================
 
@@ -1263,6 +1263,15 @@ _NIVEL_ROTULO = {"aberto": "Aberto", "parcial": "Parcial", "fechado": "Fechado"}
 _NIVEL_PADRAO = {"aberto": "solido", "parcial": "diag", "fechado": "xadrez"}
 
 
+def _selo_motivo(tipo, n):
+    """Selo de um motivo de bloqueio do download: 'proibido' (robots.txt lido e proíbe: alerta forte, ✕) ou 'preventivo' (robots.txt
+    indisponível, bloqueio pela RFC 9309: âmbar, ⚠). Mostra a contagem `n`; zero fica apagado e sem selo."""
+    classe, glifo = ("robots-proibido", "✕") if tipo == "proibido" else ("robots-preventivo", "⚠")
+    if not n:
+        return '<span class="an-zero">0</span>'
+    return f'<span class="selo {classe}"><span aria-hidden="true">{glifo}</span> {_t(fmt.numero(n))}</span>'
+
+
 def ranking_semaforo(linhas, titulo, limiares=(0.2, 0.5)):
     """Tabela HTML de portais (domínios) ordenada pela fatia de páginas bloqueadas, com barra SVG, % e situação em texto.
 
@@ -1298,13 +1307,16 @@ def ranking_semaforo(linhas, titulo, limiares=(0.2, 0.5)):
                          uid, _defs(uid, [("nv-" + nivel, _NIVEL_PADRAO[nivel])]))
         nome = f'<a href="{_t(_href_seguro(href))}">{_t(dominio)}</a>' if _href_seguro(href) else _t(dominio)
         linhas_html.append(f'<tr class="an-nivel-{nivel}"><th scope="row">{nome}</th><td class="num">{_t(fmt.numero(total))}</td>'
-                           f'<td class="num">{_t(fmt.numero(bloq))}</td>'
-                           + (f'<td class="num">{_t(fmt.numero(inacessiveis))}</td>' if com_inacessiveis else "")
+                           f'<td class="num">{_selo_motivo("proibido", bloq)}</td>'
+                           + (f'<td class="num">{_selo_motivo("preventivo", inacessiveis)}</td>' if com_inacessiveis else "")
                            + f'<td class="an-celula-barra">{barra_svg}</td>'
                            f'<td class="num">{_t(_pct_inteiro(bloq, total))}</td><td><span class="an-situacao an-situacao-{nivel}">'
                            f'{_t(_NIVEL_ROTULO[nivel])}</span></td></tr>')
-    cab = ("<tr><th scope=\"col\">Domínio</th><th scope=\"col\" class=\"num\">Páginas</th><th scope=\"col\" class=\"num\">Bloqueadas</th>"
-           + ("<th scope=\"col\" class=\"num\">robots.txt inacessível (bloqueado pela política)</th>" if com_inacessiveis else "")
+    cab = ("<tr><th scope=\"col\">Domínio</th><th scope=\"col\" class=\"num\">Páginas</th>"
+           "<th scope=\"col\" class=\"num\">Proibidas pelo site <span class=\"an-glifo-proibido\" aria-hidden=\"true\">✕</span>"
+           "<small class=\"an-nota-coluna\">Disallow do robots.txt ou HTTP 401/403/429</small></th>"
+           + ("<th scope=\"col\" class=\"num\">Bloqueio preventivo (RFC 9309) <span class=\"an-glifo-preventivo\" aria-hidden=\"true\">⚠</span>"
+              "<small class=\"an-nota-coluna\">robots.txt do site indisponível</small></th>" if com_inacessiveis else "")
            + "<th scope=\"col\">Fatia bloqueada</th><th scope=\"col\" class=\"num\">%</th><th scope=\"col\">Situação</th></tr>")
     return (f'<div class="tabela-rolavel"><table class="an-ranking"><caption class="so-leitor">{_t(titulo)}</caption>'
             f'<thead>{cab}</thead><tbody>{"".join(linhas_html)}</tbody></table></div>')

@@ -157,6 +157,44 @@ def trechos_ao_redor(texto, termo, largura=160, inteira=True, maximo=2, texto_no
     return trechos
 
 
+def marcar_ocorrencias(texto, termo, inteira=True):
+    """Divide `texto` (um trecho curto, ja no formato de exibicao) em `[(pedaco, marcado)]`: TODA ocorrencia do termo vem com `marcado=True`,
+    no texto original (com acentos e maiusculas), pela mesma regra de casamento da busca (sem acento, sem diferenca de caixa, palavra
+    inteira se `inteira`). A juncao dos pedacos e sempre o texto de entrada. Reticencias nas pontas (`…`) marcam um corte: com palavra
+    inteira, uma ocorrencia colada ao corte nao e marcada, porque a palavra pode estar pela metade."""
+    texto = str(texto or "")
+    alvo = normalizar(termo)
+    nucleo = alvo.strip()
+    if not nucleo or not texto:
+        return [(texto, False)] if texto else []
+    busca = alvo if inteira else nucleo
+    deslocamento = busca.find(nucleo)
+    norm = normalizar(texto)
+    achados, inicio = [], 0
+    while True:
+        p = norm.find(busca, inicio)
+        if p < 0:
+            break
+        achados.append(p + deslocamento)
+        inicio = achados[-1] + len(nucleo)
+    if not achados:
+        return [(texto, False)]
+    mapa = _posicoes_originais(texto, [x for p in achados for x in (p, p + len(nucleo) - 1)])
+    faixas = [(mapa[p], mapa[p + len(nucleo) - 1] + 1) for p in achados]
+    if inteira:
+        faixas = [(a, b) for a, b in faixas
+                  if not ((texto.startswith("…") and a <= 1) or (texto.endswith("…") and b >= len(texto) - 1))]
+    saida, cursor = [], 0
+    for a, b in faixas:
+        if a > cursor:
+            saida.append((texto[cursor:a], False))
+        saida.append((texto[a:b], True))
+        cursor = b
+    if cursor < len(texto):
+        saida.append((texto[cursor:], False))
+    return saida
+
+
 def trecho_ao_redor(texto, termo, largura=160, inteira=True, texto_norm=None):
     """O primeiro trecho de `trechos_ao_redor`, ou None quando o texto nao cita o termo."""
     r = trechos_ao_redor(texto, termo, largura, inteira, 1, texto_norm)

@@ -2,6 +2,10 @@
 {% import "_selos.html" as s %}
 {% block titulo %}Soluções conhecidas{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="/static/solucoes.css">{% endblock %}
+{# Indicador de presença: com contagem positiva vira link (drill-down); zero é texto apagado. `href` já sai escapado pelo autoescape. #}
+{% macro indicador(n, href, descricao, dica="") -%}
+{% if n %}<a class="indicador" href="{{ href }}" aria-label="{{ descricao }}"{% if dica %} title="{{ dica }}"{% endif %}>{{ n }}</a>{% else %}<span class="indicador-zero" title="Nenhum">0</span>{% endif %}
+{%- endmacro %}
 {% block conteudo %}
 <h1>Soluções conhecidas</h1>
 <p class="sub">Uma lista, feita por você, de sistemas de IA de segurança pública que você sabe que existem. A tela mostra, para cada um, <strong>até onde a coleta o levou</strong>:
@@ -19,23 +23,36 @@
     <caption class="so-leitor">Situação de cada solução conhecida</caption>
     <thead><tr><th scope="col">Solução</th><th scope="col">UF</th><th scope="col" class="num">Resultados de busca</th><th scope="col" class="num">Páginas baixadas</th><th scope="col" class="num">Achados</th><th scope="col">Situação</th></tr></thead>
     <tbody>{% for k in cartoes %}
-      <tr><th scope="row"><a href="#sol-{{ loop.index }}">{{ k.solucao.nome }}</a></th><td>{{ k.solucao.uf }}</td>
-        <td class="num">{{ k.resultados|length }}</td><td class="num">{{ k.paginas|length }}</td><td class="num">{{ k.achados|length }}</td><td class="quebra">{{ k.rotulo }}</td></tr>{% endfor %}</tbody></table></div>
+      {% set href_paginas = "/buscar-texto?q=" ~ (k.solucao.nome|urlencode) ~ "&uf=" ~ (k.solucao.uf|urlencode) ~ "&inteira=1" %}
+      {% set href_achados = "/achados?uf=" ~ (k.solucao.uf|urlencode) ~ "&q=" ~ (k.solucao.nome|urlencode) %}
+      <tr><th scope="row"><a href="#solucao-{{ loop.index }}">{{ k.solucao.nome }}</a></th><td>{{ k.solucao.uf }}</td>
+        <td class="num">{{ indicador(k.resultados|length, "#solucao-" ~ loop.index, "Ver os " ~ (k.resultados|length) ~ " resultados de busca que citam " ~ k.solucao.nome) }}</td>
+        <td class="num">{{ indicador(k.paginas|length, href_paginas, "Buscar " ~ k.solucao.nome ~ " no texto das " ~ (k.paginas|length) ~ " páginas baixadas") }}</td>
+        <td class="num">{{ indicador(k.achados|length, href_achados, "Ver os achados que citam " ~ k.solucao.nome, "Busca pelo nome exato; apelidos não entram") }}</td>
+        <td class="quebra">{{ k.rotulo }}</td></tr>{% endfor %}</tbody></table></div>
   <p class="explica">“Resultados de busca” conta os resultados da busca web da UF cujo título ou resumo cita o nome; “Páginas baixadas”, as páginas cujo <strong>texto extraído</strong> o cita;
     “Achados”, os achados cuja evidência (ou nome da solução) o cita. Cada número é a etapa seguinte do funil; um número zero depois de um positivo é onde a coleta perdeu a solução.
+    <strong>Os números positivos são links</strong>: “Resultados de busca” leva à lista deste cartão, “Páginas baixadas” à busca no texto das páginas da UF e “Achados” à lista de achados da UF com o nome exato (apelidos não entram na lista). Zero não é link.
     A comparação ignora acentos e maiúsculas e exige a palavra inteira (“spia” não acha “espiando”).</p>
 </section>
 
 {% for k in cartoes %}
-<section class="cartao cartao-solucao" aria-labelledby="sol-{{ loop.index }}-h" id="sol-{{ loop.index }}">
-  <h2 id="sol-{{ loop.index }}-h">{{ k.solucao.nome }} <small>({{ k.solucao.uf }})</small></h2>
+{% set href_paginas = "/buscar-texto?q=" ~ (k.solucao.nome|urlencode) ~ "&uf=" ~ (k.solucao.uf|urlencode) ~ "&inteira=1" %}
+{% set href_achados = "/achados?uf=" ~ (k.solucao.uf|urlencode) ~ "&q=" ~ (k.solucao.nome|urlencode) %}
+<section class="cartao cartao-solucao" aria-labelledby="solucao-{{ loop.index }}-h" id="solucao-{{ loop.index }}">
+  <h2 id="solucao-{{ loop.index }}-h">{{ k.solucao.nome }} <small>({{ k.solucao.uf }})</small></h2>
+  <ul class="presenca" aria-label="Presença na coleta">
+    <li><span class="presenca-rotulo">Resultados de busca</span> {{ indicador(k.resultados|length, "#solucao-" ~ loop.index ~ "-resultados", "Ir para os " ~ (k.resultados|length) ~ " resultados de busca listados abaixo") }}</li>
+    <li><span class="presenca-rotulo">Páginas baixadas</span> {{ indicador(k.paginas|length, href_paginas, "Buscar " ~ k.solucao.nome ~ " no texto das " ~ (k.paginas|length) ~ " páginas baixadas") }}</li>
+    <li><span class="presenca-rotulo">Achados</span> {{ indicador(k.achados|length, href_achados, "Ver os achados que citam " ~ k.solucao.nome, "Busca pelo nome exato; apelidos não entram") }}</li>
+  </ul>
   {% if k.solucao.observacao %}<p class="explica">{{ k.solucao.observacao }}</p>{% endif %}
   <p class="explica">Nomes procurados: {% for v in k.variantes %}<code>{{ v }}</code>{% if not loop.last %}, {% endif %}{% endfor %} (sem acento, em minúsculas).</p>
   <p class="veredito" role="status">Situação: {{ k.rotulo }}.</p>
   <p>{{ k.explicacao }}</p>
-  <p><a href="/buscar-texto?q={{ k.solucao.nome|urlencode }}&amp;uf={{ k.solucao.uf|urlencode }}&amp;inteira=1">Buscar “{{ k.solucao.nome }}” no texto das páginas da UF</a></p>
+  <p><a href="{{ href_paginas }}">Buscar “{{ k.solucao.nome }}” no texto das páginas da UF</a></p>
 
-  <h3>1. Nos resultados da busca ({{ k.resultados|length }})</h3>
+  <h3 id="solucao-{{ loop.index }}-resultados">1. Nos resultados da busca ({{ k.resultados|length }})</h3>
   {% if k.resultados %}
     <p class="explica">{{ k.n_urls_resultados }} endereço(s) diferente(s){% if k.n_urls_nunca_baixadas %}; <strong>{{ k.n_urls_nunca_baixadas }} nunca foi baixado</strong>{% endif %}.
       {% if k.so_fora_do_relatorio %}Todos vieram de execuções fora do relatório (testes ou pilotos).{% endif %}

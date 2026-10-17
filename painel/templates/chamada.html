@@ -5,10 +5,16 @@
 {% block conteudo %}
 <p class="trilha"><a href="/chamadas">Chamadas</a> › nº {{ c.chamada_id }}</p>
 <h1>{{ c.etapa }} <small>{{ c.provedor }} · {{ c.operacao or "" }}</small></h1>
-<p class="selos">{% if c.sucesso %}<span class="selo ok">✔ com sucesso</span>{% else %}<span class="selo st-descartado">✕ falhou</span>{% endif %}
+{% set mr = rotulos.motivo_robots(c.erro) if not c.sucesso else none %}
+<p class="selos">{% if c.sucesso %}<span class="selo ok">✔ com sucesso</span>{% elif mr %}{{ s.robots(c.erro) }}{% else %}<span class="selo st-descartado">✕ falhou</span>{% endif %}
   {% if c.http_status %}<span class="selo neutro">HTTP {{ c.http_status }}</span>{% endif %}
   {% if c.tentativas and c.tentativas > 1 %}<span class="selo alerta">{{ c.tentativas }} tentativas</span>{% endif %}</p>
-{% if c.erro %}<div class="aviso aviso-forte"><strong>Erro:</strong> {{ c.erro }}</div>{% endif %}
+{% if mr %}<div class="aviso {{ 'robots-proibido' if mr.chave == 'bloqueado_por_robots' else 'robots-preventivo' }}" role="note">
+  <strong>{{ mr.rotulo }}.</strong> {{ mr.explicacao }}
+  {% set rs = extras.get("robots_status") if extras is mapping and not mr.apos_redirecionamento else none %}
+  {% if rs is not none or extras.get("robots_tentativas") %}<br><small>robots.txt respondeu {{ "HTTP " ~ rs if rs is not none else "sem resposta" }}{% if extras.get("robots_tentativas") %} · {{ extras.get("robots_tentativas") }} leitura(s){% endif %}.</small>{% endif %}
+  {% if c.erro and mr.apos_redirecionamento %}<br><small>{{ c.erro }}</small>{% endif %}</div>
+{% elif c.erro %}<div class="aviso aviso-forte"><strong>Erro:</strong> {{ c.erro }}</div>{% endif %}
 <dl class="ficha">
   <dt>Execução</dt><dd><a href="/execucoes/{{ c.run_id }}"><code>{{ c.run_id }}</code></a></dd>
   <dt>Quando</dt><dd>{{ fmt.data_hora(c.requisitado_em) }}</dd>

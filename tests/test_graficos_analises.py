@@ -671,7 +671,7 @@ def test_impressao_fixa_todos_os_tokens_no_tema_claro():
 def test_todas_as_classes_emitidas_existem_no_css():
     css = _css()
     conhecidas = set(re.findall(r"\.([A-Za-z_][\w-]*)", css))
-    emprestadas = {"vazio", "tabela-rolavel", "so-leitor", "num"}                       # de painel.css
+    emprestadas = {"vazio", "tabela-rolavel", "so-leitor", "num", "robots-proibido", "robots-preventivo"}   # de painel.css
     usadas = set()
     for f in TODOS.values():
         for e in _xml(f()).iter():
@@ -705,5 +705,5 @@ def test_ranking_semaforo_coluna_de_robots_inacessivel_so_aparece_quando_informa
     assert "robots.txt inacessível" not in sem
     com = ga.ranking_semaforo([{"dominio": "a.gov.br", "total": 10, "bloqueadas": 2, "inacessiveis": 5},
                                {"dominio": "b.gov.br", "total": 4, "bloqueadas": 0, "inacessiveis": 0}], "t")
-    assert "robots.txt inacessível (bloqueado pela política)" in com and com.count("<td") == 2 * 6
+    assert "Bloqueio preventivo (RFC 9309)" in com and "robots.txt do site indisponível" in com and com.count("<td") == 2 * 6
     assert "20% bloqueadas" in com                                            # a fatia/situacao conta so a proibicao real, nao as inacessiveis

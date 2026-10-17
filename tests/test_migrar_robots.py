@@ -177,10 +177,12 @@ def test_bloco_do_painel_separa_proibido_de_inacessivel(banco):
     assert "proibidas pelo site" in bl["titulo"] and "robots.txt do site estava inacessível" in bl["titulo"]
     assert "apagão" not in bl["titulo"].lower() and "opacidade" not in bl["titulo"].lower()
     html = str(bl["grafico"])
-    assert "robots.txt inacessível (bloqueado pela política)" in html                # coluna propria na tabela
+    assert "Bloqueio preventivo (RFC 9309)" in html and "robots.txt do site indisponível" in html                # coluna propria na tabela
     pares = dict(bl["pares"])
-    assert pares["Proibido pelo site"] == "4" and pares["robots.txt inacessível (bloqueado pela política)"] == "8"
-    assert "robots.txt inacessível (bloqueado pela política)" in bl["subtitulo"]
+    # etapa 2: Disallow (3) e erros HTTP 401/403/429 (1) em linhas separadas; antes vinham somados (4) sob "Proibido pelo site"
+    assert pares["Proibido pelo site (diretiva Disallow do robots.txt)"] == "3" and pares["Proibido pelo site (erro HTTP 401, 403 ou 429)"] == "1"
+    assert pares["Bloqueio preventivo (RFC 9309): robots.txt do site indisponível"] == "8"
+    assert "Bloqueio preventivo (RFC 9309): robots.txt do site indisponível" in bl["subtitulo"]
     assert any("não é decisão do site" in t for t in bl["texto"])
 
 
@@ -188,7 +190,7 @@ def test_bloco_sem_robots_inacessivel_nao_menciona_a_coluna_nem_o_trecho(banco):
     d = {"n_tentadas": 5, "n_ok": 3, "n_robots": 1, "n_http_bloqueio": 1, "n_robots_inacessivel": 0, "n_outros": 0, "pct_bloqueado": 40.0,
          "n_dominios": 1, "dominios": [{"dominio": "a.gov.br", "n_tentadas": 5, "n_robots": 1, "n_http_bloqueio": 1, "n_robots_inacessivel": 0}]}
     bl = b.bloco_opacidade(d)
-    assert "inacessível" not in bl["titulo"] and "<th scope=\"col\" class=\"num\">robots.txt inacessível" in str(bl["grafico"])    # coluna aparece (chave presente)
+    assert "inacessível" not in bl["titulo"] and "Bloqueio preventivo (RFC 9309)" in str(bl["grafico"]) and "robots.txt do site indisponível" in str(bl["grafico"])    # coluna aparece (chave presente)
     assert "40% das 5 páginas tentadas foram proibidas pelo site" in bl["titulo"]
 
 

@@ -30,6 +30,10 @@
   {% if bl.grafico %}<div class="an-grafico">{{ bl.grafico }}</div>{% endif %}
   {% if bl.selo %}<p><span class="selo {{ bl.selo.classe }}">{{ bl.selo.rotulo }}</span> {{ bl.selo.texto }}</p>{% endif %}
   {% for t in bl.texto %}{% if not (bl.selo and t == bl.selo.texto) %}<p>{{ t }}</p>{% endif %}{% endfor %}
+  {% if bl.motivos %}<ul class="an-motivos" aria-label="Motivos de bloqueio pelo robots.txt">{% for m in bl.motivos %}
+    {% set proibido = m.chave == "bloqueado_por_robots" %}
+    <li><span class="selo {{ 'robots-proibido' if proibido else 'robots-preventivo' }}"><span aria-hidden="true">{{ "✕" if proibido else "⚠" }}</span> {{ rotulos.MOTIVOS_DOWNLOAD[m.chave] }}: {{ fmt.numero(m.n) }}</span>
+      <small>{{ rotulos.EXPLICACAO_MOTIVOS_DOWNLOAD[m.chave] }}{% if m.n %} <a href="/chamadas?{{ {'etapa': 'download', 'resultado': 'robots_proibido' if proibido else 'robots_inacessivel'}|urlencode }}">Ver as chamadas com este motivo</a>{% endif %}</small></li>{% endfor %}</ul>{% endif %}
   {% if bl.link %}<p><a href="{{ bl.link.href }}">{{ bl.link.rotulo }}</a></p>{% endif %}
   {% if bl.pares or bl.tabela %}
   <details class="an-memoria">

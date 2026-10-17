@@ -13,11 +13,12 @@
   <h2>{{ rotulos.rotulo(rotulos.TECNOLOGIAS, tec) }}</h2>
   <ul class="lista-achados">{% for a in itens %}
     <li>
+      {% if a.nome_solucao and a.nome_solucao|trim %}<p class="solucao-linha">{{ s.solucao(a.nome_solucao) }}</p>{% endif %}
       <a class="achado-link" href="/achados/{{ a.achado_id }}">
         {{ s.status(a.status_reportado) }}
-        <span class="fornecedor">{% if a.cidade %}{{ a.cidade }} · {% endif %}{% if a.nome_solucao %}<strong>{{ a.nome_solucao }}</strong> · {% endif %}{{ a.fornecedor or "fornecedor não informado" }}</span>
+        <span class="fornecedor">{% if a.cidade %}{{ a.cidade }} · {% endif %}{{ a.fornecedor or "fornecedor não informado" }}</span>
       </a>
-      <span class="selos">{{ s.verificacao(a) }} {{ s.evidencia(a.evidencia_confere) }} {{ s.fonte(a.fonte_oficial_final if a.fonte_oficial_final is not none else a.fonte_oficial) }}{% if a.menciona_lgpd %} <span class="selo neutro">LGPD</span>{% endif %}</span>
+      <span class="selos">{{ s.origem(a.origem_texto) }} {{ s.verificacao(a) }} {{ s.evidencia(a.evidencia_confere) }} {{ s.fonte(a.fonte_oficial_final if a.fonte_oficial_final is not none else a.fonte_oficial) }}{% if a.menciona_lgpd %} <span class="selo neutro">LGPD</span>{% endif %}</span>
       <blockquote class="trecho">{{ a.evidencia }}</blockquote>
     </li>{% endfor %}
   </ul>

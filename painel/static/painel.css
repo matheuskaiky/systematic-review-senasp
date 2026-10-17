@@ -127,6 +127,31 @@ h3 { font-size: var(--fs-md); margin: 0 0 var(--esp-2); }
 .st-apenas_citado { color: var(--neutro); }
 .st-descartado { color: var(--perigo); background: var(--perigo-fundo); border-color: transparent; }
 .cf-alta { color: var(--ok); } .cf-media { color: var(--alerta); } .cf-baixa { color: var(--perigo); }
+/* destaques (etapa 2): solução nomeada, origem do texto e as duas razões de bloqueio pelo robots.txt. Só tokens; cor nunca é a única pista (glifo + texto + borda). */
+.selo.solucao-nomeada { color: var(--texto-botao); background: var(--acento); border-color: var(--acento); font-weight: 700; }
+.selo.solucao-nomeada .solucao-nome { overflow-wrap: anywhere; }
+.selo.texto-completo { color: var(--acento); background: var(--acento-fundo); border-color: transparent; }
+.selo.alerta.origem-snippet { border: 1px dashed var(--alerta); }
+.selo.robots-proibido { color: var(--perigo); background: var(--perigo-fundo); border: 2px solid var(--perigo); font-weight: 700; }
+.selo.robots-preventivo { color: var(--alerta); background: var(--alerta-fundo); border: 2px dashed var(--alerta); }
+/* nomes e motivos são longos: o selo quebra linha (telas estreitas) em vez de alargar a página */
+.selo.solucao-nomeada, .selo.robots-proibido, .selo.robots-preventivo, .selo.origem-snippet { white-space: normal; text-align: left; }
+a.selo { text-decoration: none; }
+a.selo:hover { filter: brightness(.95); }
+.sem-nome, .sem-nome-dica, .explica-origem { color: var(--texto-suave); font-size: var(--fs-sm); }
+.sem-nome-dica { margin: 0 0 var(--esp-2); font-style: italic; }
+.solucao-destaque { background: var(--acento-fundo); border-left: 4px solid var(--acento); border-radius: 0 var(--raio-md) var(--raio-md) 0; padding: var(--esp-2) var(--esp-3); margin: 0 0 var(--esp-3); }
+.solucao-destaque .rotulo-mini { margin: 0; }
+.solucao-destaque-nome { margin: var(--esp-1) 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--esp-2) var(--esp-4); }
+.solucao-destaque .selo.solucao-nomeada { font-size: var(--fs-lg); padding: .2em .8em; }
+.solucao-linha { margin: 0 0 var(--esp-1); }
+.legenda-origem, .legenda-robots { display: flex; flex-wrap: wrap; align-items: center; gap: var(--esp-2) var(--esp-3); color: var(--texto-suave); font-size: var(--fs-sm); margin: 0 0 var(--esp-3); }
+.legenda-origem .selo { white-space: normal; }
+.aviso.robots-proibido { background: var(--perigo-fundo); border-left-color: var(--perigo); }
+.aviso.robots-preventivo { background: var(--alerta-fundo); border-left-color: var(--alerta); }
+td a.link-solucao { text-decoration: none; }
+td.col-solucao { min-width: 9rem; max-width: 15rem; }
+.selo.solucao-nomeada { border-radius: var(--raio-md); }
 td .selo { white-space: normal; font-size: var(--fs-xs); }
 .selos { display: flex; flex-wrap: wrap; gap: .4rem; margin: var(--esp-2) 0; }
 
@@ -138,7 +163,7 @@ td .selo { white-space: normal; font-size: var(--fs-xs); }
 button.link { background: none; border: 0; color: var(--acento); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
 form.em-linha { display: inline; margin-left: var(--esp-2); }
 
-.tabela-rolavel { overflow-x: auto; }
+.tabela-rolavel { overflow-x: auto; position: relative; }   /* relative: o texto só para leitor de tela (absoluto) não escapa da rolagem e alarga a página */
 table { border-collapse: collapse; width: 100%; font-size: var(--fs-md); }
 th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid var(--borda); vertical-align: top; }
 th { white-space: nowrap; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--texto-suave); font-weight: 600; }

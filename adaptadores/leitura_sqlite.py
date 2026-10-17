@@ -149,6 +149,11 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         if filtros.get("resultado") in ("ok", "falha"):
             cond.append("sucesso = ?")
             args.append(1 if filtros["resultado"] == "ok" else 0)
+        # bloqueios pelo robots.txt: o motivo e o comeco do texto de erro (com ou sem `_apos_redirecionamento`), como na view v_resultado_download
+        motivo = {"robots_proibido": "bloqueado_por_robots", "robots_inacessivel": "robots_inacessivel"}.get(filtros.get("resultado"))
+        if motivo:
+            cond.append("sucesso = 0 AND erro LIKE ?")
+            args.append(motivo + "%")
         q = (filtros.get("q") or "").strip()
         if q:
             cond.append("(erro LIKE ? ESCAPE '\\' OR alvo_id LIKE ? ESCAPE '\\')")
@@ -380,6 +385,8 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         if filtros.get("oficial") in ("0", "1"):
             cond.append("COALESCE(fonte_oficial_final, fonte_oficial, 0) = ?")
             args.append(int(filtros["oficial"]))
+        if filtros.get("solucao") == "nomeada":                 # so achados em que o modelo citou o nome proprio da solucao
+            cond.append("(nome_solucao IS NOT NULL AND TRIM(nome_solucao) <> '')" if com_solucao else "0")   # banco antigo: nenhuma tem nome
         v = filtros.get("verificacao")
         if v == "pendente":
             cond.append("verificado = 0")

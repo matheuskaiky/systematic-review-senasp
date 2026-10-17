@@ -240,8 +240,10 @@ def test_opacidade_chama_de_proibido_so_a_proibicao_real_e_mostra_o_robots_inace
     assert bl["titulo"].startswith("15% das 100 páginas tentadas foram proibidas pelo site")
     assert "outras 30 não puderam ser baixadas porque o robots.txt do site estava inacessível" in bl["titulo"]
     pares = dict(bl["pares"])
-    assert pares["Proibido pelo site"] == "15" and pares["robots.txt inacessível (bloqueado pela política)"] == "30"
-    assert "30 páginas" in bl["subtitulo"] and "robots.txt inacessível (bloqueado pela política)" in str(bl["grafico"])
+    # etapa 2: o motivo "Disallow" (10) deixou de ser somado aos erros HTTP 401/403/429 (5), que ganharam linha própria
+    assert pares["Proibido pelo site (diretiva Disallow do robots.txt)"] == "10" and pares["Proibido pelo site (erro HTTP 401, 403 ou 429)"] == "5"
+    assert pares["Bloqueio preventivo (RFC 9309): robots.txt do site indisponível"] == "30"
+    assert "30 páginas" in bl["subtitulo"] and "Bloqueio preventivo (RFC 9309)" in str(bl["grafico"]) and "robots.txt do site indisponível" in str(bl["grafico"])
 
 
 # ---------------- RC22: paginas que a coleta nao conseguiu verificar ----------------
@@ -266,7 +268,7 @@ def test_nao_verificaveis_titulo_em_portugues_e_nao_confunde_com_proibido():
     assert pares["Não verificável (robots.txt inacessível, falha repetida)"] == "37" and pares["Proibido pelo site (robots.txt lido e proíbe)"] == "19"
     assert "agencia.ac.gov.br (17)" in pares["Domínios com mais páginas não verificadas"]
     assert bl["tabela"]["linhas"][1] == ["Não verificável (robots.txt inacessível, falha repetida)", "37", "2", "2"]
-    assert bl["link"]["href"] == "/chamadas?etapa=download&q=robots_inacessivel"
+    assert bl["link"]["href"] == "/chamadas?etapa=download&resultado=robots_inacessivel"      # etapa 2: filtro próprio do motivo (era q=)
 
 
 def test_nao_verificaveis_singular_nenhuma_e_sem_downloads():

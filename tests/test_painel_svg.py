@@ -129,6 +129,33 @@ def test_ids_dos_graficos_nao_colidem_quando_o_mesmo_grafico_aparece_duas_vezes(
     assert auditar(mapas)[0] == []
 
 
+def test_mapa_do_brasil_desenha_as_27_ufs_com_viewbox_titulo_e_links():
+    svg = graficos.mapa_do_brasil({"PI": ("confirmado", "x")}, "Situação por estado", "Mapa do Brasil por UF")
+    problemas, n = auditar(svg)
+    assert n == 1 and not problemas, problemas
+    caixa = re.search(r'<svg class="mapa" viewBox="(-?\d+ -?\d+ \d+ \d+)" role="img"', svg)
+    assert caixa and len(caixa.group(1).split()) == 4
+    assert "<title id=" in svg and "Situação por estado" in svg
+    ufs = re.findall(r'<a href="/estados/([A-Z]{2})">', svg)
+    assert sorted(ufs) == sorted(C.UFS) and len(ufs) == 27
+
+
+def test_o_credito_do_mapa_e_do_ibge_e_nada_na_fonte_cita_outra_colecao():
+    """O contorno vem da malha oficial do IBGE (analises/gerar_mapa_ibge.py); o credito diz isso e nenhum arquivo do painel, dos guias
+    ou do gerador cita a colecao de mapas usada antes (o historico fica em DECISIONS.md e docs/ROADMAP.md, que este teste nao le)."""
+    from painel import mapa_ufs
+    assert "IBGE" in mapa_ufs.CREDITO and mapa_ufs.FONTE.startswith("https://servicodados.ibge.gov.br/api/v3/malhas/")
+    raiz = PAINEL.parent
+    proibidos = ("high" + "charts", "high" + "soft", "natural" + " earth")
+    arquivos = [p for p in PAINEL.rglob("*") if p.is_file() and p.suffix in (".py", ".html", ".css", ".js", ".svg", ".md")]
+    arquivos += [raiz / "docs" / "GUIA_DO_PAINEL.md", raiz / "docs" / "GUIA_DO_PROJETO.md", raiz / "analises" / "gerar_mapa_ibge.py"]
+    for arquivo in arquivos:
+        if arquivo.exists():
+            texto = arquivo.read_text(encoding="utf-8").lower()
+            for termo in proibidos:
+                assert termo not in texto, (arquivo.name, termo)
+
+
 @pytest.mark.parametrize("nome", sorted(TODOS_OS_GERADORES_DE_ANALISES))
 def test_geradores_das_analises_produzem_svg_conforme(nome):
     problemas, n = auditar(TODOS_OS_GERADORES_DE_ANALISES[nome]())

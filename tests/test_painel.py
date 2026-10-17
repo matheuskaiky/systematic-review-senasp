@@ -325,8 +325,8 @@ def test_mapa_tem_as_27_ufs_com_contorno_e_rotulo_dentro_da_area():
         p = [(float(a), float(b)) for a, b in re.findall(r"(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)", mapa_ufs.CAMINHOS[uf])]
         return min(x for x, _ in p), min(y for _, y in p), max(x for x, _ in p), max(y for _, y in p)
     df, go = caixa("DF"), caixa("GO")
-    assert go[0] <= df[0] and df[2] <= go[2] + 40 and go[1] <= df[1] <= go[3]
-    assert caixa("RS")[1] > caixa("SC")[1] and caixa("AM")[0] < caixa("PA")[0]
+    assert go[0] <= df[0] and df[2] <= go[2] and go[1] <= df[1] and df[3] <= go[3]
+    assert caixa("RS")[1] > caixa("SC")[1] and caixa("RS")[3] > caixa("SC")[3] and caixa("AM")[0] < caixa("PA")[0]
 
 
 def test_mapa_pinta_cada_uf_pela_classe_e_liga_para_a_pagina_da_uf():

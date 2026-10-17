@@ -6,7 +6,8 @@ Acrescente aqui outras solucoes conhecidas; so `main.py` le este arquivo."""
 from dominio.solucoes import SolucaoConhecida
 
 SOLUCOES_CONHECIDAS = (
-    SolucaoConhecida("BO Fácil", "PI",
+    # "B.O. Fácil" e "B.O Fácil": grafias que o modelo e as paginas da SSP-PI usam (a normalizacao tira a pontuacao, entao viram "b o facil")
+    SolucaoConhecida("BO Fácil", "PI", apelidos=("B.O. Fácil",),
                      observacao="Registro de boletim de ocorrência pelo WhatsApp, da SSP-PI. Ver docs/CASO_BO_FACIL.md."),
     SolucaoConhecida("SPiA", "PI", apelidos=("SPIA", "Sistema de Policiamento por Inteligência Artificial"),
                      observacao="Sistema de policiamento por inteligência artificial do Piauí."),

@@ -19,6 +19,7 @@ METODOS = [
     ("analise_saturacao", ()), ("analise_calibracao_tokens", ()), ("analise_tamanho_texto_achados", ()),
     ("analise_termos_triagem_escopo", ()), ("analise_termos_triagem_escopo", ("web",)), ("analise_resumo", ()),
     ("analise_concordancia_achados", ()), ("analise_auditoria_negativos", ()), ("analise_nao_verificaveis", ()),
+    ("analise_prontidao", ()),
 ]
 
 

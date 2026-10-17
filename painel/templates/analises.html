@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_selos.html" as s %}
+{% import "_prontidao.html" as pr %}
 {% block titulo %}Análises{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="/static/analises.css">{% endblock %}
 {% block conteudo %}
@@ -27,6 +28,7 @@
   <h2 id="t-{{ bl.id }}">{{ bl.titulo }}</h2>
   {% if bl.subtitulo %}<p class="an-subtitulo">{{ bl.subtitulo }}</p>{% endif %}
   {% if bl.aviso %}<p class="aviso" role="status">{{ bl.aviso }}</p>{% endif %}
+  {% if bl.cartoes %}{{ pr.cartoes(bl.cartoes) }}{% endif %}
   {% if bl.grafico %}<div class="an-grafico">{{ bl.grafico }}</div>{% endif %}
   {% if bl.selo %}<p><span class="selo {{ bl.selo.classe }}">{{ bl.selo.rotulo }}</span> {{ bl.selo.texto }}</p>{% endif %}
   {% for t in bl.texto %}{% if not (bl.selo and t == bl.selo.texto) %}<p>{{ t }}</p>{% endif %}{% endfor %}

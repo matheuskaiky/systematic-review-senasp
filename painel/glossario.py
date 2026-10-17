@@ -355,6 +355,21 @@ _AUDITORIA_IA = [
     _e("amostra-zero-erros", "Amostra com zero erros",
        "Quantas páginas a pessoa precisa conferir, sem achar nenhuma aplicação perdida, para provar que a taxa de falso negativo está abaixo da "
        "meta. O número é calculado pelo sistema e cresce quando a meta fica mais rigorosa. Se aparecer algum erro, é preciso conferir mais."),
+    _e("prontidao-metodologica", "Prontidão metodológica",
+       "Quanto já foi rotulado por uma pessoa em relação ao mínimo que cada análise exige para rodar: a regressão logística (H2) pede 200 achados "
+       "verificados e 40 na classe menos frequente; a análise bibliométrica (H5), 50 decisões de triagem e 10 de cada tipo; a auditoria dos negativos, "
+       "o número de páginas calculado pelo sistema (59 para a meta de 5%). Os números são os mesmos que os scripts de análise usam para recusar ou rodar. "
+       "Aparece na página inicial e em Análises, Visão geral. Para gerar só as linhas que faltam: python main.py rotulagem-modelo."),
+    _e("classe-minoritaria", "Classe minoritária",
+       "Na regressão logística, o menor dos dois grupos do desfecho (achados confirmados ou achados descartados). Com poucos casos num dos grupos o "
+       "ajuste não é confiável; por isso a análise exige pelo menos 40 na classe minoritária, além dos 200 achados verificados."),
+    _e("amostra-enriquecida", "Amostra enriquecida",
+       "Seleção em que entram de propósito os itens com mais chance de erro (evidência que não confere ou que não cita a tecnologia, texto só de snippet, "
+       "confiança baixa), para que o grupo menos frequente chegue ao mínimo. Serve à regressão, mas NÃO estima a precisão global do modelo, porque os "
+       "erros estão em excesso na amostra. Para a precisão global é preciso uma amostra aleatória (rotulagem-modelo --aleatoria)."),
+    _e("folga-rotulagem", "Folga da rotulagem",
+       "Margem percentual (padrão 10%) somada ao que falta para o mínimo, para cobrir linhas que a pessoa pule ou deixe em branco. A folga não vale para "
+       "a auditoria dos negativos nem para a amostra extra de falsa exclusão, cujos tamanhos já supõem zero erros."),
     _e("pagina-nao-verificavel", "Página não verificável",
        "Página que o download não conseguiu verificar porque o robots.txt do site seguiu inacessível (erro do servidor, tempo esgotado ou falha "
        "de rede) em três leituras seguidas ou em pelo menos duas tentativas de download. Não é o mesmo que proibida pelo site: não sabemos o que o "

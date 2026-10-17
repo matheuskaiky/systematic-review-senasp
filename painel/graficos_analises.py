@@ -1320,3 +1320,22 @@ def ranking_semaforo(linhas, titulo, limiares=(0.2, 0.5)):
            + "<th scope=\"col\">Fatia bloqueada</th><th scope=\"col\" class=\"num\">%</th><th scope=\"col\">Situação</th></tr>")
     return (f'<div class="tabela-rolavel"><table class="an-ranking"><caption class="so-leitor">{_t(titulo)}</caption>'
             f'<thead>{cab}</thead><tbody>{"".join(linhas_html)}</tbody></table></div>')
+
+
+# ============================== barra de progresso (prontidão metodológica) ==============================
+
+
+def barra_progresso(n, minimo, rotulo):
+    """Barra de progresso acessível (`role="img"`, `<title>` e `<desc>` com o valor e o mínimo, como todo SVG do painel) de `n` contra `minimo`.
+
+    A cor vem só de classes de `painel.css` (azul em andamento, verde ao atingir o mínimo); o texto "n / mínimo" acompanha a
+    barra na página, então a cor não é a única pista. `n` acima do mínimo enche a barra, mas o texto mostra o valor real."""
+    n, minimo = int(_pos(n)), max(int(_pos(minimo)), 1)
+    atual = min(n, minimo)
+    texto = f"{fmt.numero(n)} / {fmt.numero(minimo)}"
+    classe = "be-conf" if n >= minimo else "be-prog"
+    largura = 1000 * atual / minimo
+    parte = f'<rect class="{classe}" x="0" y="0" width="{_f(largura)}" height="20"/>' if largura else ""
+    return (f'<svg class="barra-progresso" viewBox="0 0 1000 20" preserveAspectRatio="none" role="img">'
+            f'<title>{_t(rotulo)}: {_t(texto)}</title><desc>Progresso de {_t(rotulo)}: {_t(texto)} (mínimo {fmt.numero(minimo)}).</desc>'
+            f'<rect class="be-fundo" x="0" y="0" width="1000" height="20" rx="6"/>{parte}</svg>')

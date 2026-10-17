@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_selos.html" as s %}
+{% import "_prontidao.html" as pr %}
 {% block titulo %}Visão geral{% endblock %}
 {% block conteudo %}
 <h1>Visão geral</h1>
@@ -40,6 +41,14 @@
     {% if pend %}<a class="botao" href="/revisao/achados">Continuar a revisão ({{ pend }})</a>{% else %}<p>Nada pendente.</p>{% endif %}
   </section>
 </div>
+
+{% if prontidao %}
+<section class="cartao" aria-labelledby="t-prontidao">
+  <h2 id="t-prontidao">Prontidão metodológica</h2>
+  <p class="sub">O que falta rotular por uma pessoa para destravar cada análise. <a href="/analises?secao=visao">Detalhes</a></p>
+  {{ pr.cartoes(prontidao, true) }}
+</section>
+{% endif %}
 
 <section class="cartao">
   <h2>Últimas execuções</h2>

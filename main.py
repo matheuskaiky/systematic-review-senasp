@@ -15,9 +15,10 @@ from dominio.modelos import ParametrosClassificacao
 from dominio.erros import CotaDiariaEsgotada
 from dominio.entrada import separar_runs, descricao_motivos_falha_download
 from dominio import auditoria_negativos as AN
+from dominio.rotulagem import FOLGA_PADRAO as FOLGA_PADRAO_ROTULAGEM
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia, dominio_de
 from dominio.triagem_escopo import atomo_do_modelo_de_consulta, estimar_custo
-from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao, triagem_escopo
+from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao, rotulagem, triagem_escopo
 from aplicacao.planejamento import planejar_download, planejar_classificacao
 from infra.log import iniciar_log
 from infra.util import coletar_ambiente
@@ -481,6 +482,46 @@ def auditoria_negativos_importar(a, fab):
               "Classificação (revisor, linha): " + ", ".join(f"{c} ({rev}, linha {l})" for c, rev, l in r["conflitos"]))
 
 
+def rotulagem_modelo(a, fab):
+    """Gera, em uma pasta, so as linhas que faltam para destravar H2, H5 e a auditoria dos negativos (ver `aplicacao/rotulagem.py`).
+    Com --listar so mostra as contagens. So le o banco; recusa sobrescrever arquivos que ja existam."""
+    pasta = Path(a.saida) if a.saida else S.OUT_DIR / "rotulagem"
+    try:
+        pasta_txt = pasta.relative_to(Path.cwd()).as_posix()
+    except ValueError:
+        pasta_txt = pasta.as_posix()
+    plano = rotulagem.planejar(fab.repo, a.folga, a.semente, a.semente, a.aleatoria, a.h4, a.meta_h4 / 100, pasta_txt)
+    print(f"Rotulagem mínima (folga de {a.folga:g}%, semente {plano['parametros']['semente']!r}):")
+    print("\n".join(rotulagem.resumo_texto(plano)))
+    arquivos = rotulagem.arquivos_do_plano(plano)
+    if not arquivos:
+        print("Nada a gerar: as três análises já estão destravadas.")
+        return
+    if a.listar:
+        print("Arquivos que seriam gerados em " + pasta_txt + ": " + ", ".join(f"{n} ({k} linhas)" for n, k in arquivos))
+        print("Nada foi gravado (--listar). Para gerar: python main.py rotulagem-modelo" + (f" --saida {pasta_txt}" if a.saida else ""))
+        return
+    alvos = [pasta / n for n, _ in arquivos] + [pasta / rotulagem.ARQ_LEIAME]
+    existentes = [str(p) for p in alvos if p.exists()]
+    if existentes:
+        raise SystemExit("Já existem (podem ter respostas): " + ", ".join(existentes) + ". Escolha outra pasta com --saida ou apague os arquivos.")
+    planilhas, csvs = exportacao.tabelas_rotulagem(plano, sorted(set(V.STATUS) | set(V.STATUS_FINAL_EXTRA)))
+    pasta.mkdir(parents=True, exist_ok=True)
+    for nome, tabelas in planilhas.items():
+        fab.exportador.exportar(tabelas, pasta / nome)
+    for nome, df in csvs.items():
+        df.to_csv(pasta / nome, index=False, encoding="utf-8-sig")
+    (pasta / rotulagem.ARQ_LEIAME).write_text("\n".join(rotulagem.leiame_pasta(plano)) + "\n", encoding="utf-8")
+    print("Gerado:")
+    for p in alvos:
+        print("  ", p)
+    print(f"Tempo estimado: cerca de {rotulagem.estimativa_horas(plano) / 60:.1f} h (ritmo suposto; veja o LEIA-ME.txt).")
+    print("Próximos comandos (depois de preencher cada arquivo):")
+    for nome, _ in arquivos:
+        imp = {rotulagem.ARQ_ACHADOS: "achados-importar", rotulagem.ARQ_AUDITORIA: "auditoria-negativos-importar"}.get(nome, "triagem-importar")
+        print(f"  python main.py {imp} {pasta_txt}/{nome}")
+
+
 def migrar_robots(a, fab):
     """Reclassifica `bloqueado_por_robots` em `robots_inacessivel` quando o robots.txt nao foi lido (so conta, sem --aplicar)."""
     r = fab.repo.reclassificar_bloqueios_robots(aplicar=a.aplicar, pasta_backup=S.DATA_DIR / "backups")
@@ -566,6 +607,15 @@ def main():
     s.add_argument("--semente", default=AN.SEMENTE_PADRAO, help="semente do sorteio (a mesma semente repete a mesma amostra)")
     s.add_argument("--saida", help="arquivo .csv de saida (padrao: outputs/auditoria_negativos_amostra.csv)")
     s.add_argument("--simulado", action="store_true")
+    s = sub.add_parser("rotulagem-modelo", help="gera so as linhas que faltam para destravar H2, H5 e a auditoria dos negativos (planilhas e CSV em outputs/rotulagem/)")
+    s.add_argument("--saida", help="pasta de saida (padrao: outputs/rotulagem)")
+    s.add_argument("--semente", help="semente dos sorteios (a mesma semente repete a mesma selecao); padrao 'rotulagem' (e 'auditoria-negativos' na auditoria)")
+    s.add_argument("--folga", type=float, default=FOLGA_PADRAO_ROTULAGEM, help="folga percentual sobre o que falta (padrao 10)")
+    s.add_argument("--aleatoria", action="store_true", help="achados: amostra aleatoria simples (serve a precisao global) em vez da enriquecida em provaveis erros")
+    s.add_argument("--h4", action="store_true", help="gera tambem rotulagem_triagem_h4.xlsx, com artigos excluidos pelo modelo para a falsa exclusao (H4)")
+    s.add_argument("--meta-h4", type=float, default=5.0, choices=(5.0, 2.0), help="meta de falsa exclusao em %% para o tamanho de --h4 (padrao 5)")
+    s.add_argument("--listar", "--estimar", dest="listar", action="store_true", help="so mostra as contagens; nao grava nada")
+    s.add_argument("--simulado", action="store_true")
     s = sub.add_parser("auditoria-negativos-importar", help="importa o CSV preenchido da auditoria dos negativos do modelo (idempotente)")
     s.add_argument("arquivo"); s.add_argument("--simulado", action="store_true")
     sub.add_parser("manual-artigos-modelo")
@@ -621,6 +671,8 @@ def main():
         migrar_robots(a, fab)
     elif a.cmd == "auditoria-negativos-modelo":
         auditoria_negativos_modelo(a, fab)
+    elif a.cmd == "rotulagem-modelo":
+        rotulagem_modelo(a, fab)
     elif a.cmd == "auditoria-negativos-importar":
         auditoria_negativos_importar(a, fab)
     elif a.cmd == "manual-artigos-modelo":

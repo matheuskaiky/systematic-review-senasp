@@ -18,6 +18,7 @@ from itertools import combinations
 from dominio import estatistica as est
 from dominio.auditoria_negativos import amostra_minima_sem_erros
 from dominio.concordancia import interpretar_kappa
+from dominio.prontidao import prontidao_auditoria, prontidao_h2, prontidao_h5
 
 # ---------- constantes ----------
 # Pontuacao ordinal do ciclo de adocao (plano de analise, secao 3.1). `descartado` fica de fora.
@@ -770,6 +771,34 @@ class LeituraAnalises:
         return {"n_auditadas": n, "n_perdidas": k, "taxa": _taxa(k, n), "ic_wilson": ic, "limite_superior": sup, "tem_dados": n > 0,
                 "n_universo": universo, "n_restantes": restantes, "por_tecnologia": por_tec, "metas": metas,
                 "estimativa_paginas_perdidas": estimativa}
+
+    # ---------- 18. prontidao metodologica (o que falta rotular para destravar H2, H5 e a auditoria) ----------
+    def analise_prontidao(self):
+        """Progresso dos tres mínimos de rotulagem humana (`dominio.prontidao`; os numeros sao os dos scripts de `analises/`):
+
+        - h2: achados verificados (de `r_achados`, com os tres preditores preenchidos, como `h2_logistica.py` conta) e a classe
+          menos frequente entre confirmados e descartados;
+        - h5: artigos com decisao humana de triagem incluir ou excluir (`r_artigos`, como `h5_bibliometria.py`) e o menor grupo;
+        - auditoria: paginas negativas conferidas (`v_auditoria_negativos`) do universo de `v_negativos_auditaveis`.
+
+        Devolve {h2, h5, auditoria}, cada um com {condicoes: [{rotulo, n, minimo, faltam, destravado, fracao}], destravado,
+        faltam, ...}; h2 traz tambem `n_verificados_total` e `n_sem_preditor`."""
+        a = self._ler_um("""
+            SELECT COALESCE(SUM(a.verificado = 1), 0) AS verificados,
+                   COALESCE(SUM(a.verificado = 1 AND a.evidencia_confere IS NOT NULL AND a.evidencia_cita_tecnologia IS NOT NULL
+                                AND f.fonte_oficial_efetiva IS NOT NULL AND COALESCE(a.status_final, '') <> 'descartado'), 0) AS confirmados,
+                   COALESCE(SUM(a.verificado = 1 AND a.evidencia_confere IS NOT NULL AND a.evidencia_cita_tecnologia IS NOT NULL
+                                AND f.fonte_oficial_efetiva IS NOT NULL AND a.status_final = 'descartado'), 0) AS descartados
+            FROM r_achados a LEFT JOIN v_fonte_da_classificacao f ON f.classificacao_id = a.classificacao_id""") or {}
+        h2 = prontidao_h2(_i(a.get("confirmados")), _i(a.get("descartados")))
+        h2["n_verificados_total"] = _i(a.get("verificados"))
+        h2["n_sem_preditor"] = h2["n_verificados_total"] - h2["n_confirmados"] - h2["n_descartados"]
+        t = {l["decisao"]: l["n"] for l in self._ler(
+            """SELECT t.decisao, COUNT(*) AS n FROM r_artigos a JOIN triagem t ON t.artigo_id = a.artigo_id
+               WHERE t.decisao IN ('incluir', 'excluir') GROUP BY t.decisao""")}
+        h5 = prontidao_h5(t.get("incluir", 0), t.get("excluir", 0))
+        aud = self.analise_auditoria_negativos()
+        return {"h2": h2, "h5": h5, "auditoria": prontidao_auditoria(aud["n_auditadas"], aud["n_universo"], aud["n_perdidas"])}
 
     # ---------- 17. paginas que a coleta nao conseguiu verificar (RC22) ----------
     def analise_nao_verificaveis(self, limite=10):

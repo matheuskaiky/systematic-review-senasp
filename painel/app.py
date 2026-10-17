@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 from aplicacao import revisao
 from dominio import relevancia as relev
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
-from painel import formatacao as fmt, mapa_ufs, navegacao, rotulos
+from painel import analises_blocos, formatacao as fmt, mapa_ufs, navegacao, rotulos
 from painel.entidades import Entidades, explicacao_da_entidade, link_entidade
 from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_do_brasil, mapa_de_calor
 
@@ -162,7 +162,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
                                 rev["total"], f"{rev['confirmados']} confirmados, {rev['descartados']} descartados, "
                                               f"{rev['total'] - rev['verificados']} pendentes")
         return pagina(request, "geral.html", r=r, rev=rev, funil=funil, barra=barra, alertas=alertas,
-                      execucoes=leitura.execucoes_recentes(5), n_ufs=len(contexto.ufs))
+                      execucoes=leitura.execucoes_recentes(5), n_ufs=len(contexto.ufs),
+                      prontidao=analises_blocos.bloco_prontidao(leitura.analise_prontidao())["cartoes"])
 
     # ---------- estados ----------
     def _linhas_ufs():

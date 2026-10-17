@@ -1,0 +1,21 @@
+{# Cartões da prontidão metodológica (H2, H5, auditoria dos negativos). `cartoes` vem de analises_blocos.bloco_prontidao. #}
+{% macro cartoes(lista, compacto=False) %}
+<div class="prontidao{% if compacto %} prontidao-compacto{% endif %}">
+{% for c in lista %}
+  <article class="cartao" aria-labelledby="pr-{{ c.id }}{{ '-c' if compacto }}">
+    <h3 id="pr-{{ c.id }}{{ '-c' if compacto }}">{{ c.titulo }}</h3>
+    <p><span class="selo {{ c.classe }}"><span aria-hidden="true">{{ "✔" if c.destravado else "○" }}</span> {{ c.status }}</span></p>
+    {% for k in c.condicoes %}
+    <div class="condicao">
+      <div class="condicao-texto"><span>{{ k.rotulo }}</span><span>{{ k.texto }}</span></div>
+      {{ k.barra }}
+    </div>
+    {% endfor %}
+    {% if not compacto %}<p>{{ c.condicao }}</p>{% endif %}
+    {% if c.href %}<p><a href="{{ c.href }}">{{ c.rotulo_link }}</a></p>{% endif %}
+    {% if c.comando %}<p>Comando: <code>{{ c.comando }}</code></p>{% endif %}
+    {% if c.nota and not compacto %}<p class="an-subtitulo">{{ c.nota }}</p>{% endif %}
+  </article>
+{% endfor %}
+</div>
+{% endmacro %}

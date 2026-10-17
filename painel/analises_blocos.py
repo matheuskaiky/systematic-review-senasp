@@ -372,6 +372,55 @@ def bloco_falsa_exclusao(d):
                          ("Categorias dos casos", ", ".join(f"{c}: {v}" for c, v in (d.get("por_categoria_falsa") or {}).items()) or "nenhum")])
 
 
+def bloco_prontidao(d):
+    """Prontidão metodológica: para cada análise travada por falta de decisão humana (H2, H5 e a auditoria dos negativos), o que já
+    foi rotulado contra o mínimo que o script exige, uma barra de progresso, a situação ("destravado" ou "faltam N") e onde agir.
+    `d` = `analise_prontidao()`. O bloco traz `cartoes` (lidos por `_prontidao.html`, também na página inicial)."""
+    h2, h5, au = d.get("h2") or {}, d.get("h5") or {}, d.get("auditoria") or {}
+
+    def cartao(id_, titulo, trava, condicao, href, rotulo_link, comando=None, nota=None, situacao=None):
+        condicoes = [{**c, "texto": f"{fmt.numero(c['n'])} / {fmt.numero(c['minimo'])}",
+                      "barra": Markup(g.barra_progresso(c["n"], c["minimo"], c["rotulo"]))} for c in trava.get("condicoes") or []]
+        if situacao:
+            status, classe = situacao
+        elif trava.get("destravado"):
+            status, classe = "destravado", "ok"
+        else:
+            status, classe = f"faltam {fmt.numero(trava.get('faltam'))}", "neutro"
+        return {"id": id_, "titulo": titulo, "condicao": condicao, "condicoes": condicoes, "status": status, "classe": classe,
+                "destravado": bool(trava.get("destravado")), "faltam": trava.get("faltam", 0), "href": href, "rotulo_link": rotulo_link,
+                "comando": comando, "nota": nota}
+
+    c2, c5, ca = h2.get("condicoes") or [{}, {}], h5.get("condicoes") or [{}, {}], au.get("condicoes") or [{}]
+    rara = min(h2.get("n_confirmados", 0), h2.get("n_descartados", 0))
+    cartoes = [
+        cartao("h2", "H2: regressão logística da confirmação", h2,
+               f"{fmt.numero(c2[0].get('n'))} achados verificados de {fmt.numero(c2[0].get('minimo'))} necessários; classe minoritária "
+               f"{fmt.numero(rara)} de {fmt.numero(c2[1].get('minimo'))} necessários "
+               f"({fmt.numero(h2.get('n_confirmados'))} confirmados, {fmt.numero(h2.get('n_descartados'))} descartados).",
+               "/revisao/achados", "Verificar achados",
+               nota="Faltam, no mínimo, tantos achados quanto a maior das duas faltas: um mesmo achado pode contar nas duas."),
+        cartao("h5", "H5: citações e posição × inclusão", h5,
+               f"{fmt.numero(c5[0].get('n'))} artigos com decisão de triagem de {fmt.numero(c5[0].get('minimo'))}; "
+               f"{fmt.numero(h5.get('n_incluir'))} incluídos e {fmt.numero(h5.get('n_excluir'))} excluídos (mínimo {fmt.numero(c5[1].get('minimo'))} de cada).",
+               "/literatura/triagem", "Triar artigos"),
+        cartao("auditoria", "Auditoria dos negativos do modelo", au,
+               f"{fmt.numero(ca[0].get('n'))} páginas negativas auditadas de {fmt.numero(ca[0].get('minimo'))}, "
+               f"do universo de {fmt.numero(au.get('n_universo'))}.",
+               None, None, comando="python main.py auditoria-negativos-modelo --amostra %d" % (ca[0].get("minimo") or 0),
+               nota=("O mínimo vale se nenhuma aplicação perdida for encontrada; achando alguma, a meta de 5% exige mais páginas."),
+               situacao=(("mínimo atingido, mas há aplicação perdida: meta não provada", "alerta selo-longo")
+                         if ca[0].get("destravado") and au.get("n_perdidas") else None)),
+    ]
+    abertas = [c for c in cartoes if not c["destravado"]]
+    titulo = ("Os três mínimos de rotulagem humana estão atingidos" if not abertas else
+              f"{len(abertas)} de 3 análises ainda dependem de rotulagem humana")
+    return {**_bloco("prontidao", titulo, subtitulo="Cada barra compara o que já foi rotulado por uma pessoa com o mínimo que o script da análise exige.",
+                     texto=["Para rotular só o necessário, com uma pequena folga: python main.py rotulagem-modelo --listar (mostra as contagens) e, "
+                            "depois, python main.py rotulagem-modelo (gera as planilhas)."]),
+            "cartoes": cartoes}
+
+
 def bloco_hipoteses(resumo, funil, falsa_exclusao=None):
     """Quadro do que cada hipotese do plano de analise ja pode ser testada e o que falta."""
     achados_h = bool(resumo.get("tem_dados_humanos_achados"))

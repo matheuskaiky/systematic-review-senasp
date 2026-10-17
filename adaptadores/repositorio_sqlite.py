@@ -1030,6 +1030,38 @@ class RepositorioSQLite:
                WHERE NOT EXISTS (SELECT 1 FROM auditoria_negativos a WHERE a.classificacao_id = n.classificacao_id)
                ORDER BY n.classificacao_id""")]
 
+    def resumo_auditoria_negativos(self):
+        """{n_auditadas, n_perdidas, n_universo} da auditoria dos negativos: paginas conferidas (por classificacao, como
+        `v_auditoria_negativos`), quantas tinham aplicacao perdida e o universo auditavel (`v_negativos_auditaveis`)."""
+        t = self.conn.execute("SELECT n_auditadas, n_com_aplicacao_perdida FROM v_auditoria_negativos WHERE grupo = 'total'").fetchone()
+        universo = self.conn.execute("SELECT COUNT(*) FROM v_negativos_auditaveis").fetchone()[0]
+        return {"n_auditadas": int(t[0] or 0) if t else 0, "n_perdidas": int(t[1] or 0) if t else 0, "n_universo": int(universo)}
+
+    def achados_para_rotulagem(self):
+        """Todos os achados vigentes (as colunas da aba Achados da exportacao, `v_achados_revisao`) mais `fonte_oficial_efetiva`
+        (a mesma que `analises/h2_logistica.py` usa como preditor), como dicionarios, por `achado_id`. Inclui os ja verificados:
+        quem chama conta e filtra. So le."""
+        return [dict(l) for l in self.conn.execute(
+            """SELECT v.*, COALESCE(v.fonte_oficial_final, v.fonte_oficial) AS fonte_oficial_efetiva
+               FROM v_achados_revisao v ORDER BY v.achado_id""")]
+
+    def artigos_para_rotulagem(self):
+        """Artigos de `r_artigos` com o necessario para montar a aba Triagem da exportacao (mesmas colunas) e para estratificar:
+        `titulo`, `snippet` e `autores_publicacao` (relevancia), `status_escopo` e `valido_escopo` (ultimo veredito do modelo,
+        None se nao houve) e `decisao` ('pendente' se a pessoa ainda nao decidiu). Por `artigo_id`. So le."""
+        return [dict(l) for l in self.conn.execute(
+            """SELECT a.artigo_id, a.titulo, a.ano, a.link, a.citacoes, a.autores_publicacao, a.snippet,
+                      e.status AS status_escopo, e.valido AS valido_escopo,
+                      CASE WHEN e.status IS NULL THEN NULL
+                           ELSE e.status || CASE WHEN e.categoria_motivo IS NOT NULL THEN ': ' || e.categoria_motivo ELSE '' END END AS triagem_llm,
+                      COALESCE(t.decisao, 'pendente') AS decisao, t.motivo, t.confirmado_em_base, t.link_confirmado, t.revisor,
+                      t.revisado_em, t.decisao_texto_completo, t.motivo_texto_completo
+               FROM r_artigos a
+               LEFT JOIN triagem t ON t.artigo_id = a.artigo_id
+               LEFT JOIN triagem_escopo e ON e.id = (SELECT MAX(x.id) FROM triagem_escopo x
+                                                     WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '')
+               ORDER BY a.artigo_id""")]
+
     def importar_auditoria_negativos(self, registros):
         """Grava as respostas da auditoria (saida de `dominio.auditoria_negativos.validar_respostas`). Tudo e conferido antes
         da primeira gravacao: a classificacao precisa existir, nao ter achados e, se a planilha traz `url_id` e `uf`, bater

@@ -116,7 +116,9 @@ POLITICA_DOWNLOAD = PoliticaDownload(
     palavras_chave=("reconhecimento facial", "câmera", "camera", "videomonitoramento",
                     "inteligência artificial", "inteligencia artificial", "placas",
                     "preditiv", "licitação", "licitacao", "pregão", "pregao", "edital",
-                    "monitoramento"),
+                    "monitoramento",
+                    # RC14: tecnologia atendimento_virtual (sem estas palavras o pre-filtro descartaria o titulo/snippet)
+                    "chatbot", "whatsapp", "atendimento virtual", "delegacia virtual", "boletim de ocorrencia"),
     max_urls_por_uf=40,
     dominios_excluir=("youtube.com", "tiktok.com", "twitter.com", "x.com"),
     apenas_oficiais=False,

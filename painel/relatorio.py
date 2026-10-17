@@ -131,7 +131,21 @@ def _visao_geral(d):
             f'<div class="duas-colunas funil-progresso"><div><h3>Funil</h3>{funil}</div><div><h3>Progresso da revisão</h3>{barra}'
             f'<ul class="legenda"><li><span class="selo ok">✔ Confirmados</span> {fmt.numero(rev["confirmados"])}</li>'
             f'<li><span class="selo st-descartado">✕ Descartados</span> {fmt.numero(rev["descartados"])}</li>'
-            f'<li><span class="selo neutro">○ Pendentes</span> {fmt.numero(pend)}</li></ul></div></div></section>')
+            f'<li><span class="selo neutro">○ Pendentes</span> {fmt.numero(pend)}</li></ul></div></div>{_aviso_nao_verificaveis(d)}</section>')
+
+
+def _aviso_nao_verificaveis(d):
+    """RC22: avisa, na visao geral, das paginas que a coleta nao conseguiu verificar (robots.txt inacessivel). Nao verificavel
+    nao e o mesmo que proibido pelo site; a politica de bloquear nesse caso foi mantida."""
+    nv = ((d.get("fatos") or {}).get("web") or {}).get("nao_verificaveis") or {}
+    n = nv.get("nao_verificavel_robots") or 0
+    if not n:
+        return ""
+    prib, n404 = nv.get("proibido_pelo_site") or 0, nv.get("falha_definitiva_404") or 0
+    return (f'<p class="aviso">{fmt.numero(n)} {"página não pôde" if n == 1 else "páginas não puderam"} ser verificadas porque o robots.txt do site '
+            f'estava inacessível (em {fmt.numero(nv.get("n_dominios_nao_verificaveis") or 0)} domínios). Isso não é o mesmo que o site proibir a '
+            f'leitura: não sabemos o que ele decidiu, e por política (RFC 9309) elas ficaram fora da coleta. Outras {fmt.numero(prib)} foram '
+            f'proibidas pelo site e {fmt.numero(n404)} deram erro 404 ou 410. O levantamento pode ter deixado de ver conteúdo nessas páginas.</p>')
 
 
 def _mapa(d):

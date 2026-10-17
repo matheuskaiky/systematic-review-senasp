@@ -120,7 +120,7 @@ def test_execucao_que_encerra_por_falta_de_chave_nao_consta_como_concluida(ambie
 def test_estimar_real_funciona_sem_chave(ambiente_cli, monkeypatch, capsys):
     _rodar(monkeypatch, "estimar")
     saida = capsys.readouterr().out
-    assert "Web queries: 270" in saida
+    assert "Web queries: 324" in saida          # RC14: 27 x 6 x 2 (eram 270 com cinco tecnologias)
     assert "Saldo: indisponível" in saida
 
 
@@ -169,7 +169,7 @@ def test_execucao_grava_o_resumo_de_metricas(ambiente_cli, monkeypatch):
     linha = _runs(ambiente_cli)[0]
     m = json.loads(linha["metricas_json"])
     assert linha["status"] == "concluida" and linha["finalizado_em"] and linha["config_hash"] and linha["config_json"]
-    esperadas = len(main.C.TERMOS) + 20 + 6 + 6      # academico + busca web + download + classificacao
+    esperadas = len(main.C.TERMOS) + 24 + 6 + 6      # academico + busca web (2 UFs x 6 tecnologias x 2 modelos, RC14) + download + classificacao
     assert (m["chamadas"], m["sucesso"], m["falhas"]) == (esperadas, esperadas, 0)
     assert (m["tokens_entrada"], m["tokens_saida"], m["custo_usd"]) == (600, 120, 0.0)
     assert m["latencia_media_ms"] == 1

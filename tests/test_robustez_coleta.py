@@ -417,19 +417,19 @@ def _val(repo, sql):
 
 def test_sem_excluir_as_views_agregadas_somam_as_duas_execucoes(tmp_path, silencio):
     repo, _, _ = _duas_execucoes_web(tmp_path)
-    assert _val(repo, "SELECT requisicoes_busca_web FROM v_eficiencia") == 20
-    assert _val(repo, "SELECT n_resultados FROM v_dominios WHERE dominio='exemplo.gov.br'") == 40
+    assert _val(repo, "SELECT requisicoes_busca_web FROM v_eficiencia") == 24      # 6 tecnologias x 2 modelos por execucao (eram 5 antes do RC14)
+    assert _val(repo, "SELECT n_resultados FROM v_dominios WHERE dominio='exemplo.gov.br'") == 48
 
 
 def test_execucao_fora_do_relatorio_sai_das_views_agregadas(tmp_path, silencio):
     repo, run1, run2 = _duas_execucoes_web(tmp_path)
     repo.definir_no_relatorio(run2, False, "piloto")
-    assert _val(repo, "SELECT requisicoes_busca_web FROM v_eficiencia") == 10
-    assert _val(repo, "SELECT custo_total_usd FROM v_eficiencia") == pytest.approx(0.05)
-    assert _val(repo, "SELECT n_resultados FROM v_dominios WHERE dominio='exemplo.gov.br'") == 20
-    assert _val(repo, "SELECT n_resultados FROM v_dominios WHERE dominio='blog.exemplo.com.br'") == 5
+    assert _val(repo, "SELECT requisicoes_busca_web FROM v_eficiencia") == 12
+    assert _val(repo, "SELECT custo_total_usd FROM v_eficiencia") == pytest.approx(0.06)
+    assert _val(repo, "SELECT n_resultados FROM v_dominios WHERE dominio='exemplo.gov.br'") == 24
+    assert _val(repo, "SELECT n_resultados FROM v_dominios WHERE dominio='blog.exemplo.com.br'") == 6
     p1 = dict(repo.conn.execute("SELECT * FROM v_rendimento_por_posicao WHERE posicao=1").fetchone())
-    assert (p1["n_resultados"], p1["n_urls"], p1["n_confirmados"]) == (10, 2, 10)             # so a execucao 1: gov/1 e gov/3
+    assert (p1["n_resultados"], p1["n_urls"], p1["n_confirmados"]) == (12, 2, 12)             # so a execucao 1: gov/1 e gov/3
     assert _val(repo, "SELECT n_achados FROM v_resumo_uf WHERE uf='PI'") == 4
     assert _val(repo, "SELECT COUNT(*) FROM v_status_url") == 4
     assert _val(repo, "SELECT SUM(n_achados) FROM v_precisao_llm") == 4
@@ -468,7 +468,7 @@ def test_incluir_de_volta_restaura_as_views(tmp_path, silencio):
     repo, run1, run2 = _duas_execucoes_web(tmp_path)
     repo.definir_no_relatorio(run2, False, "piloto")
     repo.definir_no_relatorio(run2, True)
-    assert _val(repo, "SELECT requisicoes_busca_web FROM v_eficiencia") == 20
+    assert _val(repo, "SELECT requisicoes_busca_web FROM v_eficiencia") == 24
     linha = repo.conn.execute("SELECT no_relatorio, motivo_exclusao, excluida_em FROM execucoes WHERE run_id=?", (run2,)).fetchone()
     assert tuple(linha) == (1, None, None)
 

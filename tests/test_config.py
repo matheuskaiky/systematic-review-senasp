@@ -3,10 +3,11 @@ from config import consultas as C, prompts as P, vocabulario as V
 from dominio.servicos import gerar_consultas_web
 
 
-def test_gerar_consultas_web_da_configuracao_entregue_gera_270():
+def test_gerar_consultas_web_da_configuracao_entregue_gera_324():
+    # RC14: seis tecnologias (a sexta e atendimento_virtual); eram 27 x 5 x 2 = 270
     consultas = gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, C.UFS)
-    assert len(consultas) == 27 * 5 * 2 == 270
-    assert len({c.id for c in consultas}) == 270
+    assert len(consultas) == 27 * 6 * 2 == 324
+    assert len({c.id for c in consultas}) == 324
 
 
 def test_consultas_usam_perfis_existentes_e_preenchem_template():

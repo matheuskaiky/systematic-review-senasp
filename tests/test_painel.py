@@ -370,7 +370,7 @@ def test_demo_cobre_todos_os_casos_de_tela(demo):
     c = sqlite3.connect(demo[0])
     um = lambda q: c.execute(q).fetchone()[0]
     assert um("SELECT COUNT(DISTINCT status_reportado) FROM achados") == 6 and um("SELECT COUNT(DISTINCT confianca) FROM achados") == 3
-    assert um("SELECT COUNT(DISTINCT tecnologia) FROM achados") == 5 and um("SELECT COUNT(DISTINCT uf) FROM achados") < 27
+    assert um("SELECT COUNT(DISTINCT tecnologia) FROM achados") == 6 and um("SELECT COUNT(DISTINCT uf) FROM achados") < 27
     assert um("SELECT COUNT(*) FROM achados WHERE evidencia_confere=0") > 0 and um("SELECT COUNT(*) FROM classificacoes WHERE origem_texto='snippet'") > 0
     assert {r[0] for r in c.execute("SELECT status FROM execucoes")} >= {"concluida", "interrompida", "falhou"}
     assert um("SELECT COUNT(*) FROM chamadas WHERE sucesso=0") > 0 and um("SELECT COUNT(DISTINCT motivo) FROM selecao_download WHERE selecionada=0") >= 2

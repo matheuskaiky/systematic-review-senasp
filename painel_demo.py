@@ -37,10 +37,13 @@ FRASES = {
     "videomonitoramento_inteligente": "ampliou o videomonitoramento inteligente com câmeras analíticas no centro da capital",
     "analise_preditiva": "testa um modelo de análise preditiva para planejar o policiamento",
     "outra_ia": "contratou uma plataforma de inteligência artificial para triagem de ocorrências",
+    # RC14: delegacia virtual / chatbot (nome da solucao ficticio abaixo)
+    "atendimento_virtual": "lançou um atendimento virtual por WhatsApp, com assistente de inteligência artificial, para registrar boletim de ocorrência online",
 }
 # nomes proprios FICTICIOS de solucoes: aparecem no texto de parte das paginas e o classificador demonstrativo os devolve em `nome_solucao`
 NOMES_SOLUCAO_DEMO = {"reconhecimento_facial": "Rosto Seguro", "leitura_placas": "Placa Atenta", "videomonitoramento_inteligente": "Olho Central",
-                      "analise_preditiva": "Rota Prevista", "outra_ia": "Atende Mais"}
+                      "analise_preditiva": "Rota Prevista", "outra_ia": "Atende Mais",
+                      "atendimento_virtual": "Delegacia Virtual Modelo"}
 NOME_INVENTADO_DEMO = "Plataforma Fantasma"      # o "modelo" devolve este nome sem que o texto o cite: o sistema o descarta
 
 
@@ -353,7 +356,7 @@ def _povoar_grande(conn, bruto, rnd, snap):
                          kw.get("custo"), erro, kw.get("raw"), kw.get("sha"), "{}"))
         return cid
 
-    # busca web: 27 UFs x 5 tecnologias
+    # busca web: 27 UFs x tecnologias do vocabulario (seis, com atendimento_virtual)
     consultas = [(f"M01-{uf}-{t}", uf, t) for uf in ufs for t in tecs]
     cham_web = {c[0]: chamada("web", "busca_web", "demo_busca", "buscar", "consulta_web", c[0], c[1], custo=0.005, n=22) for c in consultas}
     bruto_ids = []

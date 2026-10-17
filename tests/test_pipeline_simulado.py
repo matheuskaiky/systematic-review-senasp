@@ -70,8 +70,8 @@ def _n(repo, tabela, run_id=None):
 def test_funil_e_consistente(repo, bruto):
     run_id = _pipeline(repo, bruto)
     f = dict(repo.conn.execute("SELECT * FROM v_funil WHERE run_id=?", (run_id,)).fetchone())
-    assert f["consultas_web_ok"] == 20                       # 2 UFs x 5 tecnologias x 2 modelos
-    assert f["resultados"] == 20 * 3
+    assert f["consultas_web_ok"] == 24                       # 2 UFs x 6 tecnologias x 2 modelos (RC14)
+    assert f["resultados"] == 24 * 3
     assert f["urls_unicas"] == 3 * len(UFS)                  # 3 URLs unicas por UF
     assert f["pares_url_uf_selecionados"] == 6 and f["pares_descartados"] == 0
     assert f["paginas_baixadas"] == 6 and f["paginas_com_texto"] == 6
@@ -193,7 +193,7 @@ COLUNAS_OBRIGATORIAS = ("run_id", "etapa", "provedor", "operacao", "alvo_tipo", 
 def test_toda_chamada_grava_as_metricas_e_o_bruto(repo, bruto, tmp_path):
     _pipeline(repo, bruto)
     linhas = repo.conn.execute("SELECT * FROM chamadas").fetchall()
-    assert len(linhas) == 32                                    # 20 buscas + 6 downloads + 6 classificacoes
+    assert len(linhas) == 36                                    # 24 buscas + 6 downloads + 6 classificacoes
     for l in linhas:
         faltando = [c for c in COLUNAS_OBRIGATORIAS if l[c] is None]
         assert not faltando, f"chamada {l['chamada_id']} ({l['etapa']}) sem {faltando}"

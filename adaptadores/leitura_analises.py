@@ -9,9 +9,15 @@ Regras comuns:
 - proporcoes nunca dividem por zero: sem denominador, o valor e None;
 - o que depende de decisao humana traz tambem quantas linhas tem decisao humana (`n_verificados` para achados, `n_humanos`
   para artigos), para a pagina avisar "aguardando verificacao humana" quando for 0."""
+import json
 import sqlite3
 import statistics
 from collections import Counter, defaultdict
+from itertools import combinations
+
+from dominio import estatistica as est
+from dominio.auditoria_negativos import amostra_minima_sem_erros
+from dominio.concordancia import interpretar_kappa
 
 # ---------- constantes ----------
 # Pontuacao ordinal do ciclo de adocao (plano de analise, secao 3.1). `descartado` fica de fora.
@@ -32,6 +38,14 @@ FAIXAS_TEXTO = (("<5k", 0, 5000), ("5-20k", 5000, 20000), ("20-60k", 20000, 6000
 _NAO_INFORMADO = {"", "null", "none", "nan", "-", "n/a", "n/d", "nao informado", "não informado", "nao identificado",
                   "não identificado"}
 _HTTP_BLOQUEIO = ("http_401", "http_403", "http_429")
+
+# Metas de falso negativo da auditoria dos negativos do modelo (decisao do pesquisador): 5% (meta minima) e 2% (meta rigorosa).
+METAS_FALSO_NEGATIVO = (0.05, 0.02)
+# Um robots.txt inacessivel so conta como "nao verificavel" se a falha persistiu: 3 leituras na mesma tentativa (o fetcher le ate 3
+# vezes antes de concluir) ou ao menos 2 tentativas de download com essa falha (em execucoes ou retomadas diferentes).
+LEITURAS_ROBOTS_PERSISTENTE = 3
+TENTATIVAS_ROBOTS_PERSISTENTE = 2
+CLASSES_NAO_VERIFICAVEIS = ("proibido_pelo_site", "nao_verificavel_robots", "falha_definitiva_404", "outras_falhas")
 
 # Veredito atual (a linha de maior id) de cada item da fonte `?` em triagem_escopo; sempre com um unico argumento.
 _TE_ATUAL = ("SELECT te.* FROM triagem_escopo te WHERE te.fonte = ? AND te.id IN "
@@ -680,3 +694,154 @@ class LeituraAnalises:
                 "n_chamadas_busca_web": n_chamadas["busca_web"], "n_chamadas_busca_academica": n_chamadas["busca_academica"],
                 "n_triagem_escopo": te, "provedores": provedores, "tem_dados_humanos_achados": n_ver > 0,
                 "tem_dados_humanos_artigos": n_hum > 0, "tem_dados_humanos": n_ver > 0 or n_hum > 0}
+
+    # ---------- 15. revisao independente dos achados (kappa entre pessoas) ----------
+    def analise_concordancia_achados(self):
+        """Concordancia entre revisores humanos nos achados que dois deles revisaram de forma independente
+        (`achados-importar --independente`; `v_ultima_revisao_achados`: ultima decisao de cada revisor, sem o 'consenso').
+        Desfecho = confirmado (qualquer status_final diferente de 'descartado') x descartado; kappa de Cohen sem peso
+        (`dominio.estatistica.kappa_cohen`, matriz [[confirmam, A confirma e B descarta], [A descarta e B confirma, descartam]])
+        por par de revisores, com a faixa de `dominio.concordancia.interpretar_kappa`. Em `concordancia_status_pct`, a parte em
+        que os dois deram exatamente o mesmo status_final. Kappa None = indefinido (um so desfecho em todos os achados do par).
+
+        Devolve {tem_dados, n_revisores, n_achados_revisados, n_pares, n_discordancias, pares: [{revisor_a, revisor_b, n,
+        ambos_confirmam, ambos_descartam, so_a_confirma, so_b_confirma, discordancias, concordancia_pct, kappa, ic_inferior,
+        ic_superior, interpretacao, n_status_iguais, concordancia_status_pct}]}; vazio quando nao ha revisao independente."""
+        linhas = self._ler("SELECT achado_id, revisor, status_final, desfecho FROM v_ultima_revisao_achados")
+        por_achado, revisores = defaultdict(dict), set()
+        for l in linhas:
+            por_achado[l["achado_id"]][l["revisor"]] = (l["desfecho"], l["status_final"])
+            revisores.add(l["revisor"])
+        pares = []
+        for a, b in combinations(sorted(revisores), 2):
+            comuns = [(d[a], d[b]) for d in por_achado.values() if a in d and b in d]
+            if not comuns:
+                continue
+            n11 = sum(1 for x, y in comuns if x[0] == "confirmado" and y[0] == "confirmado")
+            n10 = sum(1 for x, y in comuns if x[0] == "confirmado" and y[0] == "descartado")
+            n01 = sum(1 for x, y in comuns if x[0] == "descartado" and y[0] == "confirmado")
+            n00 = sum(1 for x, y in comuns if x[0] == "descartado" and y[0] == "descartado")
+            k = est.kappa_cohen([[n11, n10], [n01, n00]])
+            iguais = sum(1 for x, y in comuns if x[1] == y[1])
+            pares.append({"revisor_a": a, "revisor_b": b, "n": len(comuns), "ambos_confirmam": n11, "ambos_descartam": n00,
+                          "so_a_confirma": n10, "so_b_confirma": n01, "discordancias": n10 + n01,
+                          "concordancia_pct": _pct(n11 + n00, len(comuns)), "kappa": k["kappa"], "ic_inferior": k["ic_inferior"],
+                          "ic_superior": k["ic_superior"], "interpretacao": interpretar_kappa(k["kappa"]),
+                          "n_status_iguais": iguais, "concordancia_status_pct": _pct(iguais, len(comuns))})
+        pares.sort(key=lambda p: (-p["n"], p["revisor_a"], p["revisor_b"]))
+        n_disc = _i((self._ler_um("SELECT COUNT(*) AS n FROM v_discordancias_achados") or {}).get("n"))
+        return {"tem_dados": bool(pares), "n_revisores": len(revisores), "n_achados_revisados": len(por_achado), "n_pares": len(pares),
+                "n_discordancias": n_disc, "pares": pares}
+
+    # ---------- 16. auditoria dos negativos do modelo (falsos negativos) ----------
+    def analise_auditoria_negativos(self):
+        """Falsos negativos do modelo: de uma amostra de paginas que ele classificou SEM achado, quantas tinham uma aplicacao
+        de IA segundo uma pessoa (`auditoria_negativos`, via `v_auditoria_negativos`; unidade = classificacao).
+
+        Com k aplicacoes perdidas em n conferidas: taxa k/n, intervalo de Wilson de 95% (`intervalo_wilson`) e limite superior
+        unilateral exato de 95% (`limite_superior_binomial_exato`). Para cada meta de `METAS_FALSO_NEGATIVO`, `n_sem_erros` e o
+        tamanho de amostra com ZERO erros que provaria a meta (`amostra_minima_sem_erros`) e `abaixo_da_meta` diz se o limite
+        superior ja esta abaixo dela (None sem conferencia). `n_universo` = paginas sem achado auditaveis (`v_negativos_auditaveis`,
+        classificacao vigente sobre o texto da pagina) e `estimativa_paginas_perdidas` = taxa x universo, so valendo se a amostra
+        foi sorteada (o comando `auditoria-negativos-modelo` sorteia).
+
+        Devolve {n_auditadas, n_perdidas, taxa, ic_wilson: (inf, sup) ou None, limite_superior, tem_dados, n_universo, n_restantes,
+        por_tecnologia: [{tecnologia, n}], metas: [{meta, n_sem_erros, abaixo_da_meta, faltam_sem_erros}],
+        estimativa_paginas_perdidas: {pontual, minimo, maximo} ou None}."""
+        total = self._ler_um("SELECT n_auditadas, n_com_aplicacao_perdida FROM v_auditoria_negativos WHERE grupo = 'total'") or {}
+        n, k = _i(total.get("n_auditadas")), _i(total.get("n_com_aplicacao_perdida"))
+        por_tec = [{"tecnologia": l["tecnologia"], "n": l["n_com_aplicacao_perdida"]} for l in self._ler(
+            """SELECT tecnologia, n_com_aplicacao_perdida FROM v_auditoria_negativos WHERE grupo = 'tecnologia'
+               ORDER BY n_com_aplicacao_perdida DESC, tecnologia""")]
+        universo = _i((self._ler_um("SELECT COUNT(*) AS n FROM v_negativos_auditaveis") or {}).get("n"))
+        restantes = _i((self._ler_um(
+            """SELECT COUNT(*) AS n FROM v_negativos_auditaveis v
+               WHERE NOT EXISTS (SELECT 1 FROM auditoria_negativos a WHERE a.classificacao_id = v.classificacao_id)""") or {}).get("n"))
+        ic = est.intervalo_wilson(k, n) if n else None
+        sup = est.limite_superior_binomial_exato(k, n) if n else None
+        metas = []
+        for meta in METAS_FALSO_NEGATIVO:
+            n_zero = amostra_minima_sem_erros(meta)
+            metas.append({"meta": meta, "n_sem_erros": n_zero, "abaixo_da_meta": None if sup is None else sup < meta,
+                          "faltam_sem_erros": max(n_zero - n, 0) if k == 0 else None})
+        estimativa = None
+        if n and universo:
+            estimativa = {"pontual": round(universo * k / n), "minimo": round(universo * ic[0]), "maximo": round(universo * ic[1])}
+        return {"n_auditadas": n, "n_perdidas": k, "taxa": _taxa(k, n), "ic_wilson": ic, "limite_superior": sup, "tem_dados": n > 0,
+                "n_universo": universo, "n_restantes": restantes, "por_tecnologia": por_tec, "metas": metas,
+                "estimativa_paginas_perdidas": estimativa}
+
+    # ---------- 17. paginas que a coleta nao conseguiu verificar (RC22) ----------
+    def analise_nao_verificaveis(self, limite=10):
+        """Honestidade sobre o que a coleta NAO conseguiu ver. Para cada URL, vale a ULTIMA tentativa de download entre as
+        execucoes do relatorio (`chamadas`, etapa download). Se ela falhou, a URL cai em uma classe:
+          - `proibido_pelo_site`: o robots.txt foi lido e proibe (`bloqueado_por_robots`);
+          - `nao_verificavel_robots`: o robots.txt estava inacessivel (5xx, tempo esgotado, rede) e a falha PERSISTIU: 3 leituras
+            na mesma tentativa (`extras_json.robots_tentativas`) ou ao menos 2 tentativas de download com essa falha. NAO e
+            proibicao do site: pela RFC 9309 o sistema trata como proibido, mas nao sabemos o que o site decidiu;
+          - `falha_definitiva_404`: HTTP 404 ou 410 na ultima tentativa (a pagina nao existe mais ou mudou de endereco);
+          - `outras_falhas`: o resto (HTTP 401/403/429, erro de leitura ou de rede, robots.txt inacessivel sem confirmacao...).
+        Tentativa que baixou (mesmo sem texto extraido) nao entra: so conta falha de download. A politica de bloquear robots.txt
+        ilegivel nao e alterada aqui.
+
+        Devolve {n_urls_tentadas, n_ok, n_falhas, classes: {classe: {n_paginas, n_dominios, n_ufs, ufs: [..],
+        dominios: [{dominio, n}] (os `limite` com mais paginas), motivos: [{motivo, n}]}}, n_nao_verificaveis,
+        n_dominios_nao_verificaveis}."""
+        limite = min(max(int(limite), 1), 100)
+        vazio_classe = lambda: {"n_paginas": 0, "n_dominios": 0, "n_ufs": 0, "ufs": [], "dominios": [], "motivos": []}
+        saida = {"n_urls_tentadas": 0, "n_ok": 0, "n_falhas": 0, "classes": {c: vazio_classe() for c in CLASSES_NAO_VERIFICAVEIS},
+                 "n_nao_verificaveis": 0, "n_dominios_nao_verificaveis": 0}
+        ultimas = self._ler("""
+            SELECT url_id, sucesso, erro, http_status, extras FROM (
+                SELECT CAST(c.alvo_id AS INTEGER) AS url_id, c.sucesso, c.erro, c.http_status,
+                       CASE WHEN c.erro LIKE 'robots_inacessivel%' THEN c.extras_json END AS extras,
+                       ROW_NUMBER() OVER (PARTITION BY c.alvo_id ORDER BY c.chamada_id DESC) AS pos
+                FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id
+                WHERE c.etapa = 'download' AND e.no_relatorio = 1) WHERE pos = 1""")
+        if not ultimas:
+            return saida
+        falhas_robots = {l["url_id"]: l["n"] for l in self._ler("""
+            SELECT CAST(c.alvo_id AS INTEGER) AS url_id, COUNT(*) AS n FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id
+            WHERE c.etapa = 'download' AND e.no_relatorio = 1 AND c.erro LIKE 'robots_inacessivel%' GROUP BY c.alvo_id""")}
+        dominios = {l["url_id"]: l["dominio"] for l in self._ler("SELECT url_id, dominio FROM urls")}
+        ufs = defaultdict(set)
+        for l in self._ler("""SELECT DISTINCT s.url_id, s.uf FROM selecao_download s JOIN execucoes e ON e.run_id = s.run_id
+                              WHERE e.no_relatorio = 1 AND (s.selecionada = 1 OR s.auditoria = 1)"""):
+            ufs[l["url_id"]].add(l["uf"])
+        grupos = {c: [] for c in CLASSES_NAO_VERIFICAVEIS}
+        saida["n_urls_tentadas"] = len(ultimas)
+        for l in ultimas:
+            if _i(l["sucesso"]) == 1:
+                saida["n_ok"] += 1
+                continue
+            erro = str(l["erro"] or "")
+            if erro.startswith("bloqueado_por_robots"):
+                classe, motivo = "proibido_pelo_site", "bloqueado_por_robots"
+            elif erro.startswith("robots_inacessivel"):
+                leituras = 0
+                try:
+                    extras = json.loads(l["extras"] or "{}")
+                    leituras = max([v for k, v in extras.items() if k.endswith("tentativas") and isinstance(v, int)] or [0])
+                except (TypeError, ValueError, AttributeError):
+                    pass
+                if leituras >= LEITURAS_ROBOTS_PERSISTENTE or falhas_robots.get(l["url_id"], 0) >= TENTATIVAS_ROBOTS_PERSISTENTE:
+                    classe, motivo = "nao_verificavel_robots", "robots_inacessivel"
+                else:
+                    classe, motivo = "outras_falhas", "robots_inacessivel_sem_confirmacao"
+            elif l["http_status"] in (404, 410):
+                classe, motivo = "falha_definitiva_404", f"http_{l['http_status']}"
+            else:
+                classe = "outras_falhas"
+                motivo = (f"http_{l['http_status']}" if l["http_status"] else (erro.split(":")[0].split("(")[0].strip() or "sem_motivo"))
+            grupos[classe].append((l["url_id"], motivo))
+        saida["n_falhas"] = sum(len(g) for g in grupos.values())
+        for classe, itens in grupos.items():
+            doms = Counter(dominios.get(u) or "(sem domínio)" for u, _ in itens)
+            ufs_classe = sorted({uf for u, _ in itens for uf in ufs.get(u, ())})
+            saida["classes"][classe] = {
+                "n_paginas": len(itens), "n_dominios": len(doms), "n_ufs": len(ufs_classe), "ufs": ufs_classe,
+                "dominios": [{"dominio": d, "n": n} for d, n in sorted(doms.items(), key=lambda kv: (-kv[1], kv[0]))[:limite]],
+                "motivos": [{"motivo": m, "n": n} for m, n in sorted(Counter(m for _, m in itens).items(), key=lambda kv: (-kv[1], kv[0]))]}
+        saida["n_nao_verificaveis"] = saida["classes"]["nao_verificavel_robots"]["n_paginas"]
+        saida["n_dominios_nao_verificaveis"] = saida["classes"]["nao_verificavel_robots"]["n_dominios"]
+        return saida

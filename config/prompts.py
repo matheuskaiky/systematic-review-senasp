@@ -3,7 +3,10 @@ from config.vocabulario import STATUS
 # v2: regra 7 e linha "Output language" (entradas em en-US, saidas em pt-BR)
 # v3: status em_estudo; regra 3 exige trecho que nomeie a tecnologia; regra 6 olha so o trecho citado
 # v4: campo nome_solucao (nome proprio da ferramenta, resolvido pelo texto da pagina); 'evidencia' continua 100% literal
-PROMPT_VERSAO = "v4"
+# v5: categoria atendimento_virtual (RC14: BO online, chatbot, WhatsApp, delegacia virtual) e regra 9; outra_ia fica para os demais usos.
+#     O vocabulario (TECNOLOGIAS) e o prompt mudam: o hash de configuracao das execucoes novas muda. As execucoes antigas
+#     (v4) mantem o hash que tinham; a v5 so vale para classificacoes novas (use `classificar` para reclassificar).
+PROMPT_VERSAO = "v5"
 # Por que o nome NAO vai dentro da evidencia (por exemplo, "[BO Fácil] a ferramenta utiliza..."): a checagem `evidencia_confere`
 # exige trecho literal do texto enviado, e um trecho com prefixo entre colchetes seria marcado como "não confere" e perderia a
 # auditoria. O pesquisador aceitou garantir que `nome_solucao` esteja preenchido em vez de enriquecer a evidencia; o nome ainda
@@ -36,6 +39,12 @@ SYSTEM_PROMPT = (
     "you produce in Brazilian Portuguese (pt-BR). Never translate 'evidencia' or 'nome_solucao': they must be copied "
     "exactly as they appear in the source text. JSON keys and enumerated values stay exactly as "
     "defined in the schema.\n"
+    "9. Technology categories: use 'atendimento_virtual' when the finding is a virtual service for citizens, "
+    "such as an online or WhatsApp service, chatbot, virtual assistant or virtual police station that registers "
+    "police reports or occurrences, or serves citizens, and the text says it uses artificial intelligence or "
+    "automation. Use 'outra_ia' only for other uses of artificial intelligence that fit none of the more specific "
+    "categories. A virtual service that the text does not describe as using artificial intelligence or automation "
+    "is not a finding.\n"
     "Status definitions:\n" + _DEFINICOES
 )
 

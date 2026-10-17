@@ -184,6 +184,24 @@ def test_texto_de_metodologia_e_o_mesmo_da_pagina_e_traz_as_ressalvas(banco_demo
     assert "Estes dados são fictícios (demonstração)" in html
 
 
+def test_visao_geral_avisa_das_paginas_nao_verificadas_sem_chamar_de_proibicao(banco_demo):
+    html, d = _html(banco_demo)
+    nv = d["fatos"]["web"]["nao_verificaveis"]
+    assert nv["nao_verificavel_robots"] > 0
+    visao = html.split('id="visao-geral"', 1)[1].split('id="mapa"', 1)[0]
+    assert f"{nv['nao_verificavel_robots']} páginas não puderam ser verificadas porque o robots.txt do site estava inacessível" in visao
+    assert "Isso não é o mesmo que o site proibir a leitura" in visao and "pode ter deixado de ver conteúdo" in visao
+    assert "não puderam ser verificadas" in html.split('id="metodologia"', 1)[1]                       # tambem no texto de metodologia
+
+
+def test_sem_paginas_nao_verificaveis_o_relatorio_nao_traz_o_aviso(tmp_path):
+    from adaptadores.repositorio_sqlite import RepositorioSQLite
+    vazio = tmp_path / "vazio.db"
+    RepositorioSQLite(vazio).fechar()
+    html, d = _html(vazio, nome="simulado.db", tipo="simulado")
+    assert d["fatos"]["web"]["nao_verificaveis"]["nao_verificavel_robots"] == 0 and "não puderam ser verificadas" not in html
+
+
 def test_rodape_traz_execucoes_hash_commit_e_data_de_geracao(banco_demo):
     html, _ = _html(banco_demo)
     rodape = html.split('id="rodape"', 1)[1]

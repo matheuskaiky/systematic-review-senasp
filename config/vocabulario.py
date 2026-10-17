@@ -6,6 +6,9 @@ TECNOLOGIAS = {
     "videomonitoramento_inteligente": "videomonitoramento inteligente câmeras",
     "analise_preditiva": "análise preditiva policiamento preditivo",
     "outra_ia": "inteligência artificial",
+    # RC14: atendimento ao cidadão (BO online, chatbot, WhatsApp, delegacia virtual). O rótulo entra na consulta de busca,
+    # por isso é curto. Mudar este vocabulário muda o hash de configuração das execuções novas.
+    "atendimento_virtual": "atendimento virtual boletim de ocorrência online chatbot WhatsApp",
 }
 
 # key -> definition (goes into the prompt automatically)

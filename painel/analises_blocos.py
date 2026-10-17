@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 from markupsafe import Markup
 
 from dominio import estatistica as est
+from dominio.auditoria_negativos import amostra_minima_sem_erros
 from painel import formatacao as fmt, graficos_analises as g, rotulos, selos_estatisticos as selos
 
 ORDEM_REGIOES = ("Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul")
@@ -297,14 +298,7 @@ CONF = rotulos.CONFIANCA
 def _n_minimo_sem_erros(limite, confianca=0.95):
     """Menor n de artigos conferidos, SEM nenhuma falsa exclusão, para o limite superior unilateral ficar abaixo de `limite`.
     Calculado com `limite_superior_binomial_exato(0, n)` (decrescente em n), por busca binária; nada fixo no código."""
-    baixo, alto = 1, 1_000_000
-    while baixo < alto:
-        meio = (baixo + alto) // 2
-        if est.limite_superior_binomial_exato(0, meio, confianca) < limite:
-            alto = meio
-        else:
-            baixo = meio + 1
-    return baixo
+    return amostra_minima_sem_erros(limite, confianca)
 
 
 def _pct_taxa(x):
@@ -397,6 +391,115 @@ def bloco_hipoteses(resumo, funil, falsa_exclusao=None):
                   tabela={"cabecalho": ["Hipótese", "Situação", "Onde"], "linhas": linhas})
 
 
+def bloco_concordancia_achados(d):
+    """Concordância entre revisores humanos nos achados (kappa de Cohen sobre confirmado x descartado), só com revisão
+    independente. Usa a régua de faixas do projeto; a tabela traz todos os pares. Sem revisão independente, explica como obter."""
+    pares_d = d.get("pares") or []
+    if not d.get("tem_dados") or not pares_d:
+        return _bloco("concordancia_achados", "Dois revisores chegam à mesma decisão? Ainda não dá para medir",
+                      aviso="Aguardando revisão independente: este bloco só aparece com as decisões de dois ou mais revisores sobre os mesmos achados.",
+                      texto=["Mede o quanto duas pessoas concordam, além do que o acaso explicaria, em confirmar ou descartar um achado "
+                             "(kappa de Cohen). Cada revisor decide sozinho, sem ver a decisão do outro.",
+                             "Como obter: cada revisor marca a aba Achados da planilha exportada e importa com "
+                             "python main.py achados-importar <arquivo> --independente. Essa revisão só entra no histórico e não muda a decisão final do achado."],
+                      pares=[("Revisores com revisão independente", fmt.numero(d.get("n_revisores"))),
+                             ("Achados revisados de forma independente", fmt.numero(d.get("n_achados_revisados")))])
+    p = pares_d[0]
+    kappa = p.get("kappa")
+    ic = (p.get("ic_inferior"), p.get("ic_superior"))
+    nomes = f"{p['revisor_a']} e {p['revisor_b']}"
+    if kappa is None:
+        titulo = f"{nomes} decidiram igual em todos os {fmt.numero(p['n'])} achados em comum, mas o kappa não pode ser calculado"
+        graf = g.regua_kappa(None)
+    else:
+        titulo = f"{nomes} concordam de forma {p['interpretacao']} (κ = {fmt.decimal(kappa, 2)}) em {fmt.numero(p['n'])} achados"
+        graf = g.regua_kappa(kappa, ic, titulo)
+    texto = [f"Em {fmt.numero(p['n'])} achados revisados por {nomes}, os dois decidiram igual em {fmt.decimal(p['concordancia_pct'], 0)}% "
+             f"(confirmar ou descartar). Quando o desfecho é muito mais comum que o outro, o kappa pode ser baixo mesmo com concordância alta; "
+             "por isso as duas medidas aparecem juntas."]
+    if kappa is None:
+        texto.append("Sem nenhuma discordância e com um só desfecho (por exemplo, todos confirmados), o acaso esperado é 100% e a conta "
+                     "do kappa não tem solução. Não é um defeito dos revisores.")
+    if p["n"] < 30:
+        texto.append("Com menos de 30 achados em comum o intervalo do kappa é muito largo: trate o valor como indício, não como medida firme.")
+    if d.get("n_discordancias"):
+        texto.append(f"{fmt.numero(d['n_discordancias'])} achado(s) com decisões diferentes esperam a reunião de consenso (aba Discordancias_achados da exportação).")
+    linhas = [[f"{x['revisor_a']} × {x['revisor_b']}", fmt.numero(x["n"]), f"{fmt.decimal(x['concordancia_pct'], 1)}%",
+               fmt.decimal(x["kappa"], 2) if x["kappa"] is not None else "—", x["interpretacao"] or "—",
+               f"{fmt.decimal(x['concordancia_status_pct'], 1)}%"] for x in pares_d]
+    return _bloco("concordancia_achados", titulo, graf,
+                  f"{fmt.numero(d.get('n_achados_revisados'))} achados com revisão independente; desfecho = confirmado (qualquer status final "
+                  "diferente de descartado) ou descartado; intervalo de 95% aproximado",
+                  texto, pares=[("Revisores", fmt.numero(d.get("n_revisores"))), ("Pares de revisores", fmt.numero(d.get("n_pares"))),
+                                ("Achados em comum no par mostrado", fmt.numero(p["n"])),
+                                ("Mesmo status final (par mostrado)", f"{fmt.decimal(p['concordancia_status_pct'], 1)}%")],
+                  tabela={"cabecalho": ["Par de revisores", "Achados em comum", "Concordância", "Kappa", "Leitura", "Mesmo status final"],
+                          "linhas": linhas})
+
+
+def bloco_auditoria_negativos(d):
+    """Falsos negativos do modelo: páginas que ele deixou SEM achado e que uma pessoa conferiu. Taxa com intervalo de Wilson, limite
+    superior exato e o tamanho de amostra necessário com zero erros (calculado, não fixo). Sem conferência, pede a amostra."""
+    n, k = d.get("n_auditadas") or 0, d.get("n_perdidas") or 0
+    metas = d.get("metas") or []
+    por_meta = {m["meta"]: m for m in metas}
+    rotulo_meta = {m["meta"]: f"{100 * m['meta']:g}%" for m in metas}
+    universo = d.get("n_universo") or 0
+    if not n:
+        n_amostra = 30
+        sup30 = est.limite_superior_binomial_exato(0, n_amostra)
+        if not universo:
+            return _bloco("auditoria_negativos", "O modelo deixa passar aplicações? Ainda não há páginas sem achado para conferir",
+                          aviso="Aguardando conferência humana: não há classificações sem achado sobre o texto da página.",
+                          texto=["Este bloco mede, com uma amostra sorteada, quantas páginas que o modelo deixou sem achado tinham uma "
+                                 "aplicação de IA."])
+        frases = [f"{fmt.numero(m['n_sem_erros'])} páginas para mostrar que a taxa está abaixo de {rotulo_meta[m['meta']]}" for m in metas]
+        texto = ["Mede quantas páginas que o modelo deixou SEM achado tinham, na verdade, uma aplicação de IA (falso negativo). É o que "
+                 "diz se o levantamento deixou de ver algo, e só uma pessoa lendo as páginas pode responder.",
+                 "Quantas conferir: se a pessoa não achar nenhuma aplicação perdida, bastam " + " e ".join(frases) + " (limite superior de 95%, "
+                 f"binomial exato). Com só {n_amostra} páginas e nenhum erro, a taxa ainda poderia chegar a {_pct_taxa(sup30)}.",
+                 f"Como obter: python main.py auditoria-negativos-modelo --amostra {metas[0]['n_sem_erros'] if metas else n_amostra}; a pessoa "
+                 "preenche o CSV (1 = havia uma aplicação que o modelo não marcou, 0 = o modelo acertou) e importa com "
+                 "python main.py auditoria-negativos-importar <arquivo>."]
+        return _bloco("auditoria_negativos", "O modelo deixa passar aplicações? Aguardando conferência humana",
+                      aviso="Aguardando conferência humana: nenhuma página sem achado foi conferida por uma pessoa ainda.",
+                      texto=texto,
+                      pares=[("Páginas sem achado (texto da página)", fmt.numero(universo)), ("Conferidas por uma pessoa", "0")]
+                      + [(f"Amostra com zero erros para a meta de {rotulo_meta[m['meta']]}", fmt.numero(m["n_sem_erros"])) for m in metas])
+    taxa, sup = k / n, d["limite_superior"]
+    inf_w, sup_w = d["ic_wilson"]
+    meta0 = metas[0]["meta"] if metas else 0.05
+    graf = g.semaforo_limite(
+        taxa, taxa, sup, meta0, "Taxa de falso negativo do modelo",
+        f"O limite superior unilateral de 95% está abaixo da meta de {rotulo_meta.get(meta0, '5%')}: o modelo perde menos que isso das páginas sem achado",
+        f"Atenção: a taxa observada de aplicações perdidas passa da meta de {rotulo_meta.get(meta0, '5%')}",
+        f"Resultado inconclusivo: o limite superior de 95% fica acima da meta de {rotulo_meta.get(meta0, '5%')}. A amostra conferida ainda é pequena.",
+        n=n, unilateral=True)
+    texto = [f"Uma pessoa leu {fmt.numero(n)} páginas que o modelo deixou sem achado e encontrou uma aplicação de IA perdida em {fmt.numero(k)}. "
+             f"A taxa verdadeira, com 95% de confiança, é no máximo {_pct_taxa(sup)} (intervalo de Wilson: {_pct_taxa(inf_w)} a {_pct_taxa(sup_w)})."]
+    est_p = d.get("estimativa_paginas_perdidas")
+    if est_p and universo:
+        texto.append(f"Se a amostra foi sorteada, isso equivale a cerca de {fmt.numero(est_p['pontual'])} das {fmt.numero(universo)} páginas "
+                     f"sem achado (entre {fmt.numero(est_p['minimo'])} e {fmt.numero(est_p['maximo'])}).")
+    linhas = []
+    for m in metas:
+        if m["abaixo_da_meta"]:
+            situ = "meta atingida"
+        elif k == 0:
+            situ = f"ainda não prova; faltam {fmt.numero(m['faltam_sem_erros'])} páginas sem erro"
+        else:
+            situ = "ainda não prova (houve aplicações perdidas)"
+        linhas.append([f"Abaixo de {rotulo_meta[m['meta']]}", _pct_taxa(sup), fmt.numero(m["n_sem_erros"]), situ])
+    por_tec = ", ".join(f"{_tec(x['tecnologia'])}: {x['n']}" for x in d.get("por_tecnologia") or []) or "nenhuma"
+    return _bloco("auditoria_negativos",
+                  f"{k} de {n} páginas sem achado conferidas tinham uma aplicação que o modelo não marcou ({_pct_taxa(taxa)})",
+                  graf, f"Falso negativo = {_pct_taxa(taxa)} ({k} de {n}); limite superior unilateral de 95% (binomial exato) = {_pct_taxa(sup)}",
+                  texto, pares=[("Páginas conferidas", fmt.numero(n)), ("Aplicações perdidas", fmt.numero(k)),
+                                ("Páginas sem achado no banco", fmt.numero(universo)),
+                                ("Ainda sem conferência", fmt.numero(d.get("n_restantes"))), ("Perdidas por tecnologia", por_tec)],
+                  tabela={"cabecalho": ["Meta", "Limite superior de 95%", "Amostra com zero erros", "Situação"], "linhas": linhas})
+
+
 # ---------------------------------------------------------------- operacao
 def bloco_opacidade(d):
     linhas = [{"dominio": x["dominio"], "total": x["n_tentadas"], "bloqueadas": x["n_robots"] + x["n_http_bloqueio"],
@@ -463,3 +566,47 @@ def bloco_tamanho(d):
                           "linhas": [[x["faixa"], fmt.numero(x["n"]), fmt.numero(x["n_json_invalido"]),
                                       fmt.decimal(x["achados_por_mil_chars"], 2)] for x in d.get("faixas") or []]},
                   pares=[("Cortadas (truncadas)", fmt.numero(tr["n"])), ("Íntegras", fmt.numero(inteiros["n"]))])
+
+
+ROTULOS_NAO_VERIFICAVEIS = {
+    "proibido_pelo_site": "Proibido pelo site (robots.txt lido e proíbe)",
+    "nao_verificavel_robots": "Não verificável (robots.txt inacessível, falha repetida)",
+    "falha_definitiva_404": "Página inexistente (erro 404 ou 410)",
+    "outras_falhas": "Outras falhas (401, 403, rede, leitura…)",
+}
+
+
+def bloco_nao_verificaveis(d):
+    """Páginas que a coleta não conseguiu ver, pela ÚLTIMA tentativa de cada URL. Separa o que o site proibiu do que apenas não
+    pôde ser verificado (robots.txt ilegível), da página que não existe mais e do resto."""
+    n_url = d.get("n_urls_tentadas") or 0
+    classes = d.get("classes") or {}
+    if not n_url:
+        return _bloco("nao_verificaveis", "Sem downloads registrados", aviso="Nenhuma página foi baixada ainda.")
+
+    def n(c):
+        return (classes.get(c) or {}).get("n_paginas") or 0
+    nv = n("nao_verificavel_robots")
+    titulo = (f"{fmt.numero(nv)} {'página não pôde' if nv == 1 else 'páginas não puderam'} ser verificadas: o robots.txt do site "
+              f"estava inacessível, mesmo depois de várias tentativas" if nv
+              else "Nenhuma página ficou sem verificação por robots.txt inacessível")
+    texto = ["Não verificável não é o mesmo que proibido pelo site. Nestes casos o robots.txt (o arquivo em que o site diz o que os "
+             "programas podem ler) não respondeu: deu erro do servidor, demorou demais ou a rede falhou. Não sabemos o que o site decidiu.",
+             "Por decisão do projeto, seguimos a regra da RFC 9309: robots.txt ilegível conta como proibido, o download é tentado de novo e "
+             "só depois se desiste. Por isso essas páginas ficaram fora da coleta, e o levantamento pode ter deixado de ver conteúdo nelas."]
+    if n("falha_definitiva_404"):
+        texto.append(f"Já as {fmt.numero(n('falha_definitiva_404'))} páginas com erro 404 ou 410 não existem mais ou mudaram de endereço; "
+                     "é uma falha da página, não do site nem da coleta.")
+    top = (classes.get("nao_verificavel_robots") or {}).get("dominios") or []
+    pares = [("Páginas com download tentado (última tentativa de cada uma)", fmt.numero(n_url)),
+             ("Baixadas com sucesso", fmt.numero(d.get("n_ok")))]
+    pares += [(ROTULOS_NAO_VERIFICAVEIS[c], fmt.numero(n(c))) for c in ROTULOS_NAO_VERIFICAVEIS]
+    if top:
+        pares.append(("Domínios com mais páginas não verificadas", ", ".join(f"{x['dominio']} ({fmt.numero(x['n'])})" for x in top[:5])))
+    linhas = [[ROTULOS_NAO_VERIFICAVEIS[c], fmt.numero(n(c)), fmt.numero((classes.get(c) or {}).get("n_dominios")),
+               fmt.numero((classes.get(c) or {}).get("n_ufs"))] for c in ROTULOS_NAO_VERIFICAVEIS]
+    return _bloco("nao_verificaveis", titulo, None,
+                  f"Última tentativa de download de cada uma das {fmt.numero(n_url)} páginas; "
+                  "não verificável = robots.txt inacessível em 3 leituras ou em ao menos 2 tentativas",
+                  texto, pares=pares, tabela={"cabecalho": ["Situação", "Páginas", "Domínios", "UFs"], "linhas": linhas},
+                  link={"href": _href("/chamadas", etapa="download", q="robots_inacessivel"), "rotulo": "Ver as chamadas de download com robots.txt inacessível"})

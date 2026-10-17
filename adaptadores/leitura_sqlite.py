@@ -449,8 +449,13 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         return a
 
     def historico_achado(self, achado_id):
-        return self._consulta("""SELECT verificado_por, status_final, observacao, importado_em, desfeita
-                                 FROM achados_revisoes WHERE achado_id=? ORDER BY revisao_id DESC""", (achado_id,))
+        # a revisao independente (cega, so para o kappa) nao aparece aqui: um revisor nao ve a decisao do outro antes do consenso
+        sql = """SELECT verificado_por, status_final, observacao, importado_em, desfeita
+                 FROM achados_revisoes WHERE achado_id=? {} ORDER BY revisao_id DESC"""
+        try:
+            return self._consulta(sql.format("AND independente=0"), (achado_id,))
+        except sqlite3.OperationalError:          # banco ainda sem a coluna `independente` (aberto so para leitura, antes da migracao)
+            return self._consulta(sql.format(""), (achado_id,))
 
     def tem_decisao_para_desfazer(self, achado_id):
         """Ha uma decisao do painel nao desfeita E o achado ainda esta como ela o deixou (senao o desfazer seria recusado)."""

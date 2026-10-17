@@ -43,6 +43,7 @@ def silencio():
     ("videomonitoramento_inteligente", {"videomonitoramento", "inteligente", "camera"}),
     ("analise_preditiva", {"analise", "preditiva", "preditivo", "policiamento"}),
     ("outra_ia", {"inteligencia", "artificial"}),
+    ("atendimento_virtual", {"atendimento", "virtual", "boletim", "ocorrencia", "online", "chatbot", "whatsapp"}),
 ])
 def test_palavras_vem_do_rotulo_da_tecnologia(chave, esperado):
     assert palavras_chave_tecnologia(V.TECNOLOGIAS[chave]) == esperado

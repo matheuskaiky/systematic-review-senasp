@@ -5,6 +5,7 @@ TECNOLOGIAS = {
     "videomonitoramento_inteligente": "Videomonitoramento inteligente",
     "analise_preditiva": "Análise preditiva / policiamento preditivo",
     "outra_ia": "Outra aplicação de IA",
+    "atendimento_virtual": "Atendimento virtual (BO online, chatbot, WhatsApp)",
 }
 STATUS = {
     "em_uso": "Em uso", "piloto": "Piloto", "licitacao": "Licitação/contrato", "anunciado": "Anunciado",

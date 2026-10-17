@@ -72,6 +72,10 @@ class LeituraMetodologia:
         web["bloqueios_robots"] = {l["motivo"]: l["n"] for l in self._consulta(
             """SELECT motivo, COUNT(DISTINCT run_id || '|' || url_id) AS n FROM v_resultado_download
                WHERE no_relatorio = 1 AND motivo IN ('bloqueado_por_robots', 'robots_inacessivel') GROUP BY motivo""")}
+        # RC22: o que a ULTIMA tentativa de download de cada URL deixou sem verificar (so contagens, para o texto)
+        nv = self.analise_nao_verificaveis()
+        web["nao_verificaveis"] = {"n_urls_tentadas": nv["n_urls_tentadas"], "n_dominios_nao_verificaveis": nv["n_dominios_nao_verificaveis"],
+                                   **{c: x["n_paginas"] for c, x in nv["classes"].items()}}
         web["funil"] = self.funil()
 
         # ---------- classificacao ----------

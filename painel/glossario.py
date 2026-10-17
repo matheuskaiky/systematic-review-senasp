@@ -70,7 +70,9 @@ _TECNOLOGIAS = {
     "videomonitoramento_inteligente": "Câmeras com análise automática de imagem (detecção de eventos, objetos ou comportamentos), "
                                       "diferentes de câmeras que só gravam.",
     "analise_preditiva": "Modelos que usam dados históricos para prever onde ou quando crimes tendem a ocorrer e orientar o policiamento.",
-    "outra_ia": "Qualquer outra aplicação de inteligência artificial em segurança pública que não se encaixe nas quatro anteriores.",
+    "outra_ia": "Qualquer outra aplicação de inteligência artificial em segurança pública que não se encaixe nas demais categorias.",
+    "atendimento_virtual": "Serviço ao cidadão por canal virtual (site, WhatsApp, chatbot, assistente ou delegacia virtual), como o registro "
+                           "de boletim de ocorrência online, quando o texto diz que usa inteligência artificial ou automação.",
 }
 
 _STATUS = {
@@ -319,6 +321,45 @@ _SOLUCOES = [
 ]
 
 
+_AUDITORIA_IA = [
+    _e("revisao-independente", "Revisão independente",
+       "Duas ou mais pessoas decidem sobre os mesmos achados cada uma por conta própria, sem ver a decisão da outra. Entra pelo comando "
+       "achados-importar com a opção --independente: a decisão vai só para o histórico e não muda a decisão final do achado. É a única "
+       "revisão que conta para medir se os revisores concordam."),
+    _e("kappa-achados", "Kappa de Cohen entre revisores (achados)",
+       "Mede quanto dois revisores concordam em confirmar ou descartar um achado, além do que o acaso explicaria: 0 é igual ao acaso e 1 é "
+       "concordância perfeita. Vem com o percentual de concordância e a faixa de leitura (fraca, razoável, moderada, substancial, quase "
+       "perfeita), que é uma convenção e não uma lei. Quando quase todos os achados têm o mesmo desfecho, o kappa pode ser baixo mesmo com muita "
+       "concordância; se todos os achados do par têm um só desfecho, ele não pode ser calculado."),
+    _e("discordancias-achados", "Discordâncias dos achados",
+       "Achados em que dois revisores decidiram diferente (um confirmou e o outro descartou, ou deram status diferentes). É a pauta da reunião "
+       "de consenso e sai na aba Discordancias_achados da exportação, com a decisão de cada um e a decisão final."),
+    _e("falso-negativo", "Falso negativo (aplicação perdida)",
+       "Página em que havia uma aplicação de IA e o modelo não marcou nenhum achado. É o erro que faz o levantamento deixar de ver algo, e só "
+       "se descobre quando uma pessoa lê páginas que o modelo deixou sem achado."),
+    _e("auditoria-negativos", "Auditoria dos negativos do modelo",
+       "Conferência humana de uma amostra sorteada de páginas que o modelo classificou sem nenhum achado. A pessoa diz, página a página, se havia "
+       "uma aplicação de IA que o modelo perdeu (1) ou se o modelo acertou (0). Dá a taxa de falso negativo e, com ela, uma ideia da revocação "
+       "do modelo. O sorteio é reproduzível (mesma semente, mesma amostra) e proporcional ao tamanho de cada UF."),
+    _e("limite-superior-95", "Limite superior de 95%",
+       "Com 95% de confiança, a taxa verdadeira não passa deste valor. É calculado de forma exata (binomial) e vale mesmo com amostras pequenas "
+       "ou nenhum erro encontrado. Se ele fica abaixo da meta (5% ou 2%), a meta está provada; se não, a amostra ainda é pequena demais."),
+    _e("amostra-zero-erros", "Amostra com zero erros",
+       "Quantas páginas a pessoa precisa conferir, sem achar nenhuma aplicação perdida, para provar que a taxa de falso negativo está abaixo da "
+       "meta. O número é calculado pelo sistema e cresce quando a meta fica mais rigorosa. Se aparecer algum erro, é preciso conferir mais."),
+    _e("pagina-nao-verificavel", "Página não verificável",
+       "Página que o download não conseguiu verificar porque o robots.txt do site seguiu inacessível (erro do servidor, tempo esgotado ou falha "
+       "de rede) em três leituras seguidas ou em pelo menos duas tentativas de download. Não é o mesmo que proibida pelo site: não sabemos o que o "
+       "site decidiu. Por política (RFC 9309) ela fica fora da coleta, e o levantamento pode ter deixado de ver conteúdo nela."),
+    _e("pagina-inexistente-404", "Página inexistente (404 ou 410)",
+       "A última tentativa de baixar a página recebeu o erro 404 ou 410: ela não existe mais ou mudou de endereço. É uma falha da página, não "
+       "uma proibição do site nem uma falha da coleta."),
+    _e("ultima-tentativa-download", "Última tentativa de download",
+       "Uma mesma página pode ter sido tentada em mais de uma execução. Para dizer o que ficou sem verificação vale só a tentativa mais recente "
+       "de cada página: se a segunda tentativa deu certo, a falha da primeira não conta."),
+]
+
+
 def _por_chave(tabela, nome, textos, extra=None):
     prefixo = PREFIXOS[nome]
     return [_e(f"{prefixo}-{k}", tabela[k], textos[k], **({"status": k} if extra and k in extra else {})) for k in tabela if k in textos]
@@ -328,7 +369,7 @@ SECOES = [
     {"id": "numeros", "titulo": "Números da visão geral e do funil",
      "intro": "Os números das telas consideram só as execuções marcadas para o relatório, exceto o gasto real.", "entradas": _NUMEROS},
     {"id": "tecnologias", "titulo": "Tecnologias pesquisadas",
-     "intro": "As cinco categorias do vocabulário da pesquisa. O modelo só pode usar estas.",
+     "intro": "As seis categorias do vocabulário da pesquisa. O modelo só pode usar estas.",
      "entradas": _por_chave(rotulos.TECNOLOGIAS, "TECNOLOGIAS", _TECNOLOGIAS)},
     {"id": "status", "titulo": "Status do achado",
      "intro": "O status diz em que estágio a instituição está com a tecnologia. A definição oficial, em inglês, é a que o modelo recebe "
@@ -366,6 +407,8 @@ SECOES = [
      "entradas": _ESCOPO_LLM},
     {"id": "solucoes-conhecidas", "titulo": "Soluções conhecidas e busca no texto",
      "intro": "Duas telas para conferir se a coleta encontra o que o pesquisador já conhece.", "entradas": _SOLUCOES},
+    {"id": "auditoria-ia", "titulo": "Confiança na IA e páginas não verificadas",
+     "intro": "Como se mede o que o modelo acerta e o que ele deixa passar, e o que a coleta não conseguiu ver.", "entradas": _AUDITORIA_IA},
 ]
 
 

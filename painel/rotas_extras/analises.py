@@ -44,8 +44,11 @@ def montar(leitura, secao):
                 + br.blocos_prefiltro(leitura.analise_prefiltro_web())), resumo
     if secao == "auditoria":
         return [b.bloco_calibracao(leitura.analise_calibracao_confianca()),
-                b.bloco_falsa_exclusao(leitura.analise_falsa_exclusao())], resumo
-    return [b.bloco_opacidade(leitura.analise_opacidade_dominios()), b.bloco_tokens(leitura.analise_calibracao_tokens()),
+                b.bloco_falsa_exclusao(leitura.analise_falsa_exclusao()),
+                b.bloco_auditoria_negativos(leitura.analise_auditoria_negativos()),
+                b.bloco_concordancia_achados(leitura.analise_concordancia_achados())], resumo
+    return [b.bloco_opacidade(leitura.analise_opacidade_dominios()), b.bloco_nao_verificaveis(leitura.analise_nao_verificaveis()),
+            b.bloco_tokens(leitura.analise_calibracao_tokens()),
             b.bloco_tamanho(leitura.analise_tamanho_texto_achados())], resumo
 
 

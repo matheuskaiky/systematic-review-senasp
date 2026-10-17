@@ -37,7 +37,8 @@ _COLUNAS_NOVAS = {
                 "nome_solucao": "TEXT"},
     "triagem": {"decisao_texto_completo": "TEXT", "motivo_texto_completo": "TEXT"},
     "triagem_revisoes": {"independente": "INTEGER NOT NULL DEFAULT 0"},
-    "achados_revisoes": {"anterior_json": "TEXT", "posterior_json": "TEXT", "desfeita": "INTEGER NOT NULL DEFAULT 0"},
+    "achados_revisoes": {"anterior_json": "TEXT", "posterior_json": "TEXT", "desfeita": "INTEGER NOT NULL DEFAULT 0",
+                         "independente": "INTEGER NOT NULL DEFAULT 0"},
     "resultados_web": {"cidade": "TEXT"},
     "classificacoes": {"cidade": "TEXT"},
 }
@@ -600,6 +601,9 @@ class RepositorioSQLite:
             "Ganho_contexto": "SELECT * FROM v_ganho_contexto",
             "Revisores_kappa": "SELECT * FROM v_concordancia_revisores",
             "Discordancias": "SELECT * FROM v_discordancias_triagem",
+            "Revisores_kappa_achados": "SELECT * FROM v_concordancia_revisores_achados",
+            "Discordancias_achados": "SELECT * FROM v_discordancias_achados",
+            "Auditoria_negativos": "SELECT * FROM v_auditoria_negativos",
             "Passadas": "SELECT * FROM v_passadas ORDER BY run_id, passada",
             "Historico_triagem": "SELECT * FROM triagem_revisoes ORDER BY revisao_id",
             "Historico_achados": "SELECT * FROM achados_revisoes ORDER BY revisao_id",
@@ -733,13 +737,23 @@ class RepositorioSQLite:
             raise SystemExit(f"O achado {achado_id} mudou depois que a página foi aberta{quem}: recarregue a página e decida de novo")
         return estado
 
-    def _gravar_verificacao(self, achado_id, final, por, obs, com_desfazer=False):
-        anterior = json.dumps(self._estado_achado(achado_id), ensure_ascii=False) if com_desfazer else None
+    def _gravar_verificacao(self, achado_id, final, por, obs, com_desfazer=False, so_historico=False):
+        """`so_historico` (revisao independente): a decisao entra so em `achados_revisoes` (independente = 1) e o achado
+        nao muda; a deduplicacao vale por (achado, revisor, tipo), como na triagem."""
+        revisor = str(por or "").strip() or "(sem revisor)"
         quando = agora()
+        if so_historico:
+            ultima = self.conn.execute(
+                """SELECT status_final, observacao FROM achados_revisoes WHERE achado_id=? AND verificado_por=? AND independente=1
+                   ORDER BY revisao_id DESC LIMIT 1""", (achado_id, revisor)).fetchone()
+            if ultima is None or tuple(ultima) != (final, obs):
+                self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=revisor, status_final=final,
+                              observacao=obs, importado_em=quando, independente=1)
+            return
+        anterior = json.dumps(self._estado_achado(achado_id), ensure_ascii=False) if com_desfazer else None
         self.conn.execute(
             """UPDATE achados SET verificado=1, status_final=?, verificado_por=?, verificado_em=?,
                observacao=? WHERE achado_id=?""", (final, por, quando, obs, achado_id))
-        revisor = str(por or "").strip() or "(sem revisor)"
         if com_desfazer:
             # decisao do painel: sempre uma linha, para poder desfazer; guarda tambem o estado que ela produziu
             posterior = json.dumps({"verificado": 1, "status_final": final, "verificado_por": por,
@@ -749,7 +763,7 @@ class RepositorioSQLite:
             return
         # importacao: so grava se mudou em relacao a ultima verificacao da mesma pessoa
         ultima = self.conn.execute(
-            """SELECT status_final, observacao FROM achados_revisoes WHERE achado_id=? AND verificado_por=?
+            """SELECT status_final, observacao FROM achados_revisoes WHERE achado_id=? AND verificado_por=? AND independente=0
                ORDER BY revisao_id DESC LIMIT 1""", (achado_id, revisor)).fetchone()
         if ultima is None or tuple(ultima) != (final, obs):
             self._inserir("achados_revisoes", achado_id=achado_id, verificado_por=revisor, status_final=final,
@@ -958,10 +972,14 @@ class RepositorioSQLite:
     def fechar(self):
         self.conn.close()
 
-    def importar_verificacao_achados(self, df, status_permitidos):
+    def importar_verificacao_achados(self, df, status_permitidos, so_historico=False):
         """Importa a aba Achados. So linhas com verificado = 1 entram; verificado = 0 e ignorado de proposito (uma
         planilha exportada antes do trabalho de outro revisor nao pode apagar o que ele fez): para desfazer uma
-        verificacao use `desverificar_achado` (painel). Tudo e validado antes da primeira gravacao."""
+        verificacao use `desverificar_achado` (painel). Tudo e validado antes da primeira gravacao.
+
+        Com so_historico=True (revisao independente, `achados-importar --independente`) a decisao NAO altera o achado: entra
+        so no historico (`achados_revisoes.independente = 1`) e alimenta o kappa entre revisores; nao ha conferencia de versao,
+        porque nada do achado e sobrescrito."""
         selecionadas = []
         for pos, (_, r) in enumerate(df.iterrows()):
             try:
@@ -974,7 +992,7 @@ class RepositorioSQLite:
                                 "achado_id", "Achado")
         self.conflitos_importacao = []
         registros = []
-        confere_versao = "verificado_em" in df.columns
+        confere_versao = "verificado_em" in df.columns and not so_historico
         atuais = {r[0]: (r[1] or "") for r in self.conn.execute("SELECT achado_id, verificado_em FROM achados")} if confere_versao else {}
         for (pos, r), achado_id in zip(selecionadas, ids):
             bruto_final = _v(r["status_final"])
@@ -986,7 +1004,7 @@ class RepositorioSQLite:
                 self.conflitos_importacao.append((achado_id, pos + 2))       # verificado por outra pessoa depois da exportacao
                 continue
             registros.append((achado_id, final, _v(r["verificado_por"]), _v(r["observacao"])))
-        if registros:
+        if registros and not so_historico:
             marcas = ",".join("?" for _ in registros)
             fora = [r[0] for r in self.conn.execute(
                 f"""SELECT a.achado_id FROM achados a JOIN classificacoes k ON k.classificacao_id=a.classificacao_id
@@ -996,9 +1014,53 @@ class RepositorioSQLite:
                 logging.warning("Achados de execucao fora do relatorio (nao entram em Secretarias nem em Resumo_UF): %s",
                                 ", ".join(str(i) for i in sorted(fora)))
         for achado_id, final, por, obs in registros:
-            self._gravar_verificacao(achado_id, final, por, obs)
+            self._gravar_verificacao(achado_id, final, por, obs, so_historico=so_historico)
         self.conn.commit()
         return len(registros)
+
+    def candidatos_auditoria_negativos(self):
+        """Paginas que o modelo classificou SEM achados e que ainda nao foram conferidas por ninguem (`v_negativos_auditaveis`
+        menos as que ja estao em `auditoria_negativos`): classificacao_id, uf, url_id, url, texto_path (arquivo do texto
+        extraido, para a pessoa ler), classificador, prompt_versao, run_id. Ja conferidas ficam fora, para uma nova amostra
+        continuar o sorteio sem repetir pagina."""
+        return [dict(l) for l in self.conn.execute(
+            """SELECT n.classificacao_id, n.uf, n.url_id, u.url_original AS url, p.texto_path, n.classificador, n.prompt_versao,
+                      n.run_id
+               FROM v_negativos_auditaveis n JOIN urls u ON u.url_id = n.url_id LEFT JOIN paginas p ON p.pagina_id = n.pagina_id
+               WHERE NOT EXISTS (SELECT 1 FROM auditoria_negativos a WHERE a.classificacao_id = n.classificacao_id)
+               ORDER BY n.classificacao_id""")]
+
+    def importar_auditoria_negativos(self, registros):
+        """Grava as respostas da auditoria (saida de `dominio.auditoria_negativos.validar_respostas`). Tudo e conferido antes
+        da primeira gravacao: a classificacao precisa existir, nao ter achados e, se a planilha traz `url_id` e `uf`, bater
+        com o banco. Idempotente: a mesma resposta do mesmo revisor nao grava de novo; uma resposta DIFERENTE para o mesmo
+        (classificacao, revisor) nao sobrescreve nada e e devolvida em `conflitos` [(classificacao_id, revisor, linha)].
+        Devolve {novas, iguais, conflitos}."""
+        pares = [(r["linha"], r["classificacao_id"]) for r in registros]
+        self._ids_validos(pares, "classificacao_id", "classificacoes", "classificacao_id", "Classificação")
+        res = {"novas": 0, "iguais": 0, "conflitos": []}
+        novas = []
+        for r in registros:
+            k = self.conn.execute("SELECT url_id, uf FROM classificacoes WHERE classificacao_id=?", (r["classificacao_id"],)).fetchone()
+            if self.conn.execute("SELECT 1 FROM achados WHERE classificacao_id=?", (r["classificacao_id"],)).fetchone():
+                raise SystemExit(f"A classificação {r['classificacao_id']} tem achados: não é uma página sem achado (linha {r['linha']})")
+            if (r["url_id"] and str(r["url_id"]).split(".")[0] != str(k["url_id"])) or (r["uf"] and r["uf"] != k["uf"]):
+                raise SystemExit(f"url_id e uf não conferem com a classificação {r['classificacao_id']} (linha {r['linha']})")
+            antes = self.conn.execute("SELECT tinha_aplicacao, tecnologia FROM auditoria_negativos WHERE classificacao_id=? AND revisor=?",
+                                      (r["classificacao_id"], r["revisor"])).fetchone()
+            if antes is None:
+                novas.append((r, k))
+            elif tuple(antes) == (r["tinha_aplicacao"], r["tecnologia"]):
+                res["iguais"] += 1
+            else:
+                res["conflitos"].append((r["classificacao_id"], r["revisor"], r["linha"]))
+        for r, k in novas:
+            self._inserir("auditoria_negativos", classificacao_id=r["classificacao_id"], url_id=k["url_id"], uf=k["uf"],
+                          revisor=r["revisor"], revisado_em=agora(), tinha_aplicacao=r["tinha_aplicacao"],
+                          tecnologia=r["tecnologia"], observacao=r["observacao"])
+        self.conn.commit()
+        res["novas"] = len(novas)
+        return res
 
     def importar_artigos_manuais(self, df):
         """Artigos informados a mao nas buscas manuais. Entram em `artigos` (deduplicados por titulo) e em

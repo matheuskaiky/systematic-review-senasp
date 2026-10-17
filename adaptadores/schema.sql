@@ -267,7 +267,22 @@ CREATE TABLE IF NOT EXISTS achados_revisoes (
     importado_em   TEXT NOT NULL,
     anterior_json  TEXT,                  -- estado antes de uma decisao do painel (permite desfazer)
     posterior_json TEXT,                  -- estado que a decisao produziu: o desfazer so vale se o achado ainda esta assim
-    desfeita       INTEGER NOT NULL DEFAULT 0
+    desfeita       INTEGER NOT NULL DEFAULT 0,
+    independente   INTEGER NOT NULL DEFAULT 0   -- 1 = revisao independente (achados-importar --independente): so historico; so estas entram no kappa
+);
+-- auditoria amostral do que o modelo NAO marcou (classificacoes sem achado): mede os falsos negativos, isto e, a revocacao global.
+-- Uma linha por (classificacao, revisor); `tinha_aplicacao` = 1 se a pessoa achou na pagina uma aplicacao de IA que o modelo perdeu.
+CREATE TABLE IF NOT EXISTS auditoria_negativos (
+    auditoria_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    classificacao_id INTEGER NOT NULL REFERENCES classificacoes(classificacao_id),
+    url_id           INTEGER NOT NULL REFERENCES urls(url_id),
+    uf               TEXT NOT NULL,
+    revisor          TEXT NOT NULL,
+    revisado_em      TEXT NOT NULL,
+    tinha_aplicacao  INTEGER NOT NULL CHECK (tinha_aplicacao IN (0, 1)),   -- 1 = o modelo perdeu uma aplicacao; 0 = o modelo acertou
+    tecnologia       TEXT,                                                  -- do vocabulario; so quando tinha_aplicacao = 1
+    observacao       TEXT,
+    UNIQUE (classificacao_id, revisor)
 );
 
 -- ===== Triagem de escopo feita por LLM (opiniao registrada a parte: nunca altera `triagem` nem `achados`) =====
@@ -1106,3 +1121,80 @@ SELECT k.classificador, k.prompt_versao, COUNT(*) AS n_achados,
        COALESCE(SUM(COALESCE(a.menciona_lgpd, 0) = 0 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_no_trecho_sem_flag
 FROM r_achados_historico a JOIN r_classificacoes_historico k ON k.classificacao_id = a.classificacao_id
 GROUP BY k.classificador, k.prompt_versao;
+
+-- ===== Revisao por mais de uma pessoa: achados (Tarefa 1) =====
+-- Espelha as views da triagem. So entram revisoes independentes (achados-importar --independente); o revisor 'consenso'
+-- fica fora. Desfecho = confirmado (qualquer status_final diferente de 'descartado') ou descartado.
+
+DROP VIEW IF EXISTS v_ultima_revisao_achados;
+CREATE VIEW v_ultima_revisao_achados AS
+SELECT r.achado_id, r.verificado_por AS revisor, r.status_final, r.observacao,
+       CASE WHEN r.status_final = 'descartado' THEN 'descartado' ELSE 'confirmado' END AS desfecho
+FROM achados_revisoes r
+WHERE r.independente = 1
+  AND r.revisao_id = (SELECT MAX(x.revisao_id) FROM achados_revisoes x
+                      WHERE x.achado_id = r.achado_id AND x.verificado_por = r.verificado_por AND x.independente = 1)
+  AND r.verificado_por <> 'consenso' AND r.status_final IS NOT NULL;
+
+-- Concordancia entre cada par de revisores nos achados que os dois revisaram de forma independente: kappa de Cohen sobre o
+-- desfecho (confirmado x descartado, mesma conta de v_concordancia_revisores) e, a parte, quantos deram exatamente o mesmo status_final.
+DROP VIEW IF EXISTS v_concordancia_revisores_achados;
+CREATE VIEW v_concordancia_revisores_achados AS
+WITH pares AS (
+    SELECT a.revisor AS revisor_a, b.revisor AS revisor_b, a.desfecho AS da, b.desfecho AS db,
+           CASE WHEN a.status_final = b.status_final THEN 1 ELSE 0 END AS status_igual
+    FROM v_ultima_revisao_achados a JOIN v_ultima_revisao_achados b ON a.achado_id = b.achado_id AND a.revisor < b.revisor),
+ tot AS (
+    SELECT revisor_a, revisor_b, COUNT(*) AS n, SUM(status_igual) AS n_status_iguais,
+           SUM(da = 'confirmado' AND db = 'confirmado') AS n11, SUM(da = 'confirmado' AND db = 'descartado') AS n10,
+           SUM(da = 'descartado' AND db = 'confirmado') AS n01, SUM(da = 'descartado' AND db = 'descartado') AS n00
+    FROM pares GROUP BY revisor_a, revisor_b),
+ base AS (
+    SELECT *, ((n11 + n10) * 1.0 / n) * ((n11 + n01) * 1.0 / n) + ((n01 + n00) * 1.0 / n) * ((n10 + n00) * 1.0 / n) AS pe FROM tot)
+SELECT revisor_a, revisor_b, n AS n_achados_em_comum, n11 AS ambos_confirmam, n00 AS ambos_descartam, n10 + n01 AS discordancias,
+       ROUND(100.0 * (n11 + n00) / n, 1) AS concordancia_pct,
+       ROUND((((n11 + n00) * 1.0 / n) - pe) / NULLIF(1 - pe, 0), 3) AS kappa,
+       n_status_iguais, ROUND(100.0 * n_status_iguais / n, 1) AS concordancia_status_pct
+FROM base;
+
+-- Achados em que dois revisores decidiram diferente (desfecho ou status_final): pauta da reuniao de consenso, com a decisao final.
+DROP VIEW IF EXISTS v_discordancias_achados;
+CREATE VIEW v_discordancias_achados AS
+SELECT a.achado_id, ac.uf, ac.tecnologia, u.url_original AS url, ac.evidencia,
+       a.revisor AS revisor_a, a.status_final AS status_a, a.observacao AS observacao_a,
+       b.revisor AS revisor_b, b.status_final AS status_b, b.observacao AS observacao_b,
+       CASE WHEN a.desfecho <> b.desfecho THEN 'confirmado_x_descartado' ELSE 'status_diferente' END AS tipo_discordancia,
+       ac.status_final AS status_final, ac.verificado
+FROM v_ultima_revisao_achados a
+JOIN v_ultima_revisao_achados b ON a.achado_id = b.achado_id AND a.revisor < b.revisor AND a.status_final <> b.status_final
+JOIN achados ac ON ac.achado_id = a.achado_id
+JOIN classificacoes k ON k.classificacao_id = ac.classificacao_id
+JOIN urls u ON u.url_id = k.url_id
+ORDER BY CASE WHEN a.desfecho <> b.desfecho THEN 0 ELSE 1 END, a.achado_id;
+
+-- ===== Auditoria do que o modelo nao marcou =====
+-- Universo da auditoria: classificacoes VIGENTES de JSON valido, feitas sobre o texto da pagina (nao snippet), em que o modelo
+-- nao devolveu nenhum achado (sem achados gravados e n_achados = 0, ou relevante = 0).
+DROP VIEW IF EXISTS v_negativos_auditaveis;
+CREATE VIEW v_negativos_auditaveis AS
+SELECT k.classificacao_id, k.url_id, k.uf, k.run_id, k.classificador, k.prompt_versao, k.pagina_id
+FROM r_classificacoes k
+WHERE k.json_valido = 1 AND k.origem_texto = 'pagina'
+  AND (COALESCE(k.n_achados, 0) = 0 OR COALESCE(k.relevante, 0) = 0)
+  AND NOT EXISTS (SELECT 1 FROM achados a WHERE a.classificacao_id = k.classificacao_id);
+-- Unidade = a classificacao (se mais de um revisor conferiu a mesma, vale a posicao conservadora: basta um achar a aplicacao).
+-- So conta classificacoes das execucoes do relatorio. `n_auditadas` so tem sentido na linha `total`; nas linhas `tecnologia`
+-- (so as aplicacoes perdidas, por tecnologia) a coluna `n_com_aplicacao_perdida` conta classificacoes distintas.
+DROP VIEW IF EXISTS v_auditoria_negativos;
+CREATE VIEW v_auditoria_negativos AS
+WITH por_classificacao AS (
+    SELECT n.classificacao_id, MAX(n.tinha_aplicacao) AS perdida
+    FROM auditoria_negativos n JOIN r_classificacoes_historico k ON k.classificacao_id = n.classificacao_id
+    GROUP BY n.classificacao_id)
+SELECT 'total' AS grupo, NULL AS tecnologia, COUNT(*) AS n_auditadas, COALESCE(SUM(perdida), 0) AS n_com_aplicacao_perdida,
+       ROUND(100.0 * SUM(perdida) / NULLIF(COUNT(*), 0), 1) AS taxa_perdida_pct
+FROM por_classificacao
+UNION ALL
+SELECT 'tecnologia', COALESCE(n.tecnologia, '(sem tecnologia)'), NULL, COUNT(DISTINCT n.classificacao_id), NULL
+FROM auditoria_negativos n JOIN r_classificacoes_historico k ON k.classificacao_id = n.classificacao_id
+WHERE n.tinha_aplicacao = 1 GROUP BY COALESCE(n.tecnologia, '(sem tecnologia)');

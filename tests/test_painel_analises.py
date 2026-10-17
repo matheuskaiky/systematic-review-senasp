@@ -242,3 +242,58 @@ def test_opacidade_chama_de_proibido_so_a_proibicao_real_e_mostra_o_robots_inace
     pares = dict(bl["pares"])
     assert pares["Proibido pelo site"] == "15" and pares["robots.txt inacessível (bloqueado pela política)"] == "30"
     assert "30 páginas" in bl["subtitulo"] and "robots.txt inacessível (bloqueado pela política)" in str(bl["grafico"])
+
+
+# ---------------- RC22: paginas que a coleta nao conseguiu verificar ----------------
+def _nv(nv=37, prib=19, n404=28, outras=23, ok=842):
+    def c(n, dominios=(), ufs=()):
+        return {"n_paginas": n, "n_dominios": len(dominios), "n_ufs": len(ufs), "ufs": list(ufs),
+                "dominios": [{"dominio": d, "n": k} for d, k in dominios], "motivos": []}
+    return {"n_urls_tentadas": ok + prib + nv + n404 + outras, "n_ok": ok, "n_falhas": prib + nv + n404 + outras,
+            "classes": {"proibido_pelo_site": c(prib, [("p.gov.br", prib)], ["MA"]),
+                        "nao_verificavel_robots": c(nv, [("agencia.ac.gov.br", 17), ("sspds.ce.gov.br", 9)], ["AC", "CE"]),
+                        "falha_definitiva_404": c(n404, [("x.gov.br", n404)], ["PI"]), "outras_falhas": c(outras)},
+            "n_nao_verificaveis": nv, "n_dominios_nao_verificaveis": 2}
+
+
+def test_nao_verificaveis_titulo_em_portugues_e_nao_confunde_com_proibido():
+    bl = b.bloco_nao_verificaveis(_nv())
+    assert bl["titulo"] == ("37 páginas não puderam ser verificadas: o robots.txt do site estava inacessível, mesmo depois de várias tentativas")
+    texto = " ".join(bl["texto"])
+    assert "Não verificável não é o mesmo que proibido pelo site" in texto and "RFC 9309" in texto and "28 páginas com erro 404 ou 410" in texto
+    assert "pode ter deixado de ver conteúdo" in texto
+    pares = dict(bl["pares"])
+    assert pares["Não verificável (robots.txt inacessível, falha repetida)"] == "37" and pares["Proibido pelo site (robots.txt lido e proíbe)"] == "19"
+    assert "agencia.ac.gov.br (17)" in pares["Domínios com mais páginas não verificadas"]
+    assert bl["tabela"]["linhas"][1] == ["Não verificável (robots.txt inacessível, falha repetida)", "37", "2", "2"]
+    assert bl["link"]["href"] == "/chamadas?etapa=download&q=robots_inacessivel"
+
+
+def test_nao_verificaveis_singular_nenhuma_e_sem_downloads():
+    assert b.bloco_nao_verificaveis(_nv(nv=1))["titulo"].startswith("1 página não pôde ser verificada")
+    assert b.bloco_nao_verificaveis(_nv(nv=0))["titulo"] == "Nenhuma página ficou sem verificação por robots.txt inacessível"
+    vazio = b.bloco_nao_verificaveis({"n_urls_tentadas": 0, "classes": {}})
+    assert vazio["titulo"] == "Sem downloads registrados" and vazio["aviso"]
+    assert b.bloco_nao_verificaveis({})["titulo"] == "Sem downloads registrados"
+
+
+def test_nao_verificaveis_nao_vaza_html_dos_dominios():
+    d = _nv()
+    d["classes"]["nao_verificavel_robots"]["dominios"] = [{"dominio": "<b>x</b>", "n": 3}]
+    bl = b.bloco_nao_verificaveis(d)
+    assert "<b>x</b>" in dict(bl["pares"])["Domínios com mais páginas não verificadas"]        # texto puro: o Jinja escapa na pagina
+
+
+def test_aba_operacao_mostra_o_bloco_de_paginas_nao_verificadas(cliente):
+    html = cliente.get("/analises?secao=operacao").text
+    assert 'id="nao_verificaveis"' in html and "não puderam ser verificadas" in html
+    assert "Não verificável não é o mesmo que proibido pelo site" in html
+
+
+# ---------------- RG4: blocos da aba Confianca na IA ----------------
+def test_aba_confianca_na_ia_mostra_os_blocos_novos_em_estado_de_espera(cliente):
+    html = cliente.get("/analises?secao=auditoria").text
+    assert 'id="auditoria_negativos"' in html and 'id="concordancia_achados"' in html
+    assert "aguardando conferência humana" in html.lower() and "Aguardando revisão independente" in html
+    assert "--independente" in html          # os tamanhos de amostra (59 e 149) sao testados no bloco puro, com paginas sem achado
+

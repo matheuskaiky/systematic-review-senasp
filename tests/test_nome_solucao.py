@@ -62,9 +62,9 @@ def test_resposta_normaliza_o_nome(bruto, esperado):
     assert interpretar_json_classificacao(texto)[1][0].nome_solucao == esperado
 
 
-# ---------- prompt v4 ----------
+# ---------- prompt v4 (a regra do nome continua valendo no v5, RC14) ----------
 def test_prompt_v4_pede_o_nome_sem_mexer_na_evidencia():
-    assert P.PROMPT_VERSAO == "v4"
+    assert P.PROMPT_VERSAO == "v5"      # o v5 so acrescenta a categoria atendimento_virtual; a regra 7 do v4 segue igual
     s = P.SYSTEM_PROMPT
     assert "'nome_solucao'" in s and "PROPER NAME" in s and "empty string" in s and "Never invent" in s
     assert "Do NOT add the name" in s and "100% literal" in s            # a evidencia continua literal: nada de nome entre colchetes

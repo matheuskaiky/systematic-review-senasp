@@ -347,6 +347,45 @@ def test_texto_nao_menciona_robots_sem_bloqueios():
     assert "1 página foi proibida pelo site" in _texto(f)
 
 
+# ---------- RC22: paginas que a coleta nao conseguiu verificar ----------
+def _nv(**kw):
+    return {"n_urls_tentadas": 949, "n_dominios_nao_verificaveis": 12, "nao_verificavel_robots": 37, "proibido_pelo_site": 19,
+            "falha_definitiva_404": 28, "outras_falhas": 23, **kw}
+
+
+def test_texto_diz_quantas_paginas_nao_puderam_ser_verificadas_sem_chamar_de_proibicao():
+    f = _fatos()
+    f["web"]["nao_verificaveis"] = _nv()
+    res = gerar_metodologia(f)
+    texto = res["texto"]
+    assert "37 páginas não puderam ser verificadas porque o robots.txt do site seguiu inacessível" in texto
+    assert "em 12 domínios" in texto and "Não verificável não é o mesmo que proibido pelo site" in texto
+    assert "28 páginas deram erro 404 ou 410" in texto and "19 foram proibidas pelo site" in texto
+    assert "pode, portanto, ter deixado de ver conteúdo" in texto
+    assert {"/chamadas?etapa=download&q=robots_inacessivel", "/chamadas?etapa=download&q=http_404"} <= _hrefs(res)
+
+
+def test_nao_verificaveis_entra_nas_ressalvas_so_quando_ha():
+    f = _fatos()
+    f["web"]["nao_verificaveis"] = _nv()
+    ressalvas = " ".join(para_texto(r) for r in gerar_metodologia(f)["ressalvas"])
+    assert "37 páginas não puderam ser verificadas porque o robots.txt do site seguiu inacessível" in ressalvas
+    assert "isso não é o mesmo que o site proibir a leitura" in ressalvas
+    f["web"]["nao_verificaveis"] = _nv(nao_verificavel_robots=0, falha_definitiva_404=0)
+    assert "não puderam ser verificadas" not in gerar_metodologia(f)["texto"]
+    f["web"]["nao_verificaveis"] = _nv(nao_verificavel_robots=1, falha_definitiva_404=0, proibido_pelo_site=0)
+    texto = gerar_metodologia(f)["texto"]
+    assert "1 página não pôde ser verificada" in texto and "proibida" not in texto
+    assert "verificadas porque o robots" not in _texto(_fatos())                       # sem o fato, a frase nao aparece
+
+
+def test_so_404_tambem_aparece_sem_falar_de_robots():
+    f = _fatos()
+    f["web"]["nao_verificaveis"] = _nv(nao_verificavel_robots=0, proibido_pelo_site=0, falha_definitiva_404=5)
+    texto = _texto(f)
+    assert "5 páginas deram erro 404 ou 410" in texto and "não puderam ser verificadas" not in texto and "não pôde ser verificada" not in texto
+
+
 # ---------- RC15: nome da solucao (prompt v4) e classificacao vigente ----------
 def test_metodologia_menciona_o_campo_nome_solucao_e_o_prompt_v4():
     t = _texto(_fatos())

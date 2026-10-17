@@ -18,6 +18,7 @@ METODOS = [
     ("analise_calibracao_confianca", ()), ("analise_falsa_exclusao", ()), ("analise_opacidade_dominios", ()),
     ("analise_saturacao", ()), ("analise_calibracao_tokens", ()), ("analise_tamanho_texto_achados", ()),
     ("analise_termos_triagem_escopo", ()), ("analise_termos_triagem_escopo", ("web",)), ("analise_resumo", ()),
+    ("analise_concordancia_achados", ()), ("analise_auditoria_negativos", ()), ("analise_nao_verificaveis", ()),
 ]
 
 
@@ -433,8 +434,9 @@ def test_opacidade_demo(L):
     assert r["n_tentadas"] == r["n_ok"] + r["n_robots"] + r["n_http_bloqueio"] + r["n_robots_inacessivel"] + r["n_outros"] > 0
     assert sum(m["n"] for m in r["motivos"]) >= r["n_tentadas"] and r["n_dominios"] >= len(r["dominios"])
     # alteracao deliberada: a demonstracao agora tem downloads barrados pelo robots.txt (lido e proibindo / inacessivel)
-    assert r["n_robots"] == 4 and r["n_robots_inacessivel"] == 4 and r["n_http_bloqueio"] == 0
-    assert r["pct_bloqueado"] == round(100 * 4 / r["n_tentadas"], 1) and r["pct_inacessivel"] == round(100 * 4 / r["n_tentadas"], 1)
+    # RC14: a sexta tecnologia aumentou as paginas da demonstracao (mais downloads barrados pelo robots.txt)
+    assert r["n_robots"] == 4 and r["n_robots_inacessivel"] == 8 and r["n_http_bloqueio"] == 0
+    assert r["pct_bloqueado"] == round(100 * 4 / r["n_tentadas"], 1) and r["pct_inacessivel"] == round(100 * 8 / r["n_tentadas"], 1)
     assert {m["motivo"] for m in r["motivos"]} >= {"bloqueado_por_robots", "robots_inacessivel"}
 
 
@@ -459,6 +461,83 @@ def test_opacidade_robots_e_http_a_mao(minimo):
     assert por["a.gov.br"]["pct_bloqueado"] == round(100 * 2 / 3, 1) and por["b.gov.br"]["n_outros"] == 1 and "d.gov.br" not in por
     assert r["dominios"][0]["dominio"] == "a.gov.br" and r["por_uf"][0]["uf"] == "PI"
     assert len(LeituraPainelSQLite(banco).analise_opacidade_dominios(limite=1)["dominios"]) == 1
+
+
+# ============================== 9b. paginas nao verificaveis (RC22) ==============================
+def _tentativa(minimo, url, erro=None, http=None, extras=None, ok=0, run="R1", uf=None):
+    """Uma tentativa de download de `url` (na execucao `run`), com os extras do robots.txt."""
+    antes, minimo.run = minimo.run, run
+    try:
+        cid = minimo.chamada("download", "requests", url, sucesso=ok, http=http, erro=erro)
+    finally:
+        minimo.run = antes
+    if extras is not None:
+        _sql(minimo.caminho, "UPDATE chamadas SET extras_json=? WHERE chamada_id=?", (json.dumps(extras), cid))
+    if uf:
+        _sql(minimo.caminho, "INSERT OR IGNORE INTO selecao_download (run_id, url_id, uf, selecionada) VALUES (?,?,?,1)", (run, url, uf))
+    return cid
+
+
+def test_nao_verificaveis_ultima_tentativa_de_cada_url_e_as_quatro_classes(minimo):
+    _sql(minimo.caminho, "INSERT INTO execucoes (run_id, iniciado_em, config_hash, config_json, no_relatorio) VALUES ('R2','2026-01-02T00:00:00','h','{}',0)")
+    inac3 = {"robots_permitido": False, "robots_status": 503, "robots_inacessivel": True, "robots_tentativas": 3}
+    inac1 = {**inac3, "robots_tentativas": 1}
+    u = {n: minimo.url(d) for n, d in (("persiste3", "a.gov.br"), ("persiste_hist", "a.gov.br"), ("sem_confirmar", "b.gov.br"),
+                                        ("recuperada", "b.gov.br"), ("proibida", "c.gov.br"), ("n404", "c.gov.br"), ("n410", "d.gov.br"),
+                                        ("h403", "d.gov.br"), ("virou404", "e.gov.br"), ("fora", "f.gov.br"), ("salto", "g.gov.br"))}
+    _tentativa(minimo, u["persiste3"], "robots_inacessivel", extras=inac3, uf="PI")
+    _tentativa(minimo, u["persiste_hist"], "robots_inacessivel", extras=inac1, uf="PI")          # 1a tentativa: falha de robots
+    _tentativa(minimo, u["persiste_hist"], "robots_inacessivel", extras=inac1, uf="CE")          # 2a tentativa: de novo (2 tentativas)
+    _tentativa(minimo, u["sem_confirmar"], "robots_inacessivel", extras=inac1, uf="PI")          # 1 leitura e 1 tentativa: nao persistiu
+    _tentativa(minimo, u["recuperada"], "robots_inacessivel", extras=inac3, uf="PI")
+    _tentativa(minimo, u["recuperada"], None, http=200, ok=1)                                     # a ultima baixou: nao conta
+    _tentativa(minimo, u["proibida"], "bloqueado_por_robots", extras={"robots_status": 200}, uf="MA")
+    _tentativa(minimo, u["n404"], "HTTP 404", http=404, uf="PI")
+    _tentativa(minimo, u["n410"], "HTTP 410", http=410, uf="CE")
+    _tentativa(minimo, u["h403"], "HTTP 403", http=403, uf="CE")
+    _tentativa(minimo, u["virou404"], "robots_inacessivel", extras=inac3)
+    _tentativa(minimo, u["virou404"], "robots_inacessivel", extras=inac3)
+    _tentativa(minimo, u["virou404"], "HTTP 404", http=404, uf="PI")                               # a ultima vale: 404
+    _tentativa(minimo, u["fora"], "robots_inacessivel", extras=inac3, run="R2")                    # execucao fora do relatorio: ignorada
+    _tentativa(minimo, u["salto"], "robots_inacessivel_apos_redirecionamento: https://g.gov.br/x",
+               extras={"robots_inacessivel": False, "robots_salto_1_inacessivel": True, "robots_salto_1_tentativas": 3}, uf="SC")
+    r = LeituraPainelSQLite(minimo.caminho).analise_nao_verificaveis()
+    c = r["classes"]
+    assert (r["n_urls_tentadas"], r["n_ok"], r["n_falhas"]) == (10, 1, 9)
+    assert {k: v["n_paginas"] for k, v in c.items()} == {"proibido_pelo_site": 1, "nao_verificavel_robots": 3, "falha_definitiva_404": 3, "outras_falhas": 2}
+    assert r["n_nao_verificaveis"] == 3 and r["n_dominios_nao_verificaveis"] == 2
+    nv = c["nao_verificavel_robots"]
+    assert (nv["n_dominios"], nv["ufs"], nv["n_ufs"]) == (2, ["CE", "PI", "SC"], 3)
+    assert nv["dominios"] == [{"dominio": "a.gov.br", "n": 2}, {"dominio": "g.gov.br", "n": 1}]
+    assert {m["motivo"]: m["n"] for m in c["outras_falhas"]["motivos"]} == {"robots_inacessivel_sem_confirmacao": 1, "http_403": 1}
+    assert {m["motivo"]: m["n"] for m in c["falha_definitiva_404"]["motivos"]} == {"http_404": 2, "http_410": 1}
+    assert c["proibido_pelo_site"]["ufs"] == ["MA"] and "f.gov.br" not in {d["dominio"] for x in c.values() for d in x["dominios"]}
+    json.dumps(r)
+
+
+def test_nao_verificaveis_sem_downloads_devolve_zeros(minimo):
+    r = LeituraPainelSQLite(minimo.caminho).analise_nao_verificaveis()
+    assert (r["n_urls_tentadas"], r["n_falhas"], r["n_nao_verificaveis"]) == (0, 0, 0)
+    assert set(r["classes"]) == {"proibido_pelo_site", "nao_verificavel_robots", "falha_definitiva_404", "outras_falhas"}
+    assert all(x["n_paginas"] == 0 and x["dominios"] == [] for x in r["classes"].values())
+
+
+def test_nao_verificaveis_demo_e_coerente_com_a_opacidade(L):
+    """A demonstracao tem downloads barrados pelo robots.txt (lido e proibindo / inacessivel em 3 leituras): as classes batem
+    entre si e com a leitura de opacidade (cada URL tem uma so tentativa na demo)."""
+    r, o = L.analise_nao_verificaveis(), L.analise_opacidade_dominios()
+    c = {k: v["n_paginas"] for k, v in r["classes"].items()}
+    assert c["proibido_pelo_site"] == o["n_robots"] > 0 and c["nao_verificavel_robots"] == o["n_robots_inacessivel"] > 0
+    assert r["n_urls_tentadas"] == r["n_ok"] + r["n_falhas"] and r["n_falhas"] == sum(c.values())
+    assert r["n_nao_verificaveis"] == c["nao_verificavel_robots"] and all(len(v["dominios"]) <= 10 for v in r["classes"].values())
+
+
+def test_nao_verificaveis_o_limite_de_dominios_vale(minimo):
+    inac3 = {"robots_inacessivel": True, "robots_tentativas": 3}
+    for i in range(5):
+        _tentativa(minimo, minimo.url(f"d{i}.gov.br"), "robots_inacessivel", extras=inac3)
+    r = LeituraPainelSQLite(minimo.caminho).analise_nao_verificaveis(limite=2)
+    assert len(r["classes"]["nao_verificavel_robots"]["dominios"]) == 2 and r["classes"]["nao_verificavel_robots"]["n_dominios"] == 5
 
 
 # ============================== 10. saturacao ==============================
@@ -530,7 +609,7 @@ def test_termos_triagem_escopo_sem_tabela_e_fonte_invalida(L):
 # ============================== 14. resumo ==============================
 def test_resumo_demo(L, demo):
     r = L.analise_resumo()
-    assert r["n_achados"] == _sql(demo, "SELECT COUNT(*) FROM r_achados")[0][0] and r["n_verificados"] == 57
+    assert r["n_achados"] == _sql(demo, "SELECT COUNT(*) FROM r_achados")[0][0] and r["n_verificados"] == 64    # RC14: demonstracao com seis tecnologias
     assert r["n_triagem_humana"] == 53 and r["tem_dados_humanos"] and r["tem_dados_humanos_achados"] and r["tem_dados_humanos_artigos"]
     assert r["n_triagem_escopo"] == {} and r["provedores"]["busca_web"] == ["demo_busca"] and r["provedores"]["triagem_escopo"] == []
     assert r["n_artigos"] == 119 and r["n_chamadas_busca_academica"] > 0 and r["n_classificacoes"] > 0

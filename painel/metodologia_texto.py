@@ -293,6 +293,24 @@ def _web(x):
             " não foram baixadas porque o robots.txt do site estava inacessível (erro do servidor, tempo esgotado ou falha de rede, mesmo depois de novas tentativas): "
             "por política, a leitura impossível é tratada como proibição, mas isso não é uma decisão do site.")
         blocos.append(_bloco_p(p))
+    nv = x.web.get("nao_verificaveis") or {}
+    n_nv, n_404, n_prib = _g(nv, "nao_verificavel_robots"), _g(nv, "falha_definitiva_404"), _g(nv, "proibido_pelo_site")
+    if n_nv or n_404:
+        p = _P().t("Pela última tentativa de download de cada página")
+        if n_nv:
+            p.t(", ").n(n_nv, _url("/chamadas", etapa="download", q="robots_inacessivel")).t(
+                " " + _pl(n_nv, "página não pôde ser verificada", "páginas não puderam ser verificadas") + " porque o robots.txt do site seguiu inacessível "
+                "(três leituras seguidas ou ao menos duas tentativas), em " + fmt.numero(_g(nv, "n_dominios_nao_verificaveis"))
+                + " " + _pl(_g(nv, "n_dominios_nao_verificaveis"), "domínio", "domínios") + ". Não verificável não é o mesmo que proibido pelo site: "
+                "não sabemos o que o site decidiu, e por política (RFC 9309) a página ficou fora da coleta")
+        if n_404:
+            p.t("; " if n_nv else ", ").n(n_404, _url("/chamadas", etapa="download", q="http_404")).t(
+                " " + _pl(n_404, "página deu", "páginas deram") + " erro 404 ou 410 (a página não existe mais ou mudou de endereço)")
+        if n_prib:
+            p.t(", e ").n(n_prib, _url("/chamadas", etapa="download", q="bloqueado_por_robots")).t(
+                " " + _pl(n_prib, "foi proibida", "foram proibidas") + " pelo site (robots.txt lido)")
+        p.t(". O levantamento pode, portanto, ter deixado de ver conteúdo nessas páginas.")
+        blocos.append(_bloco_p(p))
     return _secao("web", "Levantamento nas secretarias (busca web)", blocos)
 
 
@@ -549,6 +567,11 @@ def _ressalvas(x):
         add(("A versão do prompt não está registrada em parte das classificações.", None))
     if _g(x.cl, "n_so_snippet"):
         add((f"{fmt.numero(x.cl['n_so_snippet'])} {_pl(x.cl['n_so_snippet'], 'classificação usou', 'classificações usaram')} só o snippet da busca; achados assim têm menos base e merecem atenção na verificação.", None))
+    n_nv = _g(x.web.get("nao_verificaveis"), "nao_verificavel_robots")
+    if n_nv:
+        add((f"{fmt.numero(n_nv)} {_pl(n_nv, 'página não pôde', 'páginas não puderam')} ser verificadas porque o robots.txt do site seguiu inacessível; "
+             "isso não é o mesmo que o site proibir a leitura. Elas ficaram fora da coleta e o levantamento pode ter deixado de ver conteúdo nelas. ", None),
+            ("Ver as chamadas.", _url("/chamadas", etapa="download", q="robots_inacessivel")))
     if _g(x.cl, "n_invalidas"):
         add((f"{fmt.numero(x.cl['n_invalidas'])} {_pl(x.cl['n_invalidas'], 'classificação', 'classificações')} sem JSON válido e sem outra válida para a mesma página: esses pares não podem ser lidos como “sem achados”. ", None),
             ("Ver classificadores.", "/classificadores"))

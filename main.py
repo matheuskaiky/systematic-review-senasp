@@ -14,6 +14,7 @@ from dominio.esquemas import esquema_classificacao
 from dominio.modelos import ParametrosClassificacao
 from dominio.erros import CotaDiariaEsgotada
 from dominio.entrada import separar_runs, descricao_motivos_falha_download
+from dominio import auditoria_negativos as AN
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia, dominio_de
 from dominio.triagem_escopo import atomo_do_modelo_de_consulta, estimar_custo
 from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao, triagem_escopo
@@ -79,13 +80,32 @@ def _params_classificacao():
         palavras_tecnologia={k: tuple(sorted(palavras_chave_tecnologia(v))) for k, v in V.TECNOLOGIAS.items()})
 
 
+_AJUDA_TECNOLOGIAS = ("busca só estas tecnologias (chaves de config/vocabulario.py::TECNOLOGIAS: " + ", ".join(V.TECNOLOGIAS)
+                      + "); padrão: todas. Serve para amostras pequenas")
+
+
+def _tecnologias_da_busca(args):
+    """RC14: tecnologias que a busca web usa. Sem --tecnologias, todas as de `V.TECNOLOGIAS`; com ele, só as listadas
+    (amostra pequena, regra 11). Só restringe a BUSCA: o classificador continua aceitando todas as categorias."""
+    pedidas = getattr(args, "tecnologias", None)
+    if not pedidas:
+        return dict(V.TECNOLOGIAS)
+    invalidas = [t for t in pedidas if t not in V.TECNOLOGIAS]
+    if invalidas:
+        raise SystemExit(f"Tecnologia desconhecida em --tecnologias: {', '.join(invalidas)}. "
+                         f"Chaves válidas: {', '.join(V.TECNOLOGIAS)}.")
+    return {k: v for k, v in V.TECNOLOGIAS.items() if k in pedidas}
+
+
 def estimar(args):
-    consultas = gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, C.UFS, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)
+    tecnologias = _tecnologias_da_busca(args)
+    ufs = {k: v for k, v in C.UFS.items() if not getattr(args, "ufs", None) or k in args.ufs}
+    consultas = gerar_consultas_web(C.MODELOS_WEB, tecnologias, ufs, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)
     print(f"Academic terms: {len(C.TERMOS)} | pages per term (max.): {C.MAX_PAGINAS_ACADEMICO}")
     print(f"Academic search credits (worst case): {len(C.TERMOS) * C.MAX_PAGINAS_ACADEMICO}")
     print(f"Web queries: {len(consultas)} | estimated cost: US$ {len(consultas) * S.PRECO_BUSCA_WEB_USD:.2f}")
-    print(f"Pages to download (ceiling): {C.POLITICA_DOWNLOAD.max_urls_por_uf * len(C.UFS)}")
-    print(f"Classifications (ceiling): {C.POLITICA_DOWNLOAD.max_urls_por_uf * len(C.UFS)} (cost depends on the model and text sizes)")
+    print(f"Pages to download (ceiling): {C.POLITICA_DOWNLOAD.max_urls_por_uf * len(ufs)}")
+    print(f"Classifications (ceiling): {C.POLITICA_DOWNLOAD.max_urls_por_uf * len(ufs)} (cost depends on the model and text sizes)")
     fab = Fabrica(simulado=args.simulado)
     # C9: sem chave (ou sem adaptador) a estimativa continua valendo; so o saldo fica indisponivel.
     # O endpoint de conta da SerpApi e gratuito e nao conta na cota (documentacao, consultada em 14/10/2026).
@@ -166,6 +186,7 @@ def _listar_classificacao(args, repo, de, ufs, params, classificador_nome):
 
 
 def rodar(args, etapas):
+    tecnologias = _tecnologias_da_busca(args)       # valida antes de abrir o banco ou exigir chave
     fab = Fabrica(simulado=args.simulado)
     repo, snap = fab.repo, S.snapshot_config()
     # C5: na retomada, sem --de, reaproveita o --de guardado na execucao original (uma ou varias execucoes)
@@ -210,7 +231,7 @@ def rodar(args, etapas):
                                      args.paginas or C.MAX_PAGINAS_ACADEMICO, fab.segredos, S.PAUSAS["busca_academica"])
             repo.registrar_saldo(run_id, fab.academico.nome, "fim", saldo())
         if "busca_web" in etapas:
-            consultas = [c for c in gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, ufs, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)
+            consultas = [c for c in gerar_consultas_web(C.MODELOS_WEB, tecnologias, ufs, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)
                          if not args.perfil or c.perfil == args.perfil]
             busca_web.executar(repo, fab.bruto, fab.busca_web, run_id, consultas, C.PERFIS_BUSCA_WEB,
                                fab.segredos, S.PAUSAS["busca_web"], args.limite)
@@ -426,6 +447,37 @@ def gerar_relatorio(a, fab):
     print("Generated:", saida)
 
 
+def auditoria_negativos_modelo(a, fab):
+    """Sorteia, entre as paginas que o modelo classificou SEM achados (texto da pagina, classificacao vigente), a amostra que
+    uma pessoa vai ler para dizer se havia uma aplicacao de IA que o modelo perdeu. So le o banco; nao grava nada nele."""
+    saida = Path(a.saida) if a.saida else S.OUT_DIR / "auditoria_negativos_amostra.csv"
+    if saida.exists():
+        raise SystemExit(f"{saida} já existe e pode ter respostas: escolha outro nome com --saida ou apague o arquivo")
+    candidatos = fab.repo.candidatos_auditoria_negativos()
+    amostra = AN.amostrar(candidatos, a.amostra, a.semente)
+    saida.parent.mkdir(parents=True, exist_ok=True)
+    df = pd.DataFrame([{c: l.get(c) for c in AN.COLUNAS_AMOSTRA} for l in amostra], columns=list(AN.COLUNAS_AMOSTRA))
+    df.to_csv(saida, index=False, encoding="utf-8-sig")
+    print(f"Páginas sem achado ainda não conferidas: {len(candidatos)} | amostra sorteada: {len(amostra)} (semente {a.semente!r}, "
+          f"por UF em proporção ao tamanho de cada UF)")
+    print("Gerado:", saida)
+    raiz_texto = S.DATA_DIR / "raw_simulado" if a.simulado else S.OPCOES["local"]["raiz"]
+    print(f"texto_path é relativo a {raiz_texto}.")
+    print("Para cada linha: leia o texto em texto_path (ou a página em url) e preencha revisor, tinha_aplicacao (1 = havia uma "
+          "aplicação de IA que o modelo não marcou; 0 = o modelo acertou) e, se 1, tecnologia. Depois: "
+          "python main.py auditoria-negativos-importar <arquivo>")
+
+
+def auditoria_negativos_importar(a, fab):
+    df = pd.read_csv(a.arquivo, encoding="utf-8-sig", dtype=str)
+    registros, sem_resposta = AN.validar_respostas(df.to_dict("records"), set(V.TECNOLOGIAS))
+    r = fab.repo.importar_auditoria_negativos(registros)
+    print(f"Respostas novas: {r['novas']} | já gravadas iguais: {r['iguais']} | linhas sem resposta (puladas): {sem_resposta}")
+    if r["conflitos"]:
+        print(f"CONFLITOS: {len(r['conflitos'])} resposta(s) diferente(s) de uma já gravada para o mesmo revisor; nada foi sobrescrito. "
+              "Classificação (revisor, linha): " + ", ".join(f"{c} ({rev}, linha {l})" for c, rev, l in r["conflitos"]))
+
+
 def migrar_robots(a, fab):
     """Reclassifica `bloqueado_por_robots` em `robots_inacessivel` quando o robots.txt nao foi lido (so conta, sem --aplicar)."""
     r = fab.repo.reclassificar_bloqueios_robots(aplicar=a.aplicar, pasta_backup=S.DATA_DIR / "backups")
@@ -449,6 +501,8 @@ def main():
     p = argparse.ArgumentParser(description="Survey automation (AI in Public Security)")
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("estimar"); s.add_argument("--simulado", action="store_true")
+    s.add_argument("--ufs", nargs="*", help="conta só estas UFs (padrão: as 27)")
+    s.add_argument("--tecnologias", nargs="+", metavar="TECNOLOGIA", help=_AJUDA_TECNOLOGIAS)
     for nome in ETAPAS:
         s = sub.add_parser(nome)
         s.add_argument("--retomar", help="run_id of an interrupted run (same configuration)")
@@ -458,6 +512,8 @@ def main():
                                                                                 "sem repeticoes)" if multi else ""))
         s.add_argument("--simulado", action="store_true", help="fake adapters, no cost")
         s.add_argument("--ufs", nargs="*"); s.add_argument("--termos", nargs="*")
+        if "busca_web" in ETAPAS[nome]:
+            s.add_argument("--tecnologias", nargs="+", metavar="TECNOLOGIA", help=_AJUDA_TECNOLOGIAS)
         s.add_argument("--paginas", type=int); s.add_argument("--perfil")
         s.add_argument("--limite", type=int, help="max. items per stage (testing)")
         s.add_argument("--auditoria", type=int, default=0,
@@ -501,6 +557,14 @@ def main():
     s = sub.add_parser("migrar-robots", help="separa, nas chamadas de download ja gravadas, a proibicao do site da falha de leitura do robots.txt (por padrao so mostra os totais)")
     s.add_argument("--aplicar", action="store_true", help="grava a mudanca (antes faz uma copia de seguranca em data/backups); sem isso nada e alterado")
     s.add_argument("--simulado", action="store_true")
+    s = sub.add_parser("auditoria-negativos-modelo",
+                       help="sorteia (por UF, reproduzivel) paginas que o modelo classificou sem achado, para uma pessoa conferir se perdeu alguma aplicacao")
+    s.add_argument("--amostra", type=int, default=AN.AMOSTRA_PADRAO, help=f"tamanho da amostra (padrao {AN.AMOSTRA_PADRAO})")
+    s.add_argument("--semente", default=AN.SEMENTE_PADRAO, help="semente do sorteio (a mesma semente repete a mesma amostra)")
+    s.add_argument("--saida", help="arquivo .csv de saida (padrao: outputs/auditoria_negativos_amostra.csv)")
+    s.add_argument("--simulado", action="store_true")
+    s = sub.add_parser("auditoria-negativos-importar", help="importa o CSV preenchido da auditoria dos negativos do modelo (idempotente)")
+    s.add_argument("arquivo"); s.add_argument("--simulado", action="store_true")
     sub.add_parser("manual-artigos-modelo")
     sub.add_parser("painel-demo", help="cria data/demo.db com dados ficticios para conhecer o painel")
     s = sub.add_parser("painel", help="abre o painel de resultados e de revisao no navegador")
@@ -514,7 +578,7 @@ def main():
                    help="acrescenta, em secao separada e marcados, os achados ainda nao verificados por humano")
     for nome in ("manual-importar", "manual-artigos-importar", "triagem-importar", "achados-importar"):
         s = sub.add_parser(nome); s.add_argument("arquivo"); s.add_argument("--simulado", action="store_true")
-        if nome == "triagem-importar":
+        if nome in ("triagem-importar", "achados-importar"):
             s.add_argument("--independente", action="store_true",
                            help="revisao independente: so entra no historico, nao altera a decisao final")
 
@@ -552,6 +616,10 @@ def main():
         print(f"Execução {a.run_id} dentro do relatório.")
     elif a.cmd == "migrar-robots":
         migrar_robots(a, fab)
+    elif a.cmd == "auditoria-negativos-modelo":
+        auditoria_negativos_modelo(a, fab)
+    elif a.cmd == "auditoria-negativos-importar":
+        auditoria_negativos_importar(a, fab)
     elif a.cmd == "manual-artigos-modelo":
         S.OUT_DIR.mkdir(parents=True, exist_ok=True)
         caminho = S.OUT_DIR / "artigos_manuais_modelo.csv"
@@ -573,7 +641,7 @@ def main():
     elif a.cmd == "achados-importar":
         permitidos = set(V.STATUS) | set(V.STATUS_FINAL_EXTRA)
         print("Findings verified:", fab.repo.importar_verificacao_achados(
-            pd.read_excel(a.arquivo, sheet_name="Achados"), permitidos))
+            pd.read_excel(a.arquivo, sheet_name="Achados"), permitidos, so_historico=a.independente))
         _avisar_conflitos(fab.repo, "achado")
 
 

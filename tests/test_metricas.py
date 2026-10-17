@@ -235,7 +235,7 @@ def test_registro_de_buscas(ac):
 # ---------- busca web ----------
 def test_rendimento_busca_web_por_modelo_perfil_tecnologia(web):
     linhas = _linhas(web, "v_rendimento_busca_web")
-    assert len(linhas) == 10                                                   # 2 modelos x 5 tecnologias
+    assert len(linhas) == 12                                                   # 2 modelos x 6 tecnologias (RC14)
     m01 = _um(web, "v_rendimento_busca_web", "WHERE modelo_id='M01' AND tecnologia='reconhecimento_facial'")
     assert m01["perfil"] == "oficial"
     assert (m01["n_consultas_com_resultado"], m01["n_urls"], m01["pct_oficiais"]) == (1, 3, 100.0)
@@ -255,9 +255,9 @@ def test_sobreposicao_entre_modelos_de_consulta(web):
 
 def test_rendimento_por_posicao(web):
     p = {r["posicao"]: r for r in _linhas(web, "v_rendimento_por_posicao")}
-    assert (p[1]["n_resultados"], p[1]["n_verificados"], p[1]["n_confirmados"], p[1]["taxa_confirmacao_pct"]) == (10, 10, 10, 100.0)
-    assert (p[2]["n_resultados"], p[2]["n_verificados"], p[2]["n_confirmados"], p[2]["taxa_confirmacao_pct"]) == (10, 5, 0, 0.0)
-    assert (p[3]["n_resultados"], p[3]["taxa_confirmacao_pct"]) == (5, 100.0)
+    assert (p[1]["n_resultados"], p[1]["n_verificados"], p[1]["n_confirmados"], p[1]["taxa_confirmacao_pct"]) == (12, 12, 12, 100.0)   # RC14: 12 consultas (6 tecnologias)
+    assert (p[2]["n_resultados"], p[2]["n_verificados"], p[2]["n_confirmados"], p[2]["taxa_confirmacao_pct"]) == (12, 6, 0, 0.0)
+    assert (p[3]["n_resultados"], p[3]["taxa_confirmacao_pct"]) == (6, 100.0)
 
 
 def test_status_por_url(web):
@@ -267,7 +267,7 @@ def test_status_por_url(web):
 
 def test_consultas_vazias(web):
     linhas = _linhas(web, "v_consultas_vazias")
-    assert len(linhas) == 10 and all(l["n_sem_resultado"] == 0 and l["n_consultas"] == 1 for l in linhas)
+    assert len(linhas) == 12 and all(l["n_sem_resultado"] == 0 and l["n_consultas"] == 1 for l in linhas)
     assert {l["modelo_id"] for l in linhas} == {"M01", "M02"}
     assert "reconhecimento_facial" in {l["tecnologia"] for l in linhas}
 
@@ -309,8 +309,8 @@ def test_extracao_por_tipo_de_fonte(web):
 
 def test_eficiencia(web):
     e = _linhas(web, "v_eficiencia")[0]
-    assert e["custo_total_usd"] == pytest.approx(0.05) and e["requisicoes_busca_web"] == 10
-    assert e["fontes_confirmadas"] == 2 and e["custo_por_fonte_confirmada_usd"] == 0.025
+    assert e["custo_total_usd"] == pytest.approx(0.06) and e["requisicoes_busca_web"] == 12
+    assert e["fontes_confirmadas"] == 2 and e["custo_por_fonte_confirmada_usd"] == 0.03
     assert e["creditos_scholar"] == 0 and e["artigos_incluidos"] == 0 and e["creditos_por_artigo_incluido"] is None
 
 

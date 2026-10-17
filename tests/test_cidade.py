@@ -30,7 +30,7 @@ def silencio():
 # ---------- configuracao e geracao das consultas ----------
 def test_por_padrao_nao_ha_consulta_municipal_e_nada_foi_inventado():
     assert C.MUNICIPIOS == {} and C.MODELOS_WEB_MUNICIPAIS == []
-    assert len(gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, C.UFS, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)) == 270
+    assert len(gerar_consultas_web(C.MODELOS_WEB, V.TECNOLOGIAS, C.UFS, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)) == 324
 
 
 def test_consultas_municipais_carregam_a_cidade_e_ids_unicos():

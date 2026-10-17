@@ -308,3 +308,32 @@ def test_abas_achados_e_secretarias_trazem_o_nome_da_solucao(tmp_path):
     assert list(tabelas["Secretarias"]["nome_solucao"]) == [NOME_SOLUCAO_DEMO]
     caminho = ExportadorExcel().exportar({k: tabelas[k] for k in ("Achados", "Secretarias")}, tmp_path / "s.xlsx")
     assert pd.read_excel(caminho, sheet_name="Achados")["nome_solucao"].tolist() == [NOME_SOLUCAO_DEMO] * 3
+
+
+# ============================== RG4: abas da revisao em dupla dos achados e da auditoria dos negativos ==============================
+def test_abas_de_kappa_e_discordancias_dos_achados_e_da_auditoria_chegam_ao_excel(tmp_path):
+    from test_leitura_analises import Minimo
+    m = Minimo(tmp_path / "x.db")
+    for _ in range(4):
+        m.achado("PI", "reconhecimento_facial", "em_uso")
+    repo = RepositorioSQLite(m.caminho)
+    permitidos = {"em_uso", "piloto", "descartado"}
+
+    def planilha(revisor, decisoes):
+        return pd.DataFrame([{"achado_id": a, "verificado": 1, "status_final": d, "verificado_por": revisor, "observacao": None}
+                             for a, d in decisoes.items()])
+    repo.importar_verificacao_achados(planilha("Ana", {1: "em_uso", 2: "em_uso", 3: "descartado", 4: "descartado"}), permitidos, so_historico=True)
+    repo.importar_verificacao_achados(planilha("Bia", {1: "em_uso", 2: "descartado", 3: "descartado", 4: "piloto"}), permitidos, so_historico=True)
+    tabelas = repo.tabelas_para_exportacao()
+    assert {"Revisores_kappa_achados", "Discordancias_achados", "Auditoria_negativos"} <= set(tabelas)
+    caminho = ExportadorExcel().exportar({k: tabelas[k] for k in ("Revisores_kappa_achados", "Discordancias_achados", "Auditoria_negativos")},
+                                         tmp_path / "s.xlsx")
+    kappa = pd.read_excel(caminho, sheet_name="Revisores_kappa_achados")
+    assert list(kappa.columns) == ["revisor_a", "revisor_b", "n_achados_em_comum", "ambos_confirmam", "ambos_descartam", "discordancias",
+                                   "concordancia_pct", "kappa", "n_status_iguais", "concordancia_status_pct"]
+    assert kappa.loc[0, "n_achados_em_comum"] == 4 and kappa.loc[0, "discordancias"] == 2 and kappa.loc[0, "concordancia_pct"] == 50.0
+    disc = pd.read_excel(caminho, sheet_name="Discordancias_achados")
+    assert disc["achado_id"].tolist() == [2, 4] and set(disc["tipo_discordancia"]) == {"confirmado_x_descartado"}
+    assert {"revisor_a", "status_a", "revisor_b", "status_b", "status_final", "url", "tecnologia"} <= set(disc.columns)
+    assert pd.read_excel(caminho, sheet_name="Auditoria_negativos").loc[0, "grupo"] == "total"
+

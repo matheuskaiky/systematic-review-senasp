@@ -1,4 +1,5 @@
 import argparse
+import dataclasses
 import hashlib
 import json
 import logging
@@ -217,7 +218,11 @@ def rodar(args, etapas):
                                    snap["hash"], snap["json"], _commit_git(), args.retomar, run_origem=de,
                                    ambiente_json=_ambiente(args))
     iniciar_log(run_id, S.LOG_DIR)
-    termos = [t for t in C.TERMOS if not args.termos or t.id in args.termos]
+    if args.termos:
+        todos_termos = C.TERMOS + C.TERMOS_COMPOSTOS
+        termos = [t for t in todos_termos if t.id in args.termos]
+    else:
+        termos = list(C.TERMOS)
     # where each stage reads from: from the run itself if the previous stage runs together; otherwise from --de
     origem_dl = run_id if "busca_web" in etapas else de
     origem_cl = run_id if "download" in etapas else de
@@ -228,7 +233,9 @@ def rodar(args, etapas):
         if "academico" in etapas:
             saldo = getattr(fab.academico, "saldo", lambda: None)
             repo.registrar_saldo(run_id, fab.academico.nome, "inicio", saldo())
-            busca_academica.executar(repo, fab.bruto, fab.academico, run_id, termos, C.FILTROS_ACADEMICOS,
+            filtros_acad = (dataclasses.replace(C.FILTROS_ACADEMICOS, idioma_resultados=args.idioma_resultados)
+                            if getattr(args, "idioma_resultados", None) else C.FILTROS_ACADEMICOS)
+            busca_academica.executar(repo, fab.bruto, fab.academico, run_id, termos, filtros_acad,
                                      args.paginas or C.MAX_PAGINAS_ACADEMICO, fab.segredos, S.PAUSAS["busca_academica"])
             repo.registrar_saldo(run_id, fab.academico.nome, "fim", saldo())
         if "busca_web" in etapas:
@@ -272,7 +279,7 @@ def _mapas_termos_triagem():
     Resultados web: nao ha um "termo" unico; os termos sao os ATOMOS ALTERAVEIS da consulta: o rotulo da tecnologia
     (`config/vocabulario.py::TECNOLOGIAS`) e as palavras fixas do modelo de consulta (o template sem {tec}, {nome}, {uf} e
     {cidade}). UF, estado e cidade nao entram: nao sao escolhas de redacao da consulta."""
-    return {"artigo": {t.id: t.query for t in C.TERMOS},
+    return {"artigo": {t.id: t.query for t in C.TERMOS + C.TERMOS_COMPOSTOS},
             "web": {"tecnologias": dict(V.TECNOLOGIAS),
                     "modelos": {m.id: atomo_do_modelo_de_consulta(m.template)
                                 for m in list(C.MODELOS_WEB) + list(C.MODELOS_WEB_MUNICIPAIS)}}}
@@ -409,7 +416,7 @@ def abrir_painel(a, fab):
     contexto = Contexto(
         banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
         pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
-        status_definicoes=dict(V.STATUS), termos={t.id: t.query for t in C.TERMOS}, bases=tuple(C.BASES_MANUAIS),
+        status_definicoes=dict(V.STATUS), termos={t.id: t.query for t in C.TERMOS + C.TERMOS_COMPOSTOS}, bases=tuple(C.BASES_MANUAIS),
         solucoes_conhecidas=tuple(SOLUCOES_CONHECIDAS),
         comando_criar_banco="python main.py painel-demo" if a.demo else
         "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5")
@@ -439,7 +446,7 @@ def gerar_relatorio(a, fab):
                          + ("Rode antes: python main.py painel-demo" if a.demo else "Rode antes o pipeline (por exemplo, python main.py pipeline-uf --ufs PI --limite 5)."))
     banco = "demo" if a.demo else "simulado" if a.simulado else "real"
     agora = datetime.now()
-    dados = relatorio.coletar_dados(fab.leitura_painel(), dict(C.UFS), {t.id: t.query for t in C.TERMOS}, tuple(C.BASES_MANUAIS),
+    dados = relatorio.coletar_dados(fab.leitura_painel(), dict(C.UFS), {t.id: t.query for t in C.TERMOS + C.TERMOS_COMPOSTOS}, tuple(C.BASES_MANUAIS),
                                     banco, fab.caminho_banco.name, agora.isoformat(timespec="seconds"), a.incluir_nao_verificados)
     estaticos = Path(relatorio.__file__).parent / "static"
     css = "\n".join((estaticos / nome).read_text(encoding="utf-8") for nome in ("painel.css", "metodologia.css"))
@@ -559,6 +566,8 @@ def main():
         if "busca_web" in ETAPAS[nome]:
             s.add_argument("--tecnologias", nargs="+", metavar="TECNOLOGIA", help=_AJUDA_TECNOLOGIAS)
         s.add_argument("--paginas", type=int); s.add_argument("--perfil")
+        s.add_argument("--idioma-resultados", metavar="LR",
+                       help="filtro de idioma dos resultados no Scholar (lr, ex. lang_pt)")
         s.add_argument("--limite", type=int, help="max. items per stage (testing)")
         s.add_argument("--auditoria", type=int, default=0,
                        help="N URLs descartadas pelo pre-filtro de palavras-chave tambem sao baixadas e classificadas (auditoria)")

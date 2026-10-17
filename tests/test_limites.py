@@ -423,12 +423,12 @@ def test_nenhum_termo_da_configuracao_entregue_e_composto():
 
 def test_ganho_de_contexto_compara_o_composto_com_o_pai(tmp_path):
     repo, _ = construir_academico(tmp_path / "c.db", composto=True)
-    assert repo.conn.execute("SELECT pai FROM v_termos WHERE termo_id='T47'").fetchone()[0] == "T01"
+    assert repo.conn.execute("SELECT pai FROM v_termos WHERE termo_id='T99'").fetchone()[0] == "T01"
     assert repo.conn.execute("SELECT pai FROM v_termos WHERE termo_id='T01'").fetchone()[0] in ("", None)
     g = _linhas(repo, "v_ganho_contexto")
     assert len(g) == 1                                                          # so o termo que tem pai
     g = g[0]
-    assert (g["termo_composto"], g["termo_pai"]) == ("T47", "T01")
+    assert (g["termo_composto"], g["termo_pai"]) == ("T99", "T01")
     assert (g["n_artigos_composto"], g["n_artigos_pai"], g["n_em_comum"]) == (3, 8, 2)
     assert (g["so_no_composto"], g["so_no_pai"]) == (1, 6)
     assert (g["n_incluidos_composto"], g["n_incluidos_pai"], g["n_incluidos_em_comum"]) == (3, 2, 2)
@@ -438,7 +438,7 @@ def test_ganho_de_contexto_compara_o_composto_com_o_pai(tmp_path):
 
 def test_composto_aparece_nos_pares_de_termos(tmp_path):
     repo, _ = construir_academico(tmp_path / "c.db", composto=True)
-    p = repo.conn.execute("SELECT n_em_comum, jaccard FROM v_pares_termos WHERE termo_a='T01' AND termo_b='T47'").fetchone()
+    p = repo.conn.execute("SELECT n_em_comum, jaccard FROM v_pares_termos WHERE termo_a='T01' AND termo_b='T99'").fetchone()
     assert (p["n_em_comum"], p["jaccard"]) == (2, 0.222)
 
 

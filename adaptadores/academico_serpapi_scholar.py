@@ -54,6 +54,9 @@ class AcademicoSerpApiScholar:
             params["as_ylo"] = filtros.ano_inicial
         if filtros.ano_final:
             params["as_yhi"] = filtros.ano_final
+        # TODO(verificar): se a SerpApi aceita lr=lang_pt no google_scholar (documentacao); confirmar na primeira chamada real
+        if filtros.idioma_resultados:
+            params["lr"] = filtros.idioma_resultados
         r = chamar("GET", self.URL, params={**params, "api_key": self._chave}, timeout=self._timeout)
         reg = RegistroChamada(provedor=self.nome, operacao="buscar_pagina", parametros=params,
                               requisitado_em=agora(), http_status=r["http_status"],

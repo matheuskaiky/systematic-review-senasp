@@ -68,6 +68,7 @@ class FiltrosAcademicos:
     ano_inicial: Optional[int] = None
     ano_final: Optional[int] = None
     por_pagina: int = 20
+    idioma_resultados: Optional[str] = None  # filtro de idioma dos resultados no Scholar (lr, ex. "lang_pt"); None = sem filtro
 
 
 @dataclass(frozen=True)

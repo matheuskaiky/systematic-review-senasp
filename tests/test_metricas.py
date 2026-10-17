@@ -3,6 +3,7 @@ import logging
 
 import pytest
 
+from config import consultas as C
 from dados_metricas import _id_artigo, _novo_run, construir_academico, construir_web
 
 
@@ -38,7 +39,7 @@ def test_v_termos_vem_do_snapshot(ac):
     t = _um(ac, "v_termos", "WHERE termo_id='T25'")
     assert (t["idioma"], t["query"], t["grupo"]) == ("en", '"facial recognition"', "reconhecimento_identificacao")
     assert _um(ac, "v_termos", "WHERE termo_id='T05'")["idioma"] == "pt"
-    assert len(_linhas(ac, "v_termos")) == 46
+    assert len(_linhas(ac, "v_termos")) == len(C.TERMOS) + len(C.TERMOS_COMPOSTOS) == 58
 
 
 def test_rendimento_termo_traz_resultados_exclusivos_e_precisao(ac):
@@ -225,7 +226,7 @@ def test_registro_de_buscas(ac):
     assert len(scholar) == 5 and len(linhas) == 7
     t25 = next(l for l in scholar if l["termo_id"] == "T25")
     assert t25["string_busca"] == '"facial recognition"'
-    assert t25["filtros"] == "idioma=en; por_pagina=20; ano_inicial=2019; ano_final="
+    assert t25["filtros"] == "idioma=en; por_pagina=20; ano_inicial=2019; ano_final=; idioma_resultados="
     assert (t25["pagina"], t25["n_resultados"], t25["total_reportado_aprox"], t25["sucesso"]) == (1, 3, 300, 1)
     assert t25["config_hash"] and t25["run_id"] and t25["data_busca"]
     manuais = {l["fonte"]: l for l in linhas if not l["fonte"].startswith("Google Scholar")}

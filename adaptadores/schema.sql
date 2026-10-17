@@ -676,7 +676,8 @@ SELECT 'Google Scholar (SerpApi)' AS fonte, c.alvo_id AS termo_id,
        'idioma=' || COALESCE(json_extract(c.parametros_json, '$.hl'), '') ||
        '; por_pagina=' || COALESCE(json_extract(c.parametros_json, '$.num'), '') ||
        '; ano_inicial=' || COALESCE(json_extract(c.parametros_json, '$.as_ylo'), '') ||
-       '; ano_final=' || COALESCE(json_extract(c.parametros_json, '$.as_yhi'), '') AS filtros,
+       '; ano_final=' || COALESCE(json_extract(c.parametros_json, '$.as_yhi'), '') ||
+       '; idioma_resultados=' || COALESCE(json_extract(c.parametros_json, '$.lr'), '') AS filtros,
        c.pagina, c.requisitado_em AS data_busca, c.n_retornados AS n_resultados,
        c.total_reportado AS total_reportado_aprox, c.sucesso, c.run_id, e.config_hash, e.no_relatorio
 FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id

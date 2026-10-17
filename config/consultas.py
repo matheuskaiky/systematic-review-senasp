@@ -64,14 +64,39 @@ TERMOS = [
     Termo("T45", '"drones with artificial intelligence"', "en", "outras_aplicacoes"),               # J1 de T20
     Termo("T46", '"integrated command and control center with AI"', "en", "outras_aplicacoes"),     # J1 de T21
 ]
-# Consultas combinadas (termo + contexto) sao opcionais e ficam DESLIGADAS: cada uma custa ate MAX_PAGINAS_ACADEMICO
-# creditos. Decida com os dados de `Termos_rendimento` (termos de baixa taxa_inclusao_pct sao candidatos) e confira
-# o efeito em `Ganho_contexto`. Exemplo (nao ativo):
-#   from dominio.servicos import termo_composto
-#   TERMOS += [termo_composto("T47", TERMOS[39], '"public security" OR police')]    # "machine learning" + contexto
+# Termos compostos do piloto (6 termos-pai x 2 sintaxes): desligados por padrao, rodam apenas quando citados em --termos.
+from dominio.servicos import termo_composto
+
+_PAIS_TERMOS = {t.id: t for t in TERMOS}
+_CONFIG_COMPOSTOS = (
+    ("T47", "T48", "T15"),
+    ("T49", "T50", "T06"),
+    ("T51", "T52", "T01"),
+    ("T53", "T54", "T25"),
+    ("T55", "T56", "T40"),
+    ("T57", "T58", "T33"),
+)
+_CONTEXTOS_PILOTO = {
+    "pt": {
+        "contexto_a": '"segurança pública" OR polícia OR policiamento',
+        "sufixo_b": '"segurança pública"',
+    },
+    "en": {
+        "contexto_a": '(Brazil OR Brazilian) AND ("public security" OR police OR policing)',
+        "sufixo_b": "Brazil police",
+    },
+}
+
+TERMOS_COMPOSTOS = []
+for _id_a, _id_b, _pai_id in _CONFIG_COMPOSTOS:
+    _pai = _PAIS_TERMOS[_pai_id]
+    _cfg = _CONTEXTOS_PILOTO[_pai.idioma]
+    TERMOS_COMPOSTOS.append(termo_composto(_id_a, _pai, _cfg["contexto_a"]))
+    TERMOS_COMPOSTOS.append(Termo(_id_b, f"{_pai.query} {_cfg['sufixo_b']}", _pai.idioma, _pai.grupo, _pai.id))
+
 BASES_MANUAIS = ("IEEE", "ACM", "Scopus", "SBC OpenLib")
 
-FILTROS_ACADEMICOS = FiltrosAcademicos(ano_inicial=2019, ano_final=None, por_pagina=20)
+FILTROS_ACADEMICOS = FiltrosAcademicos(ano_inicial=2022, ano_final=None, por_pagina=20)
 MAX_PAGINAS_ACADEMICO = 3          # 3 pages = up to 60 results per term
 
 # ---------- Task 1: web queries ----------
@@ -125,6 +150,9 @@ POLITICA_DOWNLOAD = PoliticaDownload(
 )
 
 assert len({t.id for t in TERMOS}) == len(TERMOS), "Duplicate term IDs"
+assert len({t.id for t in TERMOS + TERMOS_COMPOSTOS}) == len(TERMOS + TERMOS_COMPOSTOS), "Duplicate term IDs across TERMOS and TERMOS_COMPOSTOS"
+_ids_termos = {t.id for t in TERMOS}
+assert all(t.pai in _ids_termos for t in TERMOS_COMPOSTOS), "Every pai of TERMOS_COMPOSTOS must exist in TERMOS"
 assert len({m.id for m in MODELOS_WEB}) == len(MODELOS_WEB), "Duplicate template IDs"
 assert len(UFS) == 27, "The state list must have 27 entries"
 assert len({m.id for m in MODELOS_WEB + MODELOS_WEB_MUNICIPAIS}) == len(MODELOS_WEB + MODELOS_WEB_MUNICIPAIS), "Duplicate template IDs"

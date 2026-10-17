@@ -125,7 +125,7 @@ def snapshot_config():
     conteudo = {
         "provedores": PROVEDORES,
         "opcoes": OPCOES,
-        "termos": c.TERMOS, "filtros_academicos": c.FILTROS_ACADEMICOS,
+        "termos": c.TERMOS + c.TERMOS_COMPOSTOS, "filtros_academicos": c.FILTROS_ACADEMICOS,
         "max_paginas_academico": c.MAX_PAGINAS_ACADEMICO,
         "modelos_web": c.MODELOS_WEB, "perfis_busca_web": c.PERFIS_BUSCA_WEB,
         "modelos_web_municipais": c.MODELOS_WEB_MUNICIPAIS, "municipios": c.MUNICIPIOS,

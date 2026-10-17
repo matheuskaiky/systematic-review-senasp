@@ -22,11 +22,11 @@ from dominio.modelos import (Achado, ArquivoBaixado, ArtigoAcademico, Parametros
                              ResultadoClassificacao, ResultadoWeb, RespostaBusca, TextoExtraido)
 from dominio.servicos import gerar_consultas_web
 
-COMPOSTO = {"id": "T47", "query": '"reconhecimento facial" AND ("public security" OR police)', "idioma": "pt",
+COMPOSTO = {"id": "T99", "query": '"reconhecimento facial" AND ("public security" OR police)', "idioma": "pt",
             "grupo": "reconhecimento_identificacao", "pai": "T01"}
 TERMOS_ACADEMICOS = {"T01": '"reconhecimento facial"', "T02": '"reconhecimento facial em tempo real"',
                      "T05": '"videomonitoramento inteligente"', "T25": '"facial recognition"',
-                     "T47": COMPOSTO["query"]}
+                     "T99": COMPOSTO["query"]}
 
 
 def _novo_run(repo, comando, termos_extra=()):
@@ -63,7 +63,7 @@ def _id_artigo(repo, n):
 
 
 def construir_academico(caminho, composto=False):
-    """composto=True acrescenta T47 (consulta combinada derivada de T01): A1 A2 A14, com A14 incluido."""
+    """composto=True acrescenta T99 (consulta combinada derivada de T01): A1 A2 A14, com A14 incluido."""
     repo = RepositorioSQLite(caminho)
     run_id = _novo_run(repo, "academico", termos_extra=[COMPOSTO] if composto else ())
     _chamada_academica(repo, run_id, "T01", 1, range(1, 7), 1500)
@@ -78,7 +78,7 @@ def construir_academico(caminho, composto=False):
         repo.conn.execute("INSERT INTO triagem (artigo_id, decisao, motivo) VALUES (?,?,?)",
                           (_id_artigo(repo, n), decisao, motivo))
     if composto:
-        _chamada_academica(repo, run_id, "T47", 1, [1, 2, 14], 20)
+        _chamada_academica(repo, run_id, "T99", 1, [1, 2, 14], 20)
         repo.conn.execute("INSERT INTO triagem (artigo_id, decisao) VALUES (?, 'incluir')", (_id_artigo(repo, 14),))
     repo.conn.executemany(
         "INSERT INTO buscas_manuais (base, termo_id, string_base, filtros, n_resultados, n_apos_filtro, "

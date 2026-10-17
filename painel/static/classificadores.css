@@ -1,17 +1,15 @@
 /* Pagina Classificadores: usa os tokens de painel.css (claro e escuro). */
 .filtros.escolha { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .filtros.escolha select { max-width: 100%; }
-.explica { color: var(--texto-suave); max-width: 80ch; margin: 0 0 1rem; font-size: .93rem; }
 .nao-calculado { color: var(--texto-suave); font-style: italic; }
-.kpis-pares { margin: 1rem 0 0; }
+.kpis-pares { margin: var(--esp-4) 0 0; }
 
-table.matriz { width: auto; min-width: 22rem; margin-bottom: .5rem; }
-table.matriz caption { text-align: left; color: var(--texto-suave); font-size: .85rem; padding-bottom: .35rem; }
-table.matriz td { font-size: 1.3rem; font-weight: 700; min-width: 9rem; }
+table.matriz { width: auto; min-width: 22rem; margin-bottom: var(--esp-2); }
+table.matriz caption { text-align: left; color: var(--texto-suave); font-size: var(--fs-sm); padding-bottom: .35rem; }
+table.matriz td { font-size: var(--fs-xl); font-weight: 700; min-width: 9rem; }
 table.matriz td.acerto { background: var(--ok-fundo); color: var(--ok); }
 table.matriz td.erro { background: var(--alerta-fundo); color: var(--alerta); }
 table.matriz tbody tr:hover { background: transparent; }
-tbody th[scope="row"] { text-transform: none; letter-spacing: 0; font-size: .93rem; color: var(--texto); font-weight: 600; white-space: normal; }
 
 table.divergencias td.quebra { overflow-wrap: anywhere; min-width: 12rem; max-width: 22rem; }
 table.divergencias td.achados-links { white-space: nowrap; }

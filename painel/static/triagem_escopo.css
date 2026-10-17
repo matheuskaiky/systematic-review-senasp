@@ -1,34 +1,29 @@
 /* Triagem de escopo (LLM): usa os tokens de painel.css (claro e escuro). O veredito nunca e so cor: tem icone e texto. */
-.explica { color: var(--texto-suave); max-width: 85ch; margin: 0 0 1rem; font-size: .93rem; }
-.nao-avaliado { color: var(--texto-suave); font-style: italic; font-size: .88rem; }
-.explica-llm { color: var(--texto-suave); font-size: .92rem; margin: .25rem 0 .5rem; max-width: 80ch; }
+.explica-llm { color: var(--texto-suave); font-size: var(--fs-md); margin: var(--esp-1) 0 var(--esp-2); max-width: 80ch; }
 .aviso-excluido { background: var(--perigo-fundo); border-left-color: var(--perigo); }
 .cartao-llm .ficha dd small { display: block; }
 
-.abas { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
-.abas a { display: inline-flex; align-items: center; gap: .5rem; padding: .45rem .9rem; border: 1px solid var(--borda-controle); border-radius: 999px;
+.abas { display: flex; flex-wrap: wrap; gap: var(--esp-2); margin: 0 0 var(--esp-4); }
+.abas a { display: inline-flex; align-items: center; gap: var(--esp-2); padding: .45rem .9rem; border: 1px solid var(--borda-controle); border-radius: var(--raio-pilula);
   text-decoration: none; background: var(--superficie); color: var(--texto); }
 .abas a:hover { background: var(--acento-fundo); }
 .abas a[aria-current="true"] { background: var(--acento-fundo); color: var(--acento); border-color: var(--acento); font-weight: 600; }
 
-.distribuicoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.distribuicoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--esp-4); margin-bottom: var(--esp-5); }
 .distribuicoes .cartao { margin-bottom: 0; }
 .kpi .selo { align-self: flex-start; }
 
-tbody th[scope="row"] { text-transform: none; letter-spacing: 0; font-size: .93rem; color: var(--texto); font-weight: 600; white-space: normal; }
 td.quebra, th.quebra { overflow-wrap: anywhere; min-width: 11rem; max-width: 24rem; }
 table.ficha-termos td.num, table.negativos td.num { white-space: nowrap; }
 table.ficha-termos td:last-child, table.negativos td:last-child { min-width: 11rem; }
 table.itens-escopo td.justificativa { min-width: 14rem; max-width: 26rem; }
-.lista-colateral { margin: 0; padding-left: 1rem; }
-.lista-colateral li { margin-bottom: .2rem; }
-.explicacoes { display: grid; grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr); gap: .5rem 1rem; margin: 0 0 1rem; }
+.explicacoes { display: grid; grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr); gap: var(--esp-2) var(--esp-4); margin: 0 0 var(--esp-4); }
 .explicacoes dt { font-weight: 600; }
 .explicacoes dd { margin: 0; color: var(--texto); max-width: 80ch; }
 .filtros .botao { justify-self: start; }
 @media (max-width: 640px) {
   .explicacoes { grid-template-columns: 1fr; }
-  .explicacoes dd { margin-bottom: .5rem; }
+  .explicacoes dd { margin-bottom: var(--esp-2); }
 }
 
 /* cabecalhos longos quebram linha (a tabela rola na horizontal so quando precisa) e o selo de varias palavras nao vira uma pilula torta */
@@ -37,6 +32,6 @@ table.ficha-termos thead th, table.negativos thead th { vertical-align: bottom; 
 table.ficha-termos tbody th, table.negativos tbody th { vertical-align: top; }
 table.negativos td.num { min-width: 4.5rem; }
 table.negativos td:last-child { min-width: 16rem; }
-table.itens-escopo .selo { border-radius: 8px; }
+table.itens-escopo .selo { border-radius: var(--raio-md); }
 /* o selo do veredito pode trazer o motivo e quebra linha em telas estreitas, em vez de alargar a pagina */
-.selo.llm { white-space: normal; border-radius: 10px; max-width: 100%; }
+.selo.llm { white-space: normal; border-radius: var(--raio); max-width: 100%; }

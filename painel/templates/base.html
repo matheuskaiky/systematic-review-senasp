@@ -18,27 +18,15 @@
 <div class="layout">
   <nav class="menu" aria-label="Principal">
     <a class="marca" href="/">Levantamento<br><small>IA na Segurança Pública</small></a>
-    {% macro item(href, texto, prefixo) %}<a href="{{ href }}"{% if caminho == href or (prefixo and caminho.startswith(prefixo)) %} aria-current="page"{% endif %}>{{ texto }}</a>{% endmacro %}
-    {{ item("/", "Visão geral", None) }}
-    {{ item("/estados", "Estados", "/estados") }}
-    {{ item("/achados", "Achados", "/achados") }}
-    {{ item("/revisao/achados", "Revisar achados", "/revisao") }}
-    {{ item("/analises", "Análises", "/analises") }}
-    {{ item("/solucoes", "Soluções conhecidas", "/solucoes") }}
-    {{ item("/buscar-texto", "Buscar no texto", "/buscar-texto") }}
-    <span class="menu-grupo">Literatura</span>
-    {{ item("/literatura", "Visão da literatura", None) }}
-    {{ item("/literatura/artigos", "Artigos", "/literatura/artigos") }}
-    {{ item("/literatura/triagem", "Triar artigos", "/literatura/triagem") }}
-    {{ item("/literatura/prisma", "Fluxo PRISMA", "/literatura/prisma") }}
-    <span class="menu-grupo">Pipeline</span>
-    {{ item("/execucoes", "Execuções", "/execucoes") }}
-    {{ item("/chamadas", "Chamadas", "/chamadas") }}
-    {{ item("/classificadores", "Classificadores", "/classificadores") }}
-    {{ item("/triagem-escopo", "Triagem de escopo (LLM)", "/triagem-escopo") }}
-    <span class="menu-grupo">Relatório</span>
-    {{ item("/metodologia", "Metodologia", "/metodologia") }}
-    {{ item("/sobre", "Sobre os dados", "/sobre") }}
+    {% for g in menu_grupos(caminho) %}
+    <details class="menu-grupo" data-grupo="{{ g.id }}"{% if g.aberto %} open{% endif %}>
+      <summary>{{ g.nome }}</summary>
+      <ul class="menu-lista" aria-label="{{ g.nome }}">
+        {% for i in g.itens %}<li><a href="{{ i.href }}"{% if i.atual %} aria-current="page"{% endif %}>{{ i.texto }}</a></li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endfor %}
   </nav>
   <main id="conteudo" tabindex="-1">{% block conteudo %}{% endblock %}</main>
 </div>

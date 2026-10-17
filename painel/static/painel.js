@@ -23,3 +23,21 @@
   });
   window.addEventListener("load", irParaEvidencia);
 })();
+
+// Menu lateral: os grupos são <details> nativos e funcionam sem JavaScript (o grupo da página atual já vem aberto do servidor).
+// Aqui só se lembra, por visitante, se o leitor abriu ou fechou cada um dos outros grupos. O armazenamento pode falhar (janela anônima, bloqueio): tudo em try/catch.
+(function () {
+  var PREFIXO = "painel.menu.";
+  function ler(id) { try { return window.localStorage.getItem(PREFIXO + id); } catch (e) { return null; } }
+  function gravar(id, aberto) { try { window.localStorage.setItem(PREFIXO + id, aberto ? "1" : "0"); } catch (e) { /* sem armazenamento: o menu segue funcionando */ } }
+  var grupos = document.querySelectorAll("details.menu-grupo[data-grupo]");
+  Array.prototype.forEach.call(grupos, function (grupo) {
+    var id = grupo.getAttribute("data-grupo");
+    var contemAtual = !!grupo.querySelector('a[aria-current="page"]');
+    if (!contemAtual) {
+      var salvo = ler(id);
+      if (salvo === "1") { grupo.open = true; } else if (salvo === "0") { grupo.open = false; }
+    }
+    grupo.addEventListener("toggle", function () { if (!contemAtual) { gravar(id, grupo.open); } });
+  });
+})();

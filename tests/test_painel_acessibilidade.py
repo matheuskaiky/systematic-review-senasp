@@ -189,6 +189,9 @@ def test_menu_marca_a_pagina_atual_com_aria_current(cliente):
     html = cli.get("/estados").text
     assert re.search(r'<a href="/estados" aria-current="page">', html)
     assert html.count('aria-current="page"') == 1
+    # o menu agora e feito de tres grupos <details>; o grupo da pagina atual ja vem aberto do servidor
+    assert re.search(r'<details class="menu-grupo" data-grupo="revisao" open>\s*<summary>Revisão sistemática</summary>', html)
+    assert html.count("<details class=\"menu-grupo\"") == 3 and html.count(" open>") == 1
 
 
 # ============================== contraste (WCAG 2.x) ==============================

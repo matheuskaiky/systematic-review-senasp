@@ -1,18 +1,20 @@
 /* Gráficos da página /analises (analises.py). Só classes: a política de segurança do painel proíbe `style=`.
-   Os tokens `--an-*` reaproveitam os de painel.css; as cores de dados têm versão clara, escura e de impressão (que fica sempre clara).
+   Os tokens `--an-*` reaproveitam os de painel.css (var(), sem cor de reserva: painel.css sempre carrega antes) e os derivam quando o valor é o mesmo do semântico.
+   As cores de dados (paleta fixa para daltônicos) ficam só aqui, em hexadecimal, com versão clara, escura e de impressão (que fica sempre clara).
+   O bloco de impressão repete os literais claros: tests/test_painel_navegacao.py confere que não divergem de painel.css.
    Cor nunca é a única pista: os padrões (<pattern> dentro de cada SVG) e os glifos/textos fazem o resto em escala de cinza. */
 :root {
-  --an-texto: var(--texto, #1c2430);
-  --an-suave: var(--texto-suave, #5b6675);
-  --an-borda: var(--borda, #d9dee6);
-  --an-fundo: var(--superficie, #ffffff);
-  --an-acento: var(--acento, #1f5f8b);
-  --an-perigo: var(--perigo, #a3262a);
-  --an-ok: var(--ok, #1b7a4b);
-  --an-ok-fundo: var(--ok-fundo, #e3f4ea);
-  --an-perigo-fundo: var(--perigo-fundo, #fbe6e6);
-  --an-alerta: var(--alerta, #9a5b00);
-  --an-alerta-fundo: var(--alerta-fundo, #fdf0d9);
+  --an-texto: var(--texto);
+  --an-suave: var(--texto-suave);
+  --an-borda: var(--borda);
+  --an-fundo: var(--superficie);
+  --an-acento: var(--acento);
+  --an-perigo: var(--perigo);
+  --an-ok: var(--ok);
+  --an-ok-fundo: var(--ok-fundo);
+  --an-perigo-fundo: var(--perigo-fundo);
+  --an-alerta: var(--alerta);
+  --an-alerta-fundo: var(--alerta-fundo);
   --an-em_uso: #12306b;
   --an-em_uso-ln: #2f5aa8;
   --an-em_uso-tx: #ffffff;
@@ -32,7 +34,7 @@
   --an-apenas_citado-ln: #6b7686;
   --an-apenas_citado-tx: #3d4756;
   --an-descartado: #f6d5d6;
-  --an-descartado-ln: #a3262a;
+  --an-descartado-ln: var(--perigo);
   --an-descartado-tx: #7a1a1d;
   --an-s0: #0072B2;
   --an-s1: #D55E00;
@@ -53,9 +55,9 @@
   --an-k-moderada-ln: #8a6410;
   --an-k-substancial: #8fcfa8;
   --an-k-substancial-ln: #1b7a4b;
-  --an-k-quase: #1b7a4b;
+  --an-k-quase: var(--ok);
   --an-k-quase-ln: rgba(255,255,255,.55);
-  --an-cal-alta: #1b7a4b;
+  --an-cal-alta: var(--ok);
   --an-cal-alta-ln: rgba(255,255,255,.55);
   --an-cal-media: #e0a526;
   --an-cal-media-ln: #6b4a00;
@@ -113,7 +115,6 @@
     --an-apenas_citado-ln: #7b8594;
     --an-apenas_citado-tx: #c3cbd6;
     --an-descartado: #4a2326;
-    --an-descartado-ln: #f08a8d;
     --an-descartado-tx: #f5b5b8;
     --an-s0: #56a8e0;
     --an-s1: #f08a4b;
@@ -134,9 +135,7 @@
     --an-k-moderada-ln: #2b1f00;
     --an-k-substancial: #3f9f6e;
     --an-k-substancial-ln: #04170d;
-    --an-k-quase: #62c28e;
     --an-k-quase-ln: rgba(0,0,0,.4);
-    --an-cal-alta: #62c28e;
     --an-cal-alta-ln: rgba(0,0,0,.4);
     --an-cal-media: #e8b45a;
     --an-cal-media-ln: #2b1f00;
@@ -270,7 +269,7 @@
 /* ---------- base ---------- */
 .an-svg { width: 100%; height: auto; display: block; max-width: 760px; font-size: 12px; }
 .an-svg text { font-family: inherit; }
-.an-vazio { margin: .25rem 0; }
+.an-vazio { margin: var(--esp-1) 0; }
 .an-rot { fill: var(--an-texto); font-size: 12.5px; }
 .an-rot-forte { font-weight: 600; }
 .an-centro { font-weight: 600; }
@@ -452,14 +451,14 @@ a.an-link:focus-visible { outline: 3px solid var(--an-acento); outline-offset: 2
 .an-no { fill: var(--an-texto); }
 
 /* ---------- ranking de bloqueios ---------- */
-.an-ranking th[scope="row"] { font-weight: 600; text-transform: none; letter-spacing: 0; font-size: .93rem; color: var(--an-texto); white-space: normal; overflow-wrap: break-word; min-width: 13rem; }
+.an-ranking th[scope="row"] { font-weight: 600; text-transform: none; letter-spacing: 0; font-size: var(--fs-md); color: var(--an-texto); white-space: normal; overflow-wrap: break-word; min-width: 13rem; }
 tr.an-nivel-fechado th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-perigo); }
 tr.an-nivel-parcial th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-alerta); }
 tr.an-nivel-aberto th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-ok); }
 .an-celula-barra { min-width: 130px; }
 .an-barra-semaforo { width: 120px; max-width: none; height: 12px; display: block; }
 .an-barra-nivel { stroke: var(--an-texto); stroke-width: .6; }
-.an-situacao { display: inline-flex; align-items: center; gap: .3em; padding: .1em .55em; border-radius: 999px; font-size: .8rem; font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.an-situacao { display: inline-flex; align-items: center; gap: .3em; padding: .1em .55em; border-radius: var(--raio-pilula); font-size: var(--fs-sm); font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
 .an-situacao::before { font-size: .9em; }
 .an-situacao-aberto { color: var(--an-ok); } .an-situacao-aberto::before { content: "\2713"; }
 .an-situacao-parcial { color: var(--an-alerta); } .an-situacao-parcial::before { content: "\25D0"; }
@@ -480,17 +479,17 @@ tr.an-nivel-aberto th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-ok); }
 .an-matriz .an-cab { font-size: 11px; }
 
 /* ---- pagina /analises (abas, cartoes, blocos) ---- */
-.an-abas { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0; }
-.an-abas a { padding: .35rem .8rem; border: 1px solid var(--borda, #c8ccd2); border-radius: 999px; text-decoration: none; }
+.an-abas { display: flex; flex-wrap: wrap; gap: .4rem; margin: var(--esp-4) 0; }
+.an-abas a { padding: .35rem .8rem; border: 1px solid var(--borda); border-radius: var(--raio-pilula); text-decoration: none; }
 .an-abas a[aria-current="page"] { font-weight: 700; border-width: 2px; }
-.an-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; margin: 1rem 0; }
-.an-cartoes .cartao { display: flex; flex-direction: column; padding: .75rem; border: 1px solid var(--borda, #c8ccd2); border-radius: 8px; }
-.an-cartoes .cartao strong { font-size: 1.5rem; }
-.an-bloco { margin: 2rem 0; padding-bottom: 1rem; border-bottom: 1px solid var(--borda, #c8ccd2); }
+.an-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--esp-3); margin: var(--esp-4) 0; }
+.an-cartoes .cartao { display: flex; flex-direction: column; padding: var(--esp-3); border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.an-cartoes .cartao strong { font-size: var(--fs-2xl); }
+.an-bloco { margin: var(--esp-7) 0; padding-bottom: var(--esp-4); border-bottom: 1px solid var(--borda); }
 .an-bloco h2 { margin-bottom: .2rem; }
-.an-subtitulo { margin-top: 0; font-size: .85rem; opacity: .8; }
-.an-grafico { overflow-x: auto; margin: .75rem 0; }
-.an-memoria { margin-top: .75rem; }
-.an-pares { display: grid; grid-template-columns: max-content 1fr; gap: .2rem 1rem; }
+.an-subtitulo { margin-top: 0; font-size: var(--fs-sm); opacity: .8; }
+.an-grafico { overflow-x: auto; margin: var(--esp-3) 0; }
+.an-memoria { margin-top: var(--esp-3); }
+.an-pares { display: grid; grid-template-columns: max-content 1fr; gap: .2rem var(--esp-4); }
 .an-pares dt { font-weight: 600; }
 .an-pares dd { margin: 0; }

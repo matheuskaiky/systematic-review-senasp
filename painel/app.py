@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 from aplicacao import revisao
 from dominio import relevancia as relev
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
-from painel import formatacao as fmt, mapa_ufs, rotulos
+from painel import formatacao as fmt, mapa_ufs, navegacao, rotulos
 from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_do_brasil, mapa_de_calor
 
 AQUI = Path(__file__).parent
@@ -70,7 +70,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
     app = FastAPI(title="Painel de resultados", docs_url=None, redoc_url=None, openapi_url=None)
     modelos = Jinja2Templates(directory=str(AQUI / "templates"))
     modelos.env.filters["url_segura"] = lambda u: u if str(u or "").lower().startswith(("http://", "https://")) else "#"
-    modelos.env.globals.update(fmt=fmt, rotulos=rotulos, ctx=contexto, quote=quote, urlencode=urlencode)
+    modelos.env.globals.update(fmt=fmt, rotulos=rotulos, ctx=contexto, quote=quote, urlencode=urlencode, menu_grupos=navegacao.grupos)
     app.mount("/static", StaticFiles(directory=str(AQUI / "static")), name="static")
 
     # ---------- seguranca: cabecalhos, CSRF (cookie duplicado no formulario) e cookies SameSite=Strict ----------

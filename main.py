@@ -300,22 +300,26 @@ def _precos_triagem():
     return {"entrada": o["preco_entrada_por_m"], "saida": o["preco_saida_por_m"]}
 
 
-def _config_triagem_run(lote):
+def _config_triagem_run(lote, cfg):
     """Configuracao da execucao de `triar-escopo`: o snapshot geral (sem alterar `settings.snapshot_config`) mais a
     configuracao da triagem (versao do prompt, prompts, vocabularios, tamanho do lote) e um hash proprio."""
     snap = S.snapshot_config()
     conteudo = json.loads(snap["json"])
-    conteudo["triagem_escopo"] = {**TE.CONFIG.como_dict(), "lote": lote, "max_tokens_saida": TE.MAX_TOKENS_SAIDA,
+    conteudo["triagem_escopo"] = {**cfg.como_dict(), "lote": lote, "max_tokens_saida": TE.MAX_TOKENS_SAIDA,
                                   "max_falhas_por_lote": TE.MAX_FALHAS_POR_LOTE}
     texto = json.dumps(conteudo, sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha256(texto.encode()).hexdigest()[:12], texto
 
 
-def _imprimir_estimativa(a, fonte, itens, resumo, lote, precos):
-    est = estimar_custo(itens, lote, precos, TE.CONFIG) if precos else None
-    print(f"Triagem de escopo (prompt {TE.PROMPT_TRIAGEM_VERSAO}) | fonte: {a.fonte}")
-    print(f"Itens no banco: {resumo['total']} | na amostra: {resumo['na_amostra']} | já triados com este prompt: "
-          f"{resumo['ja_triados']} | a triar: {resumo['a_triar']}")
+def _imprimir_estimativa(a, fonte, itens, resumo, lote, precos, cfg):
+    est = estimar_custo(itens, lote, precos, cfg) if precos else None
+    print(f"Triagem de escopo (prompt {cfg.versao}) | fonte: {a.fonte}")
+    if cfg.curta:
+        print(f"Artigos anteriores a {cfg.ano_minimo} no banco: {resumo['total']} | na amostra: {resumo['na_amostra']} | "
+              f"já triados (qualquer prompt): {resumo['ja_triados']} | a triar: {resumo['a_triar']}")
+    else:
+        print(f"Itens no banco: {resumo['total']} | na amostra: {resumo['na_amostra']} | já triados com este prompt: "
+              f"{resumo['ja_triados']} | a triar: {resumo['a_triar']}")
     if est is None:
         print("Preços do modelo não configurados: custo indisponível.")
         return
@@ -338,9 +342,12 @@ def _imprimir_estimativa(a, fonte, itens, resumo, lote, precos):
 def triar_escopo(a):
     """Triagem de escopo por LLM (so lê o banco e grava `triagem_escopo`). Regra de busca amostral do projeto (regra 11): sem --amostra ou
     --limite o comando recusa, salvo --tudo explicito. --estimar nao chama nada e nao pede chave."""
-    lote = TE.LOTE_PADRAO if a.lote is None else a.lote
-    if lote < 1 or lote > TE.LOTE_MAXIMO:
-        raise SystemExit(f"--lote deve estar entre 1 e {TE.LOTE_MAXIMO} (recebido: {lote}).")
+    cfg = TE.CONFIG_CURTA if a.curta else TE.CONFIG
+    if a.curta and a.fonte != "artigos":
+        raise SystemExit("--curta vale só para --fonte artigos.")
+    lote = cfg.lote_padrao if a.lote is None else a.lote
+    if lote < 1 or lote > cfg.lote_maximo:
+        raise SystemExit(f"--lote deve estar entre 1 e {cfg.lote_maximo} (recebido: {lote}).")
     if not a.estimar and not (a.amostra or a.limite or a.tudo):
         raise SystemExit(
             "Recusado (regra 11 do projeto, busca amostral): a triagem de escopo gasta créditos e, enquanto não houver protocolo final "
@@ -351,26 +358,29 @@ def triar_escopo(a):
     fab = Fabrica(simulado=a.simulado)
     repo, precos = fab.repo, _precos_triagem()
     mapas = _mapas_termos_triagem()
-    itens, resumo = triagem_escopo.selecionar(repo, fonte, mapas, TE.CONFIG, a.amostra, a.estratificar,
+    itens, resumo = triagem_escopo.selecionar(repo, fonte, mapas, cfg, a.amostra, a.estratificar,
                                               a.semente, a.limite, a.refazer)
     if a.estimar or a.tudo:
-        _imprimir_estimativa(a, fonte, itens, resumo, lote, precos)
+        _imprimir_estimativa(a, fonte, itens, resumo, lote, precos, cfg)
     if a.estimar:
         return
     if not itens:
-        print("Nada a triar: todos os itens da seleção já têm triagem com este prompt (use --refazer para repetir).")
+        if cfg.curta:
+            print(f"Nada a triar: todos os artigos anteriores a {cfg.ano_minimo} da seleção já têm triagem respondida (use --refazer para repetir).")
+        else:
+            print("Nada a triar: todos os itens da seleção já têm triagem com este prompt (use --refazer para repetir).")
         return
     teto = a.max_custo if a.max_custo is not None else TE.MAX_CUSTO_PADRAO_USD
     if precos is None:
         raise SystemExit("Preços do modelo não configurados em config/settings.py: o teto de custo não pode ser aplicado.")
-    h, config_json = _config_triagem_run(lote)
+    h, config_json = _config_triagem_run(lote, cfg)
     run_id = repo.iniciar_execucao(a.cmd + (" [simulado]" if a.simulado else ""), h, config_json, _commit_git(),
                                    a.retomar, run_origem=None, ambiente_json=_ambiente(a))
     iniciar_log(run_id, S.LOG_DIR)
     logging.info("run_id=%s | triar-escopo fonte=%s | teto US$ %.2f | simulated=%s", run_id, a.fonte, teto, a.simulado)
     status = "concluida"
     try:
-        r = triagem_escopo.executar(repo, fab.bruto, fab.triador, run_id, fonte, mapas, TE.CONFIG, precos, fab.segredos,
+        r = triagem_escopo.executar(repo, fab.bruto, fab.triador, run_id, fonte, mapas, cfg, precos, fab.segredos,
                                     0 if a.simulado else TE.PAUSA_SEGUNDOS, lote, a.amostra, a.estratificar, a.semente,
                                     a.limite, teto, a.refazer, TE.MAX_FALHAS_POR_LOTE)
         print(f"Execução {run_id}: {r['itens_triados']} itens triados em {r['chamadas']} chamadas "
@@ -644,13 +654,14 @@ def main():
     s.add_argument("--amostra", type=int, help="tamanho da amostra deterministica (regra 11: use amostras pequenas)")
     s.add_argument("--estratificar", action="store_true", help="espalha a amostra por relevancia e termo (artigos) ou UF e download (web)")
     s.add_argument("--semente", default="triagem-escopo", help="semente da amostra (a mesma semente repete a mesma amostra)")
-    s.add_argument("--lote", type=int, help=f"itens por chamada (padrao {TE.LOTE_PADRAO}, maximo {TE.LOTE_MAXIMO})")
+    s.add_argument("--lote", type=int, help=f"itens por chamada (padrao {TE.LOTE_PADRAO}, maximo {TE.LOTE_MAXIMO}; com --curta, padrao {TE.LOTE_PADRAO_CURTA}, maximo {TE.LOTE_MAXIMO_CURTA})")
     s.add_argument("--limite", type=int, help="maximo de itens a enviar nesta execucao")
     s.add_argument("--max-custo", type=float, help=f"teto de custo da execucao em US$ (padrao {TE.MAX_CUSTO_PADRAO_USD})")
     s.add_argument("--refazer", action="store_true", help="triar de novo itens que ja tem triagem com este prompt")
     s.add_argument("--estimar", action="store_true", help="mostra itens, chamadas e custo, sem nenhuma chamada e sem chave")
     s.add_argument("--tudo", action="store_true", help="permite rodar sem --amostra nem --limite (mostra a estimativa antes)")
     s.add_argument("--retomar", help="run_id de uma execucao interrompida (mesma configuracao e mesmo --lote)")
+    s.add_argument("--curta", action="store_true", help=f"triagem curta (só relevância, confiança e escopo geográfico) dos artigos com ano anterior a {TE.ANO_MINIMO}, com prompt e resposta mínimos")
     s.add_argument("--simulado", action="store_true", help="triador falso, sem custo")
     # C6: exportacao e importacoes tambem aceitam --simulado (usam o banco simulado)
     s = sub.add_parser("exportar"); s.add_argument("--saida"); s.add_argument("--simulado", action="store_true")

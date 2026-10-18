@@ -68,7 +68,8 @@ class TriadorSimulado:
     `omitir` (chaves de item que a resposta deixa de devolver), `termo_ruim` (devolve um termo fora da lista nos itens
     em quarentena ou excluidos), `falhar_chamadas` (numeros das chamadas, a partir de 1, que falham com HTTP 500),
     `truncar_chamadas` (idem, mas como MAX_TOKENS), `cota_diaria_chamadas` (idem, mas como cota diaria esgotada: HTTP 429 com a marca
-    `cota_diaria_esgotada`), `json_invalido` (resposta que nao e JSON) e `custo_por_chamada`."""
+    `cota_diaria_esgotada`), `json_invalido` (resposta que nao e JSON) e `custo_por_chamada`.
+    Na triagem curta (esquema com relevancia), responde id, relevancia, confianca alta e escopo_geografico."""
     nome = "simulado"
 
     def __init__(self, omitir=(), termo_ruim=False, falhar_chamadas=(), truncar_chamadas=(), json_invalido=False,
@@ -104,6 +105,12 @@ class TriadorSimulado:
                 "escopo_geografico": "internacional" if cat == "FORA_DO_RECORTE_GEOGRAFICO" else "brasil",
                 "tipo_documento": "artigo_periodico" if item["fonte"] == "artigo" else "noticia_pagina_institucional"}
 
+    @staticmethod
+    def _objeto_curto(item):
+        h = int(hashlib.sha1(chave_item(item).encode()).hexdigest()[:8], 16) % 3
+        return {"id": chave_item(item), "relevancia": ("alta", "media", "baixa")[h], "confianca": "alta",
+                "escopo_geografico": "brasil"}
+
     def triar(self, itens, instr):
         self.chamadas += 1
         n_in = len(instr.usuario) // 3 + 100
@@ -117,7 +124,8 @@ class TriadorSimulado:
                        custo_usd=self.custo_por_chamada)
             reg.erro, reg.http_status = "HTTP 500: falha simulada", 500
             return ResultadoTriagemLote("", reg)
-        objetos = [self._objeto(i) for i in itens if chave_item(i) not in self.omitir]
+        curta = "relevancia" in (((instr.esquema or {}).get("properties") or {}).get("itens") or {}).get("items", {}).get("properties", {})
+        objetos = [(self._objeto_curto(i) if curta else self._objeto(i)) for i in itens if chave_item(i) not in self.omitir]
         texto = "isto nao e json" if self.json_invalido else json.dumps({"itens": objetos}, ensure_ascii=False)
         reg = _reg(self.nome, "triar_escopo", raw=texto.encode(), tokens_entrada=n_in,
                    tokens_saida=len(texto) // 3, custo_usd=self.custo_por_chamada)

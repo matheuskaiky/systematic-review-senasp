@@ -24,6 +24,8 @@ SEM_CATEGORIA = "NENHUMA"            # valor do enum quando nao ha categoria (o 
 CATEGORIA_GEOGRAFICA = "FORA_DO_RECORTE_GEOGRAFICO"
 CATEGORIA_TEMPORAL = "FORA_DO_RECORTE_TEMPORAL"
 MAX_PALAVRAS_SINAL = 3
+RELEVANCIAS_CURTA = ("alta", "media", "baixa")
+STATUS_DA_RELEVANCIA = {"alta": ELEGIVEL, "media": QUARENTENA, "baixa": EXCLUIDO}   # triagem curta (D80)
 FONTES = ("artigo", "web")
 # Avisos sobre campos AUXILIARES (termo gerador e sinal negativo): o campo vira nulo e o aviso fica em `problemas`, mas o
 # veredito (status, motivo) segue valido. Os demais problemas (enum, id, categoria, recorte) invalidam a linha.
@@ -55,6 +57,7 @@ class ConfigTriagem:
     tokens_fixos_por_chamada: int = 1500
     saida_por_item: dict = field(default_factory=lambda: {"baixo": 90, "medio": 120, "alto": 160})
     raciocinio_por_chamada: dict = field(default_factory=lambda: {"baixo": 100, "medio": 300, "alto": 600})
+    curta: bool = False
 
     def como_dict(self):
         """Tudo que define a triagem, para gravar no config_json da execucao."""
@@ -118,34 +121,47 @@ def resumo_enviado(item, config):
 def montar_esquema(config, ids=None):
     """JSON Schema NEUTRO da resposta: um objeto `{"itens": [...]}` com um objeto por item e vocabularios fechados.
     A raiz e um objeto (como no classificador, que ja foi aceito pela API); a lista fica em `itens`. Com `ids`, o campo
-    `id` tambem e um enum fechado (so os ids do lote). Nada e `null`: onde nao ha valor, texto vazio (ou `NENHUMA`)."""
+    `id` tambem e um enum fechado (so os ids do lote). Nada e `null`: onde nao ha valor, texto vazio (ou `NENHUMA`).
+    Na triagem curta (config.curta), cada objeto tem so id, relevancia, confianca e escopo_geografico."""
     id_prop = {"type": "string", "description": "the item id, copied unchanged"}
     if ids:
         id_prop["enum"] = [str(i) for i in ids]
-    objeto = {
-        "type": "object",
-        "properties": {
-            "id": id_prop,
-            "status": {"type": "string", "enum": list(config.status)},
-            "confianca": {"type": "string", "enum": list(config.confianca)},
-            "categoria_motivo": {"type": "string", "enum": list(config.categorias_motivo) + [SEM_CATEGORIA]},
-            "justificativa": {"type": "string", "description": "at most 20 words, in Brazilian Portuguese"},
-            "termo_gerador_ruido": {"type": "string",
-                                    "description": "one of the item's query_terms, copied exactly; empty string if none"},
-            "sinal_negativo": {"type": "string",
-                               "description": "at most 3 words copied literally from title or snippet; empty string if none"},
-            "dominio_tematico": {"type": "string", "enum": list(config.dominios_tematicos)},
-            "escopo_geografico": {"type": "string", "enum": list(config.escopos_geograficos)},
-            "tipo_documento": {"type": "string", "enum": list(config.tipos_documento)},
-        },
-        "required": ["id", "status", "confianca", "categoria_motivo", "justificativa", "termo_gerador_ruido",
-                     "sinal_negativo", "dominio_tematico", "escopo_geografico", "tipo_documento"],
-    }
+    if config.curta:
+        objeto = {
+            "type": "object",
+            "properties": {"id": id_prop,
+                           "relevancia": {"type": "string", "enum": list(RELEVANCIAS_CURTA)},
+                           "confianca": {"type": "string", "enum": list(config.confianca)},
+                           "escopo_geografico": {"type": "string", "enum": list(config.escopos_geograficos)}},
+            "required": ["id", "relevancia", "confianca", "escopo_geografico"]}
+    else:
+        objeto = {
+            "type": "object",
+            "properties": {
+                "id": id_prop,
+                "status": {"type": "string", "enum": list(config.status)},
+                "confianca": {"type": "string", "enum": list(config.confianca)},
+                "categoria_motivo": {"type": "string", "enum": list(config.categorias_motivo) + [SEM_CATEGORIA]},
+                "justificativa": {"type": "string", "description": "at most 20 words, in Brazilian Portuguese"},
+                "termo_gerador_ruido": {"type": "string",
+                                        "description": "one of the item's query_terms, copied exactly; empty string if none"},
+                "sinal_negativo": {"type": "string",
+                                   "description": "at most 3 words copied literally from title or snippet; empty string if none"},
+                "dominio_tematico": {"type": "string", "enum": list(config.dominios_tematicos)},
+                "escopo_geografico": {"type": "string", "enum": list(config.escopos_geograficos)},
+                "tipo_documento": {"type": "string", "enum": list(config.tipos_documento)},
+            },
+            "required": ["id", "status", "confianca", "categoria_motivo", "justificativa", "termo_gerador_ruido",
+                         "sinal_negativo", "dominio_tematico", "escopo_geografico", "tipo_documento"],
+        }
     return {"type": "object", "properties": {"itens": {"type": "array", "items": objeto}}, "required": ["itens"]}
 
 
 def linha_do_item(item, config):
     """O que o modelo ve de um item (um objeto JSON por linha)."""
+    if config.curta:
+        return {"id": chave_item(item), "titulo": item.get("titulo") or "", "resumo": resumo_enviado(item, config),
+                "ano": item.get("ano")}
     base = {"id": chave_item(item), "fonte": rotulo_fonte(item.get("provedor")), "query_terms": list(item.get("termos", [])),
             "titulo": item.get("titulo") or "", "resumo": resumo_enviado(item, config)}
     if item["fonte"] == "artigo":
@@ -190,6 +206,12 @@ def _ano(item):
         return int(item.get("ano")) if item.get("ano") not in (None, "") else None
     except (TypeError, ValueError):
         return None
+
+
+def fora_do_recorte_temporal(item, config):
+    """O artigo tem ano conhecido anterior a `config.ano_minimo`? Esses vao para a triagem curta (D80)."""
+    ano = _ano(item)
+    return ano is not None and ano < config.ano_minimo
 
 
 def _linha_base(item):
@@ -292,6 +314,43 @@ def _conferir(item, obj, config):
     return linha
 
 
+def _conferir_curta(item, obj, config):
+    """Triagem curta (D80): a relevancia vira o status (alta: elegivel; media: quarentena; baixa: excluido, so com confianca
+    alta, como no t2); quarentena e excluido levam o motivo FORA_DO_RECORTE_TEMPORAL. Os demais campos ficam nulos."""
+    linha = _linha_base(item)
+    problemas = linha["problemas"]
+    rel = obj.get("relevancia")
+    rel = rel.strip().lower() if isinstance(rel, str) else None
+    if rel in STATUS_DA_RELEVANCIA:
+        linha["status_bruto"] = status = STATUS_DA_RELEVANCIA[rel]
+    else:
+        linha["status_bruto"] = rel or None
+        status = QUARENTENA
+        problemas.append("relevancia_invalida")
+    conf = obj.get("confianca")
+    conf = conf.strip().lower() if isinstance(conf, str) else None
+    if conf in config.confianca:
+        linha["confianca"] = conf
+    else:
+        problemas.append("confianca_invalida")
+    esc = obj.get("escopo_geografico")
+    esc = esc.strip().lower() if isinstance(esc, str) else None
+    if esc in config.escopos_geograficos:
+        linha["escopo_geografico"] = esc
+    else:
+        problemas.append("escopo_geografico_invalido")
+    if status == EXCLUIDO and linha["confianca"] != CONFIANCA_ALTA:
+        status = QUARENTENA                  # regra de seguranca do t2: excluir exige confianca alta
+    if fora_do_recorte_temporal(item, config):
+        linha["categoria_motivo"] = None if status == ELEGIVEL else CATEGORIA_TEMPORAL
+    else:
+        status = QUARENTENA
+        problemas.append("triagem_curta_fora_do_recorte")
+    linha["status"] = status
+    linha["valido"] = not problemas
+    return linha
+
+
 def validar_resposta(itens, resposta_json, config):
     """Confere a resposta de UM lote. Devolve `(linhas, extras)`: uma linha por item de entrada, na ordem da entrada
     (itens que o modelo nao devolveu viram linhas invalidas em quarentena, nunca somem) e `extras`
@@ -320,7 +379,7 @@ def validar_resposta(itens, resposta_json, config):
             linha["problemas"].append("resposta_json_invalida" if objs is None else "id_ausente_na_resposta")
             extras["ids_ausentes"].append(chave)
         else:
-            linha = _conferir(item, por_id[chave], config)
+            linha = (_conferir_curta if config.curta else _conferir)(item, por_id[chave], config)
             if chave in extras["ids_duplicados"]:
                 linha["problemas"].append("id_duplicado_na_resposta")
                 linha["valido"] = False
@@ -330,8 +389,9 @@ def validar_resposta(itens, resposta_json, config):
 
 # ---------------------------------------------------------------- custo
 def _tokens_item(item, config):
-    chars = (len(item.get("titulo") or "") + len(resumo_enviado(item, config)) + len(item.get("autores_publicacao") or "")
-             + sum(len(t) for t in item.get("termos", [])))
+    chars = len(item.get("titulo") or "") + len(resumo_enviado(item, config))
+    if not config.curta:
+        chars += len(item.get("autores_publicacao") or "") + sum(len(t) for t in item.get("termos", []))
     return math.ceil(chars / config.caracteres_por_token) + config.tokens_metadados_por_item
 
 

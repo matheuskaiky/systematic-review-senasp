@@ -143,5 +143,45 @@ CONFIG = ConfigTriagem(
     tokens_fixos_por_chamada=TOKENS_FIXOS_POR_CHAMADA,
     saida_por_item=dict(SAIDA_POR_ITEM), raciocinio_por_chamada=dict(RACIOCINIO_POR_CHAMADA))
 
+# ----- triagem curta dos artigos anteriores a ANO_MINIMO (D80): so relevancia e escopo geografico -----
+PROMPT_TRIAGEM_CURTA_VERSAO = "c1"
+LOTE_PADRAO_CURTA = 40
+LOTE_MAXIMO_CURTA = 100
+SNIPPET_MAX_CHARS_CURTA = 300
+TOKENS_FIXOS_POR_CHAMADA_CURTA = 400
+TOKENS_METADADOS_POR_ITEM_CURTA = 15
+SAIDA_POR_ITEM_CURTA = {"baixo": 15, "medio": 20, "alto": 25}
+ORIGEM_ARTIGO_CURTA = "scholarly articles published before 2022"
+
+SISTEMA_CURTO = """You rate the relevance of scholarly articles published before 2022 for a systematic review on artificial intelligence (AI) in Brazilian public security.
+Judge only the title and snippet. Do not invent facts.
+
+"relevancia":
+- "alta": directly about AI or automated data analysis applied to public security, policing, forensics, criminal justice
+  or the penal system (Brazilian or not), or a Brazilian study clearly useful for that scope.
+- "media": related to the scope but indirect, or the title and snippet are not enough to decide.
+- "baixa": off-topic, generic or only tangentially related.
+When in doubt between "baixa" and another level, answer "media".
+
+"confianca": how sure you are of "relevancia": alta, media or baixa. A "baixa" relevance without "alta" confidence is kept
+for human review.
+
+"escopo_geografico": brasil, internacional or indeterminado.
+
+INPUT: one item per line, as JSON. Return exactly one object per item, echoing its "id" unchanged.
+Never skip an item and never repeat an id."""
+
+CONFIG_CURTA = ConfigTriagem(
+    versao=PROMPT_TRIAGEM_CURTA_VERSAO,
+    sistema_artigo=SISTEMA_CURTO, sistema_web="",
+    usuario_template=USUARIO_TEMPLATE, origem_artigo=ORIGEM_ARTIGO_CURTA, origem_web="",
+    status=STATUS, confianca=CONFIANCA, categorias_motivo=CATEGORIAS_MOTIVO,
+    dominios_tematicos=DOMINIOS_TEMATICOS, escopos_geograficos=ESCOPOS_GEOGRAFICOS, tipos_documento=TIPOS_DOCUMENTO,
+    lote_padrao=LOTE_PADRAO_CURTA, lote_maximo=LOTE_MAXIMO_CURTA, janela_contexto_tokens=JANELA_CONTEXTO_TOKENS,
+    ano_minimo=ANO_MINIMO, snippet_max_chars=SNIPPET_MAX_CHARS_CURTA, max_custo_padrao_usd=MAX_CUSTO_PADRAO_USD,
+    caracteres_por_token=CARACTERES_POR_TOKEN, tokens_metadados_por_item=TOKENS_METADADOS_POR_ITEM_CURTA,
+    tokens_fixos_por_chamada=TOKENS_FIXOS_POR_CHAMADA_CURTA,
+    saida_por_item=dict(SAIDA_POR_ITEM_CURTA), raciocinio_por_chamada=dict(RACIOCINIO_POR_CHAMADA), curta=True)
+
 # a categoria que a regra de seguranca trata a parte esta no dominio; o marcador "sem categoria" tambem
 assert SEM_CATEGORIA not in CATEGORIAS_MOTIVO

@@ -3,8 +3,9 @@ import time
 from dominio.erros import CotaDiariaEsgotada
 from dominio.modelos import Instrucoes
 from dominio.servicos import hash_chave
-from dominio.triagem_escopo import (chave_item, enriquecer_termos, escolher_amostra, lotes, custo_lote_usd,
-                                    montar_esquema, montar_mensagem_usuario, sistema_da_fonte, validar_resposta)
+from dominio.triagem_escopo import (chave_item, enriquecer_termos, escolher_amostra, fora_do_recorte_temporal, lotes,
+                                    custo_lote_usd, montar_esquema, montar_mensagem_usuario, sistema_da_fonte,
+                                    validar_resposta)
 from aplicacao.comum import registrar_chamada
 
 ETAPA = "triagem_escopo"
@@ -15,12 +16,24 @@ def selecionar(repo, fonte, mapas, config, amostra=None, estratificar=False, sem
     de TODOS os itens (deterministica pela `semente`: repetir o comando repete a amostra e, por isso, nao gasta de novo);
     (3) corta em `limite` (sobre o conjunto escolhido, para que repetir ou retomar o comando nao amplie o gasto);
     (4) tira os ja triados com esta versao do prompt, salvo `refazer`.
-    Devolve (itens, resumo) com `resumo` = {"total", "na_amostra", "ja_triados", "a_triar"}."""
+    Devolve (itens, resumo) com `resumo` = {"total", "na_amostra", "ja_triados", "a_triar"}.
+    Artigos com ano conhecido anterior a config.ano_minimo vao so para a triagem curta (config.curta) e saem da completa (D80); na curta, conta como ja triado o item respondido por qualquer versao do prompt."""
+    if config.curta and fonte != "artigo":
+        raise ValueError("A triagem curta vale só para artigos.")
     todos = enriquecer_termos(repo.itens_para_triagem_escopo(fonte), mapas)
+    if config.curta:
+        todos = [i for i in todos if fora_do_recorte_temporal(i, config)]
+    elif fonte == "artigo":
+        todos = [i for i in todos if not fora_do_recorte_temporal(i, config)]
     escolhidos = escolher_amostra(todos, amostra, estratificar, semente) if amostra else todos
     if limite:
         escolhidos = escolhidos[:limite]       # o limite vale para o conjunto, nao para o que falta: repetir nao amplia o gasto
-    feitos = set() if refazer else repo.triagem_escopo_feita_por_versao(fonte, config.versao)
+    if refazer:
+        feitos = set()
+    elif config.curta:
+        feitos = repo.triagem_escopo_respondida(fonte)          # o antigo ja triado por qualquer prompt nao gasta de novo
+    else:
+        feitos = repo.triagem_escopo_feita_por_versao(fonte, config.versao)
     pendentes = [i for i in escolhidos if (i["item_id"], i["uf"] or "") not in feitos]
     resumo = {"total": len(todos), "na_amostra": len(escolhidos), "ja_triados": len(escolhidos) - len(pendentes)}
     resumo["a_triar"] = len(pendentes)

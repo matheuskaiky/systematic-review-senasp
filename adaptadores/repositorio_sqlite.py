@@ -517,6 +517,12 @@ class RepositorioSQLite:
             "SELECT item_id, uf FROM triagem_escopo WHERE fonte=? AND prompt_versao=? AND status_bruto IS NOT NULL",
             (fonte, prompt_versao))}
 
+    def triagem_escopo_respondida(self, fonte):
+        """{(item_id, uf)} que o modelo ja respondeu (`status_bruto` nao nulo), em qualquer execucao e com qualquer versao
+        do prompt."""
+        return {(l["item_id"], l["uf"]) for l in self.conn.execute(
+            "SELECT item_id, uf FROM triagem_escopo WHERE fonte=? AND status_bruto IS NOT NULL", (fonte,))}
+
     def custo_execucao(self, run_id):
         """Custo (US$) ja gravado em `chamadas` para a execucao."""
         return self.conn.execute("SELECT COALESCE(SUM(custo_usd), 0) FROM chamadas WHERE run_id=?", (run_id,)).fetchone()[0]

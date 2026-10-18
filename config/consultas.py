@@ -124,7 +124,7 @@ TERMOS_COMPOSTOS = [_montar_composto(tid, pid, var) for tid, pid, var in _COMPOS
 
 BASES_MANUAIS = ("IEEE", "ACM", "Scopus", "SBC OpenLib")
 
-FILTROS_ACADEMICOS = FiltrosAcademicos(ano_inicial=2022, ano_final=None, por_pagina=20)
+FILTROS_ACADEMICOS = FiltrosAcademicos(ano_inicial=None, ano_final=None, por_pagina=20)  # D79: sem filtro de ano na busca; o recorte de ano e feito na analise
 MAX_PAGINAS_ACADEMICO = 3          # 3 pages = up to 60 results per term
 
 # ---------- Task 1: web queries ----------

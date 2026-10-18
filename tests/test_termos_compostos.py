@@ -1,4 +1,4 @@
-"""RD4 e RD5: termos compostos do piloto (desligados por padrao), filtro de idioma dos resultados (`lr`) e ano inicial 2022.
+"""RD4 e RD5: termos compostos do piloto (desligados por padrao), filtro de idioma dos resultados (`lr`) e busca sem filtro de ano (D79; antes, ano inicial 2022).
 
 Nenhum teste abre conexao: o adaptador real tem `chamar` substituido e a linha de comando roda com --simulado.
 """
@@ -80,9 +80,9 @@ def test_compostos_ficam_fora_da_lista_principal():
     assert len(ids) == len(set(ids)) == 76
 
 
-def test_ano_inicial_2022_e_sem_filtro_de_idioma_por_padrao():
-    assert C.FILTROS_ACADEMICOS.ano_inicial == 2022
-    assert C.FILTROS_ACADEMICOS.idioma_resultados is None
+def test_sem_filtro_de_ano_e_sem_filtro_de_idioma_por_padrao():
+    """D79: o recorte de ano sai da busca e passa para a analise."""
+    assert C.FILTROS_ACADEMICOS == FiltrosAcademicos(ano_inicial=None, ano_final=None, por_pagina=20, idioma_resultados=None)
 
 
 def test_filtro_de_idioma_e_opcional_no_dominio():
@@ -127,6 +127,14 @@ def test_sem_filtro_de_idioma_nao_envia_lr(monkeypatch):
     visto = _chamar(monkeypatch)
     AcademicoSerpApiScholar(CHAVE).buscar_pagina(TERMO, 0, FiltrosAcademicos(2022, None, 20))
     assert "lr" not in visto["params"]
+
+
+def test_sem_filtro_de_ano_nao_envia_as_ylo_nem_as_yhi(monkeypatch):
+    visto = _chamar(monkeypatch)
+    pag = AcademicoSerpApiScholar(CHAVE).buscar_pagina(TERMO, 20, C.FILTROS_ACADEMICOS)
+    esperado = {"engine": "google_scholar", "q": '"reconhecimento facial"', "hl": "pt", "num": 20, "start": 20}
+    assert pag.chamada.parametros == esperado
+    assert visto["params"] == {**esperado, "api_key": CHAVE}
 
 
 def test_lr_confirmado_sem_todo_no_adaptador():

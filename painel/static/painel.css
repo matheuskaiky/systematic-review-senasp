@@ -433,7 +433,7 @@ span.amostra.calor-diag { background: var(--borda); } span.amostra.calor-1 { bac
   th, td, td .selo, code { white-space: normal; overflow-wrap: anywhere; }
   body:not(.relatorio) td, body:not(.relatorio) th { padding: var(--esp-1) var(--esp-2); min-width: 0 !important; }   /* o relatório estático tem larguras próprias */
   tbody tr:hover { background: none; }
-  .texto-pagina, pre.bruto { max-height: none; overflow: visible; }
+  .texto-pagina, pre.bruto { max-height: none !important; overflow: visible !important; }
   svg, .selo { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   th button.ordenar { display: inline !important; font: inherit; }   /* o título da coluna é um botão (criado pelo script): no papel volta a ser texto, sem a seta */
   .ordenar-seta, .dica-ordenar, .atalho-dica { display: none !important; }

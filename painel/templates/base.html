@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR"{% if tema in ("light", "dark") %} data-theme="{{ tema }}"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,6 +15,7 @@
   <strong>{{ banco_rotulo[ctx.banco] }}</strong>
   <span class="banner-detalhe">{{ ctx.nome_banco }}{% if ctx.somente_leitura %} · somente leitura{% endif %}</span>
 </header>
+<div class="topo"><button type="button" class="tema-alternar" data-tema-alternar aria-label="Alternar tema claro/escuro" aria-pressed="{{ 'true' if tema == 'dark' else 'false' }}"><span class="tema-glifo tema-sol" aria-hidden="true">☀</span><span class="tema-glifo tema-lua" aria-hidden="true">☾</span></button></div>
 <div class="layout">
   <nav class="menu" aria-label="Principal">
     <a class="marca" href="/">Levantamento<br><small>IA na Segurança Pública</small></a>

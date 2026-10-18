@@ -2,6 +2,7 @@
 bruto por parametro; nao importa adaptadores, composicao, sqlite3, requests nem le o ambiente."""
 import hmac
 import json
+import mimetypes
 import secrets
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -34,6 +35,26 @@ MAX_PAGINA = 1_000_000            # teto do ?p= (o OFFSET do SQLite estoura acim
 MAX_BUSCA = 200
 MAX_ENTIDADES_NO_RESUMO = 12      # entidades listadas no resumo de /achados (as demais estao no filtro e em /solucoes)
 LIMITE_BRUTO = 200_000            # o visor de arquivos brutos mostra no maximo isto; o arquivo inteiro vai por download
+TEMAS_VALIDOS = {"light", "dark"}  # mesmos valores do atributo data-theme; qualquer outra coisa no cookie e ignorada
+
+mimetypes.add_type("font/woff2", ".woff2")  # garante o tipo certo em qualquer sistema; X-Content-Type-Options: nosniff ja esta ligado
+
+
+class StaticComCache(StaticFiles):
+    """Fontes tem nome com o conteudo congelado (versao no nome), entao podem ficar um ano em cache.
+    Troque o nome do arquivo ao trocar a fonte. CSS e JS continuam como hoje (sem esta politica)."""
+
+    async def get_response(self, path, scope):
+        resposta = await super().get_response(path, scope)
+        if path.replace("\\", "/").startswith("fonts/") and resposta.status_code == 200:   # 200 tambem cobre pedidos parciais (206 sai depois)
+            resposta.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resposta
+
+
+def tema_do_cookie(request):
+    """Le o cookie `tema` com lista fechada de valores. Valor desconhecido vira None (= seguir o sistema)."""
+    valor = request.cookies.get("tema")
+    return valor if valor in TEMAS_VALIDOS else None
 
 
 def _inteiro(valor, padrao, minimo=1, maximo=MAX_PAGINA):
@@ -82,7 +103,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
     modelos.env.globals.update(fmt=fmt, rotulos=rotulos, ctx=contexto, quote=quote, urlencode=urlencode, menu_grupos=navegacao.grupos,
                                link_entidade=link_entidade, dica_entidade=explicacao_da_entidade)
     entidades = Entidades(leitura, contexto)            # nomes de solucao unificados em entidades (RC23), com cache por conjunto de nomes
-    app.mount("/static", StaticFiles(directory=str(AQUI / "static")), name="static")
+    app.mount("/static", StaticComCache(directory=str(AQUI / "static")), name="static")
 
     # ---------- seguranca: cabecalhos, CSRF (cookie duplicado no formulario) e cookies SameSite=Strict ----------
     @app.middleware("http")
@@ -95,6 +116,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         resposta.headers["Content-Security-Policy"] = CSP
         resposta.headers["X-Content-Type-Options"] = "nosniff"
         resposta.headers["Referrer-Policy"] = "no-referrer"
+        if resposta.headers.get("content-type", "").startswith("text/html"):
+            resposta.headers.append("Vary", "Cookie")  # so as paginas dependem do cookie `tema`; estaticos e redirecionamentos nao
         return resposta
 
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(contexto.hosts_permitidos))
@@ -102,7 +125,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
     def pagina(request, modelo, status=200, **dados):
         revisor = unquote(request.cookies.get("revisor", ""))
         return modelos.TemplateResponse(request, modelo, {"revisor": revisor, "csrf": request.state.csrf,
-                                                        "caminho": request.url.path, **dados}, status_code=status)
+                                                          "tema": tema_do_cookie(request),
+                                                          "caminho": request.url.path, **dados}, status_code=status)
 
     def erro(request, status, titulo, texto):
         return pagina(request, "erro.html", status=status, titulo=titulo, texto=texto)

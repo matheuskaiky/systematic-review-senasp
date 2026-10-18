@@ -154,3 +154,97 @@
   });
   campo.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); campo.blur(); } });   // preventDefault: num campo de busca o Esc nativo apagaria o texto digitado
 })();
+
+/* ===== TRECHO PARA COLAR NO FIM DE painel/static/painel.js (não é um arquivo novo: painel.js continua sendo o único script global) =====
+   Tema claro/escuro. O que faz:
+     • clique em [data-tema-alternar] troca data-theme ("light" | "dark") em <html>;
+     • guarda a escolha em localStorage ("painel.tema", dentro de try/catch) e no cookie `tema`, que o servidor lê para já entregar
+       <html data-theme="…"> na próxima página (sem piscar o tema errado e sem script inline, compatível com a política de segurança);
+     • mantém aria-pressed dos botões em dia ("true" = escuro) e acompanha o sistema operacional enquanto a pessoa não escolheu nada.
+   Sem JavaScript o painel continua legível: segue o tema do sistema (@media prefers-color-scheme) ou o último cookie lido no servidor.
+   Respeita as restrições de painel.js: sem avaliação dinâmica de código, sem montar HTML por texto, sem requisições, sem endereço absoluto. */
+(function () {
+  "use strict";
+
+  var CHAVE = "painel.tema";
+  var raiz = document.documentElement;
+
+  function valido(v) { return v === "light" || v === "dark" ? v : null; }
+
+  function salvoNoNavegador() {
+    try { return valido(window.localStorage.getItem(CHAVE)); } catch (e) { return null; }
+  }
+
+  function sistemaEscuro() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  }
+
+  /* Tema em vigor: o atributo (escolha explícita) vence; sem ele, vale o sistema. */
+  function atual() {
+    return valido(raiz.getAttribute("data-theme")) || (sistemaEscuro() ? "dark" : "light");
+  }
+
+  function sincronizarBotoes() {
+    var escuro = atual() === "dark" ? "true" : "false";
+    var botoes = document.querySelectorAll("[data-tema-alternar]");
+    for (var i = 0; i < botoes.length; i++) { botoes[i].setAttribute("aria-pressed", escuro); }
+  }
+
+  function gravar(tema) {
+    try { window.localStorage.setItem(CHAVE, tema); } catch (e) { /* navegação privativa ou bloqueada: o cookie cobre */ }
+    var seguro = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = "tema=" + tema + "; Path=/; Max-Age=31536000; SameSite=Strict" + seguro;
+  }
+
+  function alternar() {
+    var novo = atual() === "dark" ? "light" : "dark";
+    raiz.setAttribute("data-theme", novo);
+    gravar(novo);
+    sincronizarBotoes();
+  }
+
+  /* Primeira carga: se o servidor não escreveu data-theme (sem cookie), mas o navegador lembra da escolha, aplica-a agora. */
+  if (!valido(raiz.getAttribute("data-theme"))) {
+    var salvo = salvoNoNavegador();
+    if (salvo) { raiz.setAttribute("data-theme", salvo); }
+  }
+  sincronizarBotoes();
+
+  document.addEventListener("click", function (ev) {
+    var alvo = ev.target && ev.target.closest ? ev.target.closest("[data-tema-alternar]") : null;
+    if (alvo) { ev.preventDefault(); alternar(); }
+  });
+
+  /* Sem escolha explícita, o botão acompanha o sistema quando ele muda (por exemplo, modo noturno automático). */
+  if (window.matchMedia) {
+    var consulta = window.matchMedia("(prefers-color-scheme: dark)");
+    var ao_mudar = function () { if (!valido(raiz.getAttribute("data-theme"))) { sincronizarBotoes(); } };
+    if (consulta.addEventListener) { consulta.addEventListener("change", ao_mudar); }
+    else if (consulta.addListener) { consulta.addListener(ao_mudar); }
+  }
+})();
+
+/* ===== TRECHO PARA COLAR NO FIM DE painel/static/painel.js — fontes locais, SEM @font-face e SEM url( no CSS =====
+   Por quê: os testes proíbem a função de endereço em painel.css (o relatório estático embute esse arquivo) e só admitem um <link> nas páginas.
+   Então o CSS só nomeia as famílias ("Inter", "Source Serif 4" em --fonte-base e --fonte-leitura, com pilha de sistema como reserva) e este trecho
+   carrega os arquivos pela API de fontes do navegador (FontFace), do PRÓPRIO servidor (/static/fonts/). Nenhuma requisição escrita à mão,
+   nenhum endereço absoluto, nenhum <link rel="preload">. Sem JavaScript (ou se o arquivo falhar), a tela usa a fonte de sistema e continua legível.
+   Só carrega nas telas de triagem (onde está a tipografia de leitura): troque a condição abaixo se quiser as fontes em todas as páginas.
+   Ao trocar um arquivo de fonte, troque também o NOME dele (o servidor pode guardar em cache por um ano). */
+(function () {
+  "use strict";
+
+  if (!document.querySelector(".triagem") || !window.FontFace || !document.fonts) { return; }
+
+  var FAMILIAS = [
+    { nome: "Inter", arquivo: "/static/fonts/inter-latin-wght-normal.woff2", peso: "100 900" },
+    { nome: "Source Serif 4", arquivo: "/static/fonts/source-serif-4-latin-wght-normal.woff2", peso: "200 900" }
+  ];
+
+  FAMILIAS.forEach(function (f) {
+    try {
+      var face = new window.FontFace(f.nome, "url(" + f.arquivo + ") format(\"woff2\")", { weight: f.peso, style: "normal", display: "swap" });
+      face.load().then(function (carregada) { document.fonts.add(carregada); }, function () { /* sem a fonte: segue a de sistema */ });
+    } catch (e) { /* navegador sem suporte: segue a de sistema */ }
+  });
+})();

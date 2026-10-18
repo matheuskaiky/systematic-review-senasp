@@ -176,6 +176,17 @@ def _raiz(css, dentro=None):
     raise AssertionError(dentro or ":root")
 
 
+def _resolver(token, *camadas):
+    """Valor final de `token` seguindo as cadeias var(--x) ate o literal; camadas posteriores sobrepoem as anteriores."""
+    tokens = {}
+    for camada in camadas:
+        tokens.update(camada)
+    valor = tokens[token]
+    while (m := re.fullmatch(r"var\((--[\w-]+)\)", valor)):
+        valor = tokens[m.group(1)]
+    return valor
+
+
 TOKENS_OBRIGATORIOS = [
     "--fundo", "--superficie", "--texto", "--texto-suave", "--texto-botao", "--borda", "--borda-controle", "--acento", "--acento-fundo",
     "--ok", "--ok-fundo", "--alerta", "--alerta-fundo", "--perigo", "--perigo-fundo", "--neutro", "--neutro-fundo", "--marca", "--marca-borda", "--marca-aprox",
@@ -193,7 +204,7 @@ def test_painel_css_define_todos_os_tokens_semanticos_e_documenta_os_grupos():
     assert not [t for t in TOKENS_OBRIGATORIOS if t not in tokens], [t for t in TOKENS_OBRIGATORIOS if t not in tokens]
     escuro = _raiz(_css("painel.css"), "@media (prefers-color-scheme: dark)")
     for t in ("--fundo", "--superficie", "--texto", "--acento", "--ok", "--alerta", "--perigo", "--st-anunciado", "--calor-1", "--marca"):
-        assert escuro[t] != tokens[t], t                       # o tema escuro troca as cores
+        assert _resolver(t, tokens, escuro) != _resolver(t, tokens), t      # o tema escuro troca as cores (resolvidas as cadeias var())
 
 
 def _fora_dos_blocos_de_token(css):
@@ -201,7 +212,7 @@ def _fora_dos_blocos_de_token(css):
     def sem_raiz(texto):
         saida = []
         for prefixo, corpo in _blocos(texto):
-            if prefixo == ":root":
+            if prefixo == ":root" or prefixo.startswith(":root[data-theme="):
                 continue
             if prefixo.startswith("@media"):
                 interno = sem_raiz(corpo)
@@ -250,11 +261,11 @@ def test_impressao_esconde_menu_e_controles_e_evita_quebras_dentro_de_blocos():
         for s in prefixo.split(","):
             regras.setdefault(s.strip(), {}).update(_declaracoes(corpo))
     escondidos = [s for s, d in regras.items() if d.get("display", "").startswith("none")]
-    for seletor in (".menu", ".pular", ".filtros", ".paginacao", "button", ".botao"):
+    for seletor in (".menu", ".pular", ".filtros", ".paginacao", "button", ".botao", ".topo", ".tema-alternar", ".fila-lateral"):
         assert seletor in escondidos, seletor
     assert regras["thead"]["display"] == "table-header-group"
     quebra = [s for s, d in regras.items() if d.get("break-inside") == "avoid"]
-    for seletor in ("svg", "figure", ".cartao", "tr"):
+    for seletor in ("svg", "figure", ".cartao", "tr", ".guia-interpretacao", ".retorno"):
         assert seletor in quebra, seletor
     assert ".banner" in regras and regras[".banner"]["background"] == "none"             # a faixa do banco aparece, sem cor de fundo
     assert ".banner" not in escondidos and "h1" not in escondidos
@@ -283,7 +294,7 @@ def test_impressao_de_analises_repete_os_literais_das_cores_de_painel():
              "--an-perigo": "--perigo", "--an-ok": "--ok", "--an-ok-fundo": "--ok-fundo", "--an-perigo-fundo": "--perigo-fundo",
              "--an-alerta": "--alerta", "--an-alerta-fundo": "--alerta-fundo", "--an-k-quase": "--ok", "--an-cal-alta": "--ok", "--an-descartado-ln": "--perigo"}
     for an, base in pares.items():
-        assert analises_imp[an] == painel_imp[base], (an, analises_imp[an], painel_imp[base])
+        assert analises_imp[an] == _resolver(base, painel_claro, painel_imp), (an, analises_imp[an], _resolver(base, painel_claro, painel_imp))
     assert painel_imp["--ok"] == painel_claro["--ok"]
 
 

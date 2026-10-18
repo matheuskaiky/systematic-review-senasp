@@ -316,6 +316,16 @@ CREATE TABLE IF NOT EXISTS triagem_escopo (
 );
 CREATE INDEX IF NOT EXISTS ix_triagem_escopo_item ON triagem_escopo(fonte, item_id, uf);
 
+CREATE TABLE IF NOT EXISTS leitura_referencias (
+    artigo_id      INTEGER PRIMARY KEY REFERENCES artigos(artigo_id),
+    categoria      TEXT,
+    eixo           TEXT,
+    prioridade     TEXT,
+    status_leitura TEXT NOT NULL DEFAULT 'Nao iniciado',
+    notas          TEXT,
+    atualizado_em  TEXT
+);
+
 -- ===== Execucoes dentro do relatorio =====
 -- As views agregadas leem estas views (r_*), que deixam de fora as execucoes marcadas com no_relatorio = 0
 -- (pilotos e testes: `python main.py execucao-excluir <run_id>`). Views por execucao e de auditoria usam as tabelas.

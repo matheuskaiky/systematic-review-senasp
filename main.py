@@ -10,6 +10,9 @@ import pandas as pd
 
 import config.settings as S
 from config import consultas as C, prompts as P, vocabulario as V, triagem_escopo as TE
+from config.categorias_referencias import CATEGORIAS_REFERENCIAS
+from config.eixos_tematicos import EIXOS_TEMATICOS
+from config.modelos_exportacao import MODELOS_REFERENCIAS, MODELO_REFERENCIAS_PADRAO
 from composicao import Fabrica
 from dominio.esquemas import esquema_classificacao
 from dominio.modelos import ParametrosClassificacao
@@ -19,7 +22,7 @@ from dominio import auditoria_negativos as AN
 from dominio.rotulagem import FOLGA_PADRAO as FOLGA_PADRAO_ROTULAGEM
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia, dominio_de
 from dominio.triagem_escopo import atomo_do_modelo_de_consulta, estimar_custo
-from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao, rotulagem, triagem_escopo
+from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao, rotulagem, triagem_escopo, catalogo
 from aplicacao.planejamento import planejar_download, planejar_classificacao
 from infra.log import iniciar_log
 from infra.util import coletar_ambiente
@@ -643,6 +646,14 @@ def main():
         if nome in ("triagem-importar", "achados-importar"):
             s.add_argument("--independente", action="store_true",
                            help="revisao independente: so entra no historico, nao altera a decisao final")
+    s = sub.add_parser("exportar-referencias", help="exporta o catalogo de referencias em um modelo de planilha (padrao ou professor)")
+    s.add_argument("--modelo", choices=list(MODELOS_REFERENCIAS.keys()), default=MODELO_REFERENCIAS_PADRAO, help="modelo de planilha (config/modelos_exportacao.py)")
+    s.add_argument("--saida", help="caminho do .xlsx (padrao: outputs/<arquivo do modelo>)")
+    s.add_argument("--simulado", action="store_true")
+    s = sub.add_parser("leitura-importar", help="importa categoria, eixo, prioridade, status de leitura e notas preenchidos no catalogo")
+    s.add_argument("arquivo")
+    s.add_argument("--modelo", choices=list(MODELOS_REFERENCIAS.keys()), default=MODELO_REFERENCIAS_PADRAO, help="modelo de planilha (config/modelos_exportacao.py)")
+    s.add_argument("--simulado", action="store_true")
 
     a = p.parse_args()
     fab = Fabrica(simulado=getattr(a, "simulado", False), demo=getattr(a, "demo", False))
@@ -707,6 +718,25 @@ def main():
         print("Findings verified:", fab.repo.importar_verificacao_achados(
             pd.read_excel(a.arquivo, sheet_name="Achados"), permitidos, so_historico=a.independente))
         _avisar_conflitos(fab.repo, "achado")
+    elif a.cmd == "exportar-referencias":
+        modelo = MODELOS_REFERENCIAS[a.modelo]
+        linhas = fab.repo.linhas_catalogo()
+        cat = catalogo.montar_catalogo(linhas)
+        abas = exportacao.planilhas_referencias(cat, modelo, CATEGORIAS_REFERENCIAS, EIXOS_TEMATICOS)
+        caminho = Path(a.saida) if a.saida else S.OUT_DIR / modelo.arquivo
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        with pd.ExcelWriter(caminho) as w:
+            for nome_aba, df in abas.items():
+                df.to_excel(w, sheet_name=nome_aba, index=False)
+        print(f"Catalogo ({modelo.nome}): {len(cat)} referencias -> {caminho}")
+    elif a.cmd == "leitura-importar":
+        modelo = MODELOS_REFERENCIAS[a.modelo]
+        try:
+            linhas = exportacao.ler_leituras(a.arquivo, modelo, CATEGORIAS_REFERENCIAS, EIXOS_TEMATICOS)
+            n = fab.repo.salvar_leitura(linhas)
+        except ValueError as erro:
+            raise SystemExit(f"Nada foi gravado.\n{erro}")
+        print(f"Leituras alteradas: {n}")
 
 
 if __name__ == "__main__":

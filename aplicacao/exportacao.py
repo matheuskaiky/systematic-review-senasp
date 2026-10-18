@@ -1,7 +1,10 @@
+from collections import OrderedDict
+import re
 import pandas as pd
 
 from aplicacao import rotulagem as RT
 from dominio import auditoria_negativos as AN
+from dominio.catalogo import SIGNIFICADO_COLUNAS, STATUS_LEITURA_PADRAO, validar_leitura
 
 
 def montar_tabelas(repo, ufs):
@@ -28,3 +31,141 @@ def tabelas_rotulagem(plano, status_validos):
     if plano["auditoria"]["linhas"]:
         csvs[RT.ARQ_AUDITORIA] = pd.DataFrame(plano["auditoria"]["linhas"], columns=list(AN.COLUNAS_AMOSTRA))
     return planilhas, csvs
+
+
+def planilhas_referencias(catalogo, modelo, categorias, eixos):
+    """Retorna um OrderedDict aba -> DataFrame com as abas do modelo informado."""
+    abas = OrderedDict()
+    headers = [c for c, _ in modelo.colunas]
+
+    for nome_aba, filtro in modelo.abas:
+        if filtro == "brasil":
+            filtrados = [r for r in catalogo if r["pais_escopo"] == "Brasil"]
+        elif filtro == "internacional":
+            filtrados = [r for r in catalogo if r["pais_escopo"] == "Internacional"]
+        else:
+            filtrados = list(catalogo)
+
+        linhas_aba = [{cabecalho: r[campo] for cabecalho, campo in modelo.colunas} for r in filtrados]
+        abas[nome_aba] = pd.DataFrame(linhas_aba, columns=headers)
+
+    abas["Legenda"] = pd.DataFrame(
+        [{"Categoria": k, "Descricao": v} for k, v in categorias.items()],
+        columns=["Categoria", "Descricao"],
+    )
+
+    abas["Indice_Tematico"] = pd.DataFrame(
+        [{"Eixo tematico": k, "Topicos relacionados": v} for k, v in eixos.items()],
+        columns=["Eixo tematico", "Topicos relacionados"],
+    )
+
+    if modelo.explicar_colunas:
+        abas["Colunas"] = pd.DataFrame(
+            [{"Coluna": c, "Significado": SIGNIFICADO_COLUNAS.get(c, "")} for c in headers],
+            columns=["Coluna", "Significado"],
+        )
+
+    return abas
+
+
+def _celula_para_texto(v):
+    if v is None or pd.isna(v):
+        return ""
+    if isinstance(v, str):
+        return v
+    if type(v) is int:
+        return str(v)
+    if isinstance(v, float):
+        if v.is_integer():
+            return str(int(v))
+        return str(v)
+    return str(v)
+
+
+def ler_leituras(caminho, modelo, categorias, eixos):
+    """Le a primeira aba da planilha e extrai os campos preenchidos pelo pesquisador."""
+    df = pd.read_excel(caminho, sheet_name=modelo.abas[0][0], dtype=object)
+    campo_para_cabecalho = {campo: cabecalho for cabecalho, campo in modelo.colunas}
+
+    erros = []
+    campos_obrigatorios = ("id", "categoria", "eixo", "prioridade", "status_leitura", "notas")
+    for campo in campos_obrigatorios:
+        cabecalho = campo_para_cabecalho.get(campo)
+        if cabecalho is not None and cabecalho not in df.columns:
+            erros.append(f"Coluna '{cabecalho}' nao encontrada na planilha")
+
+    col_id = campo_para_cabecalho.get("id")
+    col_cat = campo_para_cabecalho.get("categoria")
+    col_eixo = campo_para_cabecalho.get("eixo")
+    col_prio = campo_para_cabecalho.get("prioridade")
+    col_st = campo_para_cabecalho.get("status_leitura")
+    col_notas = campo_para_cabecalho.get("notas")
+
+    ids_vistos = set()
+    ids_ordem = []
+    ids_repetidos = set()
+    linhas_validas = []
+
+    for idx, row in df.iterrows():
+        linha = idx + 2
+
+        id_txt = _celula_para_texto(row.get(col_id)) if (col_id and col_id in df.columns) else ""
+        cat_txt = _celula_para_texto(row.get(col_cat)) if (col_cat and col_cat in df.columns) else ""
+        eixo_txt = _celula_para_texto(row.get(col_eixo)) if (col_eixo and col_eixo in df.columns) else ""
+        prio_txt = _celula_para_texto(row.get(col_prio)) if (col_prio and col_prio in df.columns) else ""
+        st_txt = _celula_para_texto(row.get(col_st)) if (col_st and col_st in df.columns) else ""
+        notas_txt = _celula_para_texto(row.get(col_notas)) if (col_notas and col_notas in df.columns) else ""
+
+        if (id_txt.strip() == "" and
+            cat_txt.strip() == "" and
+            eixo_txt.strip() == "" and
+            prio_txt.strip() == "" and
+            st_txt.strip() == "" and
+            notas_txt.strip() == ""):
+            continue
+
+        t = id_txt.strip()
+        if not (re.fullmatch(r"[0-9]+", t) and len(t.lstrip("0")) <= 19 and int(t.lstrip("0") or "0") <= 9223372036854775807):
+            erros.append(f"Linha {linha}: ID invalido: '{id_txt}'")
+            continue
+
+        artigo_id = int(t.lstrip("0") or "0")
+
+        if artigo_id in ids_vistos:
+            ids_repetidos.add(artigo_id)
+        else:
+            ids_vistos.add(artigo_id)
+            ids_ordem.append(artigo_id)
+
+        cat = cat_txt.strip()
+        eixo = eixo_txt.strip()
+        prio = prio_txt.strip()
+        st = st_txt.strip()
+        notas = notas_txt
+
+        linha_val = {
+            "id": artigo_id,
+            "categoria": cat,
+            "eixo": eixo,
+            "prioridade": prio,
+            "status_leitura": st,
+        }
+        erros_val = validar_leitura(linha_val, categorias, eixos)
+        if erros_val:
+            erros.extend(erros_val)
+
+        linhas_validas.append({
+            "artigo_id": artigo_id,
+            "categoria": cat if cat != "" else None,
+            "eixo": eixo if eixo != "" else None,
+            "prioridade": prio if prio != "" else None,
+            "status_leitura": st if st != "" else STATUS_LEITURA_PADRAO,
+            "notas": notas if notas != "" else None,
+        })
+
+    erros_repeticao = [f"ID {artigo_id}: repetido na planilha" for artigo_id in ids_ordem if artigo_id in ids_repetidos]
+    todos_erros = erros + erros_repeticao
+    if todos_erros:
+        raise ValueError("\n".join(todos_erros))
+
+    return linhas_validas

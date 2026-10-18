@@ -1062,6 +1062,113 @@ class RepositorioSQLite:
                                                      WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '')
                ORDER BY a.artigo_id""")]
 
+    def linhas_catalogo(self):
+        """Uma consulta SQL com as linhas do catalogo de referencias a partir de `r_artigos`."""
+        sql = """
+        WITH ult_triagem AS (
+            SELECT item_id AS artigo_id, status AS status_escopo, tipo_documento, escopo_geografico, dominio_tematico
+            FROM triagem_escopo
+            WHERE fonte = 'artigo' AND uf = '' AND valido = 1
+              AND id IN (
+                  SELECT MAX(id) FROM triagem_escopo
+                  WHERE fonte = 'artigo' AND uf = '' AND valido = 1
+                  GROUP BY item_id
+              )
+        ),
+        art_consultas AS (
+            SELECT artigo_id, GROUP_CONCAT(query, '; ') AS consultas
+            FROM (
+                SELECT DISTINCT ro.artigo_id, vt.query
+                FROM r_ocorrencias ro
+                JOIN v_termos vt ON vt.termo_id = ro.termo_id
+                ORDER BY vt.query
+            )
+            GROUP BY artigo_id
+        ),
+        art_termos AS (
+            SELECT artigo_id, GROUP_CONCAT(termo_id, ', ') AS termos
+            FROM (
+                SELECT DISTINCT artigo_id, termo_id
+                FROM r_ocorrencias
+                ORDER BY termo_id
+            )
+            GROUP BY artigo_id
+        )
+        SELECT a.artigo_id, a.titulo, a.ano, a.link, a.autores_publicacao, a.citacoes,
+               ut.status_escopo, ut.tipo_documento, ut.escopo_geografico, ut.dominio_tematico,
+               ac.consultas, at.termos,
+               COALESCE(tr.decisao, 'pendente') AS decisao,
+               lr.categoria, lr.eixo, lr.prioridade, lr.status_leitura, lr.notas
+        FROM r_artigos a
+        LEFT JOIN ult_triagem ut ON ut.artigo_id = a.artigo_id
+        LEFT JOIN triagem tr ON tr.artigo_id = a.artigo_id
+        LEFT JOIN art_consultas ac ON ac.artigo_id = a.artigo_id
+        LEFT JOIN art_termos at ON at.artigo_id = a.artigo_id
+        LEFT JOIN leitura_referencias lr ON lr.artigo_id = a.artigo_id
+        WHERE (ut.status_escopo IS NULL OR ut.status_escopo <> 'excluido')
+          AND COALESCE(tr.decisao, 'pendente') <> 'excluir'
+        ORDER BY a.artigo_id
+        """
+        return [dict(l) for l in self.conn.execute(sql)]
+
+    def salvar_leitura(self, linhas):
+        """Salva campos de leitura de referencias preenchidos em planilha."""
+        if not linhas:
+            return 0
+        ids = [int(l["artigo_id"]) for l in linhas]
+        ph = ",".join("?" for _ in ids)
+        existentes = {r[0] for r in self.conn.execute(f"SELECT artigo_id FROM artigos WHERE artigo_id IN ({ph})", ids)}
+        for l in linhas:
+            if l["artigo_id"] not in existentes:
+                raise ValueError(f"ID {l['artigo_id']}: nao existe no banco")
+
+        atuais = {r["artigo_id"]: dict(r) for r in self.conn.execute(
+            f"SELECT artigo_id, categoria, eixo, prioridade, status_leitura, notas FROM leitura_referencias WHERE artigo_id IN ({ph})",
+            ids
+        )}
+        alteradas = 0
+        for l in linhas:
+            artigo_id = int(l["artigo_id"])
+            cat = l["categoria"]
+            eixo = l["eixo"]
+            prio = l["prioridade"]
+            status = l["status_leitura"] or "Nao iniciado"
+            notas = l["notas"]
+            atual = atuais.get(artigo_id)
+            if atual is None:
+                if cat is None and eixo is None and prio is None and status == "Nao iniciado" and notas is None:
+                    continue
+            else:
+                if (atual["categoria"] == cat and
+                    atual["eixo"] == eixo and
+                    atual["prioridade"] == prio and
+                    atual["status_leitura"] == status and
+                    atual["notas"] == notas):
+                    continue
+            self.conn.execute(
+                """INSERT INTO leitura_referencias (artigo_id, categoria, eixo, prioridade, status_leitura, notas, atualizado_em)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(artigo_id) DO UPDATE SET
+                       categoria=excluded.categoria,
+                       eixo=excluded.eixo,
+                       prioridade=excluded.prioridade,
+                       status_leitura=excluded.status_leitura,
+                       notas=excluded.notas,
+                       atualizado_em=excluded.atualizado_em""",
+                (artigo_id, cat, eixo, prio, status, notas, agora())
+            )
+            atuais[artigo_id] = {
+                "artigo_id": artigo_id,
+                "categoria": cat,
+                "eixo": eixo,
+                "prioridade": prio,
+                "status_leitura": status,
+                "notas": notas,
+            }
+            alteradas += 1
+        self.conn.commit()
+        return alteradas
+
     def importar_auditoria_negativos(self, registros):
         """Grava as respostas da auditoria (saida de `dominio.auditoria_negativos.validar_respostas`). Tudo e conferido antes
         da primeira gravacao: a classificacao precisa existir, nao ter achados e, se a planilha traz `url_id` e `uf`, bater

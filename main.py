@@ -404,25 +404,36 @@ def _avisar_conflitos(repo, rotulo):
               + ", ".join(f"{i} (linha {l})" for i, l in conflitos))
 
 
+def _caminho_contas(fab, simulado):
+    caminho = fab.caminho_banco.parent / ("contas_simulado.db" if simulado else "contas.db")
+    if caminho == fab.caminho_banco:
+        raise SystemExit("O banco da pesquisa não pode se chamar contas.db nem contas_simulado.db.")
+    return caminho
+
+
 def abrir_painel(a, fab):
     """Liga o painel aos adaptadores e o serve em 127.0.0.1. Importa o servidor so aqui: as demais etapas nao precisam dele."""
     if a.host not in ("127.0.0.1", "localhost"):
-        raise SystemExit("O painel só aceita conexões locais (127.0.0.1): ele não tem autenticação.")
+        raise SystemExit("O painel só aceita conexões locais (127.0.0.1).")
     import uvicorn
     from adaptadores.repositorio_sqlite import RepositorioSQLite
+    from adaptadores.contas_sqlite import ContasSQLite
     from painel.app import Contexto, criar_app
     banco = "demo" if a.demo else "simulado" if a.simulado else "real"
     if a.demo:        # a demonstração tem as suas soluções (fictícias, presentes nos dados dela); a lista real é do pesquisador e vale para o banco real e o simulado
         from painel_demo import SOLUCOES_CONHECIDAS_DEMO as SOLUCOES_CONHECIDAS
     else:
         from config.solucoes_conhecidas import SOLUCOES_CONHECIDAS
+    autenticacao = not a.demo and not a.somente_leitura
+    contas = ContasSQLite(_caminho_contas(fab, a.simulado)) if autenticacao else None
     contexto = Contexto(
         banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
         pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
         status_definicoes=dict(V.STATUS), termos={t.id: t.query for t in C.TERMOS + C.TERMOS_COMPOSTOS}, bases=tuple(C.BASES_MANUAIS),
         solucoes_conhecidas=tuple(SOLUCOES_CONHECIDAS),
         comando_criar_banco="python main.py painel-demo" if a.demo else
-        "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5")
+        "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5",
+        autenticacao=autenticacao)
     if not fab.caminho_banco.exists() and a.demo:
         raise SystemExit("O banco de demonstração não existe. Rode antes: python main.py painel-demo")
     if fab.caminho_banco.exists():
@@ -433,9 +444,47 @@ def abrir_painel(a, fab):
         elif not RepositorioSQLite.esquema_atualizado(fab.caminho_banco):
             raise SystemExit("O esquema do banco está desatualizado em relação ao código e --somente-leitura não grava. "
                              "Abra o painel sem essa opção (ou rode qualquer comando de coleta) uma vez para atualizá-lo.")
-    app = criar_app(fab.leitura_painel(), fab.novo_repositorio, fab.bruto, contexto)
+    if contas is not None:
+        app = criar_app(fab.leitura_painel(), fab.novo_repositorio, fab.bruto, contexto, contas=contas)
+    else:
+        app = criar_app(fab.leitura_painel(), fab.novo_repositorio, fab.bruto, contexto)
     print(f"Painel ({banco}): http://{a.host}:{a.porta}   (Ctrl+C para encerrar)")
     uvicorn.run(app, host=a.host, port=a.porta, log_level="warning")
+
+
+def usuario_admin(a):
+    """Cria ou redefine um administrador do painel com senha informada no terminal."""
+    import getpass
+    from datetime import datetime, timezone
+    from dominio.autenticacao import validar_login, validar_nome, validar_senha, hash_senha
+    from adaptadores.contas_sqlite import ContasSQLite
+
+    try:
+        senha1 = getpass.getpass("Senha: ")
+        senha2 = getpass.getpass("Repita a senha: ")
+    except (EOFError, KeyboardInterrupt):
+        raise SystemExit("Nada foi gravado.\nSenha não informada.")
+
+    msgs = []
+    msgs.extend(validar_login(a.login))
+    msgs.extend(validar_nome(a.nome))
+    msgs.extend(validar_senha(senha1))
+    if senha1 != senha2:
+        msgs.append("As senhas não conferem.")
+
+    if msgs:
+        raise SystemExit("Nada foi gravado.\n" + "\n".join(msgs))
+
+    fab = Fabrica(simulado=a.simulado)
+    caminho = _caminho_contas(fab, a.simulado)
+    contas = ContasSQLite(caminho)
+    agora = datetime.now(timezone.utc).isoformat()
+    try:
+        resultado = contas.definir_admin(a.login, a.nome.strip(), hash_senha(senha1), agora)
+    except ValueError as e:
+        raise SystemExit(f"Nada foi gravado.\n{e}")
+
+    print(f"Administrador {resultado}: {a.login}")
 
 
 def gerar_relatorio(a, fab):
@@ -654,6 +703,10 @@ def main():
     s.add_argument("arquivo")
     s.add_argument("--modelo", choices=list(MODELOS_REFERENCIAS.keys()), default=MODELO_REFERENCIAS_PADRAO, help="modelo de planilha (config/modelos_exportacao.py)")
     s.add_argument("--simulado", action="store_true")
+    s = sub.add_parser("usuario-admin", help="cria ou redefine um administrador do painel (a senha é pedida no terminal)")
+    s.add_argument("--login", required=True)
+    s.add_argument("--nome", required=True)
+    s.add_argument("--simulado", action="store_true")
 
     a = p.parse_args()
     fab = Fabrica(simulado=getattr(a, "simulado", False), demo=getattr(a, "demo", False))
@@ -737,6 +790,8 @@ def main():
         except ValueError as erro:
             raise SystemExit(f"Nada foi gravado.\n{erro}")
         print(f"Leituras alteradas: {n}")
+    elif a.cmd == "usuario-admin":
+        usuario_admin(a)
 
 
 if __name__ == "__main__":

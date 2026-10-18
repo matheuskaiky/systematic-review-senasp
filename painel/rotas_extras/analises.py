@@ -16,7 +16,27 @@ ABAS = (
 CHAVES = {chave for chave, _ in ABAS}
 
 
-def montar(leitura, secao):
+def anonimizar_revisores(d):
+    """Substitui nomes de revisores por pseudônimos ordenados por primeira aparição."""
+    if not d or not d.get("pares"):
+        return d
+    d_novo = dict(d)
+    mapa = {}
+    pares_novos = []
+    for par in d["pares"]:
+        p = dict(par)
+        for campo in ("revisor_a", "revisor_b"):
+            nome = par.get(campo)
+            if nome is not None:
+                if nome not in mapa:
+                    mapa[nome] = f"Revisor {len(mapa) + 1}"
+                p[campo] = mapa[nome]
+        pares_novos.append(p)
+    d_novo["pares"] = pares_novos
+    return d_novo
+
+
+def montar(leitura, secao, ver_nomes=True):
     """Devolve (blocos, resumo). `resumo` so e lido nas abas que precisam dele (e a leitura mais cara)."""
     resumo = leitura.analise_resumo() if secao in ("visao", "auditoria") else None
     if secao == "visao":
@@ -43,10 +63,13 @@ def montar(leitura, secao):
         return (bc.blocos_cobertura_web(leitura.analise_cobertura_web())
                 + br.blocos_prefiltro(leitura.analise_prefiltro_web())), resumo
     if secao == "auditoria":
+        d = leitura.analise_concordancia_achados()
+        if not ver_nomes:
+            d = anonimizar_revisores(d)
         return [b.bloco_calibracao(leitura.analise_calibracao_confianca()),
                 b.bloco_falsa_exclusao(leitura.analise_falsa_exclusao()),
                 b.bloco_auditoria_negativos(leitura.analise_auditoria_negativos()),
-                b.bloco_concordancia_achados(leitura.analise_concordancia_achados())], resumo
+                b.bloco_concordancia_achados(d)], resumo
     return [b.bloco_opacidade(leitura.analise_opacidade_dominios()), b.bloco_nao_verificaveis(leitura.analise_nao_verificaveis()),
             b.bloco_tokens(leitura.analise_calibracao_tokens()),
             b.bloco_tamanho(leitura.analise_tamanho_texto_achados())], resumo
@@ -62,5 +85,6 @@ def registrar(c):
         secao = (request.query_params.get("secao") or "visao").strip().lower()
         if secao not in CHAVES:
             return c.erro(request, 404, "Aba inválida", "Escolha uma das abas da página de análises.")
-        blocos, resumo = montar(leitura, secao)
+        ver_nomes = getattr(request.state, "ver_nomes", True)
+        blocos, resumo = montar(leitura, secao, ver_nomes=ver_nomes)
         return c.pagina(request, "analises.html", secao=secao, abas=ABAS, blocos=blocos, resumo=resumo)

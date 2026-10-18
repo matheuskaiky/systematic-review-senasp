@@ -793,3 +793,8 @@ select:focus-visible, input:focus-visible, textarea:focus-visible { border-color
 .explica-topo { margin: var(--esp-3) 0 0; }
 .campo-espaco { margin-bottom: var(--esp-3); }
 
+.form-entrar { display: grid; grid-template-columns: max-content 1fr; gap: var(--esp-3); max-width: var(--medida-leitura); }
+.form-sair { display: inline; margin: 0; }
+.conta-nome { color: var(--texto-suave); }
+
+

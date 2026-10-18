@@ -67,7 +67,7 @@
   <article class="cartao">
     <h2>Histórico de decisões</h2>
     <ul class="historico">{% for h in historico %}
-      <li{% if h.desfeita %} class="desfeita"{% endif %}><strong>{{ h.verificado_por }}</strong> · {{ fmt.data_hora(h.importado_em) }} ·
+      <li{% if h.desfeita %} class="desfeita"{% endif %}><strong>{{ (h.verificado_por if ver_nomes else "Revisor") }}</strong> · {{ fmt.data_hora(h.importado_em) }} ·
         {{ rotulos.rotulo(rotulos.STATUS, h.status_final, "sem status") if h.status_final else "verificação removida" }}{% if h.observacao %} — {{ h.observacao }}{% endif %}{% if h.desfeita %} <em>(desfeita)</em>{% endif %}</li>
     {% endfor %}</ul>
   </article>
@@ -78,7 +78,7 @@
   <div class="cartao">
     <h2>Decisão</h2>
     {% if a.verificado %}<p class="selos">{{ s.verificacao(a) }}</p>
-      <p><small>por {{ a.verificado_por }} em {{ fmt.data_hora(a.verificado_em) }}{% if a.observacao %} — {{ a.observacao }}{% endif %}</small></p>{% endif %}
+      <p><small>por {{ (a.verificado_por if ver_nomes else "Revisor") }} em {{ fmt.data_hora(a.verificado_em) }}{% if a.observacao %} — {{ a.observacao }}{% endif %}</small></p>{% endif %}
     {% if a.substituido_por and not a.verificado %}
       <p class="vazio">Achado substituído: decida nos achados da classificação vigente (verificar este faria dele o vigente e tiraria os outros da fila).</p>
     {% elif ctx.somente_leitura %}
@@ -88,7 +88,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="versao" value="{{ a.verificado_em or 'nao-verificado' }}">
       <label for="revisor">Seu nome (revisor)</label>
-      <input id="revisor" name="revisor" value="{{ revisor }}" required autocomplete="name" placeholder="ex.: Maria Silva">
+      {% if usuario %}<input id="revisor" name="revisor" value="{{ usuario.nome }}" readonly required autocomplete="name">{% else %}<input id="revisor" name="revisor" value="{{ revisor }}" required autocomplete="name" placeholder="ex.: Maria Silva">{% endif %}
       <p class="rotulo-mini">Confirmar como (a seta indica o status que o modelo apontou)</p>
       <div class="botoes-status">
         {% for chave, definicao in status_opcoes %}
@@ -107,7 +107,7 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="versao" value="{{ a.verificado_em or 'nao-verificado' }}">
         <label for="revisor-revogar">Seu nome (revisor)</label>
-        <input id="revisor-revogar" name="revisor" value="{{ revisor }}" required>
+        {% if usuario %}<input id="revisor-revogar" name="revisor" value="{{ usuario.nome }}" readonly required>{% else %}<input id="revisor-revogar" name="revisor" value="{{ revisor }}" required>{% endif %}
         <label for="motivo">Motivo</label>
         <textarea id="motivo" name="motivo" rows="2" required placeholder="por que a verificação está errada"></textarea>
         <button class="botao secundario" type="submit">Revogar</button>

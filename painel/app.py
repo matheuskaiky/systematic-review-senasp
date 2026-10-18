@@ -1,5 +1,7 @@
 """Painel de resultados (FastAPI + Jinja2, HTML no servidor). Recebe leitura, fabrica de repositorio e armazenamento
 bruto por parametro; nao importa adaptadores, composicao, sqlite3, requests nem le o ambiente."""
+from datetime import datetime, timezone
+import hashlib
 import hmac
 import json
 import mimetypes
@@ -17,7 +19,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.templating import Jinja2Templates
 
 from aplicacao import revisao
-from dominio import relevancia as relev
+from dominio import autenticacao, relevancia as relev
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import analises_blocos, formatacao as fmt, mapa_ufs, navegacao, rotulos
 from painel.entidades import Entidades, explicacao_da_entidade, link_entidade
@@ -83,6 +85,7 @@ class Contexto:
     solucoes_conhecidas: tuple = ()                 # SolucaoConhecida (config/solucoes_conhecidas.py), para a pagina /solucoes
     hosts_permitidos: tuple = ("127.0.0.1", "localhost")   # DNS rebinding: qualquer outro Host e recusado
     backup_feito: bool = field(default=False)
+    autenticacao: bool = field(default=False)
 
 
 def _filtros(params):
@@ -96,7 +99,12 @@ def _filtros_sql(filtros, ent):
     return {**filtros, "solucao_pares": pares} if pares else filtros       # nome que nao e de nenhuma entidade nao filtra (como antes)
 
 
-def criar_app(leitura, repositorio_fabrica, bruto, contexto):
+def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
+    if contexto.autenticacao and contas is None:
+        raise ValueError("criar_app: contas é obrigatório com autenticação")
+    if contexto.autenticacao:
+        contas.garantir_padrao()
+
     app = FastAPI(title="Painel de resultados", docs_url=None, redoc_url=None, openapi_url=None)
     modelos = Jinja2Templates(directory=str(AQUI / "templates"))
     modelos.env.filters["url_segura"] = lambda u: u if str(u or "").lower().startswith(("http://", "https://")) else "#"
@@ -104,6 +112,85 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
                                link_entidade=link_entidade, dica_entidade=explicacao_da_entidade)
     entidades = Entidades(leitura, contexto)            # nomes de solucao unificados em entidades (RC23), com cache por conjunto de nomes
     app.mount("/static", StaticComCache(directory=str(AQUI / "static")), name="static")
+
+    def _ver_nomes(request):
+        if not contexto.autenticacao:
+            return True
+        if getattr(request.state, "contas_indisponiveis", False):
+            return False
+        v = getattr(request.state, "ver_nomes", None)
+        if v is not None:
+            return v
+        usuario = getattr(request.state, "usuario", None)
+        if usuario:
+            return autenticacao.pode(usuario["grupo"], usuario["permissoes"], "ver_nomes_revisores")
+        try:
+            return autenticacao.pode(autenticacao.GRUPO_VISITANTE, contas.permissoes_do_grupo(autenticacao.GRUPO_VISITANTE), "ver_nomes_revisores")
+        except autenticacao.ContasOcupadas:
+            return False
+
+    def pagina(request, modelo, status=200, **dados):
+        usuario = getattr(request.state, "usuario", None)
+        revisor = usuario["nome"] if usuario else unquote(request.cookies.get("revisor", ""))
+        ver_nomes = _ver_nomes(request)
+        return modelos.TemplateResponse(request, modelo, {"revisor": revisor, "csrf": getattr(request.state, "csrf", ""),
+                                                          "tema": tema_do_cookie(request),
+                                                          "usuario": usuario, "ver_nomes": ver_nomes,
+                                                          "caminho": request.url.path, **dados}, status_code=status)
+
+    def erro(request, status, titulo, texto):
+        return pagina(request, "erro.html", status=status, titulo=titulo, texto=texto)
+
+    def sem_banco(request):
+        return pagina(request, "sem_banco.html", status=503)
+
+    # ---------- controle de acesso (quando autenticacao esta ligada) ----------
+    if contexto.autenticacao:
+        def _erro_contas_ocupadas(request):
+            request.state.usuario = None
+            request.state.contas_indisponiveis = True
+            return erro(
+                request,
+                503,
+                "Banco de contas ocupado",
+                "O banco de contas está ocupado. Tente de novo em alguns segundos.",
+            )
+
+        @app.middleware("http")
+        async def acesso(request: Request, call_next):
+            if request.url.path.startswith("/static/"):
+                return await call_next(request)
+
+            agora = datetime.now(timezone.utc).isoformat()
+            token = request.cookies.get("sessao")
+            usuario = None
+            try:
+                if token:
+                    token_hash = hashlib.sha256(token.encode()).hexdigest()
+                    usuario = contas.usuario_da_sessao(token_hash, agora)
+                request.state.usuario = usuario
+                exigida = autenticacao.permissao_exigida(request.method, request.url.path)
+                if usuario:
+                    grupo = usuario["grupo"]
+                    permissoes = usuario["permissoes"]
+                else:
+                    grupo = autenticacao.GRUPO_VISITANTE
+                    permissoes = contas.permissoes_do_grupo(autenticacao.GRUPO_VISITANTE)
+            except autenticacao.ContasOcupadas:
+                return _erro_contas_ocupadas(request)
+
+            request.state.ver_nomes = autenticacao.pode(grupo, permissoes, "ver_nomes_revisores")
+
+            if autenticacao.pode(grupo, permissoes, exigida):
+                return await call_next(request)
+            elif not usuario:
+                if request.method == "GET":
+                    alvo = request.url.path + ("?" + request.url.query if request.url.query else "")
+                else:
+                    alvo = "/"
+                return RedirectResponse("/entrar?proximo=" + quote(alvo, safe=""), status_code=303)
+            else:
+                return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
 
     # ---------- seguranca: cabecalhos, CSRF (cookie duplicado no formulario) e cookies SameSite=Strict ----------
     @app.middleware("http")
@@ -122,18 +209,6 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
 
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(contexto.hosts_permitidos))
 
-    def pagina(request, modelo, status=200, **dados):
-        revisor = unquote(request.cookies.get("revisor", ""))
-        return modelos.TemplateResponse(request, modelo, {"revisor": revisor, "csrf": request.state.csrf,
-                                                          "tema": tema_do_cookie(request),
-                                                          "caminho": request.url.path, **dados}, status_code=status)
-
-    def erro(request, status, titulo, texto):
-        return pagina(request, "erro.html", status=status, titulo=titulo, texto=texto)
-
-    def sem_banco(request):
-        return pagina(request, "sem_banco.html", status=503)
-
     def _mesma_origem(request):
         """Origin (ou, sem ele, Referer) tem de ser o proprio painel: o cookie de CSRF sozinho nao distingue outra porta
         de localhost. Sem nenhum dos dois (cliente que nao e navegador) nao ha o que conferir."""
@@ -148,7 +223,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
             return erro(request, 403, "Modo somente leitura", "O painel foi iniciado com --somente-leitura; nenhuma decisão é gravada.")
         if not _mesma_origem(request):
             return erro(request, 403, "Pedido recusado", "O pedido veio de outro site ou de outra porta, não deste painel.")
-        if not csrf or not hmac.compare_digest(csrf, request.cookies.get("csrf", "")):
+        if not csrf or not hmac.compare_digest(csrf.encode("utf-8"), request.cookies.get("csrf", "").encode("utf-8")):
             return erro(request, 403, "Formulário recusado", "O token de segurança não confere. Recarregue a página e tente de novo.")
         return None
 
@@ -159,6 +234,109 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
     @app.exception_handler(404)
     async def nao_encontrado(request, exc):
         return erro(request, 404, "Página não encontrada", "O endereço não existe neste painel.")
+
+    if contexto.autenticacao:
+        @app.get("/entrar", response_class=HTMLResponse)
+        def entrar_form(request: Request):
+            proximo = autenticacao.proximo_seguro(request.query_params.get("proximo") or "/")
+            try:
+                sem_admin = not contas.existe_admin_ativo()
+            except autenticacao.ContasOcupadas:
+                return _erro_contas_ocupadas(request)
+            return pagina(
+                request,
+                "entrar.html",
+                proximo=proximo,
+                erro=None,
+                sem_admin=sem_admin,
+                simulado=(contexto.banco == "simulado"),
+            )
+
+        @app.post("/entrar")
+        def entrar(request: Request, login: str = Form(""), senha: str = Form(""), proximo: str = Form(""), csrf: str = Form("")):
+            bloqueio = checar_escrita(request, csrf)
+            if bloqueio:
+                return bloqueio
+
+            prox_seguro = autenticacao.proximo_seguro(proximo or "/")
+            agora_dt = datetime.now(timezone.utc)
+            agora = agora_dt.isoformat()
+
+            def _form_erro(msg: str, status: int):
+                try:
+                    sem_admin = not contas.existe_admin_ativo()
+                except autenticacao.ContasOcupadas:
+                    return _erro_contas_ocupadas(request)
+                return pagina(
+                    request,
+                    "entrar.html",
+                    status=status,
+                    proximo=prox_seguro,
+                    erro=msg,
+                    sem_admin=sem_admin,
+                    simulado=(contexto.banco == "simulado"),
+                )
+
+            l = login.strip()
+            if autenticacao.validar_login(l) or senha == "" or len(senha) > autenticacao.SENHA_MAX:
+                return _form_erro("Login ou senha incorretos.", 400)
+
+            try:
+                u = contas.usuario_por_login(l)
+            except autenticacao.ContasOcupadas:
+                return _erro_contas_ocupadas(request)
+
+            if not u or u["ativo"] == 0:
+                return _form_erro("Login ou senha incorretos.", 400)
+
+            bloq_dt = autenticacao.ler_instante(u.get("bloqueado_ate"))
+            if bloq_dt is not None and bloq_dt > agora_dt:
+                return _form_erro("Muitas tentativas. Tente de novo em alguns minutos.", 429)
+
+            if not autenticacao.conferir_senha(senha, u["senha_hash"]):
+                try:
+                    contas.registrar_falha(u["usuario_id"], agora)
+                except autenticacao.ContasOcupadas:
+                    return _erro_contas_ocupadas(request)
+                return _form_erro("Login ou senha incorretos.", 400)
+
+            try:
+                old_token = request.cookies.get("sessao")
+                if old_token:
+                    contas.fechar_sessao(hashlib.sha256(old_token.encode()).hexdigest())
+
+                token = secrets.token_urlsafe(32)
+                token_hash = hashlib.sha256(token.encode()).hexdigest()
+                contas.abrir_sessao(u["usuario_id"], token_hash, agora)
+            except autenticacao.ContasOcupadas:
+                return _erro_contas_ocupadas(request)
+
+            resposta = RedirectResponse(prox_seguro, status_code=303)
+            eh_https = (request.url.scheme == "https")
+            resposta.set_cookie(
+                "sessao",
+                token,
+                httponly=True,
+                samesite="strict",
+                secure=eh_https,
+                path="/",
+            )
+            return resposta
+
+        @app.post("/sair")
+        def sair(request: Request, csrf: str = Form("")):
+            bloqueio = checar_escrita(request, csrf)
+            if bloqueio:
+                return bloqueio
+            token = request.cookies.get("sessao")
+            if token:
+                try:
+                    contas.fechar_sessao(hashlib.sha256(token.encode()).hexdigest())
+                except autenticacao.ContasOcupadas:
+                    return _erro_contas_ocupadas(request)
+            resposta = RedirectResponse("/", status_code=303)
+            resposta.delete_cookie("sessao", path="/")
+            return resposta
 
     # ---------- visao geral ----------
     @app.get("/", response_class=HTMLResponse)
@@ -405,6 +583,14 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         bloqueio = checar_escrita(request, csrf)
         if bloqueio:
             return bloqueio
+        usuario = getattr(request.state, "usuario", None)
+        if contexto.autenticacao and etapa == "texto_completo":
+            grupo = usuario["grupo"] if usuario else autenticacao.GRUPO_VISITANTE
+            permissoes = usuario["permissoes"] if usuario else contas.permissoes_do_grupo(autenticacao.GRUPO_VISITANTE)
+            if not autenticacao.pode(grupo, permissoes, "triar_texto_completo"):
+                return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
+        if usuario:
+            revisor = usuario["nome"]
         if leitura.artigo(artigo_id) is None:
             return erro(request, 404, "Artigo não encontrado", f"Não existe o artigo nº {artigo_id}.")
         if base and contexto.bases and base not in contexto.bases:
@@ -412,7 +598,10 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         try:
             _escrever(lambda repo: revisao.decidir_triagem(repo, artigo_id, decisao, revisor, motivo, base, link, etapa, versao))
         except SystemExit as e:
-            return erro(request, 409 if _conflito(str(e)) else 400, "Artigo alterado" if _conflito(str(e)) else "Decisão não gravada", str(e))
+            if _conflito(str(e)):
+                msg = str(e) if _ver_nomes(request) else "Este artigo foi alterado por outra pessoa depois que você abriu a página. Recarregue e decida de novo."
+                return erro(request, 409, "Artigo alterado", msg)
+            return erro(request, 400, "Decisão não gravada", str(e))
         if "fila" in request.query_params:
             filtros = _filtros_artigos(request.query_params)
             ids = leitura.ids_fila_triagem(filtros)
@@ -422,7 +611,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         else:
             destino = "/literatura/artigos/%d?ok=%d" % (artigo_id, artigo_id)
         resposta = RedirectResponse(destino, status_code=303)
-        resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
+        if not usuario:
+            resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
         return resposta
 
     @app.get("/literatura/prisma", response_class=HTMLResponse)
@@ -569,6 +759,9 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         bloqueio = checar_escrita(request, csrf)
         if bloqueio:
             return bloqueio
+        usuario = getattr(request.state, "usuario", None)
+        if usuario:
+            revisor = usuario["nome"]
         if leitura.achado(achado_id) is None:
             return erro(request, 404, "Achado não encontrado", f"Não existe o achado nº {achado_id}.")
         try:
@@ -576,12 +769,14 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
                                                             contexto.status_permitidos, versao))
         except SystemExit as e:
             if _conflito(str(e)):
-                return erro(request, 409, "Achado alterado", str(e))
+                msg = str(e) if _ver_nomes(request) else "Este achado foi alterado por outra pessoa depois que você abriu a página. Recarregue e decida de novo."
+                return erro(request, 409, "Achado alterado", msg)
             return erro(request, 400, "Decisão não gravada", str(e))
         destino = (_voltar(request, achado_id, achado_id) if "fila" in request.query_params
                    else "/achados/%d?ok=%d" % (achado_id, achado_id))
         resposta = RedirectResponse(destino, status_code=303)
-        resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
+        if not usuario:
+            resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
         return resposta
 
     @app.post("/achados/{achado_id}/desfazer")
@@ -589,10 +784,20 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         bloqueio = checar_escrita(request, csrf)
         if bloqueio:
             return bloqueio
+        usuario = getattr(request.state, "usuario", None)
+        if contexto.autenticacao:
+            autor = next((h["verificado_por"] for h in leitura.historico_achado(achado_id) if not h["desfeita"]), None)
+            eh_admin = usuario and usuario.get("grupo") == autenticacao.GRUPO_ADMIN
+            eh_autor = usuario and autor and usuario.get("nome") == autor
+            if not (eh_admin or eh_autor):
+                return erro(request, 403, "Sem permissão", "Só quem tomou a decisão ou um administrador pode desfazê-la. Registre uma sugestão.")
         try:
             _escrever(lambda repo: revisao.desfazer_decisao(repo, achado_id))
         except SystemExit as e:
-            return erro(request, 409 if _conflito(str(e)) else 400, "Não foi possível desfazer", str(e))
+            if _conflito(str(e)):
+                msg = str(e) if _ver_nomes(request) else "Este achado foi alterado por outra pessoa depois que você abriu a página. Recarregue e decida de novo."
+                return erro(request, 409, "Não foi possível desfazer", msg)
+            return erro(request, 400, "Não foi possível desfazer", str(e))
         return RedirectResponse("/achados/%d?%s" % (achado_id, _query_fila(request)), status_code=303)
 
     @app.post("/achados/{achado_id}/revogar")
@@ -601,14 +806,21 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto):
         bloqueio = checar_escrita(request, csrf)
         if bloqueio:
             return bloqueio
+        usuario = getattr(request.state, "usuario", None)
+        if usuario:
+            revisor = usuario["nome"]
         if leitura.achado(achado_id) is None:
             return erro(request, 404, "Achado não encontrado", f"Não existe o achado nº {achado_id}.")
         try:
             _escrever(lambda repo: revisao.revogar_verificacao(repo, achado_id, revisor, motivo, versao))
         except SystemExit as e:
-            return erro(request, 409 if _conflito(str(e)) else 400, "Verificação não revogada", str(e))
+            if _conflito(str(e)):
+                msg = str(e) if _ver_nomes(request) else "Este achado foi alterado por outra pessoa depois que você abriu a página. Recarregue e decida de novo."
+                return erro(request, 409, "Verificação não revogada", msg)
+            return erro(request, 400, "Verificação não revogada", str(e))
         resposta = RedirectResponse("/achados/%d?%s" % (achado_id, _query_fila(request)), status_code=303)
-        resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
+        if not usuario:
+            resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
         return resposta
 
     from painel import rotas_extras

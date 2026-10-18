@@ -50,16 +50,16 @@
     {% if a.manuais %}<h3>Buscas manuais</h3><ul class="lista-simples">{% for m in a.manuais %}<li><strong>{{ m.base }}</strong> · {{ m.termo_id }}{% if m.data_busca %} · {{ m.data_busca }}{% endif %}{% if m.posicao %} · posição {{ m.posicao }}{% endif %}</li>{% endfor %}</ul>{% endif %}
   </article>
   {% if a.historico %}<article class="cartao"><h2>Histórico de decisões</h2>
-    <ul class="historico">{% for h in a.historico %}<li><strong>{{ h.revisor }}</strong> · {{ fmt.data_hora(h.importado_em) }} · {{ h.decisao }}{% if h.motivo %} — {{ h.motivo }}{% endif %}{% if h.decisao_texto_completo %} · texto completo: {{ h.decisao_texto_completo }}{% if h.motivo_texto_completo %} — {{ h.motivo_texto_completo }}{% endif %}{% endif %}{% if h.independente %} <em>(revisão independente)</em>{% endif %}</li>{% endfor %}</ul></article>{% endif %}
+    <ul class="historico">{% for h in a.historico %}<li><strong>{{ (h.revisor if ver_nomes else "Revisor") }}</strong> · {{ fmt.data_hora(h.importado_em) }} · {{ h.decisao }}{% if h.motivo %} — {{ h.motivo }}{% endif %}{% if h.decisao_texto_completo %} · texto completo: {{ h.decisao_texto_completo }}{% if h.motivo_texto_completo %} — {{ h.motivo_texto_completo }}{% endif %}{% endif %}{% if h.independente %} <em>(revisão independente)</em>{% endif %}</li>{% endfor %}</ul></article>{% endif %}
 </div>
 <aside class="decisao" aria-label="Triagem">
   <div class="cartao"><h2>Triagem por título e resumo</h2>
-    {% if a.revisor %}<p><small>Última decisão por {{ a.revisor }} em {{ fmt.data_hora(a.revisado_em) }}{% if a.motivo %} — {{ a.motivo }}{% endif %}</small></p>{% endif %}
+    {% if a.revisor %}<p><small>Última decisão por {{ (a.revisor if ver_nomes else "Revisor") }} em {{ fmt.data_hora(a.revisado_em) }}{% if a.motivo %} — {{ a.motivo }}{% endif %}</small></p>{% endif %}
     {% if ctx.somente_leitura %}<p class="vazio">Painel em modo somente leitura.</p>{% else %}
     <form method="post" action="/literatura/artigos/{{ a.artigo_id }}/triar{% if query %}?{{ query }}{% endif %}" id="form-decisao">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="versao" value="{{ versao }}"><input type="hidden" name="etapa" value="titulo_resumo">
       <label for="revisor">Seu nome (revisor)</label>
-      <input id="revisor" name="revisor" value="{{ revisor }}" required autocomplete="name" placeholder="ex.: Maria Silva">
+      {% if usuario %}<input id="revisor" name="revisor" value="{{ usuario.nome }}" readonly required autocomplete="name">{% else %}<input id="revisor" name="revisor" value="{{ revisor }}" required autocomplete="name" placeholder="ex.: Maria Silva">{% endif %}
       <label for="motivo">Motivo (obrigatório para excluir)</label>
       <textarea id="motivo" name="motivo" rows="2" placeholder="ex.: fora do escopo (não trata de segurança pública)">{{ a.motivo or "" }}</textarea>
       <label for="base">Base em que o artigo foi confirmado</label>
@@ -80,7 +80,7 @@
     <p><small>Etapa de elegibilidade: só para artigos incluídos por título e resumo.</small></p>
     <form method="post" action="/literatura/artigos/{{ a.artigo_id }}/triar{% if query %}?{{ query }}{% endif %}">
       <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="versao" value="{{ versao }}"><input type="hidden" name="etapa" value="texto_completo">
-      <label for="revisor-tc">Seu nome (revisor)</label><input id="revisor-tc" name="revisor" value="{{ revisor }}" required>
+      <label for="revisor-tc">Seu nome (revisor)</label>{% if usuario %}<input id="revisor-tc" name="revisor" value="{{ usuario.nome }}" readonly required>{% else %}<input id="revisor-tc" name="revisor" value="{{ revisor }}" required>{% endif %}
       <label for="motivo-tc">Motivo (obrigatório para excluir)</label><textarea id="motivo-tc" name="motivo" rows="2">{{ a.motivo_texto_completo or "" }}</textarea>
       <div class="botoes-status">
         <button class="btn-status sugerido" type="submit" name="decisao" value="incluir">Incluir no estudo</button>

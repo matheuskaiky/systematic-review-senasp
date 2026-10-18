@@ -248,3 +248,61 @@
     } catch (e) { /* navegador sem suporte: segue a de sistema */ }
   });
 })();
+
+/* ===== TRECHO PARA COLAR NO FIM DE painel/static/painel.js (não é um arquivo novo: painel.js continua sendo o único script global) =====
+   Telas de triagem (artigo e achado). Melhoria progressiva: sem JavaScript, tudo continua sendo formulário POST comum e links comuns.
+   O que faz:
+     • mostra os chips de motivo de exclusão ([data-motivos], que nascem com `hidden`) e, ao clicar, acrescenta o motivo ao campo #motivo;
+     • lembra se a gaveta de critérios (details.escopo-guia) está aberta ou recolhida (localStorage, em try/catch);
+     • centraliza o item aberto na fila lateral (.fila-lista).
+   Os atalhos de teclado (i, x, p, n, 1–6, d, u, e) NÃO estão aqui: já existem em painel.js e continuam como estão.
+   Restrições de painel.js respeitadas: sem avaliação dinâmica de código, sem montar HTML por texto, sem requisições, sem endereço absoluto. */
+(function () {
+  "use strict";
+
+  var tela = document.querySelector(".triagem");
+  if (!tela) { return; }
+
+  /* ---- Motivos em um toque (só na triagem de artigos) ---- */
+  var blocos = tela.querySelectorAll("[data-motivos]");
+  var campo = document.getElementById("motivo");
+  if (blocos.length && campo) {
+    for (var i = 0; i < blocos.length; i++) { blocos[i].hidden = false; }
+    tela.addEventListener("click", function (ev) {
+      var chip = ev.target && ev.target.closest ? ev.target.closest(".chip-motivo") : null;
+      var motivo = chip ? chip.getAttribute("data-motivo") : null;
+      if (!motivo) { return; }
+      var atual = campo.value.trim();
+      if (atual.indexOf(motivo) === -1) {
+        campo.value = atual ? atual.replace(/[;.\s]+$/, "") + "; " + motivo : motivo;
+      }
+      campo.dispatchEvent(new Event("input", { bubbles: true }));
+      campo.focus();
+    });
+  }
+
+  /* ---- Gaveta de critérios de escopo ---- */
+  var gaveta = tela.querySelector("details.escopo-guia");
+  if (gaveta) {
+    var CHAVE = "painel.escopo-aberto";
+    try {
+      var salvo = window.localStorage.getItem(CHAVE);
+      if (salvo === "0") { gaveta.open = false; } else if (salvo === "1") { gaveta.open = true; }
+    } catch (e) { /* armazenamento bloqueado: a gaveta funciona igual, só não lembra */ }
+    gaveta.addEventListener("toggle", function () {
+      try { window.localStorage.setItem(CHAVE, gaveta.open ? "1" : "0"); } catch (e) { /* idem */ }
+    });
+  }
+
+  /* ---- Fila lateral: centraliza o item aberto (lista vertical no cockpit largo, faixa horizontal abaixo disso) ---- */
+  var lista = tela.querySelector(".fila-lista");
+  var ativo = lista ? lista.querySelector('[aria-current="true"]') : null;
+  if (ativo) {
+    var item = ativo.parentNode;
+    if (lista.scrollHeight > lista.clientHeight + 1) {
+      lista.scrollTop = Math.max(0, item.offsetTop - Math.round((lista.clientHeight - item.offsetHeight) / 2));
+    } else {
+      lista.scrollLeft = Math.max(0, item.offsetLeft - Math.round((lista.clientWidth - item.offsetWidth) / 2));
+    }
+  }
+})();

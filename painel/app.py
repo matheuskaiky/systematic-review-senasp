@@ -38,6 +38,17 @@ MAX_BUSCA = 200
 MAX_ENTIDADES_NO_RESUMO = 12      # entidades listadas no resumo de /achados (as demais estao no filtro e em /solucoes)
 LIMITE_BRUTO = 200_000            # o visor de arquivos brutos mostra no maximo isto; o arquivo inteiro vai por download
 TEMAS_VALIDOS = {"light", "dark"}  # mesmos valores do atributo data-theme; qualquer outra coisa no cookie e ignorada
+JANELA_FILA = 15
+
+
+def _janela(ids, atual):
+    """Janela de até 15 itens da fila, centrada no item aberto."""
+    if not ids:
+        return []
+    k = ids.index(atual) if atual in ids else 0
+    inicio = max(0, min(k - JANELA_FILA // 2, len(ids) - JANELA_FILA))
+    return ids[inicio:inicio + JANELA_FILA]
+
 
 mimetypes.add_type("font/woff2", ".woff2")  # garante o tipo certo em qualquer sistema; X-Content-Type-Options: nosniff ja esta ligado
 
@@ -129,6 +140,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         except autenticacao.ContasOcupadas:
             return False
 
+    def _perms(request):
+        if not contexto.autenticacao:
+            return frozenset(autenticacao.PERMISSOES)
+        return getattr(request.state, "perms", frozenset())
+
     def _pode_estatisticas(request):
         if not contexto.autenticacao or getattr(request.state, "contas_indisponiveis", False):
             return False
@@ -146,6 +162,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                                                           "tema": tema_do_cookie(request),
                                                           "usuario": usuario, "ver_nomes": ver_nomes,
                                                           "pode_estatisticas": pode_estatisticas,
+                                                          "perms": _perms(request),
                                                           "caminho": request.url.path, **dados}, status_code=status)
 
     def erro(request, status, titulo, texto):
@@ -190,6 +207,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 return _erro_contas_ocupadas(request)
 
             request.state.ver_nomes = autenticacao.pode(grupo, permissoes, "ver_nomes_revisores")
+            request.state.perms = frozenset(p for p in autenticacao.PERMISSOES if autenticacao.pode(grupo, permissoes, p))
 
             if autenticacao.pode(grupo, permissoes, exigida):
                 return await call_next(request)
@@ -573,8 +591,13 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         em_fila = "fila" in request.query_params
         ids = leitura.ids_fila_triagem(_filtros_artigos(request.query_params)) if em_fila else []
         proximo = next((i for i in ids if i != artigo_id), None)
+        fila_itens = None
+        if em_fila:
+            janela = _janela(ids, artigo_id)
+            t = leitura.titulos_artigos(janela)
+            fila_itens = [{"id": i, "titulo": (t.get(i) or "").strip() or f"Artigo nº {i}", "estado": "pendente"} for i in janela]
         return pagina(request, "artigo.html", a=a, em_fila=em_fila, restantes=len(ids), proximo=proximo, tri=leitura.contagem_triagem(),
-                      query=_query_triagem(request), ok=ok if 0 <= ok <= MAX_PAGINA * 1000 else 0)
+                      query=_query_triagem(request), ok=ok if 0 <= ok <= MAX_PAGINA * 1000 else 0, fila_itens=fila_itens)
 
     @app.get("/literatura/triagem", response_class=HTMLResponse)
     def fila_triagem(request: Request):
@@ -718,10 +741,27 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         ids = leitura.ids_fila_revisao(_filtros_sql(_filtros(request.query_params), ent)) if em_fila else []
         rev = leitura.contagem_revisao()
         proximo = _proximo(ids, achado_id)
+        fila_itens = None
+        if em_fila:
+            janela = _janela(ids, achado_id)
+            r = leitura.resumo_achados(janela)
+            fila_itens = [{
+                "id": i,
+                "titulo": (rotulos.rotulo(rotulos.TECNOLOGIAS, r[i]["tecnologia"]) + " · " + (r[i]["cidade"] or r[i]["uf"])) if i in r else f"Achado nº {i}",
+                "estado": "pendente",
+            } for i in janela]
+        historico = leitura.historico_achado(achado_id)
+        autor = next((h["verificado_por"] for h in historico if not h["desfeita"]), None)
+        usuario = getattr(request.state, "usuario", None)
+        pode_desfazer = bool(
+            leitura.tem_decisao_para_desfazer(achado_id)
+            and "verificar_achados" in _perms(request)
+            and (not contexto.autenticacao or bool(usuario and (usuario["grupo"] == autenticacao.GRUPO_ADMIN or usuario["nome"] == autor)))
+        )
         return pagina(request, "achado.html", a=a, ev=_contexto_evidencia(a, bool(completo)), completo=bool(completo), ent=ent,
-                      historico=leitura.historico_achado(achado_id), em_fila=em_fila, rev=rev, proximo=proximo,
+                      historico=historico, em_fila=em_fila, rev=rev, proximo=proximo,
                       query=_query_fila(request), ok=ok, restantes=len(ids),
-                      pode_desfazer=leitura.tem_decisao_para_desfazer(achado_id),
+                      pode_desfazer=pode_desfazer, fila_itens=fila_itens,
                       status_opcoes=[(k, contexto.status_definicoes[k]) for k in contexto.status_definicoes])
 
     @app.get("/revisao/achados", response_class=HTMLResponse)

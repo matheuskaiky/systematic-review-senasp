@@ -491,3 +491,20 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             GROUP BY revisor, dia ORDER BY dia DESC, revisor
         """
         return self._consulta(sql)
+
+    def titulos_artigos(self, ids):
+        """Titulo de cada artigo da lista (janela da fila lateral)."""
+        if not ids:
+            return {}
+        marcas = ",".join("?" * len(ids))
+        return {l["artigo_id"]: l["titulo"] for l in self._consulta(
+            f"SELECT artigo_id, titulo FROM r_artigos WHERE artigo_id IN ({marcas})", tuple(ids))}
+
+    def resumo_achados(self, ids):
+        """Tecnologia, UF e cidade de cada achado da lista (janela da fila lateral)."""
+        if not ids:
+            return {}
+        marcas = ",".join("?" * len(ids))
+        return {l["achado_id"]: l for l in self._consulta(
+            f"SELECT achado_id, tecnologia, uf, cidade FROM v_achados_revisao WHERE achado_id IN ({marcas})", tuple(ids))}
+

@@ -1,0 +1,76 @@
+{#- _guia.html — camada de interpretação metodológica. Uso:  {% from "_guia.html" import guia_leitura, acordeao, ajuda_termo, titulo_com_ajuda %}
+
+   Tudo aqui é HTML nativo: sem JavaScript, sem atributo de estilo inline, sem biblioteca externa. As classes estão em painel.css (bloco "camada educativa").
+
+   ATENÇÃO sobre autoescape: os textos passados a estas macros são ESCRITOS PELA EQUIPE no template (constantes) e podem ter <strong>, <em>, <cite>.
+   Por isso as macros usam `|safe` neles. NUNCA passe dado vindo do banco ou do usuário como termo, definição, item ou texto.
+
+   Texto novo nunca deve repetir frases que os testes fixam em outras páginas (por exemplo, o aviso de evidência confirmada ou não localizada,
+   "sem nome", "Tudo revisado") nem usar nomes de classes fixadas (kpi-valor, selo, solucao-destaque…). Ver LEIAME, seção "Cuidados". -#}
+
+{#- Guia de rodapé para páginas analíticas e de operação.
+    titulo   : normalmente "Como interpretar esta página e suas métricas"
+    id       : id único da seção na página (ex.: "guia-analises"); os ids dos títulos internos derivam dele
+    resumo   : uma frase sob o título
+    topicos  : lista de dicts, na ordem em que aparecem lado a lado
+               {"titulo": "Glossário rápido",       "tipo": "glossario", "itens": [("Termo", "definição"), …]}
+               {"titulo": "Interpretação prática",  "tipo": "lista",     "itens": ["frase", …]}
+               {"titulo": "Dica de ação",            "tipo": "acao",      "texto": "frase"}
+    fontes   : texto opcional com as referências (aceita <cite>) -#}
+{% macro guia_leitura(titulo, topicos, id, resumo=None, fontes=None) -%}
+<section class="guia-interpretacao" aria-labelledby="{{ id }}">
+  <div class="guia-cabecalho">
+    <span class="guia-icone" aria-hidden="true">ℹ</span>
+    <h2 id="{{ id }}">{{ titulo }}</h2>
+    {% if resumo %}<p>{{ resumo }}</p>{% endif %}
+  </div>
+  <div class="guia-interpretacao-grid">
+    {% for t in topicos %}
+    <section aria-labelledby="{{ id }}-{{ loop.index }}">
+      <h3 id="{{ id }}-{{ loop.index }}">{{ t.titulo }}</h3>
+      {% if t.tipo == "glossario" %}
+      <dl class="guia-glossario">
+        {% for termo, definicao in t.itens %}<dt>{{ termo }}</dt><dd>{{ definicao|safe }}</dd>
+        {% endfor %}
+      </dl>
+      {% elif t.tipo == "lista" %}
+      <ul class="guia-lista">
+        {% for item in t.itens %}<li>{{ item|safe }}</li>
+        {% endfor %}
+      </ul>
+      {% elif t.tipo == "acao" %}
+      <p class="guia-acao">{{ t.texto|safe }}</p>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+  {% if fontes %}<p class="guia-fontes">Referências: {{ fontes|safe }}</p>{% endif %}
+</section>
+{%- endmacro %}
+
+{#- Acordeão nativo para telas de trabalho (fila de revisão). Nasce FECHADO de propósito: nada disputa espaço com os botões de decisão.
+    O corpo vem do bloco {% call acordeao("Em dúvida sobre o critério?") %} … {% endcall %}.
+    O <summary> recebe foco do teclado sozinho; o ícone e as palavras "Mostrar/Ocultar" vêm do CSS. -#}
+{% macro acordeao(titulo) -%}
+<details class="acordeao-metodologico guia-metodologico">
+  <summary>{{ titulo }}</summary>
+  <div class="acordeao-corpo">{{ caller() }}</div>
+</details>
+{%- endmacro %}
+
+{#- Dica de termo ao lado de uma métrica. Abre com o mouse e com Tab (CSS :hover / :focus-within); o balão é texto real, ligado por aria-describedby.
+    id      : único na página (ex.: "aj-kappa")
+    termo   : nome do conceito, usado no rótulo de acessibilidade ("Ajuda: kappa de Cohen")
+    texto   : explicação curta, em 1 ou 2 frases
+    alinhar : None (abre para a direita) ou "dir" (abre para a esquerda; use perto da borda direita da tela) -#}
+{% macro ajuda_termo(id, termo, texto, alinhar=None) -%}
+<span class="ajuda-termo{% if alinhar == 'dir' %} ajuda-dir{% endif %}" tabindex="0" role="note" aria-label="Ajuda: {{ termo }}" aria-describedby="{{ id }}"><span aria-hidden="true">ℹ</span><span class="ajuda-balao" id="{{ id }}" role="tooltip"><strong>{{ termo }}</strong>{{ texto|safe }}</span></span>
+{%- endmacro %}
+
+{#- Título de métrica + dica na mesma linha. nivel: 2 ou 3. -#}
+{% macro titulo_com_ajuda(nivel, texto, id, termo, explicacao, alinhar=None) -%}
+<div class="titulo-ajuda">
+  <h{{ nivel }}>{{ texto }}</h{{ nivel }}>
+  {{ ajuda_termo(id, termo, explicacao, alinhar) }}
+</div>
+{%- endmacro %}

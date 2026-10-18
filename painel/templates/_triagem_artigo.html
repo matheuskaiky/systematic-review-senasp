@@ -1,0 +1,198 @@
+{%- set versao = a.revisado_em or 'nao-triado' -%}
+{%- set n_ocorr = a.n_termos + a.n_bases_manuais -%}
+{%- set triados = tri.incluidos + tri.excluidos -%}
+{% import "_selos.html" as s %}
+{% from "_guia.html" import ajuda_termo %}
+{% from "_fila_lateral.html" import fila_lateral %}
+<div class="area-revisao">
+
+  {% if ok %}<div class="aviso ok" role="status">Decisão sobre o artigo nº {{ ok }} gravada.</div>{% endif %}
+
+  <p class="trilha"><a href="/literatura">Literatura</a> › <a href="/literatura/artigos">artigos</a> › nº {{ a.artigo_id }}
+    {% if em_fila %}<span class="fila-info">· fila de triagem: {{ restantes }} pendente(s) · {{ fmt.pct(triados, tri.total) }} triado</span>{% endif %}</p>
+  {% if em_fila and tri.total %}<progress class="progresso" max="{{ tri.total }}" value="{{ triados }}">{{ fmt.pct(triados, tri.total) }} triado</progress>{% endif %}
+
+  <div class="triagem">
+    {{ fila_lateral(fila_itens, a.artigo_id, "Fila da rodada", "/literatura/artigos/", resumo=(fmt.numero(triados) ~ " de " ~ fmt.numero(tri.total) ~ " triados"), consulta=query) }}
+
+    <div class="coluna-leitura">
+      <article class="cartao cartao-leitura">
+        <div class="leitura-corpo">
+          {% if a.link and a.link|trim %}<p class="origem-noticia"><a href="{{ a.link|url_segura }}" target="_blank" rel="noopener noreferrer">Abrir a fonte ↗</a></p>{% endif %}
+          <h1 class="titulo-leitura titulo-artigo">{{ a.titulo }}</h1>
+          <p class="meta-linha" aria-label="Autores, ano e citações">
+            {%- if a.autores_publicacao %}<span class="meta-autores">{{ a.autores_publicacao }}</span>{% endif -%}
+            {%- if a.ano and (a.ano|string) not in (a.autores_publicacao or "") %}<span>{{ a.ano }}</span>{% endif -%}
+            {%- if a.citacoes is not none %}<span>{{ fmt.numero(a.citacoes) }} {{ "citação" if a.citacoes == 1 else "citações" }}</span>{% endif -%}
+          </p>
+          <dl class="ficha">
+            <dt>Autores e publicação</dt><dd>{{ a.autores_publicacao or "não informado" }}</dd>
+            <dt>Ano</dt><dd>{{ a.ano or "não informado" }}</dd>
+            <dt>Citações</dt><dd>{% if a.citacoes is none %}não informadas pela fonte{% else %}{{ fmt.numero(a.citacoes) }}{% endif %}</dd>
+            <dt>Link</dt><dd>{% if a.link %}<a href="{{ a.link|url_segura }}" target="_blank" rel="noopener noreferrer">{{ a.link }}</a>{% else %}não informado{% endif %}</dd>
+          </dl>
+          <p class="selos">
+            {{ s.triagem(a.decisao) }}{% if a.decisao == "incluir" %} {{ s.triagem(a.decisao_texto_completo, "texto completo") }}{% endif %}
+            {% if n_ocorr > 1 %}<span class="selo alerta">Achado {{ n_ocorr }}× (prioridade)</span>{% endif %}
+          </p>
+          <p class="pergunta-guia">Este artigo serve ao escopo da pesquisa: inteligência artificial na segurança pública brasileira?</p>
+
+          <div class="evidencia-cabecalho"><h2>Resumo (como veio da fonte)</h2></div>
+          <div class="texto-pagina cockpit-abstract-body" tabindex="0">{% if a.snippet and a.snippet|trim %}{{ a.snippet }}{% else %}<span class="resumo-vazio">A fonte não trouxe trecho nem resumo para este artigo. Decida pelo título.</span>{% endif %}</div>
+        </div>
+      </article>
+
+      <article class="cartao"><h2>Onde foi encontrado</h2>
+        {% if a.ocorrencias %}<h3>Google Scholar</h3><ul class="lista-simples">{% for o in a.ocorrencias %}<li><strong>{{ o.termo_id }}</strong> {{ ctx.termos.get(o.termo_id, "")|replace('"', '') }}
+          <small>· posição {{ o.posicao or "?" }}{% if o.pagina %}, página {{ o.pagina }}{% endif %}{% if o.citacoes_no_momento is not none %} · {{ o.citacoes_no_momento }} citações na época{% endif %} · execução <a href="/execucoes/{{ o.run_id }}"><code>{{ o.run_id }}</code></a></small></li>{% endfor %}</ul>{% endif %}
+        {% if a.manuais %}<h3>Buscas manuais</h3><ul class="lista-simples">{% for m in a.manuais %}<li><strong>{{ m.base }}</strong> · {{ m.termo_id }}{% if m.data_busca %} · {{ m.data_busca }}{% endif %}{% if m.posicao %} · posição {{ m.posicao }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+      </article>
+
+      {% if a.historico %}<article class="cartao"><h2>Histórico de decisões</h2>
+        <ul class="historico">{% for h in a.historico %}<li><strong>{{ (h.revisor if ver_nomes else "Revisor") }}</strong> · {{ fmt.data_hora(h.importado_em) }} · {{ h.decisao }}{% if h.motivo %} — {{ h.motivo }}{% endif %}{% if h.decisao_texto_completo %} · texto completo: {{ h.decisao_texto_completo }}{% if h.motivo_texto_completo %} — {{ h.motivo_texto_completo }}{% endif %}{% endif %}{% if h.independente %} <em>(revisão independente)</em>{% endif %}</li>{% endfor %}</ul></article>{% endif %}
+
+      <div class="cartao atalhos">
+        <h3>Atalhos</h3>
+        <p><kbd>i</kbd> incluir · <kbd>x</kbd> excluir · <kbd>p</kbd> pendente · <kbd>n</kbd> pular</p>
+        <p><small>Os atalhos não funcionam enquanto você digita em um campo. Excluir pede o motivo: ele entra nos motivos de exclusão do PRISMA.</small></p>
+      </div>
+    </div>
+
+    <aside class="decisao" aria-label="Triagem">
+      <details class="cartao escopo-guia" open>
+        <summary>Critérios de escopo</summary>
+        <div class="escopo-corpo">
+          <ul class="escopo-lista escopo-incluir" aria-label="Entra se todos forem atendidos">
+            <li><span class="escopo-marca" aria-hidden="true">✔</span><span><strong>Entra</strong> se trata de segurança pública (policiamento, perícia, justiça criminal, defesa social),</span></li>
+            <li><span class="escopo-marca" aria-hidden="true">✔</span><span>de IA ou análise automatizada de dados,</span></li>
+            <li><span class="escopo-marca" aria-hidden="true">✔</span><span>com caráter científico ou técnico</span></li>
+            <li><span class="escopo-marca" aria-hidden="true">✔</span><span>e publicação a partir de 2022.</span></li>
+          </ul>
+          <ul class="escopo-lista escopo-excluir" aria-label="Sai se">
+            <li><span class="escopo-marca" aria-hidden="true">✕</span><span><strong>Sai</strong> se falta qualquer um (o motivo vai ao PRISMA).</span></li>
+          </ul>
+        </div>
+      </details>
+
+      <div class="cartao">
+        <h2>Triagem por título e resumo</h2>
+        {% if a.revisor %}<p><small>Última decisão por {{ (a.revisor if ver_nomes else "Revisor") }} em {{ fmt.data_hora(a.revisado_em) }}{% if a.motivo %} — {{ a.motivo }}{% endif %}</small></p>{% endif %}
+
+        {% if ctx.somente_leitura %}
+        <p class="vazio">Painel em modo somente leitura.</p>
+        {% elif "triar_artigos" in perms %}
+        <form method="post" action="/literatura/artigos/{{ a.artigo_id }}/triar{% if query %}?{{ query }}{% endif %}" id="form-decisao">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="versao" value="{{ versao }}">
+          <input type="hidden" name="etapa" value="titulo_resumo">
+          <div class="campo campo-espaco">
+            <label for="revisor">Seu nome (revisor)</label>
+            {% if usuario %}<input id="revisor" name="revisor" value="{{ usuario.nome }}" readonly required autocomplete="name">{% else %}<input id="revisor" name="revisor" value="{{ revisor }}" required autocomplete="name" placeholder="ex.: Maria Silva">{% endif %}
+          </div>
+
+          <fieldset class="grupo-decisao">
+            <legend>Entra na revisão</legend>
+            <button type="submit" class="btn-decisao acao-incluir" name="decisao" value="incluir" data-tecla="i"><span class="btn-texto">Incluir<small>Serve ao escopo da pesquisa</small></span><kbd>i</kbd></button>
+          </fieldset>
+
+          <fieldset class="grupo-decisao">
+            <legend>Fica de fora</legend>
+            <div class="motivos-rapidos" data-motivos hidden role="group" aria-label="Motivos de exclusão em um toque">
+              <div class="motivos-grupo">
+                <p class="rotulo-mini">Escopo</p>
+                <button type="button" class="chip-motivo" data-motivo="fora de segurança pública">fora de segurança pública</button>
+                <button type="button" class="chip-motivo" data-motivo="sem IA ou tecnologia">sem IA ou tecnologia</button>
+              </div>
+              <div class="motivos-grupo">
+                <p class="rotulo-mini">Qualidade</p>
+                <button type="button" class="chip-motivo" data-motivo="metodologia irrelevante">metodologia irrelevante</button>
+              </div>
+              <div class="motivos-grupo">
+                <p class="rotulo-mini">Recorte</p>
+                <button type="button" class="chip-motivo" data-motivo="fora do recorte temporal">fora do recorte temporal</button>
+              </div>
+            </div>
+            <div class="campo campo-espaco">
+              <label for="motivo">Motivo (obrigatório para excluir)</label>
+              <textarea id="motivo" name="motivo" rows="2" placeholder="ex.: fora do escopo (não trata de segurança pública)">{{ a.motivo or "" }}</textarea>
+            </div>
+            <button type="submit" class="btn-decisao acao-excluir" name="decisao" value="excluir" data-tecla="x"><span class="btn-texto">Excluir<small>Não entra na revisão</small></span><kbd>x</kbd></button>
+          </fieldset>
+
+          <details class="opcional">
+            <summary>Confirmar base e link (opcional)</summary>
+            <div class="campo">
+              <label for="base">Base em que o artigo foi confirmado</label>
+              <select id="base" name="base">
+                <option value="">—</option>
+                {% for b in ctx.bases %}<option value="{{ b }}"{% if a.confirmado_em_base == b %} selected{% endif %}>{{ b }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="campo">
+              <label for="link">Link confirmado (http ou https)</label>
+              <input id="link" name="link" type="url" value="{{ a.link_confirmado or '' }}" placeholder="https://…">
+            </div>
+          </details>
+
+          <button type="submit" class="botao ghost" name="decisao" value="pendente" data-tecla="p">Voltar a pendente <kbd>p</kbd></button>
+        </form>
+        {% else %}
+        {% if not usuario %}<p class="vazio">Entre no painel com um grupo que pode decidir para registrar decisões.</p>{% else %}<p class="vazio">Seu grupo não pode registrar decisões aqui.</p>{% endif %}
+        {% endif %}
+
+        <p class="navegacao">
+          {% if em_fila and proximo %}<a class="btn-pular" href="/literatura/artigos/{{ proximo }}?{{ query }}" data-tecla="n"><span class="btn-texto">Pular<small>Não grava nada: continua pendente</small></span><kbd>n</kbd></a>{% endif %}
+          <a href="/literatura/artigos{% if em_fila %}?decisao=pendente{% endif %}">Voltar à lista</a>
+        </p>
+      </div>
+
+      <details class="cartao apoio-pos-decisao">
+        <summary>Depois de decidir: opinião do modelo e relevância (Brasil + tema)</summary>
+        <p class="selos">{{ s.relevancia(a.relevancia) }}</p>
+        <p class="explica-relevancia"><small>Relevância (Brasil + tema){% if a.relevancia.sinais %} — sinais encontrados: <strong>{{ a.relevancia.sinais|join(", ") }}</strong>{% else %} — nenhum sinal encontrado{% endif %}.
+          É uma heurística de apoio à triagem, não uma decisão: <a href="/literatura/artigos#como-a-relevancia-e-calculada">veja as listas de marcadores</a>.</small></p>
+        {% set e = rotulos_escopo %}
+        <article class="cartao cartao-llm" id="triagem-llm"><h2>Triagem de escopo pelo modelo</h2>
+          {% if not a.llm %}<p class="nao-avaliado">Este artigo ainda não foi avaliado pelo modelo. A triagem do modelo é só uma opinião, registrada à parte da sua decisão.</p>
+          {% else %}
+          <p class="selos">{{ s.llm(a.llm.status, a.llm.categoria_motivo, a.llm.valido) }}{% if a.llm.confianca %} <span class="selo neutro">Confiança {{ rotulos.rotulo(rotulos.CONFIANCA, a.llm.confianca)|lower }}</span>{% endif %}</p>
+          {% if a.llm.status == "excluido" %}
+          <p class="aviso aviso-excluido" role="status"><strong>Excluído pelo modelo.</strong> O modelo tem certeza de que este artigo é inútil para o escopo, por isso ele fica oculto das listas e da fila de triagem por padrão
+            (quarentena temporária). {% if a.decisao != "pendente" %}Como você já decidiu sobre ele ({{ "incluído" if a.decisao == "incluir" else "excluído" }}), a sua decisão prevalece e ele continua aparecendo nas listas.{% else %}Nada foi apagado: você decide, e pode vê-lo em <a href="/literatura/artigos?llm=excluido">Triagem LLM: apenas excluídos</a>.{% endif %}</p>
+          {% elif a.llm.status == "quarentena" %}<p class="explica-llm">{{ e.STATUS_EXPLICA.quarentena }}</p>{% endif %}
+          <dl class="ficha">
+            <dt>Justificativa</dt><dd>{{ a.llm.justificativa or "não informada" }}</dd>
+            <dt>Motivo</dt><dd>{% if a.llm.categoria_motivo %}{{ e.rotulo(e.CATEGORIAS, a.llm.categoria_motivo) }} <small class="fornecedor">· {{ e.rotulo(e.CATEGORIAS_EXPLICA, a.llm.categoria_motivo, "") }}</small>{% else %}nenhum (elegível){% endif %}</dd>
+            <dt>Termo gerador do ruído</dt><dd>{{ a.llm.termo_gerador or "—" }}</dd>
+            <dt>Sinal negativo sugerido</dt><dd>{% if a.llm.sinal_negativo %}<code>{{ a.llm.sinal_negativo }}</code>{% else %}—{% endif %}</dd>
+            <dt>Área temática</dt><dd>{{ e.rotulo(e.DOMINIOS, a.llm.dominio_tematico) if a.llm.dominio_tematico else "—" }}</dd>
+            <dt>Escopo geográfico</dt><dd>{{ e.rotulo(e.ESCOPOS, a.llm.escopo_geografico) if a.llm.escopo_geografico else "—" }}</dd>
+            <dt>Tipo de documento</dt><dd>{{ e.rotulo(e.TIPOS, a.llm.tipo_documento) if a.llm.tipo_documento else "—" }}</dd>
+            <dt>Execução</dt><dd><a href="/execucoes/{{ a.llm.run_id }}"><code>{{ a.llm.run_id }}</code></a>{% if a.llm.prompt_versao %} · prompt {{ a.llm.prompt_versao }}{% endif %} · <a href="/triagem-escopo">entender a triagem do modelo</a></dd>
+          </dl>{% endif %}
+        </article>
+      </details>
+
+      {% if a.decisao == "incluir" and not ctx.somente_leitura and "triar_artigos" in perms and "triar_texto_completo" in perms %}
+      <div class="cartao"><h2>Texto completo</h2>
+        <p><small>Etapa de elegibilidade: só para artigos incluídos por título e resumo.</small></p>
+        <form method="post" action="/literatura/artigos/{{ a.artigo_id }}/triar{% if query %}?{{ query }}{% endif %}">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="versao" value="{{ versao }}"><input type="hidden" name="etapa" value="texto_completo">
+          <div class="campo campo-espaco">
+            <label for="revisor-tc">Seu nome (revisor)</label>{% if usuario %}<input id="revisor-tc" name="revisor" value="{{ usuario.nome }}" readonly required>{% else %}<input id="revisor-tc" name="revisor" value="{{ revisor }}" required>{% endif %}
+          </div>
+          <div class="campo campo-espaco">
+            <label for="motivo-tc">Motivo (obrigatório para excluir)</label><textarea id="motivo-tc" name="motivo" rows="2">{{ a.motivo_texto_completo or "" }}</textarea>
+          </div>
+          <div class="acoes-decisao">
+            <button class="btn-decisao acao-incluir" type="submit" name="decisao" value="incluir">Incluir no estudo</button>
+            <button class="btn-decisao acao-excluir" type="submit" name="decisao" value="excluir">Excluir após o texto completo</button>
+            <button class="botao ghost" type="submit" name="decisao" value="pendente">Aguardando texto completo</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </aside>
+  </div>
+</div>

@@ -1,0 +1,44 @@
+{#- _fila_lateral.html — coluna 1 do cockpit: lista compacta da fila da rodada, com o estado de cada item.
+   Só links comuns: cada item é um <a href> que carrega a página do item (GET com ?fila=1). Sem JavaScript obrigatório.
+   Uso (dentro de <div class="triagem">, ANTES da coluna de leitura, que é a ordem de leitura e de Tab):
+     {% from "_fila_lateral.html" import fila_lateral %}
+     {{ fila_lateral(fila_itens, artigo.id, "Fila da rodada", "/literatura/artigos/", resumo="12 de 66 triados", consulta=query) }}
+
+   Parâmetros
+     itens      lista de dicts: {id, titulo, estado, rotulo?, detalhe?}
+                  estado   "pendente" | "incluido" | "excluido"   (padrão: pendente)
+                  rotulo   texto do estado; padrão do mapa abaixo ("Confirmado"/"Descartado" nas telas de achados)
+                  detalhe  segunda linha curta (opcional; nas telas de achados, o nome da solução)
+                Entregue só uma JANELA da fila (por exemplo 15 itens ao redor do atual), não a fila inteira. None/[] esconde a coluna.
+     atual_id   id do item aberto (ganha aria-current="true" e a classe .ativo)
+     url_base   prefixo do endereço do item ("/achados/", "/literatura/artigos/"); o link vira  {url_base}{id}?{consulta}
+     resumo     texto curto de progresso (opcional)
+     consulta   query string dos filtros da fila (padrão "fila=1")
+
+   A fila NÃO mostra relevância, sugestão nem opinião do modelo: só o estado de cada item (cegueira metodológica).
+   Contrato de testes: aria-current="true" (e NÃO "page", que os testes do menu contam uma vez por página); sem <nav> (o layout fixa um só);
+   o rótulo é um <p>, ligado à lista por aria-labelledby. -#}
+{% macro fila_lateral(itens, atual_id, titulo, url_base, resumo=None, consulta="fila=1") -%}
+{%- set mapa = {"pendente": "Pendente", "incluido": "Incluído", "excluido": "Excluído"} -%}
+{%- if itens %}
+<section class="fila-lateral" aria-labelledby="h-fila-lateral">
+  <div class="fila-lateral-cabecalho">
+    <p class="rotulo-mini" id="h-fila-lateral">{{ titulo }}</p>
+    {% if resumo %}<span class="fila-contagem">{{ resumo }}</span>{% endif %}
+  </div>
+  <ol class="fila-lista" aria-labelledby="h-fila-lateral">
+    {% for i in itens %}
+    {%- set estado = i.estado|default("pendente") -%}
+    {%- set ativo = (i.id == atual_id) -%}
+    <li class="fila-item{% if ativo %} ativo{% endif %}{% if estado != 'pendente' %} concluido{% endif %}">
+      <a class="fila-link" href="{{ url_base }}{{ i.id }}?{{ consulta }}"{% if ativo %} aria-current="true"{% endif %}>
+        <span class="fila-titulo">{{ i.titulo }}</span>
+        {% if i.detalhe %}<span class="fila-detalhe">{{ i.detalhe }}</span>{% endif %}
+        <span class="fila-meta"><span class="fila-estado e-{{ estado }}">{{ i.rotulo|default(mapa.get(estado, "Pendente"), true) }}</span></span>
+      </a>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{%- endif %}
+{%- endmacro %}

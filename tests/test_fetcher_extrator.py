@@ -203,7 +203,9 @@ def test_download_com_sucesso_preenche_o_arquivo_e_o_registro(robots, monkeypatc
     assert c.sucesso and c.provedor == "requests" and c.operacao == "baixar" and c.parametros == {"url": "https://x.gov.br/a"}
     assert (c.http_status, c.latencia_ms, c.tentativas, c.raw_ext, c.raw) == (200, 7, 1, "html", b"<html>corpo</html>")
     assert c.extras["content_type"] == "text/html" and c.extras["n_bytes"] == 18 and c.extras["truncado"] is False
-    assert c.extras["latencia_total_ms"] == 9 and len(c.extras["historico"]) == 1
+    # o total soma a latencia das tentativas (9 ms na fixture) e o tempo medido de leitura do corpo, que varia com a maquina
+    assert c.extras["tempo_leitura_ms"] >= 0 and c.extras["latencia_total_ms"] == 9 + c.extras["tempo_leitura_ms"]
+    assert len(c.extras["historico"]) == 1
     assert visto["headers"] == {"User-Agent": UA} and visto["timeout"] == 12 and visto["stream"] is True and visto["metodo"] == "GET"
 
 

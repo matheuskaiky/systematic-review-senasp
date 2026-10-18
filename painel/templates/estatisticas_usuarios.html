@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titulo %}Atividade dos revisores{% endblock %}
+{% block conteudo %}
+<h1>Atividade dos revisores</h1>
+{% if usuario and usuario.grupo == "Administrador" %}
+<p class="admin-abas"><a href="/admin/usuarios">Usuários</a> · <a href="/admin/grupos">Permissões por grupo</a> · <a href="/admin/auditoria">Registro de administração</a> · <a href="/estatisticas-usuarios">Atividade dos revisores</a></p>
+{% endif %}
+
+{% if not totais %}
+<p class="vazio">Ainda não há decisões de revisores.</p>
+{% else %}
+<div class="tabela-rolavel">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Revisor</th>
+        <th scope="col">Decisões em achados</th>
+        <th scope="col">Decisões em artigos</th>
+        <th scope="col">Hoje (UTC)</th>
+        <th scope="col">Último dia com decisão</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in totais %}
+      <tr>
+        <td>{{ t.revisor }}</td>
+        <td class="num">{{ t.achados }}</td>
+        <td class="num">{{ t.artigos }}</td>
+        <td class="num">{{ t.hoje }}</td>
+        <td>{{ t.ultimo_dia or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Últimos 30 dias</h2>
+{% if not janela %}
+<p class="vazio">Nenhuma decisão nos últimos 30 dias.</p>
+{% else %}
+<div class="tabela-rolavel">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Dia</th>
+        <th scope="col">Revisor</th>
+        <th scope="col">Achados</th>
+        <th scope="col">Artigos</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in janela %}
+      <tr>
+        <td>{{ j.dia }}</td>
+        <td>{{ j.revisor }}</td>
+        <td class="num">{{ j.achados }}</td>
+        <td class="num">{{ j.artigos }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

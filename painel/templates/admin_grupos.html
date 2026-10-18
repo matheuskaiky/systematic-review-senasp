@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block titulo %}Permissões por grupo{% endblock %}
+{% block conteudo %}
+<h1>Permissões por grupo</h1>
+{% if erros %}
+<ul class="aviso erro" role="alert">
+  {% for e in erros %}<li>{{ e }}</li>{% endfor %}
+</ul>
+{% elif ok %}
+<p class="aviso ok" role="status">Alteração gravada.</p>
+{% endif %}
+<p class="admin-abas"><a href="/admin/usuarios">Usuários</a> · <a href="/admin/grupos">Permissões por grupo</a> · <a href="/admin/auditoria">Registro de administração</a> · <a href="/estatisticas-usuarios">Atividade dos revisores</a></p>
+
+<form method="post" action="/admin/grupos">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="tabela-rolavel">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Permissão</th>
+          {% for g in grupos %}
+          <th scope="col">{{ g.nome }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for p, desc in permissoes.items() %}
+        <tr>
+          <th scope="row">{{ desc }}</th>
+          {% for g in grupos %}
+          {% set checado = (g.nome == "Administrador") or (p in g.permissoes and not (g.nome == "Visitante" and p in proibidas_visitante)) %}
+          {% set desabilitado = (g.nome == "Administrador") or (g.nome == "Visitante" and p in proibidas_visitante) %}
+          <td><input type="checkbox" id="p-{{ g.grupo_id }}-{{ p }}" name="p-{{ g.grupo_id }}-{{ p }}" aria-label="{{ desc }} — {{ g.nome }}"{% if checado %} checked{% endif %}{% if desabilitado %} disabled{% endif %}></td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button type="submit">Salvar permissões</button>
+</form>
+<p><small>Visitante é quem não entrou no painel. O Administrador tem tudo e não pode ser alterado; os visitantes nunca recebem permissões de escrita.</small></p>
+
+<h2>Novo grupo</h2>
+<form method="post" action="/admin/grupos/novo" class="form-entrar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="nome-grupo">Nome do grupo</label>
+  <input type="text" id="nome-grupo" name="nome" maxlength="40" required value="{{ form.novo }}">
+  <button type="submit">Criar grupo</button>
+</form>
+
+{% for g in grupos %}
+{% if g.nome not in grupos_padrao and not g.fixo %}
+<h2>Renomear {{ g.nome }}</h2>
+<form method="post" action="/admin/grupos/{{ g.grupo_id }}/renomear" class="form-entrar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="renomear-{{ g.grupo_id }}">Novo nome para {{ g.nome }}</label>
+  <input type="text" id="renomear-{{ g.grupo_id }}" name="nome" maxlength="40" required value="{{ form.renomear.get(g.grupo_id, '') }}">
+  <button type="submit">Renomear</button>
+</form>
+{% endif %}
+{% endfor %}
+{% endblock %}

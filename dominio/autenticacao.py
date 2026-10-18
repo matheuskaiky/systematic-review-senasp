@@ -33,6 +33,18 @@ PERMISSOES = {
 }
 
 PERMISSOES_ESCRITA = frozenset({"verificar_achados", "revogar_verificacao", "triar_artigos", "triar_texto_completo"})
+PERMISSOES_PROIBIDAS_VISITANTE = PERMISSOES_ESCRITA | {"ver_estatisticas_usuarios"}
+
+ACOES_AUDITORIA = (
+    "criar_usuario",
+    "editar_usuario",
+    "redefinir_senha",
+    "desativar_usuario",
+    "reativar_usuario",
+    "salvar_permissoes",
+    "criar_grupo",
+    "renomear_grupo",
+)
 
 GRUPO_ADMIN = "Administrador"
 GRUPO_VISITANTE = "Visitante"
@@ -112,6 +124,18 @@ def validar_nome(nome: str) -> list[str]:
     return []
 
 
+def validar_nome_grupo(nome: str) -> list[str]:
+    """Valida preenchimento e tamanho do nome do grupo após remover espaços externos."""
+    if not isinstance(nome, str):
+        return ["O nome do grupo não pode ficar vazio."]
+    limpo = nome.strip()
+    if not limpo:
+        return ["O nome do grupo não pode ficar vazio."]
+    if len(limpo) > 40:
+        return ["O nome do grupo pode ter no máximo 40 caracteres."]
+    return []
+
+
 def permissao_exigida(metodo: str, caminho: str) -> str | None:
     """Determina a permissão necessária para acessar determinado método e rota."""
     if caminho.startswith("/static/"):
@@ -122,6 +146,8 @@ def permissao_exigida(metodo: str, caminho: str) -> str | None:
         return SO_ADMIN
     if metodo == "GET" and (caminho.startswith("/execucoes") or caminho.startswith("/chamadas")):
         return "ver_chamadas"
+    if metodo == "GET" and caminho == "/estatisticas-usuarios":
+        return "ver_estatisticas_usuarios"
     if metodo == "GET":
         return "ver_painel"
     if metodo == "POST" and (caminho.endswith("/verificar") or caminho.endswith("/desfazer")):
@@ -141,7 +167,7 @@ def pode(grupo: str, permissoes: set[str] | list[str], exigida: str | None) -> b
         return True
     if exigida == SO_ADMIN:
         return False
-    if grupo == GRUPO_VISITANTE and exigida in PERMISSOES_ESCRITA:
+    if grupo == GRUPO_VISITANTE and exigida in PERMISSOES_PROIBIDAS_VISITANTE:
         return False
     return exigida in (permissoes or ())
 
@@ -153,3 +179,40 @@ def proximo_seguro(proximo: str) -> str:
     if re.fullmatch(r"/(?![/\\])[^\\\x00-\x1f\x7f]{0,1999}", proximo) and not proximo.startswith("/entrar"):
         return proximo
     return "/"
+
+
+def resumir_atividade(linhas: list[dict], hoje: str) -> tuple[list[dict], list[dict]]:
+    """Agrega eventos de decisão por revisor e filtra a janela dos últimos 30 dias."""
+    from datetime import date, timedelta
+    d_hoje = date.fromisoformat(hoje)
+    d_inicio = (d_hoje - timedelta(days=29)).isoformat()
+
+    totais_map = {}
+    janela = []
+    for linha in linhas:
+        rev = linha.get("revisor")
+        dia = linha.get("dia")
+        achados = int(linha.get("achados") or 0)
+        artigos = int(linha.get("artigos") or 0)
+        if rev not in totais_map:
+            totais_map[rev] = {
+                "revisor": rev,
+                "achados": 0,
+                "artigos": 0,
+                "hoje": 0,
+                "ultimo_dia": None,
+            }
+        item = totais_map[rev]
+        item["achados"] += achados
+        item["artigos"] += artigos
+        if dia:
+            if dia == hoje:
+                item["hoje"] += achados + artigos
+            if item["ultimo_dia"] is None or dia > item["ultimo_dia"]:
+                item["ultimo_dia"] = dia
+            if d_inicio <= dia <= hoje:
+                janela.append(dict(linha))
+
+    totais = list(totais_map.values())
+    totais.sort(key=lambda t: (-(t["achados"] + t["artigos"]), t["revisor"]))
+    return totais, janela

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titulo %}Registro de administração{% endblock %}
+{% block conteudo %}
+<h1>Registro de administração</h1>
+{% if ok %}
+<p class="aviso ok" role="status">Alteração gravada.</p>
+{% endif %}
+<p class="admin-abas"><a href="/admin/usuarios">Usuários</a> · <a href="/admin/grupos">Permissões por grupo</a> · <a href="/admin/auditoria">Registro de administração</a> · <a href="/estatisticas-usuarios">Atividade dos revisores</a></p>
+
+{% if not linhas %}
+<p class="vazio">Nenhuma ação registrada.</p>
+{% else %}
+<div class="tabela-rolavel">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Quando</th>
+        <th scope="col">Quem</th>
+        <th scope="col">Ação</th>
+        <th scope="col">Alvo</th>
+        <th scope="col">Detalhe</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in linhas %}
+      <tr>
+        <td>{{ fmt.data_hora(l.quando) }}</td>
+        <td>{{ l.admin_login }}</td>
+        <td>{{ l.acao }}</td>
+        <td>{{ l.alvo or "—" }}</td>
+        <td>{{ l.detalhe or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

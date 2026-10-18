@@ -1,4 +1,4 @@
-"""Higiene do repositorio: o que e dado, log, cache ou segredo nunca entra no git (regra 10 do CLAUDE.md)."""
+"""Higiene do repositorio: o que e dado, log, cache ou segredo nunca entra no git (regra de versionamento do projeto)."""
 import pathlib
 import subprocess
 

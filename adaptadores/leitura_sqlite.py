@@ -478,3 +478,16 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         atual = self._um("""SELECT verificado, status_final, verificado_por, verificado_em, observacao FROM achados
                             WHERE achado_id=?""", (achado_id,))
         return l is not None and atual is not None and json.loads(l["posterior_json"]) == atual
+
+    def atividade_por_revisor(self) -> list[dict]:
+        """Contabiliza eventos de decisão em achados e triagem agrupados por revisor e dia."""
+        sql = """
+            SELECT revisor, dia, SUM(achados) AS achados, SUM(artigos) AS artigos FROM (
+              SELECT TRIM(verificado_por) AS revisor, substr(importado_em, 1, 10) AS dia, COUNT(*) AS achados, 0 AS artigos
+              FROM achados_revisoes WHERE desfeita = 0 AND TRIM(COALESCE(verificado_por, '')) <> '' GROUP BY 1, 2
+              UNION ALL
+              SELECT TRIM(revisor), substr(importado_em, 1, 10), 0, COUNT(*)
+              FROM triagem_revisoes WHERE TRIM(COALESCE(revisor, '')) <> '' GROUP BY 1, 2)
+            GROUP BY revisor, dia ORDER BY dia DESC, revisor
+        """
+        return self._consulta(sql)

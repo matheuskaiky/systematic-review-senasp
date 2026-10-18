@@ -129,13 +129,23 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         except autenticacao.ContasOcupadas:
             return False
 
+    def _pode_estatisticas(request):
+        if not contexto.autenticacao or getattr(request.state, "contas_indisponiveis", False):
+            return False
+        usuario = getattr(request.state, "usuario", None)
+        if usuario:
+            return autenticacao.pode(usuario["grupo"], usuario["permissoes"], "ver_estatisticas_usuarios")
+        return False
+
     def pagina(request, modelo, status=200, **dados):
         usuario = getattr(request.state, "usuario", None)
         revisor = usuario["nome"] if usuario else unquote(request.cookies.get("revisor", ""))
         ver_nomes = _ver_nomes(request)
+        pode_estatisticas = _pode_estatisticas(request)
         return modelos.TemplateResponse(request, modelo, {"revisor": revisor, "csrf": getattr(request.state, "csrf", ""),
                                                           "tema": tema_do_cookie(request),
                                                           "usuario": usuario, "ver_nomes": ver_nomes,
+                                                          "pode_estatisticas": pode_estatisticas,
                                                           "caminho": request.url.path, **dados}, status_code=status)
 
     def erro(request, status, titulo, texto):
@@ -825,5 +835,5 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
 
     from painel import rotas_extras
     rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos, entidades=entidades,
-                                                 pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita))
+                                                 pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita, contas=contas))
     return app

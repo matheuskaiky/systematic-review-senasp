@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block titulo %}Usuário {{ alvo.login }}{% endblock %}
+{% block conteudo %}
+<h1>Usuário {{ alvo.login }}</h1>
+{% if erros %}
+<ul class="aviso erro" role="alert">
+  {% for e in erros %}<li>{{ e }}</li>{% endfor %}
+</ul>
+{% elif ok %}
+<p class="aviso ok" role="status">Alteração gravada.</p>
+{% endif %}
+<p class="admin-abas"><a href="/admin/usuarios">Usuários</a> · <a href="/admin/grupos">Permissões por grupo</a> · <a href="/admin/auditoria">Registro de administração</a> · <a href="/estatisticas-usuarios">Atividade dos revisores</a></p>
+
+<h2>Dados do usuário</h2>
+<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}" class="form-entrar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="acao" value="dados">
+  <label for="login">Login</label>
+  <input type="text" id="login" name="login" maxlength="40" required value="{{ form.login }}">
+
+  <label for="nome">Nome</label>
+  <input type="text" id="nome" name="nome" maxlength="80" required value="{{ form.nome }}">
+
+  <label for="grupo_id">Grupo</label>
+  <select id="grupo_id" name="grupo_id">
+    {% for g in grupos %}
+    {% if g.nome != "Visitante" %}
+    {% if form.grupo_id == g.grupo_id|string %}
+    <option value="{{ g.grupo_id }}" selected>{{ g.nome }}</option>
+    {% else %}
+    <option value="{{ g.grupo_id }}">{{ g.nome }}</option>
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+  </select>
+
+  <button type="submit">Salvar dados</button>
+</form>
+
+<p><small>Mudar o nome não altera as decisões já gravadas, que guardam o nome da época; para desfazer essas decisões, o nome precisa voltar a ser o antigo ou um administrador desfaz.</small></p>
+
+<h2>Redefinir senha</h2>
+<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}" class="form-entrar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="acao" value="senha">
+  <label for="nova-senha">Nova senha</label>
+  <input type="password" id="nova-senha" name="senha" autocomplete="new-password" maxlength="200" required>
+
+  <label for="nova-senha2">Repita a nova senha</label>
+  <input type="password" id="nova-senha2" name="senha2" autocomplete="new-password" maxlength="200" required>
+
+  <button type="submit">Redefinir senha</button>
+</form>
+
+{% if alvo.usuario_id != usuario.usuario_id %}
+<h2>Situação da conta</h2>
+{% if alvo.ativo %}
+<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="acao" value="desativar">
+  <button type="submit">Desativar conta</button>
+</form>
+{% else %}
+<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="acao" value="reativar">
+  <button type="submit">Reativar conta</button>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

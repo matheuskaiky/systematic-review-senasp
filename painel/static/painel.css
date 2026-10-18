@@ -796,5 +796,8 @@ select:focus-visible, input:focus-visible, textarea:focus-visible { border-color
 .form-entrar { display: grid; grid-template-columns: max-content 1fr; gap: var(--esp-3); max-width: var(--medida-leitura); }
 .form-sair { display: inline; margin: 0; }
 .conta-nome { color: var(--texto-suave); }
+.admin-abas { margin: var(--esp-2) 0 var(--esp-4); }
+.conta-admin, .conta-estatisticas { margin-right: var(--esp-3); }
+
 
 

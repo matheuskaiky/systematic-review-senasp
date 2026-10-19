@@ -9,7 +9,7 @@
   {% if ok %}<div class="aviso ok" role="status">Decisão sobre o artigo nº {{ ok }} gravada.</div>{% endif %}
 
   <p class="trilha"><a href="/literatura">Literatura</a> › <a href="/literatura/artigos">artigos</a> › nº {{ a.artigo_id }}
-    {% if em_fila %}<span class="fila-info">· fila de triagem: {{ restantes }} pendente(s) · {{ fmt.pct(triados, tri.total) }} triado</span>{% endif %}</p>
+    {% if em_fila %}<span class="fila-info">fila de triagem: {{ restantes }} pendente(s) · {{ fmt.pct(triados, tri.total) }} triado</span>{% endif %}</p>
   {% if em_fila and tri.total %}<progress class="progresso" max="{{ tri.total }}" value="{{ triados }}">{{ fmt.pct(triados, tri.total) }} triado</progress>{% endif %}
 
   <div class="triagem">

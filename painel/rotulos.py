@@ -38,6 +38,22 @@ EXPLICACAO_MOTIVOS_DOWNLOAD = {
 APOS_REDIRECIONAMENTO = "após redirecionamento"
 VERIFICACAO = {"pendente": "Não verificado", "confirmado": "Verificado", "descartado": "Descartado"}
 
+# rotulos do fluxo PRISMA: a view v_prisma guarda a chave sem acento (usada no SQL e nos testes); a tela mostra o texto abaixo
+PRISMA = {
+    "execucoes de busca academica": "execuções de busca acadêmica",
+    "Google Scholar: artigos unicos": "Google Scholar: artigos únicos",
+    "buscas manuais: apos filtro da base (contagem informada)": "buscas manuais: após filtro da base (contagem informada)",
+    "registros (artigo x fonte) apos remover duplicatas entre termos": "registros (artigo × fonte) após remover duplicatas entre termos",
+    "removidos por ferramenta automatica (triagem de escopo do modelo, sem decisao humana)": "removidos por ferramenta automática (triagem de escopo do modelo, sem decisão humana)",
+    "artigos unicos para triagem": "artigos únicos para triagem",
+    "avaliados por titulo e resumo": "avaliados por título e resumo",
+    "excluidos por titulo e resumo": "excluídos por título e resumo",
+    "incluidos por titulo e resumo": "incluídos por título e resumo",
+    "pendentes de titulo e resumo": "pendentes de título e resumo",
+    "excluidos por texto completo": "excluídos por texto completo",
+    "incluidos no estudo (texto completo)": "incluídos no estudo (texto completo)",
+}
+
 
 def rotulo(tabela, chave, padrao=None):
     return tabela.get(chave, padrao if padrao is not None else (chave or "—"))

@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from adaptadores.repositorio_sqlite import RepositorioSQLite
+from painel import rotulos
 from painel.graficos import colunas, mapa_de_calor
 from test_painel import _app, _csrf, demo  # noqa: F401
 
@@ -210,7 +211,8 @@ def test_prisma_numeros_batem_com_a_view(ctx):
     cli, copia, _ = ctx
     h = cli.get("/literatura/prisma").text.replace("\n", " ")
     for metrica, valor in sqlite3.connect(copia).execute("SELECT metrica, valor FROM v_prisma WHERE fase IN ('triagem','elegibilidade','inclusao')"):
-        assert re.search(rf'<span class="num-prisma">{valor}</span>\s*<span>{re.escape(metrica)}', h), metrica
+        texto = rotulos.rotulo(rotulos.PRISMA, metrica)                 # a tela mostra o rotulo acentuado da chave da view
+        assert re.search(rf'<span class="num-prisma">{valor}</span>\s*<span>{re.escape(texto)}', h), metrica
 
 
 def _kpi(h, rotulo):
@@ -233,7 +235,7 @@ def test_prisma_e_visao_geral_concordam_sobre_os_artigos_para_triagem(ctx):
     avaliados = _um(copia, "SELECT valor FROM v_prisma WHERE metrica='avaliados por titulo e resumo'")
     # sem veredito do modelo: nada removido e os dois numeros iguais ao total
     h = cli.get("/literatura/prisma").text.replace("\n", " ")
-    assert re.search(r'<span class="num-prisma">0</span>\s*<span>removidos por ferramenta automatica', h)
+    assert re.search(r'<span class="num-prisma">0</span>\s*<span>removidos por ferramenta automática', h)
     assert _kpi(cli.get("/literatura").text, "Artigos únicos") == unicos
     # o modelo exclui 2 artigos pendentes e 1 artigo que uma pessoa ja decidiu
     pendentes = [r[0] for r in sqlite3.connect(copia).execute(
@@ -242,8 +244,8 @@ def test_prisma_e_visao_geral_concordam_sobre_os_artigos_para_triagem(ctx):
     for i in (*pendentes, decidido):
         _veredito_escopo(copia, i)
     h = cli.get("/literatura/prisma").text.replace("\n", " ")
-    assert re.search(r'<span class="num-prisma">2</span>\s*<span>removidos por ferramenta automatica \(triagem de escopo do modelo, sem decisao humana\)', h)
-    assert re.search(rf'<span class="num-prisma">{unicos - 2}</span>\s*<span>artigos unicos para triagem', h)
+    assert re.search(r'<span class="num-prisma">2</span>\s*<span>removidos por ferramenta automática \(triagem de escopo do modelo, sem decisão humana\)', h)
+    assert re.search(rf'<span class="num-prisma">{unicos - 2}</span>\s*<span>artigos únicos para triagem', h)
     assert "decisão humana sempre vence" in h and "/triagem-escopo" in h
     kpi = _kpi(cli.get("/literatura").text, "Artigos únicos")        # o KPI esconde os `llm_oculto` (mesma regra)
     assert kpi == unicos - 2 == _um(copia, "SELECT valor FROM v_prisma WHERE metrica='artigos unicos para triagem'")

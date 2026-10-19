@@ -11,7 +11,7 @@
   {% endif %}
 
   <p class="trilha"><a href="/achados">Achados</a> › <a href="/estados/{{ a.uf }}">{{ a.uf }}</a> › nº {{ a.achado_id }}
-    {% if em_fila %}<span class="fila-info">· fila de revisão: {{ restantes }} pendente(s){% if rev.total %} · {{ fmt.pct(rev.verificados, rev.total) }} verificado{% endif %}</span>{% endif %}</p>
+    {% if em_fila %}<span class="fila-info">fila de revisão: {{ restantes }} pendente(s){% if rev.total %} · {{ fmt.pct(rev.verificados, rev.total) }} verificado{% endif %}</span>{% endif %}</p>
   {% if em_fila and rev.total %}<progress class="progresso" max="{{ rev.total }}" value="{{ rev.verificados }}">{{ fmt.pct(rev.verificados, rev.total) }} verificado</progress>{% endif %}
 
   <div class="triagem">

@@ -12,7 +12,7 @@
     <ul class="lista-simples">{% for c in caixas %}
       {% set manual = "buscas manuais" in c.metrica %}{% set scholar = "Google Scholar" in c.metrica or "execucoes de busca" in c.metrica %}
       <li class="caixa-prisma"><span class="num-prisma">{% if manual and d.n_buscas_manuais == 0 %}<span class="nd">não informado</span>{% elif scholar and d.n_buscas_scholar == 0 %}<span class="nd">não executado</span>{% else %}{{ fmt.numero(c.valor) }}{% endif %}</span>
-        <span>{{ c.metrica }}<br><small>origem: <code>v_prisma</code>{% if "contagem informada" in c.metrica %} · contagem informada por você{% endif %}{% if "ferramenta automatica" in c.metrica %} · triagem de escopo do modelo; decisão humana sempre vence (<a href="/triagem-escopo">ver a triagem do modelo</a>){% endif %}</small></span></li>{% endfor %}</ul></section>
+        <span>{{ rotulos.rotulo(rotulos.PRISMA, c.metrica) }}<br><small>origem: <code>v_prisma</code>{% if "contagem informada" in c.metrica %} · contagem informada por você{% endif %}{% if "ferramenta automatica" in c.metrica %} · triagem de escopo do modelo; decisão humana sempre vence (<a href="/triagem-escopo">ver a triagem do modelo</a>){% endif %}</small></span></li>{% endfor %}</ul></section>
   {% if not loop.last %}<div class="seta-prisma" aria-hidden="true">▼</div>{% endif %}
 {% endfor %}
 </div>

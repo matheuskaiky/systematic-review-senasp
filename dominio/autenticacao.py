@@ -150,6 +150,11 @@ def permissao_exigida(metodo: str, caminho: str) -> str | None:
         return "ver_estatisticas_usuarios"
     if metodo == "GET":
         return "ver_painel"
+    if metodo == "POST" and caminho.endswith(("/sugerir", "/aceitar", "/descartar")):
+        if caminho.startswith("/achados/"):
+            return "verificar_achados"
+        if caminho.startswith("/literatura/artigos/"):
+            return "triar_artigos"
     if metodo == "POST" and (caminho.endswith("/verificar") or caminho.endswith("/desfazer")):
         return "verificar_achados"
     if metodo == "POST" and caminho.endswith("/revogar"):

@@ -18,7 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.templating import Jinja2Templates
 
-from aplicacao import revisao
+from aplicacao import revisao, sugestoes as sugestoes_uc
+from dominio.sugestoes import CAMPOS_ACHADO, chave_autor, ficha_da_decisao
 from dominio import autenticacao, relevancia as relev
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import analises_blocos, formatacao as fmt, mapa_ufs, navegacao, rotulos
@@ -581,6 +582,32 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     def _query_triagem(request):
         return urlencode({k: v for k, v in request.query_params.items() if k in FILTROS_ARTIGOS or k == "fila"})
 
+    def _sugestoes_ctx(request, alvo_tipo, alvo_id, decidido, valor_atual, autor_decisao, ficha):
+        """O que o cartao "Sugestoes" precisa (D78). Sem autenticacao, nada aparece."""
+        vazio = {"sugestoes": [], "pode_sugerir": False, "pode_resolver": False, "estado_decisao": "", "opcoes_sugestao": [],
+                 "base_sugestoes": ""}
+        if not contexto.autenticacao:
+            return vazio
+        usuario = getattr(request.state, "usuario", None)
+        permissao = "verificar_achados" if alvo_tipo == "achado" else "triar_artigos"
+        pode_escrever = bool(usuario) and permissao in _perms(request) and not contexto.somente_leitura
+        eu = chave_autor(usuario["nome"]) if usuario else None
+        do_autor = bool(usuario) and eu == chave_autor(autor_decisao)
+        if alvo_tipo == "achado":
+            opcoes = [(k, rotulos.rotulo(rotulos.STATUS, k)) for k in list(contexto.status_definicoes) + sorted(contexto.status_permitidos - set(contexto.status_definicoes))]
+            rotulo_de = lambda v: rotulos.rotulo(rotulos.STATUS, v)
+        else:
+            opcoes = [("incluir", "Incluir"), ("excluir", "Excluir")]
+            rotulo_de = {"incluir": "Incluir", "excluir": "Excluir"}.get
+        lista = [{**sg, "rotulo": rotulo_de(sg["valor"]) or sg["valor"], "vencida": sg["estado_alvo"] != ficha,
+                  "minha": pode_escrever and eu == chave_autor(sg["autor"])} for sg in leitura.sugestoes_abertas(alvo_tipo, alvo_id)]
+        return {"sugestoes": lista,
+                "pode_sugerir": pode_escrever and decidido and not do_autor,
+                "pode_resolver": pode_escrever and (usuario["grupo"] == autenticacao.GRUPO_ADMIN or do_autor) if usuario else False,
+                "estado_decisao": ficha or "",
+                "opcoes_sugestao": [(v, r) for v, r in opcoes if v != valor_atual],
+                "base_sugestoes": ("/achados/%d" % alvo_id) if alvo_tipo == "achado" else ("/literatura/artigos/%d" % alvo_id)}
+
     @app.get("/literatura/artigos/{artigo_id}", response_class=HTMLResponse)
     def artigo(request: Request, artigo_id: int, ok: int = 0):
         if not leitura.existe():
@@ -597,7 +624,9 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             t = leitura.titulos_artigos(janela)
             fila_itens = [{"id": i, "titulo": (t.get(i) or "").strip() or f"Artigo nº {i}", "estado": "pendente"} for i in janela]
         return pagina(request, "artigo.html", a=a, em_fila=em_fila, restantes=len(ids), proximo=proximo, tri=leitura.contagem_triagem(),
-                      query=_query_triagem(request), ok=ok if 0 <= ok <= MAX_PAGINA * 1000 else 0, fila_itens=fila_itens)
+                      query=_query_triagem(request), ok=ok if 0 <= ok <= MAX_PAGINA * 1000 else 0, fila_itens=fila_itens,
+                      **_sugestoes_ctx(request, "artigo", artigo_id, a["decisao"] in ("incluir", "excluir") and a["decisao_texto_completo"] == "pendente",
+                                       a["decisao"], a["revisor"], leitura.estado_decisao("artigo", artigo_id)))
 
     @app.get("/literatura/triagem", response_class=HTMLResponse)
     def fila_triagem(request: Request):
@@ -762,6 +791,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                       historico=historico, em_fila=em_fila, rev=rev, proximo=proximo,
                       query=_query_fila(request), ok=ok, restantes=len(ids),
                       pode_desfazer=pode_desfazer, fila_itens=fila_itens,
+                      **_sugestoes_ctx(request, "achado", achado_id, bool(a["verificado"]), a["status_final"], a["verificado_por"],
+                                       ficha_da_decisao(tuple(a[c] for c in CAMPOS_ACHADO))),
                       status_opcoes=[(k, contexto.status_definicoes[k]) for k in contexto.status_definicoes])
 
     @app.get("/revisao/achados", response_class=HTMLResponse)
@@ -828,6 +859,88 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         if not usuario:
             resposta.set_cookie("revisor", quote(revisor.strip()), max_age=31_536_000, samesite="strict")
         return resposta
+
+    def _destino_item(request, alvo_tipo, base):
+        q = _query_fila(request) if alvo_tipo == "achado" else _query_triagem(request)
+        return base + ("?" + q if q else "")
+
+    MSG_CONFLITO_SEM_NOMES = "A decisão deste item mudou depois que a página foi aberta. Recarregue a página."
+
+    def _sugestoes_desligadas(request):
+        return erro(request, 404, "Sugestões indisponíveis", "As sugestões só existem quando o painel usa login.")
+
+    def _sugerir(request, alvo_tipo, alvo_id, valor, motivo, estado, csrf):
+        if not contexto.autenticacao:
+            return _sugestoes_desligadas(request)
+        bloqueio = checar_escrita(request, csrf)
+        if bloqueio:
+            return bloqueio
+        base = ("/achados/%d" % alvo_id) if alvo_tipo == "achado" else ("/literatura/artigos/%d" % alvo_id)
+        if (leitura.achado(alvo_id) if alvo_tipo == "achado" else leitura.artigo(alvo_id)) is None:
+            return erro(request, 404, "Item não encontrado", f"Não existe o {'achado' if alvo_tipo == 'achado' else 'artigo'} nº {alvo_id}.")
+        usuario = getattr(request.state, "usuario", None)
+        motivo = (motivo or "").replace("\r\n", "\n")              # o navegador manda CRLF; o limite conta como o campo mostrou
+        try:
+            _escrever(lambda repo: sugestoes_uc.criar(repo, alvo_tipo, alvo_id, valor, motivo, usuario["nome"] if usuario else "", estado,
+                                                     contexto.status_permitidos))
+        except SystemExit as e:
+            if _conflito(str(e)):
+                return erro(request, 409, "Decisão alterada", str(e) if _ver_nomes(request) else MSG_CONFLITO_SEM_NOMES)
+            return erro(request, 400, "Sugestão não gravada", str(e))
+        return RedirectResponse(_destino_item(request, alvo_tipo, base), status_code=303)
+
+    def _resolver(request, alvo_tipo, alvo_id, sugestao_id, acao, csrf):
+        if not contexto.autenticacao:
+            return _sugestoes_desligadas(request)
+        if acao not in ("aceitar", "descartar"):
+            return erro(request, 404, "Endereço inválido", "Algum número ou parâmetro do endereço não é válido.")
+        bloqueio = checar_escrita(request, csrf)
+        if bloqueio:
+            return bloqueio
+        base = ("/achados/%d" % alvo_id) if alvo_tipo == "achado" else ("/literatura/artigos/%d" % alvo_id)
+        a = leitura.achado(alvo_id) if alvo_tipo == "achado" else leitura.artigo(alvo_id)
+        if a is None:
+            return erro(request, 404, "Item não encontrado", f"Não existe o {'achado' if alvo_tipo == 'achado' else 'artigo'} nº {alvo_id}.")
+        sg = leitura.sugestao(sugestao_id)
+        if sg is None or (sg["alvo_tipo"], sg["alvo_id"]) != (alvo_tipo, alvo_id):
+            return erro(request, 404, "Sugestão não encontrada", f"Não existe a sugestão nº {sugestao_id} neste item.")
+        usuario = getattr(request.state, "usuario", None)
+        autor_decisao = a["verificado_por"] if alvo_tipo == "achado" else a["revisor"]
+        eu = chave_autor(usuario["nome"]) if usuario else None
+        pode = bool(usuario) and (usuario["grupo"] == autenticacao.GRUPO_ADMIN or eu == chave_autor(autor_decisao)
+                                  or (acao == "descartar" and eu == chave_autor(sg["autor"])))
+        if not pode:
+            return erro(request, 403, "Sem permissão", "Só quem tomou a decisão ou um administrador resolve sugestões.")
+        try:
+            if acao == "aceitar":
+                _escrever(lambda repo: sugestoes_uc.aceitar(repo, sugestao_id, usuario["nome"], contexto.status_permitidos))
+            else:
+                _escrever(lambda repo: sugestoes_uc.descartar(repo, sugestao_id, usuario["nome"]))
+        except SystemExit as e:
+            if "já foi resolvida" in str(e):
+                return erro(request, 409, "Sugestão já resolvida", str(e))
+            if "já mudou" in str(e) or _conflito(str(e)):
+                return erro(request, 409, "Sugestão vencida", str(e) if _ver_nomes(request) else MSG_CONFLITO_SEM_NOMES)
+            return erro(request, 400, "Sugestão não resolvida", str(e))
+        return RedirectResponse(_destino_item(request, alvo_tipo, base), status_code=303)
+
+    @app.post("/achados/{achado_id}/sugerir")
+    def sugerir_achado(request: Request, achado_id: int, valor: str = Form(""), motivo: str = Form(""), estado: str = Form(""),
+                       csrf: str = Form("")):
+        return _sugerir(request, "achado", achado_id, valor, motivo, estado, csrf)
+
+    @app.post("/literatura/artigos/{artigo_id}/sugerir")
+    def sugerir_artigo(request: Request, artigo_id: int, valor: str = Form(""), motivo: str = Form(""), estado: str = Form(""),
+                       csrf: str = Form("")):
+        return _sugerir(request, "artigo", artigo_id, valor, motivo, estado, csrf)
+
+    @app.post("/achados/{achado_id}/sugestoes/{sugestao_id}/{acao}")
+    def resolver_achado(request: Request, achado_id: int, sugestao_id: int, acao: str, csrf: str = Form("")):
+        return _resolver(request, "achado", achado_id, sugestao_id, acao, csrf)
+
+    @app.post("/literatura/artigos/{artigo_id}/sugestoes/{sugestao_id}/{acao}")
+    def resolver_artigo(request: Request, artigo_id: int, sugestao_id: int, acao: str, csrf: str = Form("")):
+        return _resolver(request, "artigo", artigo_id, sugestao_id, acao, csrf)
 
     @app.post("/achados/{achado_id}/desfazer")
     def desfazer(request: Request, achado_id: int, csrf: str = Form("")):

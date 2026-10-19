@@ -1,0 +1,27 @@
+{#- Cartao "Sugestoes" (D78): sugestoes abertas sobre a decisao atual e o formulario para sugerir outra. So com login. -#}
+{% if ctx.autenticacao and (sugestoes or pode_sugerir) %}
+<div class="cartao sugestoes" id="sugestoes"><h2 data-ic="chat-text">Sugestões</h2>
+  {% for sg in sugestoes %}
+  <div class="sugestao">
+    <p><strong>{{ sg.rotulo }}</strong> — sugerido por {{ (sg.autor if ver_nomes else "Revisor") }} em {{ fmt.data_hora(sg.criado_em) }}{% if sg.vencida %} <span class="selo neutro">feita sobre uma decisão anterior</span>{% endif %}</p>
+    {% if sg.motivo and sg.motivo|trim %}<p><small>{{ sg.motivo }}</small></p>{% endif %}
+    {% if not ctx.somente_leitura and (pode_resolver or sg.minha) %}<div class="acoes-sugestao">
+      {% if pode_resolver and not sg.vencida and not sg.minha %}<form method="post" action="{{ base_sugestoes }}/sugestoes/{{ sg.sugestao_id }}/aceitar{% if query %}?{{ query }}{% endif %}" class="em-linha"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="botao">Aceitar</button></form>{% endif %}
+      <form method="post" action="{{ base_sugestoes }}/sugestoes/{{ sg.sugestao_id }}/descartar{% if query %}?{{ query }}{% endif %}" class="em-linha"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="botao secundario">{{ "Retirar" if sg.minha else "Descartar" }}</button></form>
+    </div>{% endif %}
+  </div>
+  {% endfor %}
+  {% if pode_sugerir %}
+  <details class="sugerir"><summary>Sugerir outra decisão</summary>
+    <form method="post" action="{{ base_sugestoes }}/sugerir{% if query %}?{{ query }}{% endif %}">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="estado" value="{{ estado_decisao }}">
+      <label for="sugestao-valor">Valor sugerido</label>
+      <select id="sugestao-valor" name="valor" required><option value="">—</option>{% for v, rotulo in opcoes_sugestao %}<option value="{{ v }}">{{ rotulo }}</option>{% endfor %}</select>
+      <label for="sugestao-motivo">Motivo</label>
+      <textarea id="sugestao-motivo" name="motivo" rows="2" maxlength="2000"></textarea>
+      <button type="submit" class="botao secundario">Enviar sugestão</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+{% endif %}

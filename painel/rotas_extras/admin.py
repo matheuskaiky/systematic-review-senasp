@@ -48,7 +48,7 @@ def registrar(c) -> None:
             grupos = c.contas.grupos()
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
-        revisor_id = next((str(g["grupo_id"]) for g in grupos if g["nome"] == "Revisor"), "")
+        revisor_id = next(str(g["grupo_id"]) for g in grupos if g["nome"] == "Revisor")
         form = {"login": "", "nome": "", "grupo_id": revisor_id}
         return c.pagina(
             request,
@@ -495,7 +495,7 @@ def registrar(c) -> None:
         if grupo is None:
             return c.erro(request, 404, "Grupo não encontrado", f"Não existe o grupo nº {gid}.")
 
-        form = {"novo": "", "renomear": {gid: nome.strip(), str(gid): nome.strip()}}
+        form = {"novo": "", "renomear": {gid: nome.strip()}}
 
         erros = autenticacao.validar_nome_grupo(nome)
         if erros:

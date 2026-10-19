@@ -41,6 +41,8 @@ html.icones-ok .aviso::before { content: var(--av-ic); font-family: var(--fonte-
 .aviso[data-ic] { --av-ic: var(--ic-f); }
 /* o tom escuro usa texto claro sobre o ladrilho: o botão e o ladrilho compartilham --texto-botao no claro; no escuro o ladrilho precisa de texto escuro */
 .aviso-lista::before, .aviso.aviso-forte::before, .aviso.aviso::before { color: var(--superficie); }
+/* o glifo do aviso verde: a cor da superfície some sobre o ladrilho verde-escuro no tema escuro (1,6:1); usa a cor de texto do ladrilho verde */
+.aviso.ok::before { color: var(--inclusao-solido-texto); }
 .aviso.robots-proibido::before { color: var(--superficie); }
 
 /* ---- vazio: moldura tracejada com ladrilho de ícone ---- */

@@ -217,7 +217,14 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                     alvo = request.url.path + ("?" + request.url.query if request.url.query else "")
                 else:
                     alvo = "/"
-                return RedirectResponse("/entrar?proximo=" + quote(alvo, safe=""), status_code=303)
+                destino = "/entrar?proximo=" + quote(alvo, safe="")
+                sessao_vencida = bool(request.cookies.get("sessao"))
+                if sessao_vencida:
+                    destino += "&aviso=expirada"  # havia sessao, mas ela venceu ou foi encerrada
+                resposta = RedirectResponse(destino, status_code=303)
+                if sessao_vencida:
+                    resposta.delete_cookie("sessao", path="/")  # o recado aparece uma vez so
+                return resposta
             else:
                 return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
 
@@ -232,6 +239,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         resposta.headers["Content-Security-Policy"] = CSP
         resposta.headers["X-Content-Type-Options"] = "nosniff"
         resposta.headers["Referrer-Policy"] = "same-origin"
+        if request.url.path == "/entrar":
+            resposta.headers["Cache-Control"] = "no-store"  # a pagina de entrada leva token e motivo de recusa
         if resposta.headers.get("content-type", "").startswith("text/html"):
             resposta.headers.append("Vary", "Cookie")  # so as paginas dependem do cookie `tema`; estaticos e redirecionamentos nao
         return resposta
@@ -265,21 +274,34 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         return erro(request, 404, "Página não encontrada", "O endereço não existe neste painel.")
 
     if contexto.autenticacao:
-        @app.get("/entrar", response_class=HTMLResponse)
-        def entrar_form(request: Request):
-            proximo = autenticacao.proximo_seguro(request.query_params.get("proximo") or "/")
+        def _pagina_entrar(request, status, proximo, erro, aviso, login_digitado):
             try:
                 sem_admin = not contas.existe_admin_ativo()
+                visitante = contas.permissoes_do_grupo(autenticacao.GRUPO_VISITANTE)
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
             return pagina(
                 request,
                 "entrar.html",
+                status=status,
                 proximo=proximo,
-                erro=None,
+                erro=erro,
+                aviso=aviso,
+                login_digitado=login_digitado,
                 sem_admin=sem_admin,
                 simulado=(contexto.banco == "simulado"),
+                acesso_publico=autenticacao.pode(autenticacao.GRUPO_VISITANTE, visitante, autenticacao.permissao_exigida("GET", "/")),
+                minutos_bloqueio=autenticacao.MINUTOS_DE_BLOQUEIO,
+                falhas_bloqueio=autenticacao.FALHAS_ATE_BLOQUEIO,
             )
+
+        @app.get("/entrar", response_class=HTMLResponse)
+        def entrar_form(request: Request):
+            proximo = autenticacao.proximo_seguro(request.query_params.get("proximo") or "/")
+            aviso = request.query_params.get("aviso")
+            if aviso not in ("expirada", "saiu") or getattr(request.state, "usuario", None):
+                aviso = None  # lista fechada; quem ja entrou nao recebe recado de saida nem de sessao vencida
+            return _pagina_entrar(request, 200, proximo, None, aviso, "")
 
         @app.post("/entrar")
         def entrar(request: Request, login: str = Form(""), senha: str = Form(""), proximo: str = Form(""), csrf: str = Form("")):
@@ -291,24 +313,13 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             agora_dt = datetime.now(timezone.utc)
             agora = agora_dt.isoformat()
 
-            def _form_erro(msg: str, status: int):
-                try:
-                    sem_admin = not contas.existe_admin_ativo()
-                except autenticacao.ContasOcupadas:
-                    return _erro_contas_ocupadas(request)
-                return pagina(
-                    request,
-                    "entrar.html",
-                    status=status,
-                    proximo=prox_seguro,
-                    erro=msg,
-                    sem_admin=sem_admin,
-                    simulado=(contexto.banco == "simulado"),
-                )
-
             l = login.strip()
+
+            def _form_erro(motivo: str, status: int):
+                return _pagina_entrar(request, status, prox_seguro, motivo, None, l[:200])
+
             if autenticacao.validar_login(l) or senha == "" or len(senha) > autenticacao.SENHA_MAX:
-                return _form_erro("Login ou senha incorretos.", 400)
+                return _form_erro("credenciais", 400)
 
             try:
                 u = contas.usuario_por_login(l)
@@ -316,18 +327,18 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 return _erro_contas_ocupadas(request)
 
             if not u or u["ativo"] == 0:
-                return _form_erro("Login ou senha incorretos.", 400)
+                return _form_erro("credenciais", 400)
 
             bloq_dt = autenticacao.ler_instante(u.get("bloqueado_ate"))
             if bloq_dt is not None and bloq_dt > agora_dt:
-                return _form_erro("Muitas tentativas. Tente de novo em alguns minutos.", 429)
+                return _form_erro("limite", 429)
 
             if not autenticacao.conferir_senha(senha, u["senha_hash"]):
                 try:
                     contas.registrar_falha(u["usuario_id"], agora)
                 except autenticacao.ContasOcupadas:
                     return _erro_contas_ocupadas(request)
-                return _form_erro("Login ou senha incorretos.", 400)
+                return _form_erro("credenciais", 400)
 
             try:
                 old_token = request.cookies.get("sessao")
@@ -350,6 +361,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 secure=eh_https,
                 path="/",
             )
+            resposta.set_cookie("csrf", secrets.token_urlsafe(32), httponly=True, samesite="strict")  # token novo a cada entrada
             return resposta
 
         @app.post("/sair")
@@ -363,7 +375,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                     contas.fechar_sessao(hashlib.sha256(token.encode()).hexdigest())
                 except autenticacao.ContasOcupadas:
                     return _erro_contas_ocupadas(request)
-            resposta = RedirectResponse("/", status_code=303)
+            resposta = RedirectResponse("/entrar?aviso=saiu", status_code=303)
             resposta.delete_cookie("sessao", path="/")
             return resposta
 

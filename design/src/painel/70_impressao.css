@@ -7,7 +7,7 @@
   body { background: var(--superficie); color: var(--texto); }
   .menu, .pular, .filtros, .form-busca, .paginacao, .navegacao, .abas, .an-abas, .acoes-texto, .atalhos, .decisao form, .botoes-status, form.em-linha,
   button, .botao, .btn-status, .btn-decisao, .btn-pular, .fila-lateral, .motivos-rapidos, .tema-alternar, .topo, .conta, .acoes-pagina, .acoes-decisao, .fases, .form-secundario,
-  .ajuda-termo, .ajuda-balao, .escopo-guia, progress.progresso { display: none !important; }
+  .ajuda-termo, .ajuda-balao, .escopo-guia, progress.progresso, .entrada-lateral, .campo-mostrar { display: none !important; }
   /* faixa do banco: sem fundo (economiza tinta), contorno inteiro, texto escuro */
   .banner { background: none; color: var(--texto); border: 1px solid var(--borda-controle); border-radius: var(--raio-sm); padding: var(--esp-1) var(--esp-3); }
   .banner-detalhe { opacity: 1; background: none; border: 1px solid var(--borda-controle); }
@@ -23,7 +23,7 @@
   .duas-colunas > *, .distribuicoes > *, .guia-interpretacao-grid > * { margin-bottom: var(--esp-3); }
   .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .decisao { position: static; max-height: none; overflow: visible; }
-  .cartao, .kpi, .cartao-leitura, .guia-interpretacao, .acordeao-metodologico, .caixa-prisma, .aviso, .retorno, .vazio { box-shadow: none; }
+  .cartao, .kpi, .cartao-leitura, .guia-interpretacao, .acordeao-metodologico, .caixa-prisma, .aviso, .retorno, .vazio, .entrada-cartao { box-shadow: none; }
   .kpi { background-image: none; }
   .kpi::before, .vazio::before { display: none; }
   .kpi-rotulo { max-width: none; }

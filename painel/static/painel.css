@@ -257,6 +257,8 @@ html.icones-ok .banner-simulado strong::before { content: "\e069"; content: "\e0
   border: 1px solid rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .1); color: var(--texto-banner); font: inherit; line-height: 1; }
 .tema-alternar:hover { background: rgba(255, 255, 255, .22); }
 .tema-alternar:focus-visible { outline-color: var(--texto-banner); }
+/* anel de foco claro sobre o azul-marinho do menu: o cobalto padrão mede 2,8:1 no tema claro */
+.menu a:focus-visible, .menu summary:focus-visible { outline-color: var(--menu-texto); }
 .tema-alternar .tema-glifo { font-size: 1.05rem; }
 .tema-alternar .tema-lua { display: none; }
 .tema-alternar[aria-pressed="true"] .tema-sol { display: none; }
@@ -419,7 +421,6 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
   .tema-alternar { margin-left: auto; }
 }
 /* conta (autenticação opcional): no banner, à direita, antes do botão de tema */
-.form-entrar { display: grid; grid-template-columns: max-content 1fr; gap: var(--esp-3); max-width: var(--medida-leitura); }
 .admin-abas { margin: var(--esp-2) 0 var(--esp-4); }
 .banner { flex-wrap: wrap; row-gap: var(--esp-1); }
 .banner .conta { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--esp-3); min-width: 0; }
@@ -473,6 +474,8 @@ html.icones-ok .aviso::before { content: var(--av-ic); content: var(--av-ic) / "
 .aviso[data-ic] { --av-ic: var(--ic-f); }
 /* o tom escuro usa texto claro sobre o ladrilho: o botão e o ladrilho compartilham --texto-botao no claro; no escuro o ladrilho precisa de texto escuro */
 .aviso-lista::before, .aviso.aviso-forte::before, .aviso.aviso::before { color: var(--superficie); }
+/* o glifo do aviso verde: a cor da superfície some sobre o ladrilho verde-escuro no tema escuro (1,6:1); usa a cor de texto do ladrilho verde */
+.aviso.ok::before { color: var(--inclusao-solido-texto); }
 .aviso.robots-proibido::before { color: var(--superficie); }
 
 /* ---- vazio: moldura tracejada com ladrilho de ícone ---- */
@@ -1058,6 +1061,113 @@ html.icones-ok .acordeao-metodologico[open] > summary::before, html.icones-ok de
   .btn-decisao kbd, .atalhos { display: none; }
 }
 
+/* ===== Tela de entrada (login): painel de apresentação à esquerda, cartão de entrada à direita =====
+   Só existe em templates/entrar.html. Reaproveita o que o desenho Observatório já tem (a marca do menu, o ladrilho do título, .campo, .botao.grande.cheio, .aviso, .retorno.bloqueio, o ornamento
+   de mira de levantamento) e não cria nenhuma cor: tudo por token. Nenhuma barra de destaque num lado só; o destaque é ladrilho de ícone, anel inteiro ou fundo. */
+
+/* ---- estrutura: duas colunas (apresentação | entrada). O painel azul-marinho vai até o fim da página nos dois temas. ---- */
+.layout-entrada { grid-template-columns: minmax(24rem, 5fr) minmax(0, 7fr); align-items: stretch; background: none; flex: 1 0 auto; min-height: 0; }
+/* a página da entrada ocupa exatamente a altura da janela: o layout comum soma uns 2px a mais (a conta dele supõe um banner de 2,5rem) e faria aparecer uma barra de rolagem
+   numa tela que cabe inteira; aqui o corpo vira uma coluna e o layout toma o que sobra depois do banner, qualquer que seja a altura dele (o texto do banco pode quebrar em duas linhas) */
+body:has(.layout-entrada) { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.entrada-lateral { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: var(--esp-7);
+  padding: var(--esp-7) clamp(var(--esp-6), 3.6vw, 3.5rem); color: var(--menu-texto); background: linear-gradient(180deg, var(--menu-fundo), var(--menu-fundo-2)); box-shadow: inset -1px 0 0 var(--menu-borda); }
+/* a marca é a mesma do menu das outras páginas (nav.menu); aqui ela deixa de ser coluna fixa com rolagem */
+.menu.menu-entrada { position: static; max-height: none; overflow: visible; gap: 0; padding: 0; background: none; border: 0; }
+.menu.menu-entrada::after { display: none; }
+.menu.menu-entrada .marca { margin: 0 0 0 -.5rem; }   /* o emblema da marca nasce .5rem para dentro; aqui ele alinha com a borda do texto abaixo */
+.entrada-lateral a:focus-visible { outline-color: var(--menu-texto); }
+/* ornamento: mira de levantamento (anéis e marcas de ângulo) sangrando pelo canto de baixo; só decoração */
+.entrada-lateral::before { content: ""; position: absolute; z-index: -1; right: -15rem; bottom: -15rem; width: 38rem; height: 38rem; border-radius: 50%; pointer-events: none;
+  background:
+    repeating-conic-gradient(from 0deg, var(--menu-ativo) 0 .5deg, transparent .5deg 7.5deg),
+    radial-gradient(circle, transparent 0 18%, var(--menu-ativo) 18% calc(18% + 1px), transparent calc(18% + 1px) 36%, var(--menu-ativo) 36% calc(36% + 1px), transparent calc(36% + 1px) 54%,
+      var(--menu-ativo) 54% calc(54% + 1px), transparent calc(54% + 1px) 72%, var(--menu-ativo) 72% calc(72% + 1px), transparent calc(72% + 1px));
+  -webkit-mask-image: radial-gradient(circle, black 24%, transparent 70%); mask-image: radial-gradient(circle, black 24%, transparent 70%); }
+
+/* ---- apresentação: frase-guia em serifa, um parágrafo e três itens com ladrilho de ícone em matizes diferentes ---- */
+.entrada-apresentacao { display: flex; flex-direction: column; max-width: 33rem; margin-block: auto; }
+.entrada-chamada { margin: 0; font-family: var(--fonte-titulo); font-size: clamp(1.75rem, 1.05rem + 1.45vw, 2.5rem); font-weight: 600; line-height: 1.14; letter-spacing: -.018em;
+  color: var(--menu-texto); text-wrap: balance; }
+.entrada-texto { max-width: 31rem; margin: var(--esp-4) 0 0; font-size: var(--fs-lg); line-height: 1.6; color: var(--menu-suave); }
+.entrada-itens { display: grid; gap: var(--esp-5); margin: var(--esp-7) 0 0; padding: 0; list-style: none; }
+.entrada-itens li { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: var(--esp-3) var(--esp-4); align-items: start; }
+.entrada-itens strong { display: block; font-size: var(--fs-base); font-weight: 650; line-height: 1.3; color: var(--menu-texto); }
+.entrada-itens li > div > span { display: block; margin-top: .15rem; font-size: var(--fs-md); line-height: 1.5; color: var(--menu-suave); }
+.entrada-icone { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: .85rem; font-size: 1.45rem; line-height: 1; color: var(--tinta-0); background: var(--mt-solido);
+  box-shadow: 0 8px 18px -8px var(--mt-solido), inset 0 1px 0 rgba(255, 255, 255, .28), inset 0 -1px 0 rgba(0, 0, 0, .14); }
+html.icones-ok .entrada-icone::before { content: var(--ic-f); content: var(--ic-f) / ""; font-family: var(--fonte-icones); font-weight: 400; }
+html:not(.icones-ok) .entrada-icone { visibility: hidden; }
+.entrada-itens [data-matiz="rosa"] { --mt-solido: var(--menu-rosa-solido); }
+.entrada-itens [data-matiz="petroleo"] { --mt-solido: var(--menu-petroleo-solido); }
+.entrada-itens [data-matiz="ambar"] { --mt-solido: var(--menu-ambar-solido); }
+
+/* ---- lado da entrada: papel frio com a grade de levantamento esmaecendo a partir do cartão ---- */
+.layout-entrada main { display: grid; align-content: center; justify-items: center; gap: var(--esp-5); padding: var(--esp-7) clamp(var(--esp-4), 4vw, 3.5rem); }
+.layout-entrada main::before { inset: 0; height: auto; -webkit-mask-image: radial-gradient(ellipse 72% 62% at 50% 46%, black 22%, transparent 100%); mask-image: radial-gradient(ellipse 72% 62% at 50% 46%, black 22%, transparent 100%); }
+.layout-entrada main::after { display: none; }
+.banner-detalhe:empty { display: none; }   /* a faixa do banco na entrada não mostra o caminho do arquivo do banco */
+
+.entrada-cartao { width: min(100%, 28rem); margin: 0; padding: 2.25rem 2.25rem 2rem; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-lg); box-shadow: var(--sombra-alta); }
+/* título com o ladrilho do escudo, o mesmo desenho do ladrilho do título das outras páginas */
+.entrada-cartao h1 { position: relative; min-height: 3rem; margin: 0 0 var(--esp-3); padding: .2rem 0 0 4rem; font-size: 2rem; line-height: 1.1; }
+.entrada-cartao h1::before { content: ""; position: absolute; left: 0; top: -.1rem; display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: .95rem; font-size: 1.6rem; line-height: 1;
+  color: var(--tom-solido-tx); background: var(--tom-solido); box-shadow: 0 8px 20px -6px var(--tom-solido), inset 0 1px 0 rgba(255, 255, 255, .3), inset 0 -1px 0 rgba(0, 0, 0, .12); }
+html.icones-ok .entrada-cartao h1::before { content: "\e0f0"; content: "\e0f0" / ""; font-family: var(--fonte-icones); font-weight: 400; }
+html:not(.icones-ok) .entrada-cartao h1::before { visibility: hidden; }
+.entrada-cartao .sub { max-width: none; margin: 0 0 var(--esp-5); font-size: var(--fs-base); line-height: 1.55; }
+.entrada-cartao .aviso, .entrada-cartao .retorno { margin: 0 0 var(--esp-5); }
+
+/* ---- campos com ícone (o ícone é só decoração) e o botão de mostrar a senha (criado por painel.js; sem JavaScript o campo é o de sempre) ---- */
+.campo-controle { position: relative; }
+.campo-controle > input { padding-left: 2.9rem; }
+html.icones-ok .campo-controle[data-ic]::before { content: var(--ic); content: var(--ic) / ""; position: absolute; top: 0; bottom: 0; left: .95rem; display: grid; place-items: center; width: 1.3rem; font-family: var(--fonte-icones);
+  font-size: 1.3rem; line-height: 1; color: var(--texto-mutado); pointer-events: none; }
+html.icones-ok .campo-controle[data-ic]:focus-within::before { color: var(--acento); }
+.campo-controle.tem-mostrar > input { padding-right: 6.1rem; }
+.campo-mostrar { position: absolute; top: 50%; right: .4rem; display: inline-flex; align-items: center; gap: .4rem; min-height: 2.75rem; margin-top: -1.375rem; padding: .25rem .7rem; border: 0; border-radius: var(--raio-sm);
+  font: inherit; font-size: var(--fs-sm); font-weight: 600; line-height: 1; color: var(--texto-suave); background: transparent; cursor: pointer; }
+.campo-mostrar:hover { color: var(--texto); background: var(--superficie-subtil); }
+html.icones-ok .campo-mostrar::before { content: "\e098"; content: "\e098" / ""; font-family: var(--fonte-icones); font-weight: 400; font-size: 1.2rem; line-height: 1; }
+html.icones-ok .campo-mostrar[data-visivel="true"]::before { content: "\e09b"; content: "\e09b" / ""; }
+/* o navegador pinta o fundo do campo preenchido sozinho (amarelo ou azul claro): aqui ele fica no fundo do campo e no texto do tema, claro ou escuro */
+.entrada-formulario input:-webkit-autofill { -webkit-text-fill-color: var(--texto); caret-color: var(--texto); box-shadow: 0 0 0 100px var(--fundo) inset; }
+
+.entrada-formulario .botao[type="submit"] { margin-top: var(--esp-2); }
+html.icones-ok .entrada-formulario .botao[type="submit"]::after { content: "\e04d"; content: "\e04d" / ""; font-family: var(--fonte-icones); font-weight: 400; font-size: 1.3em; line-height: 1; }
+.entrada-formulario .botao[type="submit"]:disabled { cursor: progress; filter: none; transform: none; }
+.entrada-ajuda { margin: var(--esp-5) 0 0; padding-top: var(--esp-4); border-top: 1px solid var(--borda); font-size: var(--fs-sm); line-height: 1.55; color: var(--texto-suave); }
+.entrada-publico { margin: 0; }
+.entrada-credito { margin: 0; font-size: var(--fs-xs); line-height: 1.5; text-align: center; color: var(--texto-mutado); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .campo-mostrar { transition: background-color var(--dur-curta) ease, color var(--dur-curta) ease; }
+  html.icones-ok .campo-controle[data-ic]::before { transition: color var(--dur-curta) ease; }
+}
+
+/* ---- telas estreitas: o painel de apresentação encolhe para a faixa da marca e o cartão passa a ocupar a largura ---- */
+@media (max-width: 900px) {
+  .layout-entrada { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }   /* a faixa da marca fica do tamanho dela; a folga da página vai para o cartão */
+  .entrada-lateral { gap: 0; padding: var(--esp-3) var(--esp-4); box-shadow: inset 0 -1px 0 var(--menu-borda); }
+  .entrada-lateral::before, .entrada-apresentacao { display: none; }
+  .layout-entrada main { align-content: start; padding: var(--esp-5) var(--esp-4) var(--esp-7); }
+  .layout-entrada main::before { height: 14rem; inset: 0 0 auto 0; }
+  .entrada-cartao { padding: var(--esp-5) var(--esp-4) var(--esp-5); border-radius: var(--raio); }
+  .entrada-cartao h1 { font-size: var(--fs-2xl); }
+}
+
+/* tablet em pé (e celular grande): sobra altura de sobra abaixo do cartão; ele passa a ficar no meio do espaço entre a faixa da marca e o pé da página */
+@media (max-width: 900px) and (min-height: 900px) {
+  .layout-entrada main { align-content: center; padding-top: var(--esp-6); }
+  .layout-entrada main::before { height: 18rem; }
+}
+
+/* contraste forçado do sistema: contorno real no cartão e nos campos */
+@media (forced-colors: active) {
+  .entrada-cartao { border: 1px solid CanvasText; }
+  .entrada-icone, .entrada-cartao h1::before { forced-color-adjust: none; }
+}
+
 /* ===== Impressão (Ctrl+P / PDF) =====
    Folha clara de uma coluna: some o que só serve na tela (menu, filtros, botões, paginação, link de pular, enfeites) e ficam o título, a faixa do banco e os dados.
    As cores do papel são as do tema claro (o tema escuro só existe na tela): o primeiro bloco repete os tokens que o tema escuro troca, com a mesma cadeia de var() do :root,
@@ -1095,7 +1205,7 @@ html.icones-ok .acordeao-metodologico[open] > summary::before, html.icones-ok de
   body { background: var(--superficie); color: var(--texto); }
   .menu, .pular, .filtros, .form-busca, .paginacao, .navegacao, .abas, .an-abas, .acoes-texto, .atalhos, .decisao form, .botoes-status, form.em-linha,
   button, .botao, .btn-status, .btn-decisao, .btn-pular, .fila-lateral, .motivos-rapidos, .tema-alternar, .topo, .conta, .acoes-pagina, .acoes-decisao, .fases, .form-secundario,
-  .ajuda-termo, .ajuda-balao, .escopo-guia, progress.progresso { display: none !important; }
+  .ajuda-termo, .ajuda-balao, .escopo-guia, progress.progresso, .entrada-lateral, .campo-mostrar { display: none !important; }
   /* faixa do banco: sem fundo (economiza tinta), contorno inteiro, texto escuro */
   .banner { background: none; color: var(--texto); border: 1px solid var(--borda-controle); border-radius: var(--raio-sm); padding: var(--esp-1) var(--esp-3); }
   .banner-detalhe { opacity: 1; background: none; border: 1px solid var(--borda-controle); }
@@ -1111,7 +1221,7 @@ html.icones-ok .acordeao-metodologico[open] > summary::before, html.icones-ok de
   .duas-colunas > *, .distribuicoes > *, .guia-interpretacao-grid > * { margin-bottom: var(--esp-3); }
   .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .decisao { position: static; max-height: none; overflow: visible; }
-  .cartao, .kpi, .cartao-leitura, .guia-interpretacao, .acordeao-metodologico, .caixa-prisma, .aviso, .retorno, .vazio { box-shadow: none; }
+  .cartao, .kpi, .cartao-leitura, .guia-interpretacao, .acordeao-metodologico, .caixa-prisma, .aviso, .retorno, .vazio, .entrada-cartao { box-shadow: none; }
   .kpi { background-image: none; }
   .kpi::before, .vazio::before { display: none; }
   .kpi-rotulo { max-width: none; }

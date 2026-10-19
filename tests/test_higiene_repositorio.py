@@ -22,7 +22,7 @@ def test_nenhum_arquivo_proibido_esta_rastreado():
     rastreados = subprocess.run(["git", "ls-files"], cwd=RAIZ, capture_output=True, text=True).stdout.splitlines()
     proibidos = [f for f in rastreados if f == ".env" or f.endswith((".pyc", ".log", ".zip", ".db", ".xlsx"))
                  or f.split("/")[0] in ("data", "logs", "outputs", "docs", ".claude")
-                 or "/__pycache__/" in f or f in ("CLAUDE.md", "DECISIONS.md", "README.md")]
+                 or "/__pycache__/" in f or f in ("CLAUDE.md", "DECISIONS.md", "analises/README.md")]
     assert not proibidos, f"arquivos que nao podem ser versionados: {proibidos[:10]}"
 
 

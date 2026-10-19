@@ -221,11 +221,17 @@ PROPRIOS_45 = [
     # sidebar
     ("--menu-texto", "--menu-fundo"), ("--menu-suave", "--menu-fundo"), ("--menu-rotulo", "--menu-fundo"), ("--menu-texto", "--menu-ativo"),
     ("--menu-suave", "--menu-hover"), ("--menu-texto", "--menu-hover"),
+    # tela de login: painel de apresentação (o degradê vai de --menu-fundo a --menu-fundo-2; o texto precisa valer nos dois extremos) e texto dos avisos de recusa e de saída
+    ("--menu-texto", "--menu-fundo-2"), ("--menu-suave", "--menu-fundo-2"), ("--texto", "--perigo-fundo"), ("--texto", "--ok-fundo"),
 ]
 for t in TONS:
     PROPRIOS_45 += [(f"--tom-{t}-tx", "--superficie"), (f"--tom-{t}-tx", f"--tom-{t}-fundo"), (f"--tom-{t}-tx", "--fundo"),
                     (f"--tom-{t}-tx", "--superficie-subtil")]
 PROPRIOS_3 = [(f"--tom-{t}-solido-tx", f"--tom-{t}-solido") for t in TONS] + [("--tom-cobalto-solido", "--superficie")]
+# glifo dos ladrilhos de ícone dos avisos de recusa (vermelho) e de recado (âmbar); o do aviso verde usa --inclusao-solido-texto (par já em PROPRIOS_45)
+PROPRIOS_3 += [("--superficie", "--perigo"), ("--superficie", "--duvida")]
+# glifo branco (tinta-0) sobre o ladrilho de cada matiz da apresentação do login: --menu-<tom>-solido é o primitivo <tom>-500 nos dois temas (gráfico: mínimo 3:1)
+PRIMITIVOS_3 = [("tinta-0", f"{t}-500") for t in ("rosa", "petroleo", "ambar")]
 
 
 def relatorio(verbose=True):
@@ -241,6 +247,10 @@ def relatorio(verbose=True):
                     falhas.append((tema, a, b, "ausente", e)); continue
                 if c < minimo:
                     falhas.append((tema, a, b, round(c, 2), minimo))
+    for a, b in PRIMITIVOS_3:
+        c = contraste(PRIM[a], PRIM[b])
+        if c < 3.0:
+            falhas.append(("ambos", a, b, round(c, 2), 3.0))
     # calor: texto de cada nível (escolhido por contraste)
     for tema in ("claro", "escuro"):
         for i in range(1, 5):

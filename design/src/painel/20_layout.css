@@ -14,6 +14,8 @@ html.icones-ok .banner-simulado strong::before { content: %icf(warning)%; }
   border: 1px solid rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .1); color: var(--texto-banner); font: inherit; line-height: 1; }
 .tema-alternar:hover { background: rgba(255, 255, 255, .22); }
 .tema-alternar:focus-visible { outline-color: var(--texto-banner); }
+/* anel de foco claro sobre o azul-marinho do menu: o cobalto padrão mede 2,8:1 no tema claro */
+.menu a:focus-visible, .menu summary:focus-visible { outline-color: var(--menu-texto); }
 .tema-alternar .tema-glifo { font-size: 1.05rem; }
 .tema-alternar .tema-lua { display: none; }
 .tema-alternar[aria-pressed="true"] .tema-sol { display: none; }
@@ -119,7 +121,6 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
   .tema-alternar { margin-left: auto; }
 }
 /* conta (autenticação opcional): no banner, à direita, antes do botão de tema */
-.form-entrar { display: grid; grid-template-columns: max-content 1fr; gap: var(--esp-3); max-width: var(--medida-leitura); }
 .admin-abas { margin: var(--esp-2) 0 var(--esp-4); }
 .banner { flex-wrap: wrap; row-gap: var(--esp-1); }
 .banner .conta { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--esp-3); min-width: 0; }

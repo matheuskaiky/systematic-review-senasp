@@ -311,3 +311,82 @@
     }
   }
 })();
+
+/* ---------- tela de entrada (entrar.html): só age quando a página tem <form data-entrada>. Foco inicial no Login (ou na Senha, se o login voltou
+   preenchido) só com ponteiro preciso; botão Mostrar/Ocultar senha criado aqui; trava de duplo envio, destravada ao voltar pelo histórico. ---------- */
+(function () {
+  "use strict";
+
+  var form = document.querySelector("form[data-entrada]");
+  if (!form) { return; }
+
+  var login = form.querySelector("#login");
+  var senha = form.querySelector("#senha");
+  var enviar = form.querySelector("button[type=\"submit\"]");
+  var estado = document.getElementById("estado-envio");
+  var rotuloEnviar = enviar ? enviar.textContent : "";
+
+  /* foco inicial (só onde há ponteiro preciso: ver o comentário de abertura) */
+  if (login && senha && window.matchMedia && window.matchMedia("(pointer: fine)").matches) {
+    (login.value ? senha : login).focus();
+  }
+
+  /* mostrar / ocultar senha */
+  if (senha && senha.parentNode) {
+    var caixa = senha.parentNode;
+    var botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = "campo-mostrar";
+    botao.setAttribute("aria-controls", "senha");
+    botao.setAttribute("aria-label", "Mostrar senha");
+    botao.setAttribute("data-visivel", "false");
+    botao.textContent = "Mostrar";
+    caixa.appendChild(botao);
+    caixa.classList.add("tem-mostrar");
+
+    var esconder = function () {
+      senha.type = "password";
+      botao.textContent = "Mostrar";
+      botao.setAttribute("aria-label", "Mostrar senha");
+      botao.setAttribute("data-visivel", "false");
+    };
+    botao.addEventListener("click", function () {
+      if (senha.type === "password") {
+        senha.type = "text";
+        botao.textContent = "Ocultar";
+        botao.setAttribute("aria-label", "Ocultar senha");
+        botao.setAttribute("data-visivel", "true");
+      } else {
+        esconder();
+      }
+      senha.focus();
+    });
+    form.addEventListener("submit", esconder);
+  }
+
+  /* envio único */
+  form.addEventListener("submit", function (ev) {
+    if (form.getAttribute("data-enviando") === "true") {
+      ev.preventDefault();
+      return;
+    }
+    form.setAttribute("data-enviando", "true");
+    form.setAttribute("aria-busy", "true");
+    if (enviar) {
+      enviar.textContent = "Entrando…";
+      enviar.disabled = true;
+    }
+    if (estado) { estado.textContent = "Entrando…"; }
+  });
+
+  window.addEventListener("pageshow", function (ev) {
+    if (!ev.persisted) { return; }
+    form.removeAttribute("data-enviando");
+    form.removeAttribute("aria-busy");
+    if (enviar) {
+      enviar.textContent = rotuloEnviar;
+      enviar.disabled = false;
+    }
+    if (estado) { estado.textContent = ""; }
+  });
+})();

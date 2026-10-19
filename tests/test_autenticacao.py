@@ -371,10 +371,10 @@ def test_sair_encerra_e_aceita_sem_cookie(painel):
     _entrar(cli, "maria")                                                      # o segundo login fecha a sessao anterior
     assert sqlite3.connect(contas_db).execute("SELECT COUNT(*) FROM sessoes").fetchone()[0] == 1
     r = cli.post("/sair", data={"csrf": _csrf(cli)}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/"
+    assert r.status_code == 303 and r.headers["location"] == "/entrar?aviso=saiu"
     assert sqlite3.connect(contas_db).execute("SELECT COUNT(*) FROM sessoes").fetchone()[0] == 0
     r = cli.post("/sair", data={"csrf": _csrf(cli)}, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/"
+    assert r.status_code == 303 and r.headers["location"] == "/entrar?aviso=saiu"
 
 
 def test_nomes_dos_revisores_ocultos_para_visitante(painel):

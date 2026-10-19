@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_guia.html" import guia_leitura %}
 {% import "_selos.html" as s %}
 {% import "_prontidao.html" as pr %}
 {% block titulo %}Visão geral{% endblock %}
@@ -61,4 +62,22 @@
     {% endfor %}</tbody></table></div>
   {% else %}<p class="vazio">Nenhuma execução registrada ainda. Rode <code>python main.py pipeline-uf --ufs PI --limite 5</code>.</p>{% endif %}
 </section>
+{{ guia_leitura(
+  "Como interpretar esta página e suas métricas",
+  [
+    {"titulo": "Glossário rápido", "tipo": "glossario", "itens": [
+      ("Achado", "Trecho de uma notícia ou página oficial em que o modelo de linguagem identificou uma possível ferramenta de IA em uso pela segurança pública."),
+      ("Verificado", "Achado que uma pessoa já leu e classificou. Os demais ainda são só a opinião do modelo."),
+      ("Prontidão metodológica", "O mínimo de itens rotulados por pessoas que cada análise estatística exige antes de entrar no relatório."),
+      ("Fluxo PRISMA", "Diagrama padrão das revisões sistemáticas: quantos registros foram encontrados, quantos saíram em cada etapa e por quê.")]},
+    {"titulo": "Interpretação prática", "tipo": "lista", "itens": [
+      "O número de achados <strong>não</strong> é o número de ferramentas: a mesma ferramenta pode aparecer em várias notícias.",
+      "Enquanto o percentual de verificados for baixo, trate os totais por estado como <strong>provisórios</strong>: o modelo pode ter errado.",
+      "Análise travada na prontidão não é falha: significa que ainda faltam itens rotulados por pessoas."]},
+    {"titulo": "Dica de ação", "tipo": "acao",
+     "texto": "Quer ajudar a aumentar o percentual de verificados? Entre como revisor e abra a sua fila de trabalho."}
+  ],
+  id="guia-geral",
+  resumo="Traduz os termos desta página. As fontes estão no fim.",
+  fontes="<cite>PRISMA 2020</cite> (Page et al., BMJ 2021;372:n71).") }}
 {% endblock %}

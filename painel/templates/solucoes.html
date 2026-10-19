@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_guia.html" import guia_leitura %}
 {% import "_selos.html" as s %}
 {% block titulo %}Soluções conhecidas{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="/static/solucoes.css">{% endblock %}
@@ -106,4 +107,19 @@
         <td class="col-grafias">{% if e.variantes|length > 1 or e.outras_grafias %}<ul class="lista-grafias">{% for v in e.variantes %}<li>{{ s.grafia(v) }}</li>{% endfor %}</ul>{% else %}<small class="fornecedor">uma grafia só</small>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
   {% endif %}
 </section>
+{{ guia_leitura(
+  "Como interpretar esta página e suas métricas",
+  [
+    {"titulo": "Glossário rápido", "tipo": "glossario", "itens": [
+      ("Solução conhecida", "Ferramenta que já sabíamos existir antes da busca. Serve de régua para medir se a coleta está achando o que deveria."),
+      ("Revocação", "Das soluções conhecidas, a parte que a busca conseguiu encontrar."),
+      ("Três colunas", "Resultados da busca, texto das páginas baixadas e achados: são as etapas pelas quais uma ferramenta precisa passar para ser contada.")]},
+    {"titulo": "Interpretação prática", "tipo": "lista", "itens": [
+      "A ferramenta aparece nos resultados da busca, mas não no texto das páginas? O ponto fraco está no download ou na permissão de coleta, não na busca.",
+      "Aparece no texto das páginas, mas não vira achado? Vale olhar como o modelo classificou aquelas páginas."]},
+    {"titulo": "Dica de ação", "tipo": "acao",
+     "texto": "Revocação baixa em uma coluna? Compare com a coluna anterior para descobrir em que etapa as ferramentas se perderam."}
+  ],
+  id="guia-solucoes",
+  resumo="Para ler a cobertura da coleta sem precisar conhecer o código.") }}
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_guia.html" import guia_leitura %}
 {% import "_selos.html" as s %}
 {% import "_prontidao.html" as pr %}
 {% block titulo %}Análises{% endblock %}
@@ -50,4 +51,23 @@
   {% endif %}
 </section>
 {% endfor %}
+{{ guia_leitura(
+  "Como interpretar esta página e suas métricas",
+  [
+    {"titulo": "Glossário rápido", "tipo": "glossario", "itens": [
+      ("Kappa de Cohen", "Concordância entre dois avaliadores descontando o acaso. Vai de 0 (só sorte) a 1 (total)."),
+      ("Revocação", "Das ferramentas já conhecidas, a parte que a busca recuperou."),
+      ("Snippet de busca", "O resumo curto que o buscador mostra abaixo do título do resultado."),
+      ("robots.txt", "Arquivo em que cada site diz o que programas de coleta podem ou não visitar.")]},
+    {"titulo": "Interpretação prática", "tipo": "lista", "itens": [
+      "Kappa até 0,20 é fraca; de 0,21 a 0,40, razoável; de 0,41 a 0,60, moderada; de 0,61 a 0,80, <strong>substancial</strong>; acima de 0,80, quase perfeita.",
+      "Página <strong>proibida</strong>: o site respondeu e o arquivo manda não coletar. Respeitamos, e isso não é censura nem falha nossa.",
+      "Página <strong>preventiva</strong>: o arquivo estava fora do ar (erro 5xx). Pela regra do protocolo, na dúvida não se coleta; tentar de novo mais tarde pode liberar.",
+      "Arquivo não encontrado (erro 4xx) não bloqueia a coleta."]},
+    {"titulo": "Dica de ação", "tipo": "acao",
+     "texto": "Kappa abaixo de 0,60? Releia os critérios de classificação com a equipe e reavalie uma amostra em dupla antes de citar a concordância. Muitas páginas preventivas? Rode a coleta de novo em outro horário."}
+  ],
+  id="guia-analises",
+  resumo="Traduz os termos técnicos desta página. Os cálculos e as referências estão no fim.",
+  fontes="<cite>Cohen (1960)</cite>, Educational and Psychological Measurement 20(1); <cite>Landis &amp; Koch (1977)</cite>, Biometrics 33(1), faixas de interpretação; <cite>RFC 9309</cite> (2022), Robots Exclusion Protocol.") }}
 {% endblock %}

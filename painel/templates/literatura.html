@@ -10,34 +10,34 @@
 <p class="vazio">Ainda não há artigos. Rode <code>python main.py academico --termos T01 --paginas 1</code> para o Scholar e use <code>python main.py manual-modelo</code> para as bases manuais.</p>
 {% else %}
 <section class="kpis" aria-label="Indicadores">
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(d.n_artigos) }}</span><span class="kpi-rotulo">Artigos únicos</span></div>
-  <div class="kpi" title="Cada termo do Scholar e cada base manual conta uma vez; é o mesmo critério do filtro “Mais de um termo” da lista de artigos"><span class="kpi-valor">{{ fmt.numero(d.n_multi) }}</span><span class="kpi-rotulo">Achados por 2 ou mais termos ou bases</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(tri.incluidos + tri.excluidos, tri.total) }}</span><span class="kpi-rotulo">Triados (título e resumo)</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(tri.incluidos) }}</span><span class="kpi-rotulo">Incluídos</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(tri.pendentes) }}</span><span class="kpi-rotulo">Pendentes</span></div>
+  <div class="kpi" data-ic="article" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(d.n_artigos) }}</span><span class="kpi-rotulo">Artigos únicos</span></div>
+  <div class="kpi" title="Cada termo do Scholar e cada base manual conta uma vez; é o mesmo critério do filtro “Mais de um termo” da lista de artigos" data-ic="share-network" data-tom="violeta"><span class="kpi-valor">{{ fmt.numero(d.n_multi) }}</span><span class="kpi-rotulo">Achados por 2 ou mais termos ou bases</span></div>
+  <div class="kpi" data-ic="user-check" data-tom="rosa"><span class="kpi-valor">{{ fmt.pct(tri.incluidos + tri.excluidos, tri.total) }}</span><span class="kpi-rotulo">Triados (título e resumo)</span></div>
+  <div class="kpi" data-ic="check-circle" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(tri.incluidos) }}</span><span class="kpi-rotulo">Incluídos</span></div>
+  <div class="kpi" data-ic="hourglass" data-tom="ambar"><span class="kpi-valor">{{ fmt.numero(tri.pendentes) }}</span><span class="kpi-rotulo">Pendentes</span></div>
 </section>
 <p>{% if tri.pendentes %}<a class="botao" href="/literatura/triagem">Continuar a triagem ({{ fmt.numero(tri.pendentes) }})</a>{% endif %}
   <a class="botao secundario" href="/literatura/artigos">Ver todos os artigos</a> <a class="botao secundario" href="/literatura/prisma">Fluxo PRISMA</a></p>
 
-<section class="cartao" aria-labelledby="rel-titulo"><h2 id="rel-titulo">Relevância para Brasil + segurança pública</h2>
+<section class="cartao" aria-labelledby="rel-titulo"><h2 id="rel-titulo" data-ic="star" data-tom="rosa">Relevância para Brasil + segurança pública</h2>
   <p class="sub">Ajuda para priorizar a triagem (não exclui nada): sinais de Brasil e de tema nos títulos, resumos, autores e links. <a href="/sobre#relevancia">Como é calculada</a>.</p>
   <ul class="relevancia-contagem">
     <li><a href="/literatura/artigos?rel=alta"><strong>{{ fmt.numero(rel.alta) }}</strong> <span class="selo rel-alta"><span aria-hidden="true">▲</span> Alta · Brasil + tema</span></a></li>
     <li><a href="/literatura/artigos?rel=media"><strong>{{ fmt.numero(rel.media) }}</strong> <span class="selo rel-media"><span aria-hidden="true">◆</span> Média · só um dos dois</span></a></li>
     <li><a href="/literatura/artigos?rel=baixa"><strong>{{ fmt.numero(rel.baixa) }}</strong> <span class="selo rel-baixa"><span aria-hidden="true">▽</span> Baixa</span></a></li>
   </ul></section>
-<section class="cartao"><h2>Artigos por ano</h2>{{ grafico_anos|safe }}
+<section class="cartao"><h2 data-ic="calendar-blank" data-tom="rosa">Artigos por ano</h2>{{ grafico_anos|safe }}
   {% if d.sem_ano %}<p><small>{{ fmt.numero(d.sem_ano) }} artigo(s) sem ano identificado não aparecem no gráfico.</small></p>{% endif %}</section>
 <div class="duas-colunas">
-<section class="cartao"><h2>Artigos mais citados</h2>
+<section class="cartao"><h2 data-ic="quotes" data-tom="rosa">Artigos mais citados</h2>
   <ol class="lista-simples numerada">{% for a in d.mais_citados %}<li><a href="/literatura/artigos/{{ a.artigo_id }}">{{ a.titulo }}</a> <small>({{ a.ano or "s/ano" }}) · {{ fmt.numero(a.citacoes) }} citações</small></li>{% endfor %}</ol>
   {% if d.sem_citacoes %}<p><small>{{ fmt.numero(d.sem_citacoes) }} artigo(s) sem contagem de citações (não informada pela fonte).</small></p>{% endif %}</section>
-<section class="cartao"><h2>Buscas manuais por base</h2>
+<section class="cartao"><h2 data-ic="books" data-tom="rosa">Buscas manuais por base</h2>
   {% if d.manuais %}<div class="tabela-rolavel"><table><thead><tr><th>Base</th><th class="num">Buscas</th><th class="num" title="Resultados informados">Result.</th><th class="num" title="Após o filtro da base">Filtro</th><th class="num" title="Selecionados">Selec.</th></tr></thead>
     <tbody>{% for m in d.manuais %}<tr><td>{{ m.base }}</td><td class="num">{{ m.n_buscas }}</td><td class="num">{{ fmt.numero(m.total_resultados) }}</td><td class="num">{{ fmt.numero(m.total_apos_filtro) }}</td><td class="num">{{ fmt.numero(m.total_selecionados) }}</td></tr>{% endfor %}</tbody></table></div>
   {% else %}<p class="vazio">Nenhuma busca manual importada. Veja <code>python main.py manual-modelo</code>.</p>{% endif %}</section>
 </div>
-<section class="cartao"><h2>Termos em comum</h2>
+<section class="cartao"><h2 data-ic="share-network" data-tom="rosa">Termos em comum</h2>
   <p class="sub">Quanto mais escura a célula, mais artigos os dois termos encontraram juntos. A diagonal mostra o total de cada termo. Passe o mouse para ver o termo.</p>
   <div class="tabela-rolavel">{{ calor|safe }}</div>
   <ul class="legenda"><li><span class="amostra calor-diag"></span> total do termo</li><li><span class="amostra calor-1"></span> poucos <span class="amostra calor-4"></span> muitos artigos em comum</li></ul></section>

@@ -19,7 +19,7 @@
 {% if sem_lista %}
 <p class="vazio">Nenhuma solução conhecida foi informada. Acrescente nomes (e apelidos) em <code>config/solucoes_conhecidas.py</code> e abra esta página de novo.</p>
 {% else %}
-<section class="cartao" aria-labelledby="h-resumo"><h2 id="h-resumo">Resumo</h2>
+<section class="cartao" aria-labelledby="h-resumo"><h2 id="h-resumo" data-ic="list-bullets">Resumo</h2>
   <div class="tabela-rolavel"><table data-ordenavel>
     <caption class="so-leitor">Situação de cada solução conhecida</caption>
     <thead><tr><th scope="col">Solução</th><th scope="col">UF</th><th scope="col" class="num">Resultados de busca</th><th scope="col" class="num">Páginas baixadas</th><th scope="col" class="num">Achados</th><th scope="col">Situação</th></tr></thead>
@@ -58,7 +58,7 @@
   <p>{{ k.explicacao }}</p>
   <p><a href="{{ href_paginas }}">Buscar “{{ k.solucao.nome }}” no texto das páginas da UF</a></p>
 
-  <h3 id="solucao-{{ loop.index }}-resultados">1. Nos resultados da busca ({{ k.resultados|length }})</h3>
+  <h3 id="solucao-{{ loop.index }}-resultados" data-ic="magnifying-glass" data-tom="cobalto">1. Nos resultados da busca ({{ k.resultados|length }})</h3>
   {% if k.resultados %}
     <p class="explica">{{ k.n_urls_resultados }} endereço(s) diferente(s){% if k.n_urls_nunca_baixadas %}; <strong>{{ k.n_urls_nunca_baixadas }} nunca foi baixado</strong>{% endif %}.
       {% if k.so_fora_do_relatorio %}Todos vieram de execuções fora do relatório (testes ou pilotos).{% endif %}
@@ -70,7 +70,7 @@
         {% if not r.n_paginas %} · <strong>página nunca baixada</strong>{% if r.selecionada %} (foi selecionada para download){% endif %}{% elif not r.n_paginas_com_texto %} · baixada, mas sem texto extraído{% endif %}</small></li>{% endfor %}</ul>
   {% else %}<p class="nao-avaliado">Nenhum título ou resumo de resultado da UF cita o nome.</p>{% endif %}
 
-  <h3>2. No texto de páginas baixadas ({{ k.paginas|length }})</h3>
+  <h3 data-ic="cloud-arrow-down" data-tom="petroleo">2. No texto de páginas baixadas ({{ k.paginas|length }})</h3>
   {% if k.paginas %}
     <ul>{% for p in k.paginas[:max_links] %}
       <li>{% if p.link_externo|url_segura != "#" %}<a href="{{ p.link_externo|url_segura }}" rel="noopener noreferrer">{{ p.dominio_final or p.url }}</a>{% else %}{{ p.dominio_final or "endereço não é http/https" }}{% endif %}
@@ -80,7 +80,7 @@
     {% if k.paginas|length > max_links %}<p class="explica">Mostrando as {{ max_links }} primeiras de {{ k.paginas|length }}.</p>{% endif %}
   {% else %}<p class="nao-avaliado">Nenhuma página baixada cita o nome.</p>{% endif %}
 
-  <h3>3. Nos achados ({{ k.achados|length }})</h3>
+  <h3 data-ic="binoculars" data-tom="petroleo">3. Nos achados ({{ k.achados|length }})</h3>
   {% if k.achados %}
     <ul>{% for a in k.achados[:max_links] %}
       <li><a href="/achados/{{ a.achado_id }}">Achado {{ a.achado_id }}</a>: {{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} · {{ rotulos.rotulo(rotulos.STATUS, a.status_reportado) }}
@@ -91,7 +91,7 @@
 {% endfor %}
 {% endif %}
 
-<section class="cartao" aria-labelledby="todas-nomeadas-h" id="todas-nomeadas"><h2 id="todas-nomeadas-h">Todas as soluções nomeadas nos achados</h2>
+<section class="cartao" aria-labelledby="todas-nomeadas-h" id="todas-nomeadas"><h2 id="todas-nomeadas-h" data-ic="list-magnifying-glass" data-tom="ambar">Todas as soluções nomeadas nos achados</h2>
   {% if not entidades %}<p class="vazio">Nenhum achado vigente tem nome de solução.</p>
   {% else %}
   <p class="explica">{{ entidades|length }} entidade(s) e {{ n_achados_nomeados }} achado(s). O modelo escreve o mesmo sistema de várias formas; o painel as reúne em uma entidade, por três regras em ordem de confiança:

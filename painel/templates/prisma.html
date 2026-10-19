@@ -16,7 +16,7 @@
   {% if not loop.last %}<div class="seta-prisma" aria-hidden="true">▼</div>{% endif %}
 {% endfor %}
 </div>
-{% if d.motivos %}<section class="cartao"><h2>Motivos de exclusão</h2><div class="tabela-rolavel"><table><thead><tr><th>Etapa</th><th>Motivo</th><th class="num">Artigos</th></tr></thead>
+{% if d.motivos %}<section class="cartao"><h2 data-ic="list-bullets" data-tom="rosa">Motivos de exclusão</h2><div class="tabela-rolavel"><table><thead><tr><th>Etapa</th><th>Motivo</th><th class="num">Artigos</th></tr></thead>
   <tbody>{% for m in d.motivos %}<tr><td>{{ "Título e resumo" if m.etapa == "titulo_resumo" else "Texto completo" }}</td><td>{{ m.motivo }}</td><td class="num">{{ m.n }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
 <p><small>Removidos por ferramenta automática: artigos que a triagem de escopo do modelo excluiu (veredito atual válido) e sobre os quais nenhuma pessoa decidiu. Nada é apagado; se uma pessoa decidir sobre um deles, ele volta ao fluxo humano e deixa de contar aqui. A triagem de escopo não é uma etapa do PRISMA por si só: ela entra como registros removidos por ferramenta de automação, como pede o PRISMA 2020.</small></p>
 <p><small>O que o fluxo ainda não sabe: registros removidos antes da triagem dentro de cada base manual e relatórios não recuperados não vêm do banco; informe-os por fora se o seu protocolo exigir.</small></p>

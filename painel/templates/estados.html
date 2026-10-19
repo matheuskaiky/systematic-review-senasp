@@ -5,7 +5,7 @@
 <p class="sub">O que já se sabe de cada UF. Clique em um estado para ver os achados.</p>
 <div class="duas-colunas mapa-tabela">
   <section class="cartao">
-    <h2>Mapa</h2>
+    <h2 data-ic="map-trifold">Mapa</h2>
     {{ mapa|safe }}
     <p class="mapa-credito">{{ credito_mapa }}</p>
     <ul class="legenda">
@@ -15,7 +15,7 @@
     </ul>
   </section>
   <section class="cartao">
-    <h2>Tabela</h2>
+    <h2 data-ic="table">Tabela</h2>
     <div class="tabela-rolavel"><table data-ordenavel>
       <thead><tr><th>UF</th><th>Estado</th><th class="num">Achados</th><th class="num">Verificados</th><th class="num">Confirmados</th></tr></thead>
       <tbody>{% for l in linhas %}

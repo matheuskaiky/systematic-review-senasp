@@ -14,24 +14,24 @@
 {% endif %}
 
 <section class="kpis" aria-label="Indicadores">
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.consultas_web) }}</span><span class="kpi-rotulo">Consultas web</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.urls_unicas) }}</span><span class="kpi-rotulo">URLs únicas</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.paginas_com_texto) }}</span><span class="kpi-rotulo">Páginas com texto</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.classificacoes) }}</span><span class="kpi-rotulo">Classificações</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.achados) }}</span><span class="kpi-rotulo">Achados</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.evidencia_ok, r.achados) }}</span><span class="kpi-rotulo">Evidência confere</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.verificados, r.achados) }}</span><span class="kpi-rotulo">Verificados</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ r.ufs_confirmadas }} <small>de {{ n_ufs }}</small></span><span class="kpi-rotulo">UFs com achado confirmado</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}</span><span class="kpi-rotulo">Gasto real (todas as execuções)</span></div>
+  <div class="kpi" data-ic="magnifying-glass" data-tom="cobalto"><span class="kpi-valor">{{ fmt.numero(r.consultas_web) }}</span><span class="kpi-rotulo">Consultas web</span></div>
+  <div class="kpi" data-ic="link" data-tom="petroleo"><span class="kpi-valor">{{ fmt.numero(r.urls_unicas) }}</span><span class="kpi-rotulo">URLs únicas</span></div>
+  <div class="kpi" data-ic="file-text" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(r.paginas_com_texto) }}</span><span class="kpi-rotulo">Páginas com texto</span></div>
+  <div class="kpi" data-ic="tag" data-tom="violeta"><span class="kpi-valor">{{ fmt.numero(r.classificacoes) }}</span><span class="kpi-rotulo">Classificações</span></div>
+  <div class="kpi" data-ic="binoculars" data-tom="petroleo"><span class="kpi-valor">{{ fmt.numero(r.achados) }}</span><span class="kpi-rotulo">Achados</span></div>
+  <div class="kpi" data-ic="seal-check" data-tom="violeta"><span class="kpi-valor">{{ fmt.pct(r.evidencia_ok, r.achados) }}</span><span class="kpi-rotulo">Evidência confere</span></div>
+  <div class="kpi" data-ic="check-circle" data-tom="cobalto"><span class="kpi-valor">{{ fmt.pct(r.verificados, r.achados) }}</span><span class="kpi-rotulo">Verificados</span></div>
+  <div class="kpi" data-ic="map-pin" data-tom="petroleo"><span class="kpi-valor">{{ r.ufs_confirmadas }} <small>de {{ n_ufs }}</small></span><span class="kpi-rotulo">UFs com achado confirmado</span></div>
+  <div class="kpi" data-ic="coins" data-tom="ambar"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}</span><span class="kpi-rotulo">Gasto real (todas as execuções)</span></div>
 </section>
 
 <div class="duas-colunas funil-progresso">
   <section class="cartao">
-    <h2>Funil</h2>
+    <h2 data-ic="funnel" data-tom="cobalto">Funil</h2>
     {{ funil|safe }}
   </section>
   <section class="cartao">
-    <h2>Progresso da revisão</h2>
+    <h2 data-ic="list-checks" data-tom="cobalto">Progresso da revisão</h2>
     {% set pend = rev.total - rev.verificados %}
     {{ barra|safe }}
     <ul class="legenda">
@@ -45,14 +45,14 @@
 
 {% if prontidao %}
 <section class="cartao" aria-labelledby="t-prontidao">
-  <h2 id="t-prontidao">Prontidão metodológica</h2>
+  <h2 id="t-prontidao" data-ic="gauge" data-tom="violeta">Prontidão metodológica</h2>
   <p class="sub">O que falta rotular por uma pessoa para destravar cada análise. <a href="/analises?secao=visao">Detalhes</a></p>
   {{ pr.cartoes(prontidao, true) }}
 </section>
 {% endif %}
 
 <section class="cartao">
-  <h2>Últimas execuções</h2>
+  <h2 data-ic="play-circle" data-tom="ambar">Últimas execuções</h2>
   {% if execucoes %}
   <div class="tabela-rolavel"><table>
     <thead><tr><th>Execução</th><th>Comando</th><th>Situação</th><th>Início</th><th class="num">Custo</th><th>Relatório</th></tr></thead>

@@ -10,13 +10,13 @@
   <button class="botao" type="submit">Comparar</button>
 </form>
 {% if ea and eb %}
-<section class="cartao"><h2>Funil lado a lado</h2><div class="tabela-rolavel"><table>
+<section class="cartao"><h2 data-ic="funnel">Funil lado a lado</h2><div class="tabela-rolavel"><table>
   <thead><tr><th></th><th class="num"><a href="/execucoes/{{ ea.run_id }}"><code>{{ ea.run_id }}</code></a></th><th class="num"><a href="/execucoes/{{ eb.run_id }}"><code>{{ eb.run_id }}</code></a></th><th class="num">Diferença</th></tr></thead>
   <tbody>{% for chave, rotulo in campos %}{% set va = ea.funil.get(chave) or 0 %}{% set vb = eb.funil.get(chave) or 0 %}
     <tr><td>{{ rotulo }}</td><td class="num">{{ fmt.numero(va) }}</td><td class="num">{{ fmt.numero(vb) }}</td><td class="num">{{ "+" if vb > va }}{{ fmt.numero(vb - va) }}</td></tr>{% endfor %}
     <tr><td>Custo registrado</td><td class="num">{{ fmt.moeda_usd(custo_a) }}</td><td class="num">{{ fmt.moeda_usd(custo_b) }}</td><td></td></tr>
   </tbody></table></div></section>
-<section class="cartao"><h2>O que mudou na configuração</h2>
+<section class="cartao"><h2 data-ic="git-diff">O que mudou na configuração</h2>
   {% if ea.config_hash == eb.config_hash %}<p class="selos"><span class="selo ok">✔ Configuração idêntica</span> (<code>{{ ea.config_hash }}</code>)</p>
   {% elif not diferencas %}<p class="vazio">Os hashes são diferentes ({{ ea.config_hash }} e {{ eb.config_hash }}), mas nenhuma diferença foi encontrada nos campos exibidos.</p>
   {% else %}<p class="sub">{{ diferencas|length }} diferença(s). Hash A <code>{{ ea.config_hash }}</code>, hash B <code>{{ eb.config_hash }}</code>.</p>

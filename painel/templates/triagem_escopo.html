@@ -16,7 +16,7 @@
 </div>
 
 {% if vazio %}
-<section class="cartao" aria-labelledby="h-vazio"><h2 id="h-vazio">Ainda não há triagem de escopo</h2>
+<section class="cartao" aria-labelledby="h-vazio"><h2 id="h-vazio" data-ic="robot" data-tom="violeta">Ainda não há triagem de escopo</h2>
   <p class="vazio">Nenhum item foi avaliado pelo modelo neste banco. A primeira rodada é um <strong>piloto</strong> pequeno (cerca de 100 itens: 60 artigos e 40 resultados web), para conferir se o formato
     da resposta funciona, quantos itens o modelo manda para exclusão e se você concorda com eles, antes de ampliar para todos.
     Comece estimando o custo, sem nenhuma chamada:</p>
@@ -39,13 +39,13 @@
 {% else %}
 
 <section class="kpis" aria-label="Resumo">
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(resumo.n_validos) }}</span><span class="kpi-rotulo">itens avaliados (conferência automática aprovada)</span></div>
+  <div class="kpi" data-ic="list-checks" data-tom="violeta"><span class="kpi-valor">{{ fmt.numero(resumo.n_validos) }}</span><span class="kpi-rotulo">itens avaliados (conferência automática aprovada)</span></div>
   {% for chave in ("elegivel", "quarentena", "excluido") %}
   <div class="kpi"><span class="kpi-valor">{{ fmt.numero(resumo.por_status[chave]) }} <small>{{ fmt.pct(resumo.por_status[chave], resumo.n_validos) }}</small></span>
     <span class="kpi-rotulo">{{ s.llm(chave, none, 1, false) }}</span></div>
   {% endfor %}
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(resumo.n_invalidos) }}</span><span class="kpi-rotulo">linhas em que a conferência automática falhou (fora dos percentuais)</span></div>
-  <div class="kpi"><span class="kpi-valor">{{ fmt.numero(resumo.n_rebaixados) }}</span><span class="kpi-rotulo">exclusões rebaixadas para quarentena pela regra de segurança (exclusão exige confiança alta)</span></div>
+  <div class="kpi" data-ic="warning-circle" data-tom="ambar"><span class="kpi-valor">{{ fmt.numero(resumo.n_invalidos) }}</span><span class="kpi-rotulo">linhas em que a conferência automática falhou (fora dos percentuais)</span></div>
+  <div class="kpi" data-ic="shield-warning" data-tom="ambar"><span class="kpi-valor">{{ fmt.numero(resumo.n_rebaixados) }}</span><span class="kpi-rotulo">exclusões rebaixadas para quarentena pela regra de segurança (exclusão exige confiança alta)</span></div>
 </section>
 
 <section class="distribuicoes" aria-label="Distribuições">
@@ -58,7 +58,7 @@
   </div>{% endfor %}
 </section>
 
-<section class="cartao" aria-labelledby="h-ficha"><h2 id="h-ficha">Ficha de ruído por termo</h2>
+<section class="cartao" aria-labelledby="h-ficha"><h2 id="h-ficha" data-ic="table" data-tom="violeta">Ficha de ruído por termo</h2>
   <p class="explica">Cada linha é uma consulta (termo) da busca. Um item conta uma vez para cada termo que o encontrou. O <strong>ruído</strong> é a parcela de itens excluídos ou em quarentena.
     Os mais ruidosos vêm primeiro. “Operadores seguros” são palavras negativas sugeridas pelo modelo que, neste termo, tirariam itens sem tirar nenhum bom (ganho/perda em itens).</p>
   {% if fichas %}
@@ -78,7 +78,7 @@
   {% else %}<p class="vazio">Nenhum item avaliado tem os termos da consulta registrados.</p>{% endif %}
 </section>
 
-<section class="cartao" aria-labelledby="h-neg"><h2 id="h-neg">Operadores negativos sugeridos</h2>
+<section class="cartao" aria-labelledby="h-neg"><h2 id="h-neg" data-ic="prohibit">Operadores negativos sugeridos</h2>
   <p class="aviso" role="note"><strong>Sugestão do modelo, validada contra os itens bons; a decisão é sua.</strong> Para cada palavra que o modelo apontou em itens excluídos, o programa conta quantos itens
     do acervo inteiro a contêm e quantos deles são bons (elegíveis, em quarentena ou incluídos por você): o <em>dano colateral</em>. Nenhuma consulta é alterada por esta página.</p>
   {% if negativos %}
@@ -100,7 +100,7 @@
   {% else %}<p class="vazio">O modelo ainda não sugeriu nenhum operador negativo (ou nenhum item foi excluído).</p>{% endif %}
 </section>
 
-<section class="cartao" id="lista" aria-labelledby="h-lista"><h2 id="h-lista">Itens com o veredito do modelo</h2>
+<section class="cartao" id="lista" aria-labelledby="h-lista"><h2 id="h-lista" data-ic="list-checks" data-tom="violeta">Itens com o veredito do modelo</h2>
   <form class="filtros" method="get" action="/triagem-escopo">
     <input type="hidden" name="fonte" value="{{ fonte }}">{% if run %}<input type="hidden" name="run" value="{{ run }}">{% endif %}
     <label>Status <select name="status">{% for k, v in r.FILTRO_STATUS.items() %}<option value="{{ k }}"{% if (filtros.status or "") == k %} selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
@@ -144,7 +144,7 @@
   {% endif %}
 </section>
 
-<section class="cartao" aria-labelledby="h-execs"><h2 id="h-execs">Execuções que gravaram vereditos</h2>
+<section class="cartao" aria-labelledby="h-execs"><h2 id="h-execs" data-ic="play-circle" data-tom="ambar">Execuções que gravaram vereditos</h2>
   <div class="tabela-rolavel"><table>
     <thead><tr><th scope="col">Execução</th><th scope="col">Fonte</th><th scope="col">Prompt</th><th scope="col" class="num">Linhas</th><th scope="col" class="num">Conferência falhou</th><th scope="col" class="num">Custo</th><th scope="col">Quando</th><th scope="col">Ver</th></tr></thead>
     <tbody>{% for e in execucoes %}
@@ -156,12 +156,12 @@
 {% endif %}
 {% endif %}
 
-<section class="cartao" id="como-ler" aria-labelledby="h-ler"><h2 id="h-ler">Como ler esta página</h2>
-  <h3>Veredito do modelo</h3>
+<section class="cartao" id="como-ler" aria-labelledby="h-ler"><h2 id="h-ler" data-ic="lifebuoy" data-tom="violeta">Como ler esta página</h2>
+  <h3 data-ic="robot" data-tom="violeta">Veredito do modelo</h3>
   <dl class="explicacoes">{% for k in ("elegivel", "quarentena", "excluido") %}<dt>{{ s.llm(k, none, 1, false) }}</dt><dd>{{ r.STATUS_EXPLICA[k] }}</dd>{% endfor %}</dl>
-  <h3>Motivo (categoria)</h3>
+  <h3 data-ic="tag" data-tom="violeta">Motivo (categoria)</h3>
   <dl class="explicacoes">{% for k, v in r.CATEGORIAS.items() %}<dt>{{ v }}</dt><dd>{{ r.CATEGORIAS_EXPLICA[k] }}</dd>{% endfor %}</dl>
-  <h3>Outros campos</h3>
+  <h3 data-ic="list-bullets">Outros campos</h3>
   <dl class="explicacoes">
     <dt>Justificativa</dt><dd>Em até 20 palavras, por que o modelo deu aquele veredito. É a opinião dele, não um fato.</dd>
     <dt>Termo gerador</dt><dd>Qual das consultas que encontraram o item provavelmente o trouxe por engano. O programa confere que é um dos termos da busca.</dd>

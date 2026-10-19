@@ -1,0 +1,26 @@
+name: testes
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  testes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock.txt
+      - name: Dependencias
+        run: pip install -r requirements.lock.txt
+      - name: Navegador dos testes de interface
+        run: |
+          pip install playwright==1.64.0
+          python -m playwright install --with-deps chromium
+      - name: Testes (offline, sem os que precisam de arquivos fora do git)
+        env:
+          PYTHON_DOTENV_DISABLED: "1"
+        run: python -m pytest -q -m "not local" -rs

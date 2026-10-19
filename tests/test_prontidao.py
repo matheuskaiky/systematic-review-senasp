@@ -35,6 +35,7 @@ def test_constantes_sao_identicas_as_dos_scripts():
     assert (P.H5_MIN_DECISOES, P.H5_MIN_POR_GRUPO) == (h5["MIN_DECISOES"], h5["MIN_POR_GRUPO"]) == (50, 10)
 
 
+@pytest.mark.local          # le analises/README.md, que fica fora do git
 def test_textos_dos_scripts_citam_os_mesmos_numeros():
     """As mensagens e a documentacao dos scripts dizem os numeros que o codigo usa."""
     leia = (RAIZ / "analises" / "README.md").read_text(encoding="utf-8")

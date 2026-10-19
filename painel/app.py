@@ -231,7 +231,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             resposta.set_cookie("csrf", token, httponly=True, samesite="strict")
         resposta.headers["Content-Security-Policy"] = CSP
         resposta.headers["X-Content-Type-Options"] = "nosniff"
-        resposta.headers["Referrer-Policy"] = "no-referrer"
+        resposta.headers["Referrer-Policy"] = "same-origin"
         if resposta.headers.get("content-type", "").startswith("text/html"):
             resposta.headers.append("Vary", "Cookie")  # so as paginas dependem do cookie `tema`; estaticos e redirecionamentos nao
         return resposta

@@ -1209,3 +1209,22 @@ UNION ALL
 SELECT 'tecnologia', COALESCE(n.tecnologia, '(sem tecnologia)'), NULL, COUNT(DISTINCT n.classificacao_id), NULL
 FROM auditoria_negativos n JOIN r_classificacoes_historico k ON k.classificacao_id = n.classificacao_id
 WHERE n.tinha_aplicacao = 1 GROUP BY COALESCE(n.tecnologia, '(sem tecnologia)');
+
+-- sugestoes sobre uma decisao ja tomada (D78): quem nao e o autor sugere outro valor; o autor ou um administrador aceita ou descarta
+CREATE TABLE IF NOT EXISTS sugestoes (
+    sugestao_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    alvo_tipo     TEXT NOT NULL CHECK (alvo_tipo IN ('achado', 'artigo')),
+    alvo_id       INTEGER NOT NULL,
+    valor         TEXT NOT NULL,
+    motivo        TEXT NOT NULL DEFAULT '',
+    autor         TEXT NOT NULL,
+    autor_chave   TEXT NOT NULL,                  -- nome do autor normalizado (NFC + casefold), para comparar pessoas
+    estado_alvo   TEXT NOT NULL,                  -- ficha da decisao que o autor viu (hash de todos os campos da decisao)
+    valor_alvo    TEXT NOT NULL,                  -- valor da decisao que o autor viu (status_final / decisao)
+    criado_em     TEXT NOT NULL,
+    situacao      TEXT NOT NULL DEFAULT 'aberta' CHECK (situacao IN ('aberta', 'aceita', 'descartada')),
+    resolvido_por TEXT,
+    resolvido_em  TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_sugestoes_alvo ON sugestoes(alvo_tipo, alvo_id, situacao);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_sugestoes_aberta ON sugestoes(alvo_tipo, alvo_id, autor_chave, valor, estado_alvo) WHERE situacao = 'aberta';

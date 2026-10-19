@@ -23,6 +23,7 @@ from adaptadores.leitura_termos_ruido import LeituraTermosRuido
 from adaptadores.leitura_triagem_escopo import LeituraTriagemEscopo
 from dominio.entrada import separar_runs
 from dominio.relevancia import NIVEIS, pontuar_relevancia
+from dominio.sugestoes import CAMPOS_ACHADO, CAMPOS_ARTIGO, ficha_da_decisao
 
 
 class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTriagemEscopo, LeituraAnalises, LeituraTermosCobertura,
@@ -41,6 +42,32 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             return [dict(l) for l in conn.execute(sql, args).fetchall()]
         finally:
             conn.close()
+
+    def estado_decisao(self, alvo_tipo, alvo_id):
+        """Ficha da decisao de hoje de um achado ou artigo (a mesma que a gravacao confere); None se o item nao existe."""
+        if alvo_tipo == "achado":
+            l = self._um(f"SELECT {', '.join(CAMPOS_ACHADO)} FROM achados WHERE achado_id=?", (alvo_id,))
+            return None if l is None else ficha_da_decisao(tuple(l[c] for c in CAMPOS_ACHADO))
+        if self._um("SELECT 1 AS um FROM artigos WHERE artigo_id=?", (alvo_id,)) is None:
+            return None
+        t = self._um(f"SELECT {', '.join(CAMPOS_ARTIGO)} FROM triagem WHERE artigo_id=?", (alvo_id,))
+        return ficha_da_decisao(tuple(t[c] for c in CAMPOS_ARTIGO) if t else (None,) * len(CAMPOS_ARTIGO))
+
+    def _tem_sugestoes(self):
+        return bool(self._consulta("SELECT 1 FROM sqlite_master WHERE type='table' AND name='sugestoes'"))
+
+    def sugestoes_abertas(self, alvo_tipo, alvo_id):
+        """Sugestoes abertas de um item, na ordem em que foram feitas."""
+        if not self._tem_sugestoes():
+            return []
+        return self._consulta("""SELECT sugestao_id, valor, motivo, autor, criado_em, estado_alvo, valor_alvo FROM sugestoes
+                                 WHERE alvo_tipo=? AND alvo_id=? AND situacao='aberta' ORDER BY sugestao_id""", (alvo_tipo, alvo_id))
+
+    def sugestao(self, sugestao_id):
+        """Uma sugestao (todas as colunas) ou None."""
+        if not self._tem_sugestoes():
+            return None
+        return self._um("SELECT * FROM sugestoes WHERE sugestao_id=?", (sugestao_id,))
 
     def _um(self, sql, args=()):
         linhas = self._consulta(sql, args)

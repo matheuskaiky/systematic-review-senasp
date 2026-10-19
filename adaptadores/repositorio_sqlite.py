@@ -13,6 +13,7 @@ from dominio.servicos import (normalizar_url, dominio_de, eh_oficial, chave_dedu
                               evidencia_cita_termo, evidencia_cita_lgpd, normalizar_status_final)
 from dominio.entrada import separar_runs, juntar_runs
 from infra.util import agora
+from dominio.sugestoes import CAMPOS_ACHADO, CAMPOS_ARTIGO, chave_autor, ficha_da_decisao
 
 
 def _v(x):
@@ -838,6 +839,111 @@ class RepositorioSQLite:
                                      WHERE artigo_id=?""", (tc, motivo_tc, revisor, quando, artigo_id))
                 decisao, motivo = atual["decisao"], atual["motivo"]
             self._registrar_revisao_triagem(artigo_id, revisor, decisao, motivo, tc, motivo_tc, 0)
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
+
+    def _decisao_atual(self, alvo_tipo, alvo_id):
+        """(decidido, valor, autor, ficha, versao) da decisao de hoje de um achado ou de um artigo (titulo e resumo)."""
+        if alvo_tipo == "achado":
+            l = self.conn.execute(f"SELECT {', '.join(CAMPOS_ACHADO)} FROM achados WHERE achado_id=?", (alvo_id,)).fetchone()
+            if l is None:
+                raise SystemExit(f"Achado inexistente: {alvo_id!r}")
+            return (bool(l["verificado"]), l["status_final"], l["verificado_por"], ficha_da_decisao(tuple(l)),
+                    l["verificado_em"] or NAO_VERIFICADO)
+        if not self.conn.execute("SELECT 1 FROM artigos WHERE artigo_id=?", (alvo_id,)).fetchone():
+            raise SystemExit(f"Artigo inexistente: {alvo_id!r}")
+        t = self.conn.execute(f"SELECT {', '.join(CAMPOS_ARTIGO)} FROM triagem WHERE artigo_id=?", (alvo_id,)).fetchone()
+        if t is not None and t["decisao_texto_completo"] is not None:
+            raise SystemExit("Este artigo já tem decisão de texto completo: as sugestões valem só para a triagem por título e resumo.")
+        valores = tuple(t) if t is not None else (None,) * len(CAMPOS_ARTIGO)
+        decidido = t is not None and t["decisao"] in ("incluir", "excluir")
+        return (decidido, (t["decisao"] if t else None), (t["revisor"] if t else None), ficha_da_decisao(valores),
+                (t["revisado_em"] if t else None) or NAO_TRIADO)
+
+    def criar_sugestao(self, alvo_tipo, alvo_id, valor, motivo, autor, estado):
+        """Grava uma sugestao aberta sobre a decisao atual de um achado ou artigo (D78). `estado` e a ficha que a pagina mostrou."""
+        try:
+            if alvo_tipo not in ("achado", "artigo"):
+                raise SystemExit(f"Tipo de item inválido: {alvo_tipo!r}.")
+            autor = str(autor or "").strip()
+            if not autor:
+                raise SystemExit("Informe o nome do revisor")
+            if not (type(alvo_id) is int and 1 <= alvo_id <= 9223372036854775807):
+                raise SystemExit(f"{'Achado' if alvo_tipo == 'achado' else 'Artigo'} inexistente: {alvo_id!r}")
+            if not self.conn.in_transaction:
+                self.conn.execute("BEGIN IMMEDIATE")
+            decidido, atual_valor, atual_autor, ficha, _ = self._decisao_atual(alvo_tipo, alvo_id)
+            if estado != ficha:
+                raise SystemExit("A decisão deste item mudou depois que a página foi aberta: recarregue a página antes de sugerir")
+            if not decidido:
+                raise SystemExit("Só se sugere sobre um item já decidido.")
+            chave = chave_autor(autor)
+            if chave == chave_autor(atual_autor):
+                raise SystemExit("Quem tomou a decisão não sugere: decida de novo.")
+            if valor == atual_valor:
+                raise SystemExit("O valor sugerido é igual à decisão atual.")
+            if self.conn.execute("""SELECT 1 FROM sugestoes WHERE alvo_tipo=? AND alvo_id=? AND autor_chave=? AND valor=?
+                                    AND estado_alvo=? AND situacao='aberta'""", (alvo_tipo, alvo_id, chave, valor, ficha)).fetchone():
+                raise SystemExit("Você já sugeriu este valor para este item.")
+            cur = self.conn.execute("""INSERT INTO sugestoes (alvo_tipo, alvo_id, valor, motivo, autor, autor_chave, estado_alvo, valor_alvo,
+                                       criado_em, situacao) VALUES (?,?,?,?,?,?,?,?,?,'aberta')""",
+                                    (alvo_tipo, alvo_id, valor, motivo, autor, chave, ficha, atual_valor, agora()))
+            self.conn.commit()
+            return cur.lastrowid
+        except BaseException:
+            self.conn.rollback()
+            raise
+
+    def _abrir_sugestao(self, sugestao_id, resolvedor):
+        resolvedor = str(resolvedor or "").strip()
+        if not resolvedor:
+            raise SystemExit("Informe o nome do revisor")
+        if not (type(sugestao_id) is int and 1 <= sugestao_id <= 9223372036854775807):
+            raise SystemExit(f"Sugestão inexistente: {sugestao_id!r}")
+        if not self.conn.in_transaction:
+            self.conn.execute("BEGIN IMMEDIATE")
+        s = self.conn.execute("SELECT * FROM sugestoes WHERE sugestao_id=?", (sugestao_id,)).fetchone()
+        if s is None:
+            raise SystemExit(f"Sugestão inexistente: {sugestao_id!r}")
+        if s["situacao"] != "aberta":
+            raise SystemExit("Esta sugestão já foi resolvida.")
+        return dict(s), resolvedor
+
+    def aceitar_sugestao(self, sugestao_id, resolvedor, status_permitidos):
+        """Aceita: a sugestao vira uma decisao nova de quem aceita, pela gravacao de sempre, na mesma transacao; as outras
+        sugestoes abertas do item sao descartadas."""
+        try:
+            s, resolvedor = self._abrir_sugestao(sugestao_id, resolvedor)
+            if chave_autor(resolvedor) == s["autor_chave"]:
+                raise SystemExit("Quem sugeriu não aceita a própria sugestão.")
+            _, _, _, ficha, versao = self._decisao_atual(s["alvo_tipo"], s["alvo_id"])
+            if ficha != s["estado_alvo"]:
+                raise SystemExit("Esta sugestão foi feita sobre uma decisão que já mudou: descarte-a ou sugira de novo.")
+            quando = agora()
+            self.conn.execute("UPDATE sugestoes SET situacao='aceita', resolvido_por=?, resolvido_em=? WHERE sugestao_id=?",
+                              (resolvedor, quando, sugestao_id))
+            self.conn.execute("""UPDATE sugestoes SET situacao='descartada', resolvido_por=?, resolvido_em=?
+                                 WHERE alvo_tipo=? AND alvo_id=? AND situacao='aberta' AND sugestao_id<>?""",
+                              (resolvedor, quando, s["alvo_tipo"], s["alvo_id"], sugestao_id))
+            if s["alvo_tipo"] == "achado":
+                obs = s["motivo"] if s["motivo"].strip() else self._estado_achado(s["alvo_id"])["observacao"]
+                self.verificar_achado(s["alvo_id"], s["valor"], resolvedor, obs, status_permitidos, versao)
+            else:
+                t = self.conn.execute("SELECT confirmado_em_base, link_confirmado FROM triagem WHERE artigo_id=?", (s["alvo_id"],)).fetchone()
+                self.registrar_triagem(s["alvo_id"], s["valor"], resolvedor, s["motivo"], t["confirmado_em_base"] if t else None,
+                                       t["link_confirmado"] if t else None, "titulo_resumo", versao)
+        except BaseException:
+            self.conn.rollback()
+            raise
+
+    def descartar_sugestao(self, sugestao_id, resolvedor):
+        """Descarta: a decisao atual nao muda."""
+        try:
+            s, resolvedor = self._abrir_sugestao(sugestao_id, resolvedor)
+            self.conn.execute("UPDATE sugestoes SET situacao='descartada', resolvido_por=?, resolvido_em=? WHERE sugestao_id=?",
+                              (resolvedor, agora(), sugestao_id))
             self.conn.commit()
         except BaseException:
             self.conn.rollback()

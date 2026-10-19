@@ -1,0 +1,58 @@
+
+/* ===== Acabamento: rolagem, movimento, contraste forçado e o mapa de ícones ===== */
+.texto-pagina, .tabela-rolavel, .fila-lista, .decisao, pre.bruto, pre.comando { scrollbar-width: thin; scrollbar-color: var(--borda-forte) transparent; }
+
+/* ===== Telas estreitas: componentes (vêm DEPOIS das regras-base de propósito: a mesma especificidade vence pela ordem) ===== */
+@media (max-width: 900px) {
+  .duas-colunas, .duas-colunas.funil-progresso, .duas-colunas.mapa-tabela, .duas-colunas.assimetricas { grid-template-columns: minmax(0, 1fr); }
+  .filtros .larga { grid-column: auto; }
+  .ficha { grid-template-columns: minmax(0, 1fr); }
+  .ficha dt { border-top: 1px solid var(--borda); padding-bottom: 0; }
+  .ficha dd { border-top: 0; padding-top: .1rem; }
+  .cartao { padding: var(--esp-4); }
+  .guia-interpretacao-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-2); }
+  .kpi { min-height: 5.6rem; padding: .8rem .85rem .85rem; }
+  .kpi-rotulo { max-width: calc(100% - 2.2rem); font-size: var(--fs-xs); }
+  .kpi-valor { font-size: 1.55rem; }
+  .kpi-grande .kpi-valor { font-size: 1.8rem; }
+  html.icones-ok .kpi[data-ic]::before { top: .65rem; right: .65rem; width: 1.8rem; height: 1.8rem; font-size: 1.05rem; border-radius: .55rem; }
+  .caixa-prisma { grid-template-columns: 5.5rem minmax(0, 1fr); gap: var(--esp-3); padding: var(--esp-3) var(--esp-4); }
+  .num-prisma { font-size: var(--fs-xl); }
+  .prontidao { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Movimento: só transições curtas de cor, contorno e relevo, e só para quem não pediu menos movimento. Nada se mexe sozinho. */
+@media (prefers-reduced-motion: no-preference) {
+  .botao, .btn-decisao, .btn-pular, .btn-status, .chip-motivo, .paginacao a, a.selo, .resumo-entidades li a, .menu-lista a, .menu .marca, .menu-grupo > summary, .fila-link, .kpi,
+  .caixa-prisma, .lista-achados li, tbody tr, select, input, textarea, .ajuda-termo, .tema-alternar {
+    transition: background-color var(--dur-curta) ease, border-color var(--dur-curta) ease, color var(--dur-curta) ease, box-shadow var(--dur-media) var(--ease),
+      transform var(--dur-curta) var(--ease), filter var(--dur-curta) ease;
+  }
+  .ajuda-balao { transition: opacity var(--dur-media) var(--ease), visibility var(--dur-media) linear; }
+  html.icones-ok .menu-grupo > summary::after { transition: transform var(--dur-media) var(--ease); }
+  .kpi:hover, .caixa-prisma:hover { transform: translateY(-1px); }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* Contraste forçado do sistema (Windows): contornos reais no lugar de sombras e fundos suaves; o item atual ganha anel do sistema. */
+@media (forced-colors: active) {
+  .cartao, .kpi, .aviso, .retorno, .vazio, .selo, .caixa-prisma, .filtros, .fila-lateral, .decisao, .guia-interpretacao { border: 1px solid CanvasText; }
+  .menu a[aria-current="page"], .fila-item.ativo .fila-link, .fila-link[aria-current="true"], .menu-lista a:hover { outline: 2px solid Highlight; outline-offset: -2px; }
+  .btn-decisao, .btn-pular, .botao, .chip-motivo { border: 1px solid ButtonText; }
+  .aviso::before, .retorno::before, .solucao-destaque::before, .kpi::before, .vazio::before { forced-color-adjust: none; }
+}
+
+/* Sem a fonte de ícones (sem JavaScript, ou nos instantes antes de ela chegar) os ladrilhos ficam INVISÍVEIS e continuam ocupando o lugar: nenhum quadrado colorido vazio e nenhum
+   salto de layout quando os ícones chegam. O espaço reservado à esquerda do texto é o único vestígio. */
+html:not(.icones-ok) .menu .marca::before,
+html:not(.icones-ok) .menu-lista a::before,
+html:not(.icones-ok) .layout:has(.menu-lista a[aria-current="page"]) main > h1::before,
+html:not(.icones-ok) .aviso::before,
+html:not(.icones-ok) .vazio::before,
+html:not(.icones-ok) .solucao-destaque::before,
+html:not(.icones-ok) .retorno::before { visibility: hidden; }
+
+/*@GERADO:mapa-icones*/

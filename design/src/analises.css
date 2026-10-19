@@ -1,0 +1,333 @@
+/* Gráficos e moldura da página /analises (analises.py). Só classes: a política de segurança do painel proíbe `style=`.
+   Os tokens `--an-*` reaproveitam os de painel.css (var(), sem cor de reserva: painel.css sempre carrega antes) e os derivam quando o valor é o mesmo do semântico.
+   As cores de dados (paleta fixa para daltônicos) ficam só aqui, em hexadecimal, com versão clara, escura e de impressão (que fica sempre clara).
+   Os quatro blocos de tokens abaixo são GERADOS por tools/gerar_painel_css.py a partir de tools/tokens_analises.py: não edite à mão (edite a tabela e gere de novo).
+   O bloco de impressão repete os literais claros: tests/test_painel_navegacao.py confere que não divergem de painel.css.
+   Cor nunca é a única pista: os padrões de preenchimento (um pattern dentro de cada SVG) e os glifos/textos fazem o resto em escala de cinza.
+   A moldura da v5 (abas, indicadores, blocos em cartão, gaveta de memória de cálculo) usa os tokens de painel.css; os gráficos em si não mudaram. */
+/*@GERADO:an-tokens*/
+
+/* ---------- base ---------- */
+.an-svg { width: 100%; height: auto; display: block; max-width: 760px; font-size: 12px; }
+.an-svg text { font-family: inherit; }
+.an-vazio { margin: var(--esp-1) 0; }
+.an-rot { fill: var(--an-texto); font-size: 12.5px; }
+.an-rot-forte { font-weight: 600; }
+.an-centro { font-weight: 600; }
+.an-cab { fill: var(--an-texto); font-size: 12px; font-weight: 600; }
+.an-grupo { fill: var(--an-suave); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.an-sep { stroke: var(--an-borda); stroke-width: 1; }
+.an-ct { font-size: 11.5px; font-weight: 600; }
+.an-leg { fill: var(--an-suave); font-size: 11px; letter-spacing: -.012em; }   /* a legenda é posicionada em Python com largura de texto estimada: em Inter 11,5px "Achados da empresa" encostava no quadradinho seguinte */
+.an-val { fill: var(--an-texto); font-size: 12.5px; font-weight: 600; }
+.an-halo, .an-val-dentro { fill: var(--an-texto); paint-order: stroke; stroke: var(--an-fundo); stroke-width: 3px; stroke-linejoin: round; font-weight: 700; font-size: 11.5px; }
+.an-val-dentro { font-size: 12.5px; }
+.an-eixo-val { fill: var(--an-suave); font-size: 11px; }
+.an-eixo-tit { fill: var(--an-suave); font-size: 12px; }
+.an-eixo { stroke: var(--an-suave); stroke-width: 1; }
+.an-grade { stroke: var(--an-borda); stroke-width: 1; stroke-dasharray: 2 3; }
+.an-rotulo-linha { fill: var(--an-texto); font-size: 11.5px; font-weight: 600; paint-order: stroke; stroke: var(--an-fundo); stroke-width: 3px; stroke-linejoin: round; }
+.an-valor-grande { fill: var(--an-texto); font-size: 15px; font-weight: 700; paint-order: stroke; stroke: var(--an-fundo); stroke-width: 3px; stroke-linejoin: round; }
+.an-texto-med { fill: var(--an-texto); font-size: 13.5px; }
+.an-forte { font-weight: 700; }
+a.an-link { cursor: pointer; }
+a.an-link:hover .an-c, a.an-link:hover .an-seg, a.an-link:hover .an-col, a.an-link:hover .an-area-s,
+a.an-link:hover .an-bar-parte, a.an-link:hover .an-fn0, a.an-link:hover .an-fn1, a.an-link:hover .an-marca, a.an-link:hover .an-ponto { stroke: var(--an-acento); stroke-width: 2; }
+a.an-link:hover .an-fluxo { fill-opacity: .6; }
+a.an-link:focus-visible { outline: 3px solid var(--an-acento); outline-offset: 2px; }
+
+/* ---------- padrões de preenchimento (dentro do <pattern>): fundo `an-bg-X` e traço `an-ln-X` ---------- */
+.an-ln { fill: none; }
+.an-ln-s0, .an-ln-s1, .an-ln-s2, .an-ln-s3, .an-ln-s4, .an-ln-s5, .an-ln-s6, .an-ln-s7 { stroke: var(--an-pad-ln); }
+.an-bg-em_uso { fill: var(--an-em_uso); }
+.an-ln-em_uso { stroke: var(--an-em_uso-ln); }
+.an-bg-piloto { fill: var(--an-piloto); }
+.an-ln-piloto { stroke: var(--an-piloto-ln); }
+.an-bg-licitacao { fill: var(--an-licitacao); }
+.an-ln-licitacao { stroke: var(--an-licitacao-ln); }
+.an-bg-anunciado { fill: var(--an-anunciado); }
+.an-ln-anunciado { stroke: var(--an-anunciado-ln); }
+.an-bg-em_estudo { fill: var(--an-em_estudo); }
+.an-ln-em_estudo { stroke: var(--an-em_estudo-ln); }
+.an-bg-apenas_citado { fill: var(--an-apenas_citado); }
+.an-ln-apenas_citado { stroke: var(--an-apenas_citado-ln); }
+.an-bg-descartado { fill: var(--an-descartado); }
+.an-ln-descartado { stroke: var(--an-descartado-ln); }
+.an-bg-s0 { fill: var(--an-s0); }
+.an-bg-s1 { fill: var(--an-s1); }
+.an-bg-s2 { fill: var(--an-s2); }
+.an-bg-s3 { fill: var(--an-s3); }
+.an-bg-s4 { fill: var(--an-s4); }
+.an-bg-s5 { fill: var(--an-s5); }
+.an-bg-s6 { fill: var(--an-s6); }
+.an-bg-s7 { fill: var(--an-s7); }
+.an-bg-f1 { fill: var(--an-f1); }
+.an-ln-f1 { stroke: var(--an-f1-ln); }
+.an-bg-k-fraca { fill: var(--an-k-fraca); }
+.an-ln-k-fraca { stroke: var(--an-k-fraca-ln); }
+.an-bg-k-razoavel { fill: var(--an-k-razoavel); }
+.an-ln-k-razoavel { stroke: var(--an-k-razoavel-ln); }
+.an-bg-k-moderada { fill: var(--an-k-moderada); }
+.an-ln-k-moderada { stroke: var(--an-k-moderada-ln); }
+.an-bg-k-substancial { fill: var(--an-k-substancial); }
+.an-ln-k-substancial { stroke: var(--an-k-substancial-ln); }
+.an-bg-k-quase { fill: var(--an-k-quase); }
+.an-ln-k-quase { stroke: var(--an-k-quase-ln); }
+.an-bg-cal-alta { fill: var(--an-cal-alta); }
+.an-ln-cal-alta { stroke: var(--an-cal-alta-ln); }
+.an-bg-cal-media { fill: var(--an-cal-media); }
+.an-ln-cal-media { stroke: var(--an-cal-media-ln); }
+.an-bg-cal-baixa { fill: var(--an-cal-baixa); }
+.an-ln-cal-baixa { stroke: var(--an-cal-baixa-ln); }
+.an-bg-res-mais3 { fill: var(--an-res-mais3); }
+.an-ln-res-mais3 { stroke: var(--an-res-mais3-ln); }
+.an-bg-res-mais2 { fill: var(--an-res-mais2); }
+.an-ln-res-mais2 { stroke: var(--an-res-mais2-ln); }
+.an-bg-res-zero { fill: var(--an-res-zero); }
+.an-ln-res-zero { stroke: var(--an-res-zero-ln); }
+.an-bg-res-menos2 { fill: var(--an-res-menos2); }
+.an-ln-res-menos2 { stroke: var(--an-res-menos2-ln); }
+.an-bg-res-menos3 { fill: var(--an-res-menos3); }
+.an-ln-res-menos3 { stroke: var(--an-res-menos3-ln); }
+.an-bg-fx { fill: var(--an-fx); }
+.an-ln-fx { stroke: var(--an-fx-ln); }
+.an-bg-ic { fill: var(--an-ic); }
+.an-ln-ic { stroke: var(--an-ic-ln); }
+.an-bg-nv-aberto { fill: var(--an-nv-aberto); }
+.an-ln-nv-aberto { stroke: var(--an-nv-aberto-ln); }
+.an-bg-nv-parcial { fill: var(--an-nv-parcial); }
+.an-ln-nv-parcial { stroke: var(--an-nv-parcial-ln); }
+.an-bg-nv-fechado { fill: var(--an-nv-fechado); }
+.an-ln-nv-fechado { stroke: var(--an-nv-fechado-ln); }
+
+/* ---------- matriz de maturidade ---------- */
+.an-c { stroke: var(--an-borda); stroke-width: 1; }
+.an-c-sem { fill: none; stroke: var(--an-suave); stroke-dasharray: 2 3; stroke-width: 1; }
+.an-t-sem { fill: var(--an-suave); }
+.an-gl { fill: none; }
+.an-c-em_uso { stroke: var(--an-em_uso-ln); } .an-t-em_uso { fill: var(--an-em_uso-tx); } .an-gl-em_uso { stroke: var(--an-em_uso-tx); fill: none; }
+.an-c-piloto { stroke: var(--an-piloto-ln); } .an-t-piloto { fill: var(--an-piloto-tx); } .an-gl-piloto { stroke: var(--an-piloto-tx); fill: none; }
+.an-c-licitacao { stroke: var(--an-licitacao-ln); } .an-t-licitacao { fill: var(--an-licitacao-tx); } .an-gl-licitacao { stroke: var(--an-licitacao-tx); fill: none; }
+.an-c-anunciado { stroke: var(--an-anunciado-ln); } .an-t-anunciado { fill: var(--an-anunciado-tx); } .an-gl-anunciado { stroke: var(--an-anunciado-tx); fill: none; }
+.an-c-em_estudo { stroke: var(--an-em_estudo-ln); } .an-t-em_estudo { fill: var(--an-em_estudo-tx); } .an-gl-em_estudo { stroke: var(--an-em_estudo-tx); fill: none; }
+.an-c-apenas_citado { stroke: var(--an-apenas_citado-ln); } .an-t-apenas_citado { fill: var(--an-apenas_citado-tx); } .an-gl-apenas_citado { stroke: var(--an-apenas_citado-tx); fill: none; }
+.an-c-descartado { stroke: var(--an-descartado-ln); } .an-t-descartado { fill: var(--an-descartado-tx); } .an-gl-descartado { stroke: var(--an-descartado-tx); fill: none; }
+.an-gl-em_uso { fill: var(--an-em_uso-tx); }
+.an-c-apenas_citado { stroke-dasharray: 3 2; }
+
+/* ---------- barras de proporção ---------- */
+.an-bar-fundo { fill: var(--an-borda); }
+.an-bar-parte { fill: var(--an-ok); }
+
+/* ---------- funil ---------- */
+.an-fn0 { fill: var(--an-acento); }
+.an-fn1 { stroke: var(--an-f1); stroke-width: 1; }
+.an-conv { fill: var(--an-suave); font-size: 11.5px; font-weight: 600; }
+.an-conv-baixa { fill: var(--an-perigo); font-weight: 700; }
+
+/* ---------- linha com corte, dispersão ---------- */
+.an-area { fill: var(--an-acento); fill-opacity: .12; }
+.an-linha { fill: none; stroke: var(--an-acento); stroke-width: 2.2; stroke-linejoin: round; }
+.an-pt { fill: var(--an-fundo); stroke: var(--an-acento); stroke-width: 1.6; }
+.an-teto { stroke: var(--an-ok); stroke-width: 2; stroke-dasharray: 7 4; }
+.an-corte { stroke: var(--an-perigo); stroke-width: 2; stroke-dasharray: 3 4; }
+.an-ponto { fill: var(--an-acento); fill-opacity: .55; stroke: var(--an-acento); stroke-width: .6; }
+.an-curva { fill: none; stroke: var(--an-perigo); stroke-width: 2.4; stroke-linejoin: round; }
+
+/* ---------- áreas empilhadas, mosaico ---------- */
+.an-area-s, .an-seg { stroke: var(--an-fundo); stroke-width: 1.2; }
+
+/* ---------- régua de kappa ---------- */
+.an-faixa { stroke: var(--an-suave); stroke-width: 1; }
+.an-faixa-atual { stroke: var(--an-texto); stroke-width: 2.5; }
+.an-faixa-rot { fill: var(--an-suave); font-size: 12px; font-weight: 600; }
+.an-faixa-rot.an-faixa-atual { fill: var(--an-texto); stroke: none; font-weight: 700; }
+.an-ponteiro { fill: var(--an-texto); }
+.an-ponteiro-haste { stroke: var(--an-texto); stroke-width: 2; }
+.an-ic-halo { stroke: var(--an-fundo); stroke-width: 5; stroke-linecap: round; }
+.an-ic-linha { stroke: var(--an-texto); stroke-width: 2; stroke-linecap: round; }
+
+/* ---------- semáforo do limite ---------- */
+.an-faixa-fundo { fill: var(--an-borda); }
+.an-obs-barra { fill: var(--an-acento); }
+.an-ic-sombra { stroke: var(--an-ic-ln); stroke-width: 1; stroke-dasharray: 3 2; }
+.an-limite { stroke: var(--an-perigo); stroke-width: 3; }
+.an-limite-rot { fill: var(--an-perigo); font-size: 12.5px; font-weight: 700; }
+.an-veredito-caixa { stroke-width: 2; }
+.an-veredito-glifo { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.an-veredito-texto { fill: var(--an-texto); font-size: 13.5px; font-weight: 600; }
+.an-veredito-ok .an-veredito-caixa { fill: var(--an-ok-fundo); stroke: var(--an-ok); }
+.an-veredito-ok .an-veredito-glifo { stroke: var(--an-ok); }
+.an-veredito-incerto .an-veredito-caixa { fill: var(--an-alerta-fundo); stroke: var(--an-alerta); stroke-dasharray: 6 3; }
+.an-veredito-incerto .an-veredito-glifo { stroke: var(--an-alerta); }
+.an-veredito-acima .an-veredito-caixa { fill: var(--an-perigo-fundo); stroke: var(--an-perigo); stroke-width: 3; }
+.an-veredito-acima .an-veredito-glifo { stroke: var(--an-perigo); }
+
+/* ---------- calibração ---------- */
+.an-col { stroke: var(--an-texto); stroke-width: 1; }
+.an-col-vazia { fill: none; stroke: var(--an-suave); stroke-width: 1.5; stroke-dasharray: 5 4; }
+
+/* ---------- floresta de odds ---------- */
+.an-ref { stroke: var(--an-texto); stroke-width: 1.5; }
+.an-marca { stroke: var(--an-texto); stroke-width: 1; }
+.an-or-mais .an-marca { fill: var(--an-acento); }
+.an-or-menos .an-marca { fill: var(--an-res-menos3); }
+.an-or-neutro .an-marca { fill: var(--an-fundo); stroke-width: 2; }
+.an-or-texto { fill: var(--an-texto); font-size: 12px; font-weight: 600; }
+.an-or-mais .an-ic-linha { stroke: var(--an-acento); }
+.an-or-menos .an-ic-linha { stroke: var(--an-res-menos3); }
+.an-or-neutro .an-ic-linha { stroke: var(--an-suave); }
+
+/* ---------- mapa de calor ---------- */
+.an-calor-0 { fill: var(--an-calor0); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-0 { fill: var(--an-calor-tx0); }
+.an-calor-1 { fill: var(--an-calor1); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-1 { fill: var(--an-calor-tx1); }
+.an-calor-2 { fill: var(--an-calor2); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-2 { fill: var(--an-calor-tx2); }
+.an-calor-3 { fill: var(--an-calor3); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-3 { fill: var(--an-calor-tx3); }
+.an-calor-4 { fill: var(--an-calor4); stroke: var(--an-borda); stroke-width: .5; } .an-calor-t-4 { fill: var(--an-calor-tx4); }
+
+/* ---------- fluxo ---------- */
+/* o preenchimento do fluxo em alerta vem do atributo fill (padrão); por isso a regra abaixo exclui `an-fluxo-alerta` */
+.an-fluxo:not(.an-fluxo-alerta) { fill: var(--an-acento); fill-opacity: .28; stroke: none; }
+.an-fluxo-alerta { fill-opacity: 1; stroke: var(--an-perigo); stroke-width: 1.5; }
+.an-no { fill: var(--an-texto); }
+
+/* ---------- ranking de bloqueios ---------- */
+.an-ranking th[scope="row"] { position: relative; padding-left: 1.9rem; font-weight: 600; text-transform: none; letter-spacing: 0; font-size: var(--fs-md); color: var(--an-texto); background: transparent;
+  white-space: normal; overflow-wrap: break-word; min-width: 13rem; }
+/* marcador do nível: um ponto com halo no começo da linha (o nível também está escrito na coluna "situação", com glifo e texto) */
+.an-ranking th[scope="row"]::before { content: ""; position: absolute; left: .8rem; top: 1.02rem; width: .55rem; height: .55rem; border-radius: var(--raio-pilula); background: var(--an-suave); }
+tr.an-nivel-fechado th[scope="row"]::before { background: var(--an-perigo); box-shadow: 0 0 0 3px var(--an-perigo-fundo); }
+tr.an-nivel-parcial th[scope="row"]::before { background: var(--an-alerta); box-shadow: 0 0 0 3px var(--an-alerta-fundo); }
+tr.an-nivel-aberto th[scope="row"]::before { background: var(--an-ok); box-shadow: 0 0 0 3px var(--an-ok-fundo); }
+.an-ranking thead th { white-space: normal; vertical-align: bottom; }
+.an-celula-barra { min-width: 130px; }
+.an-barra-semaforo { width: 120px; max-width: none; height: 12px; display: block; border-radius: var(--raio-pilula); overflow: hidden; }
+.an-barra-nivel { stroke: var(--an-texto); stroke-width: .6; }
+.an-situacao { display: inline-flex; align-items: center; gap: .3em; padding: .1em .65em; border-radius: var(--raio-pilula); font-size: var(--fs-sm); font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.an-situacao::before { font-size: .9em; }
+.an-situacao-aberto { color: var(--an-ok); background: var(--an-ok-fundo); } .an-situacao-aberto::before { content: "\2713"; }
+.an-situacao-parcial { color: var(--an-alerta); background: var(--an-alerta-fundo); } .an-situacao-parcial::before { content: "\25D0"; }
+.an-situacao-fechado { color: var(--an-perigo); background: var(--an-perigo-fundo); } .an-situacao-fechado::before { content: "\2715"; }
+
+/* ---------- razões de bloqueio pelo robots.txt (os selos .robots-* vêm de painel.css; aqui só o entorno) ---------- */
+.an-zero { color: var(--an-suave); }
+.an-nota-coluna { display: block; font-size: var(--fs-xs); font-weight: 400; text-transform: none; letter-spacing: 0; white-space: normal; }
+.an-glifo-proibido { color: var(--an-perigo); } .an-glifo-preventivo { color: var(--an-alerta); }
+.an-legenda-motivos, .an-motivos { list-style: none; margin: var(--esp-2) 0 var(--esp-3); padding: 0; display: grid; gap: var(--esp-2); font-size: var(--fs-md); }
+.an-legenda-motivos li, .an-motivos li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--esp-1) var(--esp-3); color: var(--an-suave); }
+.an-motivos .selo { white-space: normal; }
+
+/* ---------- selos estatísticos (selos_estatisticos.py); combinam com `.selo` de painel.css ---------- */
+.selo.ev-forte { color: var(--an-ok); background: var(--an-ok-fundo); border-color: var(--inclusao-borda); }
+.selo.ev-moderada { color: var(--an-alerta); background: var(--an-alerta-fundo); border-color: var(--duvida-borda); }
+.selo.ev-insuficiente { color: var(--an-suave); background: var(--an-fundo); border-color: var(--borda-controle); border-style: dashed; }
+.selo.ev-sem { color: var(--an-suave); background: var(--an-fundo); border-color: var(--borda-controle); border-style: dotted; }
+
+/* cabeçalhos longos das colunas da matriz */
+.an-matriz .an-cab { font-size: 11px; }
+
+/* ---------- moldura da página /analises ---------- */
+/* abas: controle segmentado (trilho suave com pílulas). A aba atual é a ficha branca com anel e relevo, no matiz da página. */
+.an-abas { display: flex; flex-wrap: wrap; gap: .2rem; width: fit-content; max-width: 100%; margin: var(--esp-4) 0 var(--esp-5); padding: .25rem; background: var(--superficie-subtil);
+  border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.an-abas a { display: inline-flex; align-items: center; gap: .45rem; min-height: 2.25rem; padding: .35rem .85rem; border: 1px solid transparent; border-radius: calc(var(--raio-md) - 3px);
+  color: var(--texto-suave); font-size: var(--fs-md); font-weight: 550; text-decoration: none; white-space: nowrap; }
+.an-abas a:hover { background: var(--superficie); color: var(--texto); border-color: var(--borda); }
+.an-abas a[aria-current="page"] { background: var(--superficie); color: var(--tom-tx); font-weight: 700; border-color: var(--tom-borda); box-shadow: var(--sombra-botao); }
+html.icones-ok .an-abas a::before { content: var(--ab-ic, %ic(chart-bar)%); font-family: var(--fonte-icones); font-weight: 400; font-size: 1.2em; line-height: 1; color: var(--texto-mutado); }
+html.icones-ok .an-abas a:hover::before { color: var(--tom-tx); }
+html.icones-ok .an-abas a[aria-current="page"]::before { content: var(--ab-icf, %icf(chart-bar)%); color: var(--tom-tx); }
+.an-abas a[href*="secao=visao"] { --ab-ic: %ic(squares-four)%; --ab-icf: %icf(squares-four)%; }
+.an-abas a[href*="secao=adocao"] { --ab-ic: %ic(map-trifold)%; --ab-icf: %icf(map-trifold)%; }
+.an-abas a[href*="secao=busca"] { --ab-ic: %ic(magnifying-glass)%; --ab-icf: %icf(magnifying-glass)%; }
+.an-abas a[href*="secao=literatura"] { --ab-ic: %ic(books)%; --ab-icf: %icf(books)%; }
+.an-abas a[href*="secao=termos"] { --ab-ic: %ic(text-aa)%; --ab-icf: %icf(text-aa)%; }
+.an-abas a[href*="secao=web"] { --ab-ic: %ic(globe)%; --ab-icf: %icf(globe)%; }
+.an-abas a[href*="secao=auditoria"] { --ab-ic: %ic(robot)%; --ab-icf: %icf(robot)%; }
+.an-abas a[href*="secao=operacao"] { --ab-ic: %ic(gear-six)%; --ab-icf: %icf(gear-six)%; }
+
+/* indicadores do banco: mesmo desenho dos .kpi de painel.css (rótulo em cima, número embaixo, brilho de matiz e ladrilho de ícone no canto).
+   Ícone e matiz de partida vêm da POSIÇÃO do cartão (a ordem do resumo do banco em analises.py); se a ordem mudar, ponha data-ic e data-tom no cartão: eles mandam. */
+.an-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--esp-3); margin: var(--esp-4) 0 var(--esp-6); }
+:where(.an-cartoes .cartao) { --ic-tx: var(--tom-cobalto-tx); --ic-fundo: var(--tom-cobalto-fundo); --ic-borda: var(--tom-cobalto-borda); }
+:where(.an-cartoes .cartao:nth-child(1)) { --ic-f: %icf(tag)%; --ic-tx: var(--tom-violeta-tx); --ic-fundo: var(--tom-violeta-fundo); --ic-borda: var(--tom-violeta-borda); }
+:where(.an-cartoes .cartao:nth-child(2)) { --ic-f: %icf(check-circle)%; }
+:where(.an-cartoes .cartao:nth-child(3)) { --ic-f: %icf(article)%; --ic-tx: var(--tom-rosa-tx); --ic-fundo: var(--tom-rosa-fundo); --ic-borda: var(--tom-rosa-borda); }
+:where(.an-cartoes .cartao:nth-child(4)) { --ic-f: %icf(funnel)%; }
+:where(.an-cartoes .cartao:nth-child(5)) { --ic-f: %icf(robot)%; --ic-tx: var(--tom-violeta-tx); --ic-fundo: var(--tom-violeta-fundo); --ic-borda: var(--tom-violeta-borda); }
+:where(.an-cartoes .cartao:nth-child(6)) { --ic-f: %icf(file-text)%; --ic-tx: var(--tom-rosa-tx); --ic-fundo: var(--tom-rosa-fundo); --ic-borda: var(--tom-rosa-borda); }
+.an-cartoes .cartao { position: relative; display: flex; flex-direction: column; gap: .2rem; min-height: 6.2rem; margin: 0; padding: 1rem 1.15rem 1.05rem; overflow: hidden; border: 1px solid var(--borda);
+  border-radius: var(--raio); background-color: var(--superficie); background-image: radial-gradient(8rem 5.5rem at 100% 0, var(--ic-fundo), transparent 75%); box-shadow: var(--sombra); }
+.an-cartoes .cartao > span { order: -1; max-width: calc(100% - 2.6rem); color: var(--texto-suave); font-size: var(--fs-sm); font-weight: 550; line-height: 1.3; }
+.an-cartoes .cartao > strong { margin-top: auto; padding-top: .35rem; font-size: 2rem; font-weight: 700; letter-spacing: -.028em; line-height: 1.05; color: var(--texto); }
+html.icones-ok .an-cartoes .cartao::before { content: var(--ic-f, none); position: absolute; top: .85rem; right: .9rem; width: 2.1rem; height: 2.1rem; border-radius: .7rem; display: grid; place-items: center;
+  font-family: var(--fonte-icones); font-size: 1.2rem; line-height: 1; background: var(--ic-fundo); color: var(--ic-tx); box-shadow: inset 0 0 0 1px var(--ic-borda); }
+
+/* blocos: cada análise é um cartão com o título-conclusão ao lado de um ladrilho de ícone. O ícone e o matiz vêm do id do bloco; id desconhecido cai no padrão. */
+.an-bloco { --bl-tx: var(--tom-tx); --bl-fundo: var(--tom-fundo); --bl-borda: var(--tom-borda); --bl-ic: %icf(chart-bar)%;
+  position: relative; margin: 0 0 var(--esp-5); padding: 1.25rem var(--esp-6) var(--esp-5); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra); scroll-margin-top: 1rem; }
+.an-bloco > h2 { display: flex; align-items: flex-start; gap: .75rem; margin: 0 0 .25rem; font-size: 1.15rem; line-height: 1.3; letter-spacing: -.012em; }
+html.icones-ok .an-bloco > h2::before { content: var(--bl-ic); flex: none; display: grid; place-items: center; width: 2.1rem; height: 2.1rem; margin-top: -.1rem; border-radius: .7rem; font-family: var(--fonte-icones);
+  font-size: 1.2rem; font-weight: 400; line-height: 1; background: var(--bl-fundo); color: var(--bl-tx); box-shadow: inset 0 0 0 1px var(--bl-borda); }
+.an-subtitulo { margin: 0 0 var(--esp-3); font-size: var(--fs-sm); color: var(--texto-suave); }
+html.icones-ok .an-bloco > .an-subtitulo { padding-left: 2.85rem; }
+.an-bloco .prontidao .cartao { box-shadow: none; }
+.an-grafico { overflow-x: auto; margin: var(--esp-3) 0; }
+.an-bloco#prontidao, .an-bloco#lgpd, .an-bloco#calibracao, .an-bloco#auditoria_negativos, .an-bloco#saturacao { --bl-tx: var(--tom-violeta-tx); --bl-fundo: var(--tom-violeta-fundo); --bl-borda: var(--tom-violeta-borda); }
+.an-bloco#hipoteses, .an-bloco#funil, .an-bloco#posicao_web { --bl-tx: var(--tom-cobalto-tx); --bl-fundo: var(--tom-cobalto-fundo); --bl-borda: var(--tom-cobalto-borda); }
+.an-bloco#maturidade, .an-bloco#regiao, .an-bloco#fornecedores { --bl-tx: var(--tom-petroleo-tx); --bl-fundo: var(--tom-petroleo-fundo); --bl-borda: var(--tom-petroleo-borda); }
+.an-bloco#falsa_exclusao, .an-bloco#opacidade, .an-bloco#nao_verificaveis, .an-bloco#tokens { --bl-tx: var(--tom-ambar-tx); --bl-fundo: var(--tom-ambar-fundo); --bl-borda: var(--tom-ambar-borda); }
+.an-bloco#concordancia_achados, .an-bloco#posicao_scholar, .an-bloco#tamanho { --bl-tx: var(--tom-rosa-tx); --bl-fundo: var(--tom-rosa-fundo); --bl-borda: var(--tom-rosa-borda); }
+.an-bloco#prontidao { --bl-ic: %icf(gauge)%; } .an-bloco#hipoteses { --bl-ic: %icf(flask)%; } .an-bloco#maturidade { --bl-ic: %icf(map-trifold)%; }
+.an-bloco#regiao { --bl-ic: %icf(compass)%; } .an-bloco#lgpd { --bl-ic: %icf(shield-check)%; } .an-bloco#fornecedores { --bl-ic: %icf(buildings)%; }
+.an-bloco#funil { --bl-ic: %icf(funnel)%; } .an-bloco#posicao_web { --bl-ic: %icf(chart-line)%; } .an-bloco#posicao_scholar { --bl-ic: %icf(graduation-cap)%; }
+.an-bloco#saturacao { --bl-ic: %icf(pulse)%; } .an-bloco#calibracao { --bl-ic: %icf(scales)%; } .an-bloco#falsa_exclusao { --bl-ic: %icf(warning-diamond)%; }
+.an-bloco#auditoria_negativos { --bl-ic: %icf(seal-question)%; } .an-bloco#concordancia_achados { --bl-ic: %icf(users)%; } .an-bloco#opacidade { --bl-ic: %icf(eye-slash)%; }
+.an-bloco#nao_verificaveis { --bl-ic: %icf(prohibit)%; } .an-bloco#tokens { --bl-ic: %icf(coins)%; } .an-bloco#tamanho { --bl-ic: %icf(file-text)%; }
+
+/* gaveta "Memória de cálculo": linha recolhível com ladrilho de ícone e o estado escrito (Mostrar/Ocultar) */
+.an-memoria { margin-top: var(--esp-4); background: var(--superficie-subtil); border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.an-memoria > summary { display: flex; align-items: center; gap: .6rem; min-height: 2.6rem; padding: .45rem var(--esp-4); border-radius: var(--raio-md); cursor: pointer; list-style: none; font-weight: 600; color: var(--texto); }
+.an-memoria > summary::-webkit-details-marker { display: none; }
+.an-memoria > summary::before { content: "\25B8"; flex: none; width: 1.25em; text-align: center; color: var(--acento); }
+.an-memoria[open] > summary::before { content: "\25BE"; }
+html.icones-ok .an-memoria > summary::before, html.icones-ok .an-memoria[open] > summary::before { content: %icf(clipboard-text)%; display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: .55rem;
+  font-family: var(--fonte-icones); font-size: 1rem; font-weight: 400; background: var(--bl-fundo, var(--tom-fundo)); color: var(--bl-tx, var(--tom-tx)); box-shadow: inset 0 0 0 1px var(--bl-borda, var(--tom-borda)); }
+.an-memoria > summary::after { content: "Mostrar"; margin-left: auto; font-size: var(--fs-sm); font-weight: 500; color: var(--texto-suave); }
+.an-memoria[open] > summary::after { content: "Ocultar"; }
+.an-memoria > summary:hover { background: var(--superficie); }
+.an-memoria[open] > summary { border-bottom: 1px solid var(--borda); border-radius: var(--raio-md) var(--raio-md) 0 0; }
+.an-memoria > :not(summary) { margin-left: var(--esp-4); margin-right: var(--esp-4); }
+.an-memoria > .tabela-rolavel { margin: var(--esp-3) var(--esp-4); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-sm); }
+.an-memoria > :last-child { margin-bottom: var(--esp-4); }
+.an-pares { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 var(--esp-5); margin-top: var(--esp-3); margin-bottom: var(--esp-3); }
+.an-pares dt, .an-pares dd { padding: .4rem 0; border-bottom: 1px dotted var(--borda-forte); }
+.an-pares dt { font-weight: 600; color: var(--texto-suave); }
+.an-pares dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.an-pares dt:last-of-type, .an-pares dd:last-of-type { border-bottom: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .an-abas a, .an-memoria > summary { transition: background-color var(--dur-curta) ease, border-color var(--dur-curta) ease, color var(--dur-curta) ease, box-shadow var(--dur-media) var(--ease); }
+}
+
+/* telas estreitas: as abas viram uma faixa que rola de lado (só ela rola; a página não ganha rolagem horizontal); indicadores em duas colunas; cartões mais justos */
+@media (max-width: 700px) {
+  .an-abas { flex-wrap: nowrap; width: auto; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--borda-forte) transparent; }
+  .an-abas a { flex: none; }
+  .an-cartoes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-2); }
+  .an-cartoes .cartao { min-height: 5.6rem; padding: .8rem .85rem .85rem; }
+  .an-cartoes .cartao > strong { font-size: 1.55rem; }
+  .an-bloco { padding: var(--esp-4); }
+  html.icones-ok .an-bloco > .an-subtitulo { padding-left: 0; }
+  .an-pares { grid-template-columns: minmax(0, 1fr); }
+  .an-pares dt { border-bottom: 0; padding-bottom: 0; }
+}
+
+@media print {
+  .an-svg { max-width: none; }
+  a.an-link { color: inherit; }
+  .an-abas { display: none; }
+  .an-bloco, .an-cartoes .cartao { box-shadow: none; break-inside: avoid; }
+  .an-bloco > h2::before, .an-cartoes .cartao::before { display: none; }
+  .an-memoria > summary::before, .an-memoria > summary::after { display: none; }
+}

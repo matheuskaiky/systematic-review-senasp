@@ -1,0 +1,19 @@
+
+  /* ---- Tipografia, espaço, raios, movimento (não mudam com o tema). Inter e Source Serif 4 chegam por painel.js (arquivos em /static/fonts); a pilha de sistema é a reserva. ---- */
+  --fonte-base: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --fonte-leitura: "Source Serif 4", "Source Serif Pro", Charter, "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --fonte-titulo: var(--fonte-leitura);
+  --fonte-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fonte-icones: "Observatorio Icones";
+  --fs-xs: .75rem; --fs-sm: .85rem; --fs-md: .92rem; --fs-base: 1rem; --fs-lg: 1.1rem; --fs-xl: 1.3rem; --fs-2xl: 1.6rem; --fs-3xl: 2.15rem; --fs-4xl: 2.6rem;
+  --fs-leitura: 1.0625rem; --fs-botao: 1.0625rem; --fs-titulo-leitura: 1.625rem;
+  --lh-tight: 1.2; --lh-base: 1.5; --lh-solto: 1.65; --lh-leitura: 1.72; --medida-leitura: 66ch; --tracking-titulo: -.012em;
+  --esp-1: .25rem; --esp-2: .5rem; --esp-3: .75rem; --esp-4: 1rem; --esp-5: 1.25rem; --esp-6: 1.5rem; --esp-7: 2rem; --esp-8: 3rem;
+  --tap: 3.25rem; --tap-grande: 4rem;
+  /* raios: 4px peças utilitárias (teclas, marcas), 8px campos, 10px botões, 16px cartões e painéis; pílula para selos, chips e barras */
+  --raio-xs: 4px; --raio-sm: 8px; --raio-md: 10px; --raio: 16px; --raio-lg: 20px; --raio-xl: 24px; --raio-pilula: 999px;
+  --dur-curta: .12s; --dur-media: .2s; --ease: cubic-bezier(.2, .7, .2, 1);
+  --larg-menu: 16rem; --larg-fila: clamp(280px, 15vw, 300px); --larg-decisao: clamp(340px, 19vw, 360px); --larg-conteudo: 1320px;
+  --foco-largura: 3px; --foco-recuo: 2px;   /* --foco (a cor) é semântico: vem de tokens.py */
+  /* anel inteiro no lugar da antiga barra lateral do estado "sugerido" ou "ativo" */
+  --indicador: 0 0 0 2px var(--acento);

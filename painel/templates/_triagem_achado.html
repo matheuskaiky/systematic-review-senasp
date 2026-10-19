@@ -45,7 +45,7 @@
           {% if a.outros_achados_da_pagina %}<p class="outros">Outros achados nesta página:
             {% for o in a.outros_achados_da_pagina %}<a href="/achados/{{ o.achado_id }}{% if query %}?{{ query }}{% endif %}">nº {{ o.achado_id }} · {{ rotulos.rotulo(rotulos.TECNOLOGIAS, o.tecnologia) }}</a>{{ ", " if not loop.last }}{% endfor %}</p>{% endif %}
 
-          <h2>Evidência no texto</h2>
+          <h2 data-ic="quotes">Evidência no texto</h2>
           <blockquote class="trecho citado"><span class="rotulo-mini">Trecho citado pelo modelo</span>{{ a.evidencia }}</blockquote>
           {% if ev.aviso %}<div class="aviso aviso-forte">{{ ev.aviso }}</div>{% endif %}
           {% if ev.encontrada %}<p class="selos">{{ s.evidencia(true) }} <small>destacado abaixo, no texto que foi enviado ao modelo ({{ fmt.numero(ev.n_texto) }} caracteres{% if a.texto_truncado %}, <strong>cortado</strong> no limite de envio{% endif %})</small></p>
@@ -76,7 +76,7 @@
 
       {% if historico %}
       <article class="cartao">
-        <h2>Histórico de decisões</h2>
+        <h2 data-ic="clock" data-tom="ambar">Histórico de decisões</h2>
         <ul class="historico">{% for h in historico %}
           <li{% if h.desfeita %} class="desfeita"{% endif %}><strong>{{ (h.verificado_por if ver_nomes else "Revisor") }}</strong> · {{ fmt.data_hora(h.importado_em) }} ·
             {{ rotulos.rotulo(rotulos.STATUS, h.status_final, "sem status") if h.status_final else "verificação removida" }}{% if h.observacao %} — {{ h.observacao }}{% endif %}{% if h.desfeita %} <em>(desfeita)</em>{% endif %}</li>
@@ -87,7 +87,7 @@
 
     <aside class="decisao" aria-label="Decisão">
       <div class="cartao">
-        <h2>Decisão</h2>
+        <h2 data-ic="scales">Decisão</h2>
         {% if a.verificado %}<p class="selos">{{ s.verificacao(a) }}</p>
           <p><small>por {{ (a.verificado_por if ver_nomes else "Revisor") }} em {{ fmt.data_hora(a.verificado_em) }}{% if a.observacao %} — {{ a.observacao }}{% endif %}</small></p>{% endif %}
         {% if a.substituido_por and not a.verificado %}
@@ -158,7 +158,7 @@
         </p>
       </div>
 
-      <div class="cartao atalhos"><h3>Atalhos</h3>
+      <div class="cartao atalhos"><h3 data-ic="keyboard">Atalhos</h3>
         <p><kbd>1</kbd>–<kbd>{{ status_opcoes|length }}</kbd> status · <kbd>d</kbd> descartar · <kbd>n</kbd> pular · <kbd>u</kbd> desfazer · <kbd>e</kbd> ir à evidência</p>
         <p><small>Os atalhos não funcionam enquanto você digita em um campo. Confirmar grava na hora, com cópia de segurança do banco no início da sessão.</small></p>
       </div>

@@ -1,0 +1,36 @@
+/* ===== Base: reset, acessibilidade, tipografia ===== */
+* { box-sizing: border-box; }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; scroll-padding-top: 1rem; }
+body { margin: 0; background: var(--fundo); color: var(--texto); line-height: var(--lh-base); font-family: var(--fonte-base); font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+a { color: var(--acento); text-decoration-thickness: 1px; text-underline-offset: .18em; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible,
+.texto-pagina:focus-visible, [tabindex]:focus-visible { outline: var(--foco-largura) solid var(--foco); outline-offset: var(--foco-recuo); }
+main:focus-visible { outline: 2px dashed var(--foco); outline-offset: -2px; }
+::placeholder { color: var(--texto-suave); opacity: 1; }
+::selection { background: var(--acento-fundo); color: var(--texto); }
+.pular { position: absolute; left: .75rem; top: -5rem; z-index: 100; padding: .6rem var(--esp-4); border-radius: var(--raio-md); background: var(--acento);
+  color: var(--texto-botao); font-weight: 600; text-decoration: none; box-shadow: var(--sombra-alta); }
+.pular:focus { top: .5rem; }
+.so-leitor { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0; }
+code, pre, kbd { font-family: var(--fonte-mono); font-size: .9em; }
+code { background: var(--superficie-subtil); color: var(--texto); padding: .08em .4em; border-radius: var(--raio-xs); border: 1px solid var(--borda); }
+pre.comando { background: var(--superficie-subtil); border: 1px solid var(--borda); padding: .8rem var(--esp-4); border-radius: var(--raio-md); overflow-x: auto; }
+pre.comando code { background: none; border: 0; padding: 0; }
+/* tecla física: face clara, contorno inteiro e uma sombra curta que dá a espessura (a forma final está em 60_cockpit.css) */
+kbd { background: var(--superficie); color: var(--texto); border: 1px solid var(--borda-forte); border-radius: var(--raio-xs); padding: 0 .4em; box-shadow: 0 1px 0 var(--borda-forte); }
+
+/* títulos: serifa no título da página; Inter nos demais */
+h1 { font-family: var(--fonte-titulo); font-size: var(--fs-3xl); font-weight: 600; letter-spacing: var(--tracking-titulo); line-height: 1.12; margin: 0 0 var(--esp-2); text-wrap: balance; }
+h1 small { font-family: var(--fonte-base); font-weight: 500; color: var(--texto-suave); font-size: .46em; letter-spacing: 0; }
+h2 { font-size: var(--fs-lg); font-weight: 650; letter-spacing: -.012em; line-height: var(--lh-tight); margin: 0 0 var(--esp-3); }
+h3 { font-size: var(--fs-md); font-weight: 650; letter-spacing: -.005em; margin: 0 0 var(--esp-2); }
+.sub { color: var(--texto-suave); font-size: 1.0625rem; line-height: 1.55; margin: 0 0 var(--esp-6); max-width: 64ch; }
+.sub a { font-weight: 550; }
+.trilha { color: var(--texto-suave); font-size: var(--fs-md); margin: 0 0 var(--esp-3); }
+.trilha a { text-decoration: none; font-weight: 550; }
+.trilha a:hover { text-decoration: underline; }
+.fila-info { color: var(--acento); font-weight: 600; }
+hr { border: 0; border-top: 1px solid var(--borda); margin: var(--esp-6) 0; }

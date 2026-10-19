@@ -42,17 +42,17 @@
         </div>
       </article>
 
-      <article class="cartao"><h2>Onde foi encontrado</h2>
+      <article class="cartao"><h2 data-ic="compass">Onde foi encontrado</h2>
         {% if a.ocorrencias %}<h3>Google Scholar</h3><ul class="lista-simples">{% for o in a.ocorrencias %}<li><strong>{{ o.termo_id }}</strong> {{ ctx.termos.get(o.termo_id, "")|replace('"', '') }}
           <small>· posição {{ o.posicao or "?" }}{% if o.pagina %}, página {{ o.pagina }}{% endif %}{% if o.citacoes_no_momento is not none %} · {{ o.citacoes_no_momento }} citações na época{% endif %} · execução <a href="/execucoes/{{ o.run_id }}"><code>{{ o.run_id }}</code></a></small></li>{% endfor %}</ul>{% endif %}
         {% if a.manuais %}<h3>Buscas manuais</h3><ul class="lista-simples">{% for m in a.manuais %}<li><strong>{{ m.base }}</strong> · {{ m.termo_id }}{% if m.data_busca %} · {{ m.data_busca }}{% endif %}{% if m.posicao %} · posição {{ m.posicao }}{% endif %}</li>{% endfor %}</ul>{% endif %}
       </article>
 
-      {% if a.historico %}<article class="cartao"><h2>Histórico de decisões</h2>
+      {% if a.historico %}<article class="cartao"><h2 data-ic="clock" data-tom="ambar">Histórico de decisões</h2>
         <ul class="historico">{% for h in a.historico %}<li><strong>{{ (h.revisor if ver_nomes else "Revisor") }}</strong> · {{ fmt.data_hora(h.importado_em) }} · {{ h.decisao }}{% if h.motivo %} — {{ h.motivo }}{% endif %}{% if h.decisao_texto_completo %} · texto completo: {{ h.decisao_texto_completo }}{% if h.motivo_texto_completo %} — {{ h.motivo_texto_completo }}{% endif %}{% endif %}{% if h.independente %} <em>(revisão independente)</em>{% endif %}</li>{% endfor %}</ul></article>{% endif %}
 
       <div class="cartao atalhos">
-        <h3>Atalhos</h3>
+        <h3 data-ic="keyboard">Atalhos</h3>
         <p><kbd>i</kbd> incluir · <kbd>x</kbd> excluir · <kbd>p</kbd> pendente · <kbd>n</kbd> pular</p>
         <p><small>Os atalhos não funcionam enquanto você digita em um campo. Excluir pede o motivo: ele entra nos motivos de exclusão do PRISMA.</small></p>
       </div>
@@ -75,7 +75,7 @@
       </details>
 
       <div class="cartao">
-        <h2>Triagem por título e resumo</h2>
+        <h2 data-ic="funnel">Triagem por título e resumo</h2>
         {% if a.revisor %}<p><small>Última decisão por {{ (a.revisor if ver_nomes else "Revisor") }} em {{ fmt.data_hora(a.revisado_em) }}{% if a.motivo %} — {{ a.motivo }}{% endif %}</small></p>{% endif %}
 
         {% if ctx.somente_leitura %}
@@ -153,7 +153,7 @@
         <p class="explica-relevancia"><small>Relevância (Brasil + tema){% if a.relevancia.sinais %} — sinais encontrados: <strong>{{ a.relevancia.sinais|join(", ") }}</strong>{% else %} — nenhum sinal encontrado{% endif %}.
           É uma heurística de apoio à triagem, não uma decisão: <a href="/literatura/artigos#como-a-relevancia-e-calculada">veja as listas de marcadores</a>.</small></p>
         {% set e = rotulos_escopo %}
-        <article class="cartao cartao-llm" id="triagem-llm"><h2>Triagem de escopo pelo modelo</h2>
+        <article class="cartao cartao-llm" id="triagem-llm"><h2 data-ic="robot" data-tom="violeta">Triagem de escopo pelo modelo</h2>
           {% if not a.llm %}<p class="nao-avaliado">Este artigo ainda não foi avaliado pelo modelo. A triagem do modelo é só uma opinião, registrada à parte da sua decisão.</p>
           {% else %}
           <p class="selos">{{ s.llm(a.llm.status, a.llm.categoria_motivo, a.llm.valido) }}{% if a.llm.confianca %} <span class="selo neutro">Confiança {{ rotulos.rotulo(rotulos.CONFIANCA, a.llm.confianca)|lower }}</span>{% endif %}</p>

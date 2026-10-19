@@ -4,17 +4,26 @@
 .metodologia h2 { margin-bottom: .6rem; }
 .metodologia ul.itens { margin: 0 0 .8rem; padding-left: 1.2rem; columns: 22rem 2; column-gap: var(--esp-7); }
 .metodologia ul.itens li { break-inside: avoid; margin-bottom: .3rem; }
-.metodologia .ressalvas { border-left: 4px solid var(--alerta); }
+.metodologia ul.itens li::marker { color: var(--tom-solido); }
+/* ressalvas sobre os dados: cartão âmbar suave com contorno inteiro e ladrilho de ícone no título */
+.metodologia .ressalvas { padding: 1.25rem var(--esp-6); background: var(--duvida-fundo-suave); border: 1px solid var(--duvida-borda); border-radius: var(--raio); }
+.metodologia .ressalvas > h2 { display: flex; align-items: center; gap: .7rem; }
+html.icones-ok .metodologia .ressalvas > h2::before { content: "\e069"; content: "\e069" / ""; flex: none; display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: .7rem; font-family: var(--fonte-icones);
+  font-size: 1.2rem; font-weight: 400; line-height: 1; background: var(--duvida); color: var(--superficie); }
 .metodologia .ressalvas ul.itens { columns: 1; }
+.metodologia .ressalvas ul.itens li::marker { color: var(--duvida); }
 .acoes-texto { display: flex; align-items: center; gap: var(--esp-3); margin: 0 0 var(--esp-4); }
 #copiar-aviso { color: var(--texto-suave); font-size: var(--fs-md); }
 #copiar-texto[hidden] { display: none; }
 
 /* ===== Relatório estático (painel-relatorio): tema claro sempre, largura próxima de A4 ===== */
 body.relatorio { background: var(--superficie); color: var(--texto); color-scheme: light; }
+/* o relatório não tem o contêiner do painel: os matizes de partida (cobalto) vêm daqui, e os enfeites da tela ficam de fora */
+.relatorio { --tom-tx: var(--tom-cobalto-tx); --tom-fundo: var(--tom-cobalto-fundo); --tom-borda: var(--tom-cobalto-borda); --tom-solido: var(--tom-cobalto-solido); --tom-solido-tx: var(--tom-cobalto-solido-tx); }
 .relatorio main { max-width: 980px; margin: 0 auto; padding: var(--esp-6) var(--esp-5) var(--esp-8); }
-.relatorio h1 { font-size: var(--fs-2xl); margin-bottom: var(--esp-4); }
-.relatorio h2 { font-size: var(--fs-xl); border-bottom: 2px solid var(--borda); padding-bottom: .3rem; }
+.relatorio main::before, .relatorio main::after { display: none; }
+.relatorio h1 { font-family: var(--fonte-leitura); font-size: var(--fs-2xl); margin-bottom: var(--esp-4); }
+.relatorio h2 { font-size: var(--fs-xl); border-bottom: 1px solid var(--borda-forte); padding-bottom: .3rem; }
 .relatorio h3 { margin-top: 1.1rem; }
 .relatorio .cartao { box-shadow: none; }
 .relatorio .indice { margin: 0 0 var(--esp-5); font-size: var(--fs-md); color: var(--texto-suave); }

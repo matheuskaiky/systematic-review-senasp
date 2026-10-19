@@ -1,0 +1,32 @@
+/* ===== Tokens de design (fonte única de cores, tipografia, espaço, raios, sombras e movimento) =====
+   ARQUIVO GERADO: painel/static/painel.css. Edite as fontes (src/painel e tools/tokens.py) e rode tools/gerar_painel_css.py; a mão, só em emergência.
+
+   Direção visual (versão 5, "Observatório"): barra lateral de tinta azul-marinho com ícones coloridos, tela clara de papel frio, cartões brancos
+   com relevo discreto, título da página em serifa, e cinco matizes por área do site (cobalto, petróleo, violeta, âmbar e rosa) que colorem o
+   ladrilho do título, a aura do topo, os ícones dos indicadores e os gráficos. A cor de ação continua uma só (cobalto), para que botão e link
+   nunca briguem com a identidade da página. Cor nunca é a única pista: todo estado tem texto, glifo ou padrão.
+   Regra de ouro do desenho: NENHUMA barra de destaque só de um lado (nem borda, nem sombra interna). Destaque é anel inteiro, fundo, ladrilho de ícone
+   ou glifo. O script tools/lint_css.py reprova a volta desse padrão.
+
+   Arquitetura em duas camadas
+   - Camada 1, primitivos: escalas brutas e estáticas (--tinta-*, --noite-*, --cobalto-*, --petroleo-*, --violeta-*, --ambar-*, --rosa-*, ...).
+   - Camada 2, semânticos: os nomes que os componentes consomem (--fundo, --superficie, --texto, --acento, --tom-*, --menu-*). Trocar de tema é
+     reatribuir só os semânticos; os apelidos (--ok, --alerta, --neutro) herdam por var() e não se repetem.
+   Nenhum seletor de componente tem cor fixa: todos usam var(--semântico).
+
+   Troca de tema (quatro lugares, todos só com var(--primitivo), exceto o :root simples):
+     1. :root                                  tema claro (padrão)
+     2. bloco do esquema de cores do sistema   escuro quando o sistema pede e a pessoa não escolheu nada
+     3. @media screen, :root[data-theme="dark"]  escuro escolhido no botão
+     4. @media screen, :root[data-theme="light"] claro escolhido no botão, mesmo com o sistema em escuro
+   Os blocos 3 e 4 ficam dentro de @media screen para NUNCA vencerem o bloco de impressão (que volta ao claro no papel).
+   Os valores de sombra e de realce usam rgba() de propósito (em painel.css isso é permitido); todas as cores testadas são hexadecimais ou var().
+
+   Ícones: fonte própria (Observatorio Icones, glifos do Phosphor Icons sob licença MIT mais a marca do projeto), carregada por painel.js com a API
+   FontFace. Enquanto a fonte não chega (ou se falhar), a classe icones-ok não existe em html e nenhum ícone aparece: a tela continua inteira e legível.
+   Qualquer elemento ganha ícone com o atributo data-ic="nome" (mapa no fim deste arquivo); o menu e o título da página usam o href do item atual.
+
+   Contrato dos testes preservado: este comentário abre o arquivo; o seletor :root simples guarda os tokens; os blocos do esquema escuro e de impressão
+   são escritos com a grafia exata e têm o :root de tokens como primeiro bloco interno; nenhum hexadecimal fora de blocos :root simples; nada de endereço, importação, imagem
+   de fundo por função de endereço, tag ou atributo de origem em lugar nenhum (nem em comentário), porque o relatório estático embute este arquivo.
+   ===================================================================================================================== */

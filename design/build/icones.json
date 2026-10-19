@@ -1,0 +1,791 @@
+{
+ "marca": {
+  "r": "e000",
+  "d": "e001"
+ },
+ "squares-four": {
+  "r": "e002",
+  "f": "e003",
+  "d": "e004"
+ },
+ "flow-arrow": {
+  "r": "e005",
+  "f": "e006",
+  "d": "e007"
+ },
+ "map-trifold": {
+  "r": "e008",
+  "f": "e009",
+  "d": "e00a"
+ },
+ "binoculars": {
+  "r": "e00b",
+  "f": "e00c",
+  "d": "e00d"
+ },
+ "seal-check": {
+  "r": "e00e",
+  "f": "e00f",
+  "d": "e010"
+ },
+ "article": {
+  "r": "e011",
+  "f": "e012",
+  "d": "e013"
+ },
+ "books": {
+  "r": "e014",
+  "f": "e015",
+  "d": "e016"
+ },
+ "funnel": {
+  "r": "e017",
+  "f": "e018",
+  "d": "e019"
+ },
+ "chart-line-up": {
+  "r": "e01a",
+  "f": "e01b",
+  "d": "e01c"
+ },
+ "robot": {
+  "r": "e01d",
+  "f": "e01e",
+  "d": "e01f"
+ },
+ "tag": {
+  "r": "e020",
+  "f": "e021",
+  "d": "e022"
+ },
+ "git-diff": {
+  "r": "e023",
+  "f": "e024",
+  "d": "e025"
+ },
+ "lightbulb": {
+  "r": "e026",
+  "f": "e027",
+  "d": "e028"
+ },
+ "magnifying-glass": {
+  "r": "e029",
+  "f": "e02a",
+  "d": "e02b"
+ },
+ "play-circle": {
+  "r": "e02c",
+  "f": "e02d",
+  "d": "e02e"
+ },
+ "plugs-connected": {
+  "r": "e02f",
+  "f": "e030",
+  "d": "e031"
+ },
+ "flask": {
+  "r": "e032",
+  "f": "e033",
+  "d": "e034"
+ },
+ "database": {
+  "r": "e035",
+  "f": "e036",
+  "d": "e037"
+ },
+ "list-checks": {
+  "r": "e038",
+  "f": "e039",
+  "d": "e03a"
+ },
+ "chart-bar": {
+  "r": "e03b",
+  "f": "e03c",
+  "d": "e03d"
+ },
+ "gear-six": {
+  "r": "e03e",
+  "f": "e03f",
+  "d": "e040"
+ },
+ "caret-down": {
+  "r": "e041",
+  "f": "e042",
+  "d": "e043"
+ },
+ "caret-right": {
+  "r": "e044",
+  "f": "e045",
+  "d": "e046"
+ },
+ "caret-left": {
+  "r": "e047",
+  "f": "e048",
+  "d": "e049"
+ },
+ "caret-up": {
+  "r": "e04a",
+  "f": "e04b",
+  "d": "e04c"
+ },
+ "arrow-right": {
+  "r": "e04d",
+  "f": "e04e",
+  "d": "e04f"
+ },
+ "arrow-left": {
+  "r": "e050",
+  "f": "e051",
+  "d": "e052"
+ },
+ "arrow-up-right": {
+  "r": "e053",
+  "f": "e054",
+  "d": "e055"
+ },
+ "arrow-down": {
+  "r": "e056",
+  "f": "e057",
+  "d": "e058"
+ },
+ "arrow-counter-clockwise": {
+  "r": "e059",
+  "f": "e05a",
+  "d": "e05b"
+ },
+ "x": {
+  "r": "e05c",
+  "f": "e05d",
+  "d": "e05e"
+ },
+ "check": {
+  "r": "e05f",
+  "f": "e060",
+  "d": "e061"
+ },
+ "check-circle": {
+  "r": "e062",
+  "f": "e063",
+  "d": "e064"
+ },
+ "x-circle": {
+  "r": "e065",
+  "f": "e066",
+  "d": "e067"
+ },
+ "warning": {
+  "r": "e068",
+  "f": "e069",
+  "d": "e06a"
+ },
+ "warning-circle": {
+  "r": "e06b",
+  "f": "e06c",
+  "d": "e06d"
+ },
+ "warning-octagon": {
+  "r": "e06e",
+  "f": "e06f",
+  "d": "e070"
+ },
+ "info": {
+  "r": "e071",
+  "f": "e072",
+  "d": "e073"
+ },
+ "question": {
+  "r": "e074",
+  "f": "e075",
+  "d": "e076"
+ },
+ "plus": {
+  "r": "e077",
+  "f": "e078",
+  "d": "e079"
+ },
+ "minus": {
+  "r": "e07a",
+  "f": "e07b",
+  "d": "e07c"
+ },
+ "sun": {
+  "r": "e07d",
+  "f": "e07e",
+  "d": "e07f"
+ },
+ "moon": {
+  "r": "e080",
+  "f": "e081",
+  "d": "e082"
+ },
+ "keyboard": {
+  "r": "e083",
+  "f": "e084",
+  "d": "e085"
+ },
+ "copy": {
+  "r": "e086",
+  "f": "e087",
+  "d": "e088"
+ },
+ "download-simple": {
+  "r": "e089",
+  "f": "e08a",
+  "d": "e08b"
+ },
+ "sliders-horizontal": {
+  "r": "e08c",
+  "f": "e08d",
+  "d": "e08e"
+ },
+ "sort-ascending": {
+  "r": "e08f",
+  "f": "e090",
+  "d": "e091"
+ },
+ "sort-descending": {
+  "r": "e092",
+  "f": "e093",
+  "d": "e094"
+ },
+ "arrows-down-up": {
+  "r": "e095",
+  "f": "e096",
+  "d": "e097"
+ },
+ "eye": {
+  "r": "e098",
+  "f": "e099",
+  "d": "e09a"
+ },
+ "eye-slash": {
+  "r": "e09b",
+  "f": "e09c",
+  "d": "e09d"
+ },
+ "lock": {
+  "r": "e09e",
+  "f": "e09f",
+  "d": "e0a0"
+ },
+ "lock-open": {
+  "r": "e0a1",
+  "f": "e0a2",
+  "d": "e0a3"
+ },
+ "user": {
+  "r": "e0a4",
+  "f": "e0a5",
+  "d": "e0a6"
+ },
+ "user-check": {
+  "r": "e0a7",
+  "f": "e0a8",
+  "d": "e0a9"
+ },
+ "users": {
+  "r": "e0aa",
+  "f": "e0ab",
+  "d": "e0ac"
+ },
+ "clock": {
+  "r": "e0ad",
+  "f": "e0ae",
+  "d": "e0af"
+ },
+ "calendar-blank": {
+  "r": "e0b0",
+  "f": "e0b1",
+  "d": "e0b2"
+ },
+ "hourglass": {
+  "r": "e0b3",
+  "f": "e0b4",
+  "d": "e0b5"
+ },
+ "circle-dashed": {
+  "r": "e0b6",
+  "f": "e0b7",
+  "d": "e0b8"
+ },
+ "circle-half": {
+  "r": "e0b9",
+  "f": "e0ba",
+  "d": "e0bb"
+ },
+ "circle": {
+  "r": "e0bc",
+  "f": "e0bd",
+  "d": "e0be"
+ },
+ "flag": {
+  "r": "e0bf",
+  "f": "e0c0",
+  "d": "e0c1"
+ },
+ "quotes": {
+  "r": "e0c2",
+  "f": "e0c3",
+  "d": "e0c4"
+ },
+ "star": {
+  "r": "e0c5",
+  "f": "e0c6",
+  "d": "e0c7"
+ },
+ "bookmark-simple": {
+  "r": "e0c8",
+  "f": "e0c9",
+  "d": "e0ca"
+ },
+ "link": {
+  "r": "e0cb",
+  "f": "e0cc",
+  "d": "e0cd"
+ },
+ "globe": {
+  "r": "e0ce",
+  "f": "e0cf",
+  "d": "e0d0"
+ },
+ "file-text": {
+  "r": "e0d1",
+  "f": "e0d2",
+  "d": "e0d3"
+ },
+ "files": {
+  "r": "e0d4",
+  "f": "e0d5",
+  "d": "e0d6"
+ },
+ "list-magnifying-glass": {
+  "r": "e0d7",
+  "f": "e0d8",
+  "d": "e0d9"
+ },
+ "magnifying-glass-plus": {
+  "r": "e0da",
+  "f": "e0db",
+  "d": "e0dc"
+ },
+ "coins": {
+  "r": "e0dd",
+  "f": "e0de",
+  "d": "e0df"
+ },
+ "currency-circle-dollar": {
+  "r": "e0e0",
+  "f": "e0e1",
+  "d": "e0e2"
+ },
+ "chart-pie-slice": {
+  "r": "e0e3",
+  "f": "e0e4",
+  "d": "e0e5"
+ },
+ "chart-donut": {
+  "r": "e0e6",
+  "f": "e0e7",
+  "d": "e0e8"
+ },
+ "gauge": {
+  "r": "e0e9",
+  "f": "e0ea",
+  "d": "e0eb"
+ },
+ "target": {
+  "r": "e0ec",
+  "f": "e0ed",
+  "d": "e0ee"
+ },
+ "shield-check": {
+  "r": "e0ef",
+  "f": "e0f0",
+  "d": "e0f1"
+ },
+ "shield-warning": {
+  "r": "e0f2",
+  "f": "e0f3",
+  "d": "e0f4"
+ },
+ "shield": {
+  "r": "e0f5",
+  "f": "e0f6",
+  "d": "e0f7"
+ },
+ "megaphone": {
+  "r": "e0f8",
+  "f": "e0f9",
+  "d": "e0fa"
+ },
+ "scroll": {
+  "r": "e0fb",
+  "f": "e0fc",
+  "d": "e0fd"
+ },
+ "stack": {
+  "r": "e0fe",
+  "f": "e0ff",
+  "d": "e100"
+ },
+ "clipboard-text": {
+  "r": "e101",
+  "f": "e102",
+  "d": "e103"
+ },
+ "note-pencil": {
+  "r": "e104",
+  "f": "e105",
+  "d": "e106"
+ },
+ "pencil-simple": {
+  "r": "e107",
+  "f": "e108",
+  "d": "e109"
+ },
+ "prohibit": {
+  "r": "e10a",
+  "f": "e10b",
+  "d": "e10c"
+ },
+ "siren": {
+  "r": "e10d",
+  "f": "e10e",
+  "d": "e10f"
+ },
+ "map-pin": {
+  "r": "e110",
+  "f": "e111",
+  "d": "e112"
+ },
+ "compass": {
+  "r": "e113",
+  "f": "e114",
+  "d": "e115"
+ },
+ "house": {
+  "r": "e116",
+  "f": "e117",
+  "d": "e118"
+ },
+ "receipt": {
+  "r": "e119",
+  "f": "e11a",
+  "d": "e11b"
+ },
+ "terminal": {
+  "r": "e11c",
+  "f": "e11d",
+  "d": "e11e"
+ },
+ "code": {
+  "r": "e11f",
+  "f": "e120",
+  "d": "e121"
+ },
+ "tree-structure": {
+  "r": "e122",
+  "f": "e123",
+  "d": "e124"
+ },
+ "dots-three": {
+  "r": "e125",
+  "f": "e126",
+  "d": "e127"
+ },
+ "arrow-square-out": {
+  "r": "e128",
+  "f": "e129",
+  "d": "e12a"
+ },
+ "seal-warning": {
+  "r": "e12b",
+  "f": "e12c",
+  "d": "e12d"
+ },
+ "seal": {
+  "r": "e12e",
+  "f": "e12f",
+  "d": "e130"
+ },
+ "list-bullets": {
+  "r": "e131",
+  "f": "e132",
+  "d": "e133"
+ },
+ "folder-open": {
+  "r": "e134",
+  "f": "e135",
+  "d": "e136"
+ },
+ "chat-text": {
+  "r": "e137",
+  "f": "e138",
+  "d": "e139"
+ },
+ "path": {
+  "r": "e13a",
+  "f": "e13b",
+  "d": "e13c"
+ },
+ "git-branch": {
+  "r": "e13d",
+  "f": "e13e",
+  "d": "e13f"
+ },
+ "share-network": {
+  "r": "e140",
+  "f": "e141",
+  "d": "e142"
+ },
+ "graph": {
+  "r": "e143",
+  "f": "e144",
+  "d": "e145"
+ },
+ "trend-up": {
+  "r": "e146",
+  "f": "e147",
+  "d": "e148"
+ },
+ "percent": {
+  "r": "e149",
+  "f": "e14a",
+  "d": "e14b"
+ },
+ "hash": {
+  "r": "e14c",
+  "f": "e14d",
+  "d": "e14e"
+ },
+ "text-aa": {
+  "r": "e14f",
+  "f": "e150",
+  "d": "e151"
+ },
+ "bell": {
+  "r": "e152",
+  "f": "e153",
+  "d": "e154"
+ },
+ "hand-pointing": {
+  "r": "e155",
+  "f": "e156",
+  "d": "e157"
+ },
+ "fingerprint": {
+  "r": "e158",
+  "f": "e159",
+  "d": "e15a"
+ },
+ "camera": {
+  "r": "e15b",
+  "f": "e15c",
+  "d": "e15d"
+ },
+ "video-camera": {
+  "r": "e15e",
+  "f": "e15f",
+  "d": "e160"
+ },
+ "scales": {
+  "r": "e161",
+  "f": "e162",
+  "d": "e163"
+ },
+ "gavel": {
+  "r": "e164",
+  "f": "e165",
+  "d": "e166"
+ },
+ "lightning": {
+  "r": "e167",
+  "f": "e168",
+  "d": "e169"
+ },
+ "cloud-arrow-down": {
+  "r": "e16a",
+  "f": "e16b",
+  "d": "e16c"
+ },
+ "cloud-slash": {
+  "r": "e16d",
+  "f": "e16e",
+  "d": "e16f"
+ },
+ "plug": {
+  "r": "e170",
+  "f": "e171",
+  "d": "e172"
+ },
+ "sidebar-simple": {
+  "r": "e173",
+  "f": "e174",
+  "d": "e175"
+ },
+ "lifebuoy": {
+  "r": "e176",
+  "f": "e177",
+  "d": "e178"
+ },
+ "skip-forward": {
+  "r": "e179",
+  "f": "e17a",
+  "d": "e17b"
+ },
+ "tray": {
+  "r": "e17c",
+  "f": "e17d",
+  "d": "e17e"
+ },
+ "file-dashed": {
+  "r": "e17f",
+  "f": "e180",
+  "d": "e181"
+ },
+ "table": {
+  "r": "e182",
+  "f": "e183",
+  "d": "e184"
+ },
+ "chart-line": {
+  "r": "e185",
+  "f": "e186",
+  "d": "e187"
+ },
+ "chart-scatter": {
+  "r": "e188",
+  "f": "e189",
+  "d": "e18a"
+ },
+ "pulse": {
+  "r": "e18b",
+  "f": "e18c",
+  "d": "e18d"
+ },
+ "sparkle": {
+  "r": "e18e",
+  "f": "e18f",
+  "d": "e190"
+ },
+ "hand-palm": {
+  "r": "e191",
+  "f": "e192",
+  "d": "e193"
+ },
+ "buildings": {
+  "r": "e194",
+  "f": "e195",
+  "d": "e196"
+ },
+ "check-square": {
+  "r": "e197",
+  "f": "e198",
+  "d": "e199"
+ },
+ "rows": {
+  "r": "e19a",
+  "f": "e19b",
+  "d": "e19c"
+ },
+ "columns": {
+  "r": "e19d",
+  "f": "e19e",
+  "d": "e19f"
+ },
+ "timer": {
+  "r": "e1a0",
+  "f": "e1a1",
+  "d": "e1a2"
+ },
+ "cpu": {
+  "r": "e1a3",
+  "f": "e1a4",
+  "d": "e1a5"
+ },
+ "brain": {
+  "r": "e1a6",
+  "f": "e1a7",
+  "d": "e1a8"
+ },
+ "graduation-cap": {
+  "r": "e1a9",
+  "f": "e1aa",
+  "d": "e1ab"
+ },
+ "arrows-clockwise": {
+  "r": "e1ac",
+  "f": "e1ad",
+  "d": "e1ae"
+ },
+ "seal-question": {
+  "r": "e1af",
+  "f": "e1b0",
+  "d": "e1b1"
+ },
+ "bookmarks": {
+  "r": "e1b2",
+  "f": "e1b3",
+  "d": "e1b4"
+ },
+ "identification-badge": {
+  "r": "e1b5",
+  "f": "e1b6",
+  "d": "e1b7"
+ },
+ "arrows-left-right": {
+  "r": "e1b8",
+  "f": "e1b9",
+  "d": "e1ba"
+ },
+ "circle-notch": {
+  "r": "e1bb",
+  "f": "e1bc",
+  "d": "e1bd"
+ },
+ "warning-diamond": {
+  "r": "e1be",
+  "f": "e1bf",
+  "d": "e1c0"
+ },
+ "check-fat": {
+  "r": "e1c1",
+  "f": "e1c2",
+  "d": "e1c3"
+ },
+ "shield-star": {
+  "r": "e1c4",
+  "f": "e1c5",
+  "d": "e1c6"
+ },
+ "police-car": {
+  "r": "e1c7",
+  "f": "e1c8",
+  "d": "e1c9"
+ },
+ "trash": {
+  "r": "e1ca",
+  "f": "e1cb",
+  "d": "e1cc"
+ },
+ "book-open-text": {
+  "r": "e1cd",
+  "f": "e1ce",
+  "d": "e1cf"
+ },
+ "crosshair": {
+  "r": "e1d0",
+  "f": "e1d1",
+  "d": "e1d2"
+ },
+ "bank": {
+  "r": "e1d3",
+  "f": "e1d4",
+  "d": "e1d5"
+ },
+ "notebook": {
+  "r": "e1d6",
+  "f": "e1d7",
+  "d": "e1d8"
+ }
+}

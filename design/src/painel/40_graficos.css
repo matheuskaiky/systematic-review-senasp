@@ -1,0 +1,98 @@
+/* ===== Gráficos, mapa, prontidão, PRISMA, árvore, glossário, entidades ===== */
+svg.grafico, svg.mapa, svg.barra-empilhada { width: 100%; height: auto; display: block; }
+svg.grafico { max-width: 820px; }   /* em cartão largo o gráfico não passa de 820px (senão o texto do SVG cresce junto) */
+svg.barra-empilhada { height: 22px; margin: var(--esp-1) 0 var(--esp-3); border-radius: var(--raio-pilula); overflow: hidden; }
+.be-fundo { fill: var(--borda); } .be-conf { fill: var(--inclusao); } .be-desc { fill: var(--exclusao); }
+.be-prog { fill: var(--acento); }
+svg.barra-progresso { width: 100%; height: 12px; display: block; margin: var(--esp-1) 0; border-radius: var(--raio-pilula); overflow: hidden; }
+.prontidao { display: grid; gap: var(--esp-3); grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+.prontidao h3 { margin: 0 0 var(--esp-2); font-size: var(--fs-base); }
+.prontidao .cartao { --pt-tx: var(--tom-cobalto-tx); --pt-fundo: var(--tom-cobalto-fundo); --pt-borda: var(--tom-cobalto-borda); --pt-solido: var(--tom-cobalto-solido);
+  margin-bottom: 0; padding: var(--esp-4) var(--esp-5); border-radius: var(--raio-md); border-color: var(--pt-borda);
+  background-image: radial-gradient(9rem 6rem at 100% 0, var(--pt-fundo), transparent 78%); }
+.prontidao .cartao:nth-child(3n+2) { --pt-tx: var(--tom-violeta-tx); --pt-fundo: var(--tom-violeta-fundo); --pt-borda: var(--tom-violeta-borda); --pt-solido: var(--tom-violeta-solido); }
+.prontidao .cartao:nth-child(3n+3) { --pt-tx: var(--tom-ambar-tx); --pt-fundo: var(--tom-ambar-fundo); --pt-borda: var(--tom-ambar-borda); --pt-solido: var(--tom-ambar-solido); }
+.prontidao .be-prog { fill: var(--pt-solido, var(--acento)); }
+.prontidao .condicao { margin: var(--esp-2) 0; }
+.prontidao .condicao-texto { display: flex; justify-content: space-between; gap: var(--esp-2); font-size: var(--fs-sm); }
+.prontidao .condicao-texto span:first-child { color: var(--texto-suave); }
+.prontidao .condicao-texto span:last-child { font-weight: 650; }
+.prontidao p { margin: var(--esp-2) 0; }
+.gr-rotulo { fill: var(--texto); font-size: 13px; } .gr-valor { fill: var(--texto-suave); font-size: 13px; font-weight: 600; }
+.gr-barra { fill: var(--tom-solido); rx: 4px; ry: 4px; }
+/* funil da visão geral: uma cor por quem faz a etapa (busca na web, coleta das páginas, classificação pelo modelo, revisão humana). Decoração: o rótulo e o valor de cada barra seguem escritos. */
+.funil-progresso .gr-barra:nth-of-type(-n+3) { fill: var(--tom-cobalto-solido); }
+.funil-progresso .gr-barra:nth-of-type(n+4):nth-of-type(-n+5) { fill: var(--tom-petroleo-solido); }
+.funil-progresso .gr-barra:nth-of-type(n+6):nth-of-type(-n+7) { fill: var(--tom-violeta-solido); }
+.funil-progresso .gr-barra:nth-of-type(n+8) { fill: var(--inclusao); }
+.bloco path { stroke: var(--superficie); stroke-width: 1.4; stroke-linejoin: round; fill: var(--superficie-subtil); }
+.bloco text { font-weight: 700; fill: var(--texto); pointer-events: none; paint-order: stroke; stroke: var(--superficie); stroke-width: 3px; stroke-linejoin: round; }
+.bloco.confirmado path { fill: var(--inclusao-borda); stroke: var(--inclusao); stroke-width: 1.4; }
+.bloco.classificado path { fill: var(--duvida-borda); stroke: var(--duvida); stroke-width: 1.4; stroke-dasharray: 5 3; }
+.bloco.sem-achados path, .bloco.sem-dados path { fill: var(--superficie-subtil); stroke: var(--borda-forte); }
+.bloco.sem-achados text, .bloco.sem-dados text { fill: var(--texto-suave); font-weight: 500; }
+.bloco { cursor: pointer; }
+.bloco:hover path { filter: brightness(.94) saturate(1.15); stroke-width: 2.2; }
+.bloco-guia { stroke: var(--texto-suave); stroke-width: .8; pointer-events: none; }
+.bloco:focus-within path { stroke: var(--foco); stroke-width: 2.8; stroke-dasharray: none; }
+.mapa-credito { margin: .4rem 0 0; font-size: var(--fs-xs); color: var(--texto-suave); }
+.legenda { list-style: none; padding: 0; margin: var(--esp-3) 0 var(--esp-4); display: grid; gap: .45rem; font-size: var(--fs-md); }
+.legenda li { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; color: var(--texto-suave); }
+.legenda li .selo { color: inherit; }
+.legenda li .selo.ok { color: var(--ok); } .legenda li .selo.alerta { color: var(--alerta); } .legenda li .selo.st-descartado { color: var(--exclusao); }
+
+/* mapa de calor, rótulos, amostras */
+ol.numerada { list-style: decimal; padding-left: 1.4rem; }
+svg.calor { width: 100%; max-width: 900px; height: auto; display: block; }
+.gr-calor-rot { fill: var(--texto-suave); font-size: 8px; }
+.gr-eixo { fill: var(--texto-suave); font-size: 12px; }
+.calor-0 { fill: var(--superficie); stroke: var(--borda); stroke-width: .5; } .calor-1 { fill: var(--calor-1); } .calor-2 { fill: var(--calor-2); }
+.calor-3 { fill: var(--calor-3); } .calor-4 { fill: var(--calor-4); } .calor-diag { fill: var(--borda); }
+span.amostra { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--borda); vertical-align: middle; border-radius: var(--raio-xs); }
+span.amostra.calor-diag { background: var(--borda); } span.amostra.calor-1 { background: var(--calor-1); } span.amostra.calor-4 { background: var(--calor-4); }
+
+/* PRISMA: etapas como linhas de cartão ligadas por setas */
+.prisma { display: grid; gap: var(--esp-2); max-width: 760px; }
+.seta-prisma { text-align: center; color: var(--tom-tx); font-weight: 700; line-height: 1; }
+.caixa-prisma { display: grid; grid-template-columns: 7.5rem 1fr; gap: var(--esp-4); align-items: center; padding: var(--esp-3) var(--esp-5); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-md); box-shadow: var(--sombra); }
+.caixa-prisma:hover { box-shadow: var(--sombra-alta); }
+.num-prisma { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -.02em; text-align: right; color: var(--tom-tx); } .num-prisma .nd { font-size: var(--fs-sm); font-weight: 600; color: var(--alerta); }
+
+/* glossário ("Sobre os dados") */
+.sumario-lista { margin: 0; padding-left: 1.3rem; display: grid; gap: .6rem; }
+.sumario-termos { display: block; font-size: var(--fs-sm); color: var(--texto-suave); line-height: var(--lh-solto); }
+.verbete { padding: .85rem 0; border-top: 1px solid var(--borda); max-width: 75ch; }
+.verbete:first-of-type { border-top: 0; }
+.verbete h3 { margin: 0 0 var(--esp-1); scroll-margin-top: 1rem; }
+.verbete h3:target { background: var(--tom-fundo); box-shadow: 0 0 0 .4rem var(--tom-fundo); border-radius: var(--raio-sm); }
+.verbete p { margin: 0 0 .4rem; }
+.verbete .oficial { color: var(--texto-suave); font-size: var(--fs-md); }
+.glossario h2 { scroll-margin-top: 1rem; }
+
+/* árvore (detalhe da execução e da chamada): guia pontilhada de 1px, neutra, só para mostrar o aninhamento */
+.arvore { list-style: none; padding-left: 1.1rem; margin: .2rem 0; border-left: 1px dotted var(--borda-forte); }
+ol.arvore { list-style: decimal; padding-left: 1.6rem; }
+.arvore details > summary { cursor: pointer; }
+.chave { color: var(--acento); font-weight: 600; }
+.valor { overflow-wrap: anywhere; }
+.lista-simples { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--esp-2); }
+td.quebra { max-width: 28rem; overflow-wrap: anywhere; }
+pre.bruto { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 30rem; overflow: auto; background: var(--fundo); border: 1px solid var(--borda); border-radius: var(--raio-md); padding: var(--esp-4); font-size: var(--fs-sm); }
+pre.comando { white-space: pre-wrap; }
+.ficha { margin-bottom: var(--esp-5); }
+summary.titulo-recolhivel { cursor: pointer; font-size: var(--fs-lg); font-weight: 700; }
+summary.titulo-recolhivel small { font-weight: 400; color: var(--texto-suave); }
+
+/* entidades de nome_solucao (RC23): resumo acima da lista, grafias unificadas e a tabela de auditoria */
+.inclui { color: var(--texto-suave); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.resumo-entidades { margin: 0 0 var(--esp-4); }
+.resumo-entidades .corrente { margin: 0 0 var(--esp-2); }
+.resumo-entidades ul { list-style: none; display: flex; flex-wrap: wrap; gap: var(--esp-2); margin: 0; padding: 0; }
+.resumo-entidades li a { display: inline-block; padding: .2em .75em; border: 1px solid var(--acento-borda); border-radius: var(--raio-pilula); background: var(--acento-fundo); color: var(--acento); text-decoration: none; overflow-wrap: anywhere; font-weight: 550; }
+.resumo-entidades li a:hover { background: var(--acento); border-color: var(--acento); color: var(--texto-botao); }
+.resumo-entidades li a[aria-current="true"] { border-width: 2px; font-weight: 700; }
+.resumo-entidades .n { font-weight: 700; }
+.selo.camada { white-space: normal; text-align: left; }
+.lista-grafias { list-style: none; margin: var(--esp-2) 0 0; padding: 0; }
+.lista-grafias li { margin: 0 0 var(--esp-2); overflow-wrap: anywhere; }
+td.col-grafias { min-width: 14rem; }

@@ -42,11 +42,12 @@ def test_cookie_de_tema(cli, cookie, tema):
     assert pressionado == ("true" if tema == "dark" else "false")
 
 
-def test_botao_de_tema_fora_do_menu(cli):
+def test_botao_de_tema_e_o_ultimo_item_do_banner_fora_do_menu(cli):
+    """D81: o botao de tema fica no fim do banner (desenho Observatorio), sem a faixa .topo."""
     h = cli.get("/").text
-    topo = re.search(r'<div class="topo">.*?</div>', h, flags=re.S).group(0)
-    assert 'class="tema-alternar"' in topo and 'data-tema-alternar' in topo
-    assert h.index('<div class="topo">') < h.index('<div class="layout">')
+    banner = re.search(r'<header class="banner[^"]*" role="banner">.*?</header>', h, flags=re.S).group(0)
+    assert re.search(r'<button type="button" class="tema-alternar" data-tema-alternar[^>]*>.*?</button>\s*</header>$', banner, flags=re.S)
+    assert '<div class="topo">' not in h and h.index("</header>") < h.index('<div class="layout">')
     nav = h[h.index("<nav"):h.index("</nav>")]
     assert "tema-alternar" not in nav
 
@@ -82,5 +83,5 @@ def test_relatorio_tira_so_o_bloco_escuro_mesmo_com_comentarios(folha):
 def test_relatorio_mantem_os_tokens_claros():
     css = (ESTATICOS / "painel.css").read_text(encoding="utf-8")
     r = _sem_tema_escuro(css)
-    assert "--pedra-50:" in r and "--esp-1:" in r and "--fonte-base:" in r
+    assert "--tinta-50:" in r and "--esp-1:" in r and "--fonte-base:" in r      # D81: primitivo claro do desenho Observatorio
     assert css.count("@media (prefers-color-scheme: dark)") == 1

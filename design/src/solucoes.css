@@ -1,0 +1,38 @@
+/* Soluções conhecidas e Buscar no texto: usa os tokens de painel.css (claro e escuro). A marca do trecho nunca é só cor: tem fundo e contorno inteiros.
+   O matiz da página (âmbar, como o item do menu) vem de --tom-* em painel.css. */
+.trecho { margin: 0 0 var(--esp-2); overflow-wrap: anywhere; max-width: 90ch; }
+.trecho mark { background: var(--marca); color: inherit; box-shadow: 0 0 0 2px var(--marca-borda); border-radius: var(--raio-xs); padding: 0 .1em; }
+
+/* formulário de busca no texto: cartão igual ao dos filtros (rótulos pequenos em caixa alta, campos de 2,5rem) */
+.form-busca { display: grid; grid-template-columns: minmax(14rem, 2fr) minmax(8rem, 1fr) auto auto; gap: var(--esp-3) var(--esp-4); align-items: end; margin: 0 0 var(--esp-5);
+  padding: var(--esp-4) var(--esp-5); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra); }
+.form-busca label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--fs-xs); font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--texto-suave); }
+.form-busca label.marcar { flex-direction: row; align-items: center; gap: .45rem; color: var(--texto); font-size: var(--fs-md); font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+/* uma solução = um cartão: título com ladrilho de ícone, linha de presença na coleta, situação e os três passos do funil de revocação */
+.cartao-solucao { margin-bottom: var(--esp-5); }
+.cartao-solucao > h2 { display: flex; align-items: center; gap: .7rem; margin: 0 0 var(--esp-3); font-size: 1.15rem; letter-spacing: -.012em; }
+.cartao-solucao > h2 small { font-weight: 500; color: var(--texto-suave); font-size: var(--fs-md); }
+html.icones-ok .cartao-solucao > h2::before { content: %icf(lightbulb)%; flex: none; display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: .7rem; font-family: var(--fonte-icones);
+  font-size: 1.2rem; font-weight: 400; line-height: 1; background: var(--tom-fundo); color: var(--tom-tx); box-shadow: inset 0 0 0 1px var(--tom-borda); }
+.cartao-solucao h3 { margin: var(--esp-5) 0 .35rem; padding-top: var(--esp-4); border-top: 1px solid var(--borda); font-size: var(--fs-base); }
+.cartao-solucao ul { margin: 0 0 var(--esp-2); padding-left: 1.2rem; }
+.cartao-solucao li { margin-bottom: .3rem; overflow-wrap: anywhere; }
+.cartao-solucao li::marker { color: var(--tom-solido); }
+.veredito { display: flex; align-items: center; gap: .6rem; margin: var(--esp-3) 0; padding: .55rem .9rem; border: 1px solid var(--acento-borda); border-radius: var(--raio-md); background: var(--acento-fundo); color: var(--acento); font-weight: 650; }
+html.icones-ok .veredito::before { content: %icf(seal-check)%; flex: none; font-family: var(--fonte-icones); font-size: 1.3rem; font-weight: 400; line-height: 1; }
+td.quebra { overflow-wrap: anywhere; min-width: 11rem; max-width: 26rem; }
+@media (max-width: 640px) {
+  .form-busca { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* indicadores de presença clicáveis (drill-down) e link para a página original */
+.indicador { display: inline-block; min-width: 2.2em; text-align: center; padding: .05em .55em; border-radius: var(--raio-pilula); border: 1px solid var(--acento-borda); background: var(--acento-fundo); color: var(--acento);
+  font-weight: 700; font-variant-numeric: tabular-nums; text-decoration: none; }
+.indicador:hover { background: var(--acento); border-color: var(--acento); color: var(--texto-botao); }
+.indicador-zero { display: inline-block; min-width: 2.2em; text-align: center; padding: .05em .55em; color: var(--texto-mutado); font-weight: 500; font-variant-numeric: tabular-nums; }
+.presenca { list-style: none; display: flex; flex-wrap: wrap; gap: var(--esp-2); margin: 0 0 var(--esp-3); padding: 0; }
+.presenca li { display: inline-flex; align-items: center; gap: .5rem; margin: 0; padding: .25rem .35rem .25rem .8rem; background: var(--superficie-subtil); border: 1px solid var(--borda); border-radius: var(--raio-pilula); }
+.presenca-rotulo { color: var(--texto-suave); font-size: var(--fs-md); }
+.link-original { overflow-wrap: anywhere; }
+.tabela-busca-texto .selo.solucao-nomeada { white-space: normal; }

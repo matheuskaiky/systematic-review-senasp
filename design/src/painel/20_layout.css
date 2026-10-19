@@ -1,0 +1,131 @@
+/* ===== Faixa do banco, estrutura da página, barra lateral, topo da página ===== */
+.banner { position: relative; z-index: 3; display: flex; align-items: center; gap: var(--esp-3); min-height: 2.5rem; padding: .3rem var(--esp-5); font-size: var(--fs-sm); letter-spacing: .01em; }
+.banner strong { display: inline-flex; align-items: center; gap: .5rem; font-weight: 650; letter-spacing: .025em; }
+.banner-real { background: var(--banner-real); color: var(--texto-banner); }
+.banner-simulado { background: var(--banner-simulado); color: var(--texto-banner); }
+.banner-demo { background: var(--banner-demo); color: var(--texto-banner); }
+.banner-detalhe { opacity: .88; font-family: var(--fonte-mono); font-size: var(--fs-xs); padding: .1rem .6rem; border-radius: var(--raio-pilula); background: rgba(255, 255, 255, .14); }
+html.icones-ok .banner strong::before { font-family: var(--fonte-icones); font-weight: 400; font-size: 1.2em; line-height: 1; content: %icf(database)%; }
+html.icones-ok .banner-demo strong::before { content: %icf(flask)%; }
+html.icones-ok .banner-simulado strong::before { content: %icf(warning)%; }
+
+/* botão de tema, dentro da faixa do banco (fora do nav) */
+.tema-alternar { display: inline-grid; place-items: center; flex: none; margin-left: auto; width: 2rem; height: 2rem; padding: 0; cursor: pointer; border-radius: var(--raio-pilula);
+  border: 1px solid rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .1); color: var(--texto-banner); font: inherit; line-height: 1; }
+.tema-alternar:hover { background: rgba(255, 255, 255, .22); }
+.tema-alternar:focus-visible { outline-color: var(--texto-banner); }
+.tema-alternar .tema-glifo { font-size: 1.05rem; }
+.tema-alternar .tema-lua { display: none; }
+.tema-alternar[aria-pressed="true"] .tema-sol { display: none; }
+.tema-alternar[aria-pressed="true"] .tema-lua { display: inline; }
+html.icones-ok .tema-alternar .tema-glifo { font-family: var(--fonte-icones); font-size: 1.15rem; }
+html.icones-ok .tema-alternar .tema-sol::before { content: %icf(sun)%; }
+html.icones-ok .tema-alternar .tema-lua::before { content: %icf(moon)%; }
+html.icones-ok .tema-alternar .tema-glifo { font-size: 0; }
+html.icones-ok .tema-alternar .tema-glifo::before { font-size: 1.15rem; }
+
+/* estrutura: coluna da barra lateral (pintada no próprio .layout, para ir até o fim da página) e coluna do conteúdo */
+.layout { --tom-tx: var(--tom-cobalto-tx); --tom-fundo: var(--tom-cobalto-fundo); --tom-borda: var(--tom-cobalto-borda); --tom-solido: var(--tom-cobalto-solido); --tom-solido-tx: var(--tom-cobalto-solido-tx);
+  display: grid; grid-template-columns: var(--larg-menu) minmax(0, 1fr); align-items: start; min-height: calc(100vh - 2.5rem);
+  background: linear-gradient(90deg, var(--menu-fundo) calc(var(--larg-menu) - 1px), var(--menu-borda) calc(var(--larg-menu) - 1px), var(--menu-borda) var(--larg-menu), transparent var(--larg-menu)); }
+.menu { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--menu-ativo) transparent;
+  display: flex; flex-direction: column; gap: var(--esp-1); padding: var(--esp-5) var(--esp-3) var(--esp-6); color: var(--menu-texto); }
+
+/* marca: emblema (mira de levantamento) e nome */
+.menu .marca { position: relative; display: block; min-height: 2.75rem; padding: .15rem var(--esp-2) .15rem 3.6rem; margin: 0 0 var(--esp-2); color: var(--menu-texto); text-decoration: none;
+  font-family: var(--fonte-titulo); font-size: 1.2rem; font-weight: 600; letter-spacing: -.01em; line-height: 1.15; border-radius: var(--raio-md); }
+.menu .marca small { display: block; margin-top: .2rem; font-family: var(--fonte-base); font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--menu-rotulo); line-height: 1.25; }
+.menu .marca::before { content: ""; position: absolute; left: .5rem; top: .1rem; width: 2.6rem; height: 2.6rem; border-radius: .85rem;
+  background: linear-gradient(140deg, var(--cobalto-500), var(--violeta-500)); box-shadow: 0 6px 16px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .25); }
+html.icones-ok .menu .marca::before { content: %ic(marca)%; display: grid; place-items: center; font-family: var(--fonte-icones); font-size: 1.85rem; line-height: 1; color: var(--tinta-0); }
+html.icones-ok .menu .marca::after { content: %icd(marca)%; position: absolute; left: .5rem; top: .1rem; width: 2.6rem; height: 2.6rem; display: grid; place-items: center; font-family: var(--fonte-icones); font-size: 1.85rem; line-height: 1; color: var(--ambar-300); }
+.menu .marca:hover { background: var(--menu-hover); }
+
+/* grupos do menu: elemento details nativo (abrem e fecham sem JavaScript); o grupo da página atual já vem aberto do servidor */
+.menu-grupo { margin: var(--esp-3) 0 0; }
+.menu-grupo > summary { position: relative; display: flex; align-items: center; gap: .55rem; padding: .5rem .7rem; border-radius: var(--raio-sm); cursor: pointer; list-style: none;
+  font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--menu-rotulo); }
+.menu-grupo > summary::-webkit-details-marker { display: none; }
+.menu-grupo > summary::before { content: "\25B8"; display: inline-block; width: 1em; text-align: center; }
+.menu-grupo[open] > summary::before { content: "\25BE"; }
+html.icones-ok .menu-grupo > summary::before { content: var(--mi); width: auto; font-family: var(--fonte-icones); font-size: 1.05rem; font-weight: 400; line-height: 1; color: var(--mt-tx); }
+html.icones-ok .menu-grupo[open] > summary::before { content: var(--mi); }
+html.icones-ok .menu-grupo > summary::after { content: %ic(caret-down)%; margin-left: auto; font-family: var(--fonte-icones); font-size: .8rem; font-weight: 400; line-height: 1; transform: rotate(-90deg); transition: none; }
+html.icones-ok .menu-grupo[open] > summary::after { transform: none; }
+.menu-grupo > summary:hover { background: var(--menu-hover); color: var(--menu-texto); }
+.menu-grupo:has(a[aria-current="page"]) > summary { color: var(--menu-texto); }
+.menu-lista { list-style: none; margin: .2rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.menu-lista a { position: relative; display: flex; align-items: center; min-height: 2.5rem; padding: .45rem .7rem .45rem 3.05rem; border-radius: var(--raio-md); text-decoration: none;
+  color: var(--menu-suave); font-size: .9rem; font-weight: 500; line-height: 1.25; }
+.menu-lista a::before { content: ""; position: absolute; left: .55rem; top: 50%; width: 1.85rem; height: 1.85rem; margin-top: -.925rem; border-radius: .6rem;
+  background: var(--mt-fundo, var(--menu-ativo)); color: var(--mt-tx, var(--menu-texto)); display: grid; place-items: center; font-size: 1.05rem; line-height: 1; }
+html.icones-ok .menu-lista a::before { content: var(--mi, ""); font-family: var(--fonte-icones); font-weight: 400; }
+.menu-lista a:hover { background: var(--menu-hover); color: var(--menu-texto); }
+/* item atual: placa mais clara com anel inteiro e ladrilho cheio (nunca uma barra de um lado só) */
+.menu a[aria-current="page"] { background: var(--menu-ativo); color: var(--menu-texto); font-weight: 650; box-shadow: inset 0 0 0 1px var(--menu-anel), 0 4px 14px rgba(0, 0, 0, .28); }
+.menu a[aria-current="page"]::before { background: var(--mt-solido, var(--acento)); color: var(--tinta-0); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28); }
+html.icones-ok .menu a[aria-current="page"]::before { content: var(--mi-f, var(--mi, "")); }
+/* rodapé decorativo da barra: mira de levantamento, só ornamento */
+.menu::after { content: ""; flex: none; margin-top: auto; height: 7.5rem; opacity: .55;
+  background: radial-gradient(circle at 50% 100%, transparent 0 2.6rem, var(--menu-borda) 2.6rem calc(2.6rem + 1px), transparent calc(2.6rem + 1px) 4rem, var(--menu-borda) 4rem calc(4rem + 1px), transparent calc(4rem + 1px) 5.4rem, var(--menu-borda) 5.4rem calc(5.4rem + 1px), transparent calc(5.4rem + 1px)),
+    repeating-conic-gradient(from 270deg at 50% 100%, var(--menu-borda) 0 .6deg, transparent .6deg 7.5deg);
+  -webkit-mask-image: linear-gradient(180deg, transparent, black 60%); mask-image: linear-gradient(180deg, transparent, black 60%); }
+
+/* conteúdo: ocupa a coluna inteira; o miolo fica em até --larg-conteudo, centrado. A aura do topo e a grade de levantamento usam a coluna toda. */
+main { --pad-x: max(clamp(var(--esp-4), 2.6vw, 2.25rem), calc((100% - var(--larg-conteudo)) / 2)); position: relative; isolation: isolate; width: 100%; min-width: 0;
+  padding: var(--esp-7) var(--pad-x) var(--esp-8); }
+main::before { content: ""; position: absolute; z-index: -1; inset: 0 0 auto 0; height: 19rem; pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, var(--grade) 0 1px, transparent 1px 3rem),
+    repeating-linear-gradient(0deg, var(--grade) 0 1px, transparent 1px 3rem),
+    radial-gradient(52rem 16rem at 8% -3rem, var(--tom-fundo), transparent 72%);
+  -webkit-mask-image: linear-gradient(180deg, black 15%, transparent 100%); mask-image: linear-gradient(180deg, black 15%, transparent 100%); }
+/* mostrador de levantamento no canto do topo: anéis e marcas de ângulo, só ornamento */
+main::after { content: ""; position: absolute; z-index: -1; top: -3.5rem; right: max(1rem, calc(var(--pad-x) - 3rem)); width: 17rem; height: 17rem; border-radius: 50%; pointer-events: none; opacity: .75;
+  background:
+    repeating-conic-gradient(from 0deg, var(--tom-borda) 0 .7deg, transparent .7deg 10deg),
+    radial-gradient(circle, transparent 0 34%, var(--tom-borda) 34% calc(34% + 1px), transparent calc(34% + 1px) 52%, var(--tom-borda) 52% calc(52% + 1px), transparent calc(52% + 1px) 70%, var(--tom-borda) 70% calc(70% + 1px), transparent calc(70% + 1px));
+  -webkit-mask-image: radial-gradient(circle, black 28%, transparent 70%); mask-image: radial-gradient(circle, black 28%, transparent 70%); }
+
+/* título da página: ladrilho do ícone da área (pelo item atual do menu) à esquerda */
+.layout:has(.menu-lista a[aria-current="page"]) main > h1 { position: relative; min-height: 3rem; padding: .15rem 0 0 4rem; }
+.layout:has(.menu-lista a[aria-current="page"]) main > h1::before { content: ""; position: absolute; left: 0; top: -.1rem; width: 3rem; height: 3rem; border-radius: .95rem;
+  display: grid; place-items: center; background: var(--tom-solido); color: var(--tom-solido-tx); font-size: 1.6rem; line-height: 1;
+  box-shadow: 0 8px 20px -6px var(--tom-solido), inset 0 1px 0 rgba(255, 255, 255, .3), inset 0 -1px 0 rgba(0, 0, 0, .12); }
+html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before { content: var(--pg-ic-f, ""); font-family: var(--fonte-icones); font-weight: 400; }
+.layout:has(.menu-lista a[aria-current="page"]) main > h1 + .sub { padding-left: 4rem; margin-top: -.15rem; }
+
+/*@GERADO:menu*/
+/*@GERADO:tons-de-pagina*/
+/*@GERADO:icones-de-pagina*/
+
+/* telas estreitas: a marca no topo e três grupos recolhíveis; só o da página atual vem aberto e seus links viram uma fileira que quebra linha */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); background: none; }
+  .menu { position: static; max-height: none; overflow: visible; padding: var(--esp-2) var(--esp-3) var(--esp-3); gap: 0; background: linear-gradient(180deg, var(--menu-fundo), var(--menu-fundo-2)); border-bottom: 1px solid var(--menu-borda); }
+  .menu::after { display: none; }
+  .menu .marca { margin: 0; }
+  .menu-grupo { margin-top: var(--esp-1); }
+  .menu-lista { flex-direction: row; flex-wrap: wrap; gap: var(--esp-1); margin-bottom: var(--esp-2); }
+  .menu-lista a { min-height: 2.25rem; padding: .3rem .8rem .3rem 2.6rem; border: 1px solid var(--menu-borda); border-radius: var(--raio-pilula); }
+  .menu-lista a::before { left: .3rem; width: 1.55rem; height: 1.55rem; margin-top: -.775rem; font-size: .95rem; }
+  .menu-lista a[aria-current="page"] { box-shadow: inset 0 0 0 1px var(--menu-anel); }
+  main { padding-top: var(--esp-5); }
+  main::after { display: none; }
+  .layout:has(.menu-lista a[aria-current="page"]) main > h1 { padding-left: 3.4rem; min-height: 2.6rem; }
+  .layout:has(.menu-lista a[aria-current="page"]) main > h1::before { width: 2.6rem; height: 2.6rem; font-size: 1.4rem; border-radius: .8rem; }
+  .layout:has(.menu-lista a[aria-current="page"]) main > h1 + .sub { padding-left: 0; margin-top: var(--esp-2); }
+  h1 { font-size: var(--fs-2xl); }
+  .tema-alternar { margin-left: auto; }
+}
+/* conta (autenticação opcional): no banner, à direita, antes do botão de tema */
+.form-entrar { display: grid; grid-template-columns: max-content 1fr; gap: var(--esp-3); max-width: var(--medida-leitura); }
+.admin-abas { margin: var(--esp-2) 0 var(--esp-4); }
+.banner { flex-wrap: wrap; row-gap: var(--esp-1); }
+.banner .conta { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--esp-3); min-width: 0; }
+.banner .conta + .tema-alternar { margin-left: var(--esp-2); }
+.banner .conta-nome { opacity: .88; }
+.banner .conta-entrar, .banner .conta-admin, .banner .conta-estatisticas { color: var(--texto-banner); }
+.banner .conta a:focus-visible, .banner .form-sair button:focus-visible { outline-color: var(--texto-banner); }
+.form-sair { display: inline; margin: 0; }
+.banner .form-sair button { min-height: 1.75rem; padding: 0 var(--esp-2); border: 1px solid currentColor; border-radius: var(--raio-pilula); background: none; color: var(--texto-banner); font: inherit; cursor: pointer; }

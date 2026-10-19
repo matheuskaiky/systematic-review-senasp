@@ -1,424 +1,208 @@
-/* Gráficos da página /analises (analises.py). Só classes: a política de segurança do painel proíbe `style=`.
+/* Gráficos e moldura da página /analises (analises.py). Só classes: a política de segurança do painel proíbe `style=`.
    Os tokens `--an-*` reaproveitam os de painel.css (var(), sem cor de reserva: painel.css sempre carrega antes) e os derivam quando o valor é o mesmo do semântico.
    As cores de dados (paleta fixa para daltônicos) ficam só aqui, em hexadecimal, com versão clara, escura e de impressão (que fica sempre clara).
+   Os quatro blocos de tokens abaixo são GERADOS por tools/gerar_painel_css.py a partir de tools/tokens_analises.py: não edite à mão (edite a tabela e gere de novo).
    O bloco de impressão repete os literais claros: tests/test_painel_navegacao.py confere que não divergem de painel.css.
-   Cor nunca é a única pista: os padrões (<pattern> dentro de cada SVG) e os glifos/textos fazem o resto em escala de cinza. */
+   Cor nunca é a única pista: os padrões de preenchimento (um pattern dentro de cada SVG) e os glifos/textos fazem o resto em escala de cinza.
+   A moldura da v5 (abas, indicadores, blocos em cartão, gaveta de memória de cálculo) usa os tokens de painel.css; os gráficos em si não mudaram. */
 :root {
-  --an-texto: var(--texto);
-  --an-suave: var(--texto-suave);
-  --an-borda: var(--borda);
-  --an-fundo: var(--superficie);
-  --an-acento: var(--acento);
-  --an-perigo: var(--perigo);
-  --an-ok: var(--ok);
-  --an-ok-fundo: var(--ok-fundo);
-  --an-perigo-fundo: var(--perigo-fundo);
-  --an-alerta: var(--alerta);
-  --an-alerta-fundo: var(--alerta-fundo);
-  --an-em_uso: #12306b;
-  --an-em_uso-ln: #2f5aa8;
-  --an-em_uso-tx: #ffffff;
-  --an-piloto: #9cc7ee;
-  --an-piloto-ln: #4f86c0;
-  --an-piloto-tx: #0b2540;
-  --an-licitacao: #237a4b;
-  --an-licitacao-ln: #5fb88a;
-  --an-licitacao-tx: #ffffff;
-  --an-anunciado: #f2c14e;
-  --an-anunciado-ln: #b8860b;
-  --an-anunciado-tx: #3b2a00;
-  --an-em_estudo: #b5bcc6;
-  --an-em_estudo-ln: #7d8795;
-  --an-em_estudo-tx: #1c2430;
-  --an-apenas_citado: #eceff3;
-  --an-apenas_citado-ln: #6b7686;
-  --an-apenas_citado-tx: #3d4756;
-  --an-descartado: #f6d5d6;
-  --an-descartado-ln: var(--perigo);
-  --an-descartado-tx: #7a1a1d;
-  --an-s0: #0072B2;
-  --an-s1: #D55E00;
-  --an-s2: #009E73;
-  --an-s3: #CC79A7;
-  --an-s4: #E69F00;
-  --an-s5: #56B4E9;
-  --an-s6: #6a4c93;
-  --an-s7: #6b7280;
-  --an-pad-ln: rgba(255,255,255,.62);
-  --an-f1: #b85400;
-  --an-f1-ln: rgba(255,255,255,.62);
-  --an-k-fraca: #e7a3a5;
-  --an-k-fraca-ln: #a3262a;
-  --an-k-razoavel: #f4b183;
-  --an-k-razoavel-ln: #8a4a10;
-  --an-k-moderada: #f2c14e;
-  --an-k-moderada-ln: #8a6410;
-  --an-k-substancial: #8fcfa8;
-  --an-k-substancial-ln: #1b7a4b;
-  --an-k-quase: var(--ok);
-  --an-k-quase-ln: rgba(255,255,255,.55);
-  --an-cal-alta: var(--ok);
-  --an-cal-alta-ln: rgba(255,255,255,.55);
-  --an-cal-media: #e0a526;
-  --an-cal-media-ln: #6b4a00;
-  --an-cal-baixa: #c9494d;
-  --an-cal-baixa-ln: rgba(255,255,255,.7);
-  --an-res-mais3: #1f5f8b;
-  --an-res-mais3-ln: rgba(255,255,255,.55);
-  --an-res-mais2: #7fb0dc;
-  --an-res-mais2-ln: rgba(0,0,0,.3);
-  --an-res-zero: #e8ecf1;
-  --an-res-zero-ln: #e8ecf1;
-  --an-res-menos2: #f5b97a;
-  --an-res-menos2-ln: rgba(0,0,0,.3);
-  --an-res-menos3: #b85400;
-  --an-res-menos3-ln: rgba(255,255,255,.55);
-  --an-fx: #d1383d;
-  --an-fx-ln: rgba(255,255,255,.7);
-  --an-ic: rgba(31,95,139,.16);
-  --an-ic-ln: rgba(31,95,139,.75);
-  --an-nv-aberto: #2e8b57;
-  --an-nv-aberto-ln: rgba(255,255,255,.5);
-  --an-nv-parcial: #e0a526;
-  --an-nv-parcial-ln: #6b4a00;
-  --an-nv-fechado: #b3282d;
-  --an-nv-fechado-ln: rgba(255,255,255,.7);
-  --an-calor0: #ffffff;
-  --an-calor1: #c9def0;
-  --an-calor2: #8fbbe0;
-  --an-calor3: #4f8fc4;
-  --an-calor4: #1f5f8b;
-  --an-calor-tx0: #1c2430;
-  --an-calor-tx1: #0b1620;
-  --an-calor-tx2: #0b1620;
-  --an-calor-tx3: #0b1620;
-  --an-calor-tx4: #ffffff;
+  --an-texto: var(--texto); --an-suave: var(--texto-suave); --an-borda: var(--borda); --an-fundo: var(--superficie); --an-acento: var(--acento);
+  --an-perigo: var(--perigo); --an-ok: var(--ok); --an-ok-fundo: var(--ok-fundo); --an-perigo-fundo: var(--perigo-fundo); --an-alerta: var(--alerta);
+  --an-alerta-fundo: var(--alerta-fundo); --an-descartado-ln: var(--perigo); --an-k-quase: var(--ok); --an-cal-alta: var(--ok);
+  --an-em_uso: #12306b; --an-em_uso-ln: #2f5aa8; --an-em_uso-tx: #ffffff; --an-piloto: #9cc7ee; --an-piloto-ln: #4f86c0; --an-piloto-tx: #0b2540;
+  --an-licitacao: #237a4b; --an-licitacao-ln: #5fb88a; --an-licitacao-tx: #ffffff; --an-anunciado: #f2c14e; --an-anunciado-ln: #b8860b;
+  --an-anunciado-tx: #3b2a00; --an-em_estudo: #b5bcc6; --an-em_estudo-ln: #7d8795; --an-em_estudo-tx: #1c2430; --an-apenas_citado: #eceff3;
+  --an-apenas_citado-ln: #6b7686; --an-apenas_citado-tx: #3d4756; --an-descartado: #f6d5d6; --an-descartado-tx: #7a1a1d; --an-s0: #0072B2;
+  --an-s1: #D55E00; --an-s2: #009E73; --an-s3: #CC79A7; --an-s4: #E69F00; --an-s5: #56B4E9; --an-s6: #6a4c93; --an-s7: #6b7280;
+  --an-pad-ln: rgba(255,255,255,.62); --an-f1: #b85400; --an-f1-ln: rgba(255,255,255,.62); --an-k-fraca: #e7a3a5; --an-k-fraca-ln: #a3262a;
+  --an-k-razoavel: #f4b183; --an-k-razoavel-ln: #8a4a10; --an-k-moderada: #f2c14e; --an-k-moderada-ln: #8a6410; --an-k-substancial: #8fcfa8;
+  --an-k-substancial-ln: #1b7a4b; --an-k-quase-ln: rgba(255,255,255,.55); --an-cal-alta-ln: rgba(255,255,255,.55); --an-cal-media: #e0a526;
+  --an-cal-media-ln: #6b4a00; --an-cal-baixa: #c9494d; --an-cal-baixa-ln: rgba(255,255,255,.7); --an-res-mais3: #1f5f8b;
+  --an-res-mais3-ln: rgba(255,255,255,.55); --an-res-mais2: #7fb0dc; --an-res-mais2-ln: rgba(0,0,0,.3); --an-res-zero: #e8ecf1;
+  --an-res-zero-ln: #e8ecf1; --an-res-menos2: #f5b97a; --an-res-menos2-ln: rgba(0,0,0,.3); --an-res-menos3: #b85400;
+  --an-res-menos3-ln: rgba(255,255,255,.55); --an-fx: #d1383d; --an-fx-ln: rgba(255,255,255,.7); --an-ic: rgba(31,95,139,.16);
+  --an-ic-ln: rgba(31,95,139,.75); --an-nv-aberto: #2e8b57; --an-nv-aberto-ln: rgba(255,255,255,.5); --an-nv-parcial: #e0a526;
+  --an-nv-parcial-ln: #6b4a00; --an-nv-fechado: #b3282d; --an-nv-fechado-ln: rgba(255,255,255,.7); --an-calor0: #ffffff; --an-calor1: #cdeeea;
+  --an-calor2: #86d3ca; --an-calor3: #2fa59a; --an-calor4: #0b6560; --an-calor-tx0: #121a2c; --an-calor-tx1: #0b1620; --an-calor-tx2: #0b1620;
+  --an-calor-tx3: #0b1620; --an-calor-tx4: #ffffff;
+  /* guarda das duas paletas de dados: os blocos do botão de tema (data-theme) só podem usar var(), nunca hexadecimal */
+  --an-claro-em_uso: #12306b; --an-claro-em_uso-ln: #2f5aa8; --an-claro-em_uso-tx: #ffffff; --an-claro-piloto: #9cc7ee;
+  --an-claro-piloto-ln: #4f86c0; --an-claro-piloto-tx: #0b2540; --an-claro-licitacao: #237a4b; --an-claro-licitacao-ln: #5fb88a;
+  --an-claro-licitacao-tx: #ffffff; --an-claro-anunciado: #f2c14e; --an-claro-anunciado-ln: #b8860b; --an-claro-anunciado-tx: #3b2a00;
+  --an-claro-em_estudo: #b5bcc6; --an-claro-em_estudo-ln: #7d8795; --an-claro-em_estudo-tx: #1c2430; --an-claro-apenas_citado: #eceff3;
+  --an-claro-apenas_citado-ln: #6b7686; --an-claro-apenas_citado-tx: #3d4756; --an-claro-descartado: #f6d5d6; --an-claro-descartado-tx: #7a1a1d;
+  --an-claro-s0: #0072B2; --an-claro-s1: #D55E00; --an-claro-s2: #009E73; --an-claro-s3: #CC79A7; --an-claro-s4: #E69F00; --an-claro-s5: #56B4E9;
+  --an-claro-s6: #6a4c93; --an-claro-s7: #6b7280; --an-claro-pad-ln: rgba(255,255,255,.62); --an-claro-f1: #b85400;
+  --an-claro-f1-ln: rgba(255,255,255,.62); --an-claro-k-fraca: #e7a3a5; --an-claro-k-fraca-ln: #a3262a; --an-claro-k-razoavel: #f4b183;
+  --an-claro-k-razoavel-ln: #8a4a10; --an-claro-k-moderada: #f2c14e; --an-claro-k-moderada-ln: #8a6410; --an-claro-k-substancial: #8fcfa8;
+  --an-claro-k-substancial-ln: #1b7a4b; --an-claro-k-quase-ln: rgba(255,255,255,.55); --an-claro-cal-alta-ln: rgba(255,255,255,.55);
+  --an-claro-cal-media: #e0a526; --an-claro-cal-media-ln: #6b4a00; --an-claro-cal-baixa: #c9494d; --an-claro-cal-baixa-ln: rgba(255,255,255,.7);
+  --an-claro-res-mais3: #1f5f8b; --an-claro-res-mais3-ln: rgba(255,255,255,.55); --an-claro-res-mais2: #7fb0dc;
+  --an-claro-res-mais2-ln: rgba(0,0,0,.3); --an-claro-res-zero: #e8ecf1; --an-claro-res-zero-ln: #e8ecf1; --an-claro-res-menos2: #f5b97a;
+  --an-claro-res-menos2-ln: rgba(0,0,0,.3); --an-claro-res-menos3: #b85400; --an-claro-res-menos3-ln: rgba(255,255,255,.55); --an-claro-fx: #d1383d;
+  --an-claro-fx-ln: rgba(255,255,255,.7); --an-claro-ic: rgba(31,95,139,.16); --an-claro-ic-ln: rgba(31,95,139,.75); --an-claro-nv-aberto: #2e8b57;
+  --an-claro-nv-aberto-ln: rgba(255,255,255,.5); --an-claro-nv-parcial: #e0a526; --an-claro-nv-parcial-ln: #6b4a00; --an-claro-nv-fechado: #b3282d;
+  --an-claro-nv-fechado-ln: rgba(255,255,255,.7); --an-claro-calor0: #ffffff; --an-claro-calor1: #cdeeea; --an-claro-calor2: #86d3ca;
+  --an-claro-calor3: #2fa59a; --an-claro-calor4: #0b6560; --an-claro-calor-tx0: #121a2c; --an-claro-calor-tx1: #0b1620;
+  --an-claro-calor-tx2: #0b1620; --an-claro-calor-tx3: #0b1620; --an-claro-calor-tx4: #ffffff;
+  --an-escuro-em_uso: #a9d1fa; --an-escuro-em_uso-ln: #7fb0e6; --an-escuro-em_uso-tx: #0a1f38; --an-escuro-piloto: #6fa8dc;
+  --an-escuro-piloto-ln: #3f78b4; --an-escuro-piloto-tx: #0a1f38; --an-escuro-licitacao: #3f9f6e; --an-escuro-licitacao-ln: #1d6b43;
+  --an-escuro-licitacao-tx: #04170d; --an-escuro-anunciado: #d9a73a; --an-escuro-anunciado-ln: #8a6410; --an-escuro-anunciado-tx: #2b1f00;
+  --an-escuro-em_estudo: #5f6a78; --an-escuro-em_estudo-ln: #8a96a6; --an-escuro-em_estudo-tx: #ffffff; --an-escuro-apenas_citado: #222a35;
+  --an-escuro-apenas_citado-ln: #7b8594; --an-escuro-apenas_citado-tx: #c3cbd6; --an-escuro-descartado: #4a2326; --an-escuro-descartado-tx: #f5b5b8;
+  --an-escuro-s0: #56a8e0; --an-escuro-s1: #f08a4b; --an-escuro-s2: #3fc79a; --an-escuro-s3: #e39bc3; --an-escuro-s4: #f2b84a;
+  --an-escuro-s5: #7fcaf0; --an-escuro-s6: #a58bd1; --an-escuro-s7: #a8a8a8; --an-escuro-pad-ln: rgba(0,0,0,.45); --an-escuro-f1: #f0a35e;
+  --an-escuro-f1-ln: rgba(0,0,0,.45); --an-escuro-k-fraca: #8a3a3d; --an-escuro-k-fraca-ln: #f5b5b8; --an-escuro-k-razoavel: #b8733a;
+  --an-escuro-k-razoavel-ln: #2b1500; --an-escuro-k-moderada: #d9a73a; --an-escuro-k-moderada-ln: #2b1f00; --an-escuro-k-substancial: #3f9f6e;
+  --an-escuro-k-substancial-ln: #04170d; --an-escuro-k-quase-ln: rgba(0,0,0,.4); --an-escuro-cal-alta-ln: rgba(0,0,0,.4);
+  --an-escuro-cal-media: #e8b45a; --an-escuro-cal-media-ln: #2b1f00; --an-escuro-cal-baixa: #f08a8d; --an-escuro-cal-baixa-ln: rgba(0,0,0,.45);
+  --an-escuro-res-mais3: #8fc0ea; --an-escuro-res-mais3-ln: rgba(0,0,0,.4); --an-escuro-res-mais2: #3f6f9c;
+  --an-escuro-res-mais2-ln: rgba(255,255,255,.35); --an-escuro-res-zero: #2a323d; --an-escuro-res-zero-ln: #2a323d; --an-escuro-res-menos2: #8f5a24;
+  --an-escuro-res-menos2-ln: rgba(255,255,255,.35); --an-escuro-res-menos3: #f0a35e; --an-escuro-res-menos3-ln: rgba(0,0,0,.4);
+  --an-escuro-fx: #f08a8d; --an-escuro-fx-ln: rgba(0,0,0,.45); --an-escuro-ic: rgba(143,192,234,.16); --an-escuro-ic-ln: rgba(143,192,234,.8);
+  --an-escuro-nv-aberto: #62c28e; --an-escuro-nv-aberto-ln: rgba(0,0,0,.4); --an-escuro-nv-parcial: #e8b45a; --an-escuro-nv-parcial-ln: #2b1f00;
+  --an-escuro-nv-fechado: #f08a8d; --an-escuro-nv-fechado-ln: rgba(0,0,0,.45); --an-escuro-calor0: #101828; --an-escuro-calor1: #143a3a;
+  --an-escuro-calor2: #1f6b66; --an-escuro-calor3: #34a89c; --an-escuro-calor4: #8de6da; --an-escuro-calor-tx0: #e8edf7;
+  --an-escuro-calor-tx1: #ffffff; --an-escuro-calor-tx2: #ffffff; --an-escuro-calor-tx3: #0b1620; --an-escuro-calor-tx4: #0b1620;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --an-em_uso: #a9d1fa;
-    --an-em_uso-ln: #7fb0e6;
-    --an-em_uso-tx: #0a1f38;
-    --an-piloto: #6fa8dc;
-    --an-piloto-ln: #3f78b4;
-    --an-piloto-tx: #0a1f38;
-    --an-licitacao: #3f9f6e;
-    --an-licitacao-ln: #1d6b43;
-    --an-licitacao-tx: #04170d;
-    --an-anunciado: #d9a73a;
-    --an-anunciado-ln: #8a6410;
-    --an-anunciado-tx: #2b1f00;
-    --an-em_estudo: #5f6a78;
-    --an-em_estudo-ln: #8a96a6;
-    --an-em_estudo-tx: #ffffff;
-    --an-apenas_citado: #222a35;
-    --an-apenas_citado-ln: #7b8594;
-    --an-apenas_citado-tx: #c3cbd6;
-    --an-descartado: #4a2326;
-    --an-descartado-tx: #f5b5b8;
-    --an-s0: #56a8e0;
-    --an-s1: #f08a4b;
-    --an-s2: #3fc79a;
-    --an-s3: #e39bc3;
-    --an-s4: #f2b84a;
-    --an-s5: #7fcaf0;
-    --an-s6: #a58bd1;
-    --an-s7: #a8a8a8;
-    --an-pad-ln: rgba(0,0,0,.45);
-    --an-f1: #f0a35e;
-    --an-f1-ln: rgba(0,0,0,.45);
-    --an-k-fraca: #8a3a3d;
-    --an-k-fraca-ln: #f5b5b8;
-    --an-k-razoavel: #b8733a;
-    --an-k-razoavel-ln: #2b1500;
-    --an-k-moderada: #d9a73a;
-    --an-k-moderada-ln: #2b1f00;
-    --an-k-substancial: #3f9f6e;
-    --an-k-substancial-ln: #04170d;
-    --an-k-quase-ln: rgba(0,0,0,.4);
-    --an-cal-alta-ln: rgba(0,0,0,.4);
-    --an-cal-media: #e8b45a;
-    --an-cal-media-ln: #2b1f00;
-    --an-cal-baixa: #f08a8d;
-    --an-cal-baixa-ln: rgba(0,0,0,.45);
-    --an-res-mais3: #8fc0ea;
-    --an-res-mais3-ln: rgba(0,0,0,.4);
-    --an-res-mais2: #3f6f9c;
-    --an-res-mais2-ln: rgba(255,255,255,.35);
-    --an-res-zero: #2a323d;
-    --an-res-zero-ln: #2a323d;
-    --an-res-menos2: #8f5a24;
-    --an-res-menos2-ln: rgba(255,255,255,.35);
-    --an-res-menos3: #f0a35e;
-    --an-res-menos3-ln: rgba(0,0,0,.4);
-    --an-fx: #f08a8d;
-    --an-fx-ln: rgba(0,0,0,.45);
-    --an-ic: rgba(143,192,234,.16);
-    --an-ic-ln: rgba(143,192,234,.8);
-    --an-nv-aberto: #62c28e;
-    --an-nv-aberto-ln: rgba(0,0,0,.4);
-    --an-nv-parcial: #e8b45a;
-    --an-nv-parcial-ln: #2b1f00;
-    --an-nv-fechado: #f08a8d;
-    --an-nv-fechado-ln: rgba(0,0,0,.45);
-    --an-calor0: #1b212a;
-    --an-calor1: #25445c;
-    --an-calor2: #2f6a94;
-    --an-calor3: #4b94c6;
-    --an-calor4: #8fcbf0;
-    --an-calor-tx0: #e6eaf0;
-    --an-calor-tx1: #e6eaf0;
-    --an-calor-tx2: #ffffff;
-    --an-calor-tx4: #0b1620;
+    --an-em_uso: #a9d1fa; --an-em_uso-ln: #7fb0e6; --an-em_uso-tx: #0a1f38; --an-piloto: #6fa8dc; --an-piloto-ln: #3f78b4; --an-piloto-tx: #0a1f38;
+    --an-licitacao: #3f9f6e; --an-licitacao-ln: #1d6b43; --an-licitacao-tx: #04170d; --an-anunciado: #d9a73a; --an-anunciado-ln: #8a6410;
+    --an-anunciado-tx: #2b1f00; --an-em_estudo: #5f6a78; --an-em_estudo-ln: #8a96a6; --an-em_estudo-tx: #ffffff; --an-apenas_citado: #222a35;
+    --an-apenas_citado-ln: #7b8594; --an-apenas_citado-tx: #c3cbd6; --an-descartado: #4a2326; --an-descartado-tx: #f5b5b8; --an-s0: #56a8e0;
+    --an-s1: #f08a4b; --an-s2: #3fc79a; --an-s3: #e39bc3; --an-s4: #f2b84a; --an-s5: #7fcaf0; --an-s6: #a58bd1; --an-s7: #a8a8a8;
+    --an-pad-ln: rgba(0,0,0,.45); --an-f1: #f0a35e; --an-f1-ln: rgba(0,0,0,.45); --an-k-fraca: #8a3a3d; --an-k-fraca-ln: #f5b5b8;
+    --an-k-razoavel: #b8733a; --an-k-razoavel-ln: #2b1500; --an-k-moderada: #d9a73a; --an-k-moderada-ln: #2b1f00; --an-k-substancial: #3f9f6e;
+    --an-k-substancial-ln: #04170d; --an-k-quase-ln: rgba(0,0,0,.4); --an-cal-alta-ln: rgba(0,0,0,.4); --an-cal-media: #e8b45a;
+    --an-cal-media-ln: #2b1f00; --an-cal-baixa: #f08a8d; --an-cal-baixa-ln: rgba(0,0,0,.45); --an-res-mais3: #8fc0ea;
+    --an-res-mais3-ln: rgba(0,0,0,.4); --an-res-mais2: #3f6f9c; --an-res-mais2-ln: rgba(255,255,255,.35); --an-res-zero: #2a323d;
+    --an-res-zero-ln: #2a323d; --an-res-menos2: #8f5a24; --an-res-menos2-ln: rgba(255,255,255,.35); --an-res-menos3: #f0a35e;
+    --an-res-menos3-ln: rgba(0,0,0,.4); --an-fx: #f08a8d; --an-fx-ln: rgba(0,0,0,.45); --an-ic: rgba(143,192,234,.16);
+    --an-ic-ln: rgba(143,192,234,.8); --an-nv-aberto: #62c28e; --an-nv-aberto-ln: rgba(0,0,0,.4); --an-nv-parcial: #e8b45a;
+    --an-nv-parcial-ln: #2b1f00; --an-nv-fechado: #f08a8d; --an-nv-fechado-ln: rgba(0,0,0,.45); --an-calor0: #101828; --an-calor1: #143a3a;
+    --an-calor2: #1f6b66; --an-calor3: #34a89c; --an-calor4: #8de6da; --an-calor-tx0: #e8edf7; --an-calor-tx1: #ffffff; --an-calor-tx2: #ffffff;
+    --an-calor-tx3: #0b1620; --an-calor-tx4: #0b1620;
   }
 }
-
-/* ===== analises.css · tema escolhido no botão (atributo data-theme), só em tela; a impressão continua sempre clara. ===== */
+/* Escolha explícita no botão de tema. Só em tela: no papel manda o bloco de impressão, que é sempre claro. */
 @media screen {
   :root[data-theme="dark"] {
-    --an-em_uso: #a9d1fa;
-    --an-em_uso-ln: #7fb0e6;
-    --an-em_uso-tx: #0a1f38;
-    --an-piloto: #6fa8dc;
-    --an-piloto-ln: #3f78b4;
-    --an-piloto-tx: #0a1f38;
-    --an-licitacao: #3f9f6e;
-    --an-licitacao-ln: #1d6b43;
-    --an-licitacao-tx: #04170d;
-    --an-anunciado: #d9a73a;
-    --an-anunciado-ln: #8a6410;
-    --an-anunciado-tx: #2b1f00;
-    --an-em_estudo: #5f6a78;
-    --an-em_estudo-ln: #8a96a6;
-    --an-em_estudo-tx: #ffffff;
-    --an-apenas_citado: #222a35;
-    --an-apenas_citado-ln: #7b8594;
-    --an-apenas_citado-tx: #c3cbd6;
-    --an-descartado: #4a2326;
-    --an-descartado-tx: #f5b5b8;
-    --an-s0: #56a8e0;
-    --an-s1: #f08a4b;
-    --an-s2: #3fc79a;
-    --an-s3: #e39bc3;
-    --an-s4: #f2b84a;
-    --an-s5: #7fcaf0;
-    --an-s6: #a58bd1;
-    --an-s7: #a8a8a8;
-    --an-pad-ln: rgba(0,0,0,.45);
-    --an-f1: #f0a35e;
-    --an-f1-ln: rgba(0,0,0,.45);
-    --an-k-fraca: #8a3a3d;
-    --an-k-fraca-ln: #f5b5b8;
-    --an-k-razoavel: #b8733a;
-    --an-k-razoavel-ln: #2b1500;
-    --an-k-moderada: #d9a73a;
-    --an-k-moderada-ln: #2b1f00;
-    --an-k-substancial: #3f9f6e;
-    --an-k-substancial-ln: #04170d;
-    --an-k-quase-ln: rgba(0,0,0,.4);
-    --an-cal-alta-ln: rgba(0,0,0,.4);
-    --an-cal-media: #e8b45a;
-    --an-cal-media-ln: #2b1f00;
-    --an-cal-baixa: #f08a8d;
-    --an-cal-baixa-ln: rgba(0,0,0,.45);
-    --an-res-mais3: #8fc0ea;
-    --an-res-mais3-ln: rgba(0,0,0,.4);
-    --an-res-mais2: #3f6f9c;
-    --an-res-mais2-ln: rgba(255,255,255,.35);
-    --an-res-zero: #2a323d;
-    --an-res-zero-ln: #2a323d;
-    --an-res-menos2: #8f5a24;
-    --an-res-menos2-ln: rgba(255,255,255,.35);
-    --an-res-menos3: #f0a35e;
-    --an-res-menos3-ln: rgba(0,0,0,.4);
-    --an-fx: #f08a8d;
-    --an-fx-ln: rgba(0,0,0,.45);
-    --an-ic: rgba(143,192,234,.16);
-    --an-ic-ln: rgba(143,192,234,.8);
-    --an-nv-aberto: #62c28e;
-    --an-nv-aberto-ln: rgba(0,0,0,.4);
-    --an-nv-parcial: #e8b45a;
-    --an-nv-parcial-ln: #2b1f00;
-    --an-nv-fechado: #f08a8d;
-    --an-nv-fechado-ln: rgba(0,0,0,.45);
-    --an-calor0: #1b212a;
-    --an-calor1: #25445c;
-    --an-calor2: #2f6a94;
-    --an-calor3: #4b94c6;
-    --an-calor4: #8fcbf0;
-    --an-calor-tx0: #e6eaf0;
-    --an-calor-tx1: #e6eaf0;
-    --an-calor-tx2: #ffffff;
-    --an-calor-tx4: #0b1620;
+    --an-em_uso: var(--an-escuro-em_uso); --an-em_uso-ln: var(--an-escuro-em_uso-ln); --an-em_uso-tx: var(--an-escuro-em_uso-tx);
+    --an-piloto: var(--an-escuro-piloto); --an-piloto-ln: var(--an-escuro-piloto-ln); --an-piloto-tx: var(--an-escuro-piloto-tx);
+    --an-licitacao: var(--an-escuro-licitacao); --an-licitacao-ln: var(--an-escuro-licitacao-ln); --an-licitacao-tx: var(--an-escuro-licitacao-tx);
+    --an-anunciado: var(--an-escuro-anunciado); --an-anunciado-ln: var(--an-escuro-anunciado-ln); --an-anunciado-tx: var(--an-escuro-anunciado-tx);
+    --an-em_estudo: var(--an-escuro-em_estudo); --an-em_estudo-ln: var(--an-escuro-em_estudo-ln); --an-em_estudo-tx: var(--an-escuro-em_estudo-tx);
+    --an-apenas_citado: var(--an-escuro-apenas_citado); --an-apenas_citado-ln: var(--an-escuro-apenas_citado-ln);
+    --an-apenas_citado-tx: var(--an-escuro-apenas_citado-tx); --an-descartado: var(--an-escuro-descartado);
+    --an-descartado-tx: var(--an-escuro-descartado-tx); --an-s0: var(--an-escuro-s0); --an-s1: var(--an-escuro-s1); --an-s2: var(--an-escuro-s2);
+    --an-s3: var(--an-escuro-s3); --an-s4: var(--an-escuro-s4); --an-s5: var(--an-escuro-s5); --an-s6: var(--an-escuro-s6);
+    --an-s7: var(--an-escuro-s7); --an-pad-ln: var(--an-escuro-pad-ln); --an-f1: var(--an-escuro-f1); --an-f1-ln: var(--an-escuro-f1-ln);
+    --an-k-fraca: var(--an-escuro-k-fraca); --an-k-fraca-ln: var(--an-escuro-k-fraca-ln); --an-k-razoavel: var(--an-escuro-k-razoavel);
+    --an-k-razoavel-ln: var(--an-escuro-k-razoavel-ln); --an-k-moderada: var(--an-escuro-k-moderada);
+    --an-k-moderada-ln: var(--an-escuro-k-moderada-ln); --an-k-substancial: var(--an-escuro-k-substancial);
+    --an-k-substancial-ln: var(--an-escuro-k-substancial-ln); --an-k-quase-ln: var(--an-escuro-k-quase-ln);
+    --an-cal-alta-ln: var(--an-escuro-cal-alta-ln); --an-cal-media: var(--an-escuro-cal-media); --an-cal-media-ln: var(--an-escuro-cal-media-ln);
+    --an-cal-baixa: var(--an-escuro-cal-baixa); --an-cal-baixa-ln: var(--an-escuro-cal-baixa-ln); --an-res-mais3: var(--an-escuro-res-mais3);
+    --an-res-mais3-ln: var(--an-escuro-res-mais3-ln); --an-res-mais2: var(--an-escuro-res-mais2); --an-res-mais2-ln: var(--an-escuro-res-mais2-ln);
+    --an-res-zero: var(--an-escuro-res-zero); --an-res-zero-ln: var(--an-escuro-res-zero-ln); --an-res-menos2: var(--an-escuro-res-menos2);
+    --an-res-menos2-ln: var(--an-escuro-res-menos2-ln); --an-res-menos3: var(--an-escuro-res-menos3);
+    --an-res-menos3-ln: var(--an-escuro-res-menos3-ln); --an-fx: var(--an-escuro-fx); --an-fx-ln: var(--an-escuro-fx-ln);
+    --an-ic: var(--an-escuro-ic); --an-ic-ln: var(--an-escuro-ic-ln); --an-nv-aberto: var(--an-escuro-nv-aberto);
+    --an-nv-aberto-ln: var(--an-escuro-nv-aberto-ln); --an-nv-parcial: var(--an-escuro-nv-parcial);
+    --an-nv-parcial-ln: var(--an-escuro-nv-parcial-ln); --an-nv-fechado: var(--an-escuro-nv-fechado);
+    --an-nv-fechado-ln: var(--an-escuro-nv-fechado-ln); --an-calor0: var(--an-escuro-calor0); --an-calor1: var(--an-escuro-calor1);
+    --an-calor2: var(--an-escuro-calor2); --an-calor3: var(--an-escuro-calor3); --an-calor4: var(--an-escuro-calor4);
+    --an-calor-tx0: var(--an-escuro-calor-tx0); --an-calor-tx1: var(--an-escuro-calor-tx1); --an-calor-tx2: var(--an-escuro-calor-tx2);
+    --an-calor-tx3: var(--an-escuro-calor-tx3); --an-calor-tx4: var(--an-escuro-calor-tx4);
   }
   :root[data-theme="light"] {
-    --an-em_uso: #12306b;
-    --an-em_uso-ln: #2f5aa8;
-    --an-em_uso-tx: #ffffff;
-    --an-piloto: #9cc7ee;
-    --an-piloto-ln: #4f86c0;
-    --an-piloto-tx: #0b2540;
-    --an-licitacao: #237a4b;
-    --an-licitacao-ln: #5fb88a;
-    --an-licitacao-tx: #ffffff;
-    --an-anunciado: #f2c14e;
-    --an-anunciado-ln: #b8860b;
-    --an-anunciado-tx: #3b2a00;
-    --an-em_estudo: #b5bcc6;
-    --an-em_estudo-ln: #7d8795;
-    --an-em_estudo-tx: #1c2430;
-    --an-apenas_citado: #eceff3;
-    --an-apenas_citado-ln: #6b7686;
-    --an-apenas_citado-tx: #3d4756;
-    --an-descartado: #f6d5d6;
-    --an-descartado-tx: #7a1a1d;
-    --an-s0: #0072B2;
-    --an-s1: #D55E00;
-    --an-s2: #009E73;
-    --an-s3: #CC79A7;
-    --an-s4: #E69F00;
-    --an-s5: #56B4E9;
-    --an-s6: #6a4c93;
-    --an-s7: #6b7280;
-    --an-pad-ln: rgba(255,255,255,.62);
-    --an-f1: #b85400;
-    --an-f1-ln: rgba(255,255,255,.62);
-    --an-k-fraca: #e7a3a5;
-    --an-k-fraca-ln: #a3262a;
-    --an-k-razoavel: #f4b183;
-    --an-k-razoavel-ln: #8a4a10;
-    --an-k-moderada: #f2c14e;
-    --an-k-moderada-ln: #8a6410;
-    --an-k-substancial: #8fcfa8;
-    --an-k-substancial-ln: #1b7a4b;
-    --an-k-quase-ln: rgba(255,255,255,.55);
-    --an-cal-alta-ln: rgba(255,255,255,.55);
-    --an-cal-media: #e0a526;
-    --an-cal-media-ln: #6b4a00;
-    --an-cal-baixa: #c9494d;
-    --an-cal-baixa-ln: rgba(255,255,255,.7);
-    --an-res-mais3: #1f5f8b;
-    --an-res-mais3-ln: rgba(255,255,255,.55);
-    --an-res-mais2: #7fb0dc;
-    --an-res-mais2-ln: rgba(0,0,0,.3);
-    --an-res-zero: #e8ecf1;
-    --an-res-zero-ln: #e8ecf1;
-    --an-res-menos2: #f5b97a;
-    --an-res-menos2-ln: rgba(0,0,0,.3);
-    --an-res-menos3: #b85400;
-    --an-res-menos3-ln: rgba(255,255,255,.55);
-    --an-fx: #d1383d;
-    --an-fx-ln: rgba(255,255,255,.7);
-    --an-ic: rgba(31,95,139,.16);
-    --an-ic-ln: rgba(31,95,139,.75);
-    --an-nv-aberto: #2e8b57;
-    --an-nv-aberto-ln: rgba(255,255,255,.5);
-    --an-nv-parcial: #e0a526;
-    --an-nv-parcial-ln: #6b4a00;
-    --an-nv-fechado: #b3282d;
-    --an-nv-fechado-ln: rgba(255,255,255,.7);
-    --an-calor0: #ffffff;
-    --an-calor1: #c9def0;
-    --an-calor2: #8fbbe0;
-    --an-calor3: #4f8fc4;
-    --an-calor4: #1f5f8b;
-    --an-calor-tx0: #1c2430;
-    --an-calor-tx1: #0b1620;
-    --an-calor-tx2: #0b1620;
-    --an-calor-tx4: #ffffff;
+    --an-em_uso: var(--an-claro-em_uso); --an-em_uso-ln: var(--an-claro-em_uso-ln); --an-em_uso-tx: var(--an-claro-em_uso-tx);
+    --an-piloto: var(--an-claro-piloto); --an-piloto-ln: var(--an-claro-piloto-ln); --an-piloto-tx: var(--an-claro-piloto-tx);
+    --an-licitacao: var(--an-claro-licitacao); --an-licitacao-ln: var(--an-claro-licitacao-ln); --an-licitacao-tx: var(--an-claro-licitacao-tx);
+    --an-anunciado: var(--an-claro-anunciado); --an-anunciado-ln: var(--an-claro-anunciado-ln); --an-anunciado-tx: var(--an-claro-anunciado-tx);
+    --an-em_estudo: var(--an-claro-em_estudo); --an-em_estudo-ln: var(--an-claro-em_estudo-ln); --an-em_estudo-tx: var(--an-claro-em_estudo-tx);
+    --an-apenas_citado: var(--an-claro-apenas_citado); --an-apenas_citado-ln: var(--an-claro-apenas_citado-ln);
+    --an-apenas_citado-tx: var(--an-claro-apenas_citado-tx); --an-descartado: var(--an-claro-descartado);
+    --an-descartado-tx: var(--an-claro-descartado-tx); --an-s0: var(--an-claro-s0); --an-s1: var(--an-claro-s1); --an-s2: var(--an-claro-s2);
+    --an-s3: var(--an-claro-s3); --an-s4: var(--an-claro-s4); --an-s5: var(--an-claro-s5); --an-s6: var(--an-claro-s6); --an-s7: var(--an-claro-s7);
+    --an-pad-ln: var(--an-claro-pad-ln); --an-f1: var(--an-claro-f1); --an-f1-ln: var(--an-claro-f1-ln); --an-k-fraca: var(--an-claro-k-fraca);
+    --an-k-fraca-ln: var(--an-claro-k-fraca-ln); --an-k-razoavel: var(--an-claro-k-razoavel); --an-k-razoavel-ln: var(--an-claro-k-razoavel-ln);
+    --an-k-moderada: var(--an-claro-k-moderada); --an-k-moderada-ln: var(--an-claro-k-moderada-ln);
+    --an-k-substancial: var(--an-claro-k-substancial); --an-k-substancial-ln: var(--an-claro-k-substancial-ln);
+    --an-k-quase-ln: var(--an-claro-k-quase-ln); --an-cal-alta-ln: var(--an-claro-cal-alta-ln); --an-cal-media: var(--an-claro-cal-media);
+    --an-cal-media-ln: var(--an-claro-cal-media-ln); --an-cal-baixa: var(--an-claro-cal-baixa); --an-cal-baixa-ln: var(--an-claro-cal-baixa-ln);
+    --an-res-mais3: var(--an-claro-res-mais3); --an-res-mais3-ln: var(--an-claro-res-mais3-ln); --an-res-mais2: var(--an-claro-res-mais2);
+    --an-res-mais2-ln: var(--an-claro-res-mais2-ln); --an-res-zero: var(--an-claro-res-zero); --an-res-zero-ln: var(--an-claro-res-zero-ln);
+    --an-res-menos2: var(--an-claro-res-menos2); --an-res-menos2-ln: var(--an-claro-res-menos2-ln); --an-res-menos3: var(--an-claro-res-menos3);
+    --an-res-menos3-ln: var(--an-claro-res-menos3-ln); --an-fx: var(--an-claro-fx); --an-fx-ln: var(--an-claro-fx-ln); --an-ic: var(--an-claro-ic);
+    --an-ic-ln: var(--an-claro-ic-ln); --an-nv-aberto: var(--an-claro-nv-aberto); --an-nv-aberto-ln: var(--an-claro-nv-aberto-ln);
+    --an-nv-parcial: var(--an-claro-nv-parcial); --an-nv-parcial-ln: var(--an-claro-nv-parcial-ln); --an-nv-fechado: var(--an-claro-nv-fechado);
+    --an-nv-fechado-ln: var(--an-claro-nv-fechado-ln); --an-calor0: var(--an-claro-calor0); --an-calor1: var(--an-claro-calor1);
+    --an-calor2: var(--an-claro-calor2); --an-calor3: var(--an-claro-calor3); --an-calor4: var(--an-claro-calor4);
+    --an-calor-tx0: var(--an-claro-calor-tx0); --an-calor-tx1: var(--an-claro-calor-tx1); --an-calor-tx2: var(--an-claro-calor-tx2);
+    --an-calor-tx3: var(--an-claro-calor-tx3); --an-calor-tx4: var(--an-claro-calor-tx4);
   }
 }
 @media print {
   :root {
-    --an-texto: #1c1917;
-    --an-suave: #4a5462;
-    --an-borda: #9aa3b0;
-    --an-fundo: #fefefd;
-    --an-acento: #2457c5;
-    --an-perigo: #b42318;
-    --an-ok: #047857;
-    --an-ok-fundo: #ebf8f3;
-    --an-perigo-fundo: #fbedeb;
-    --an-alerta: #8f4a06;
-    --an-alerta-fundo: #fdf6ea;
-    --an-em_uso: #12306b;
-    --an-em_uso-ln: #2f5aa8;
-    --an-em_uso-tx: #ffffff;
-    --an-piloto: #9cc7ee;
-    --an-piloto-ln: #4f86c0;
-    --an-piloto-tx: #0b2540;
-    --an-licitacao: #237a4b;
-    --an-licitacao-ln: #5fb88a;
-    --an-licitacao-tx: #ffffff;
-    --an-anunciado: #f2c14e;
-    --an-anunciado-ln: #b8860b;
-    --an-anunciado-tx: #3b2a00;
-    --an-em_estudo: #b5bcc6;
-    --an-em_estudo-ln: #7d8795;
-    --an-em_estudo-tx: #1c2430;
-    --an-apenas_citado: #eceff3;
-    --an-apenas_citado-ln: #6b7686;
-    --an-apenas_citado-tx: #3d4756;
-    --an-descartado: #f6d5d6;
-    --an-descartado-ln: #b42318;
-    --an-descartado-tx: #7a1a1d;
-    --an-s0: #0072B2;
-    --an-s1: #D55E00;
-    --an-s2: #009E73;
-    --an-s3: #CC79A7;
-    --an-s4: #E69F00;
-    --an-s5: #56B4E9;
-    --an-s6: #6a4c93;
-    --an-s7: #6b7280;
-    --an-pad-ln: rgba(255,255,255,.62);
-    --an-f1: #b85400;
-    --an-f1-ln: rgba(255,255,255,.62);
-    --an-k-fraca: #e7a3a5;
-    --an-k-fraca-ln: #a3262a;
-    --an-k-razoavel: #f4b183;
-    --an-k-razoavel-ln: #8a4a10;
-    --an-k-moderada: #f2c14e;
-    --an-k-moderada-ln: #8a6410;
-    --an-k-substancial: #8fcfa8;
-    --an-k-substancial-ln: #1b7a4b;
-    --an-k-quase: #047857;
-    --an-k-quase-ln: rgba(255,255,255,.55);
-    --an-cal-alta: #047857;
-    --an-cal-alta-ln: rgba(255,255,255,.55);
-    --an-cal-media: #e0a526;
-    --an-cal-media-ln: #6b4a00;
-    --an-cal-baixa: #c9494d;
-    --an-cal-baixa-ln: rgba(255,255,255,.7);
-    --an-res-mais3: #1f5f8b;
-    --an-res-mais3-ln: rgba(255,255,255,.55);
-    --an-res-mais2: #7fb0dc;
-    --an-res-mais2-ln: rgba(0,0,0,.3);
-    --an-res-zero: #e8ecf1;
-    --an-res-zero-ln: #e8ecf1;
-    --an-res-menos2: #f5b97a;
-    --an-res-menos2-ln: rgba(0,0,0,.3);
-    --an-res-menos3: #b85400;
-    --an-res-menos3-ln: rgba(255,255,255,.55);
-    --an-fx: #d1383d;
-    --an-fx-ln: rgba(255,255,255,.7);
-    --an-ic: rgba(31,95,139,.16);
-    --an-ic-ln: rgba(31,95,139,.75);
-    --an-nv-aberto: #2e8b57;
-    --an-nv-aberto-ln: rgba(255,255,255,.5);
-    --an-nv-parcial: #e0a526;
-    --an-nv-parcial-ln: #6b4a00;
-    --an-nv-fechado: #b3282d;
-    --an-nv-fechado-ln: rgba(255,255,255,.7);
-    --an-calor0: #ffffff;
-    --an-calor1: #c9def0;
-    --an-calor2: #8fbbe0;
-    --an-calor3: #4f8fc4;
-    --an-calor4: #1f5f8b;
-    --an-calor-tx0: #1c2430;
-    --an-calor-tx1: #0b1620;
-    --an-calor-tx2: #0b1620;
-    --an-calor-tx3: #0b1620;
-    --an-calor-tx4: #ffffff;
+    --an-texto: #121a2c; --an-suave: #4a5462; --an-borda: #9aa3b0; --an-fundo: #ffffff; --an-acento: #2a5bd7; --an-perigo: #b0231a; --an-ok: #0b7249;
+    --an-ok-fundo: #e2f6ec; --an-perigo-fundo: #fdebe9; --an-alerta: #8f4a04; --an-alerta-fundo: #fef3df; --an-descartado-ln: #b0231a;
+    --an-k-quase: #0b7249; --an-cal-alta: #0b7249; --an-em_uso: #12306b; --an-em_uso-ln: #2f5aa8; --an-em_uso-tx: #ffffff; --an-piloto: #9cc7ee;
+    --an-piloto-ln: #4f86c0; --an-piloto-tx: #0b2540; --an-licitacao: #237a4b; --an-licitacao-ln: #5fb88a; --an-licitacao-tx: #ffffff;
+    --an-anunciado: #f2c14e; --an-anunciado-ln: #b8860b; --an-anunciado-tx: #3b2a00; --an-em_estudo: #b5bcc6; --an-em_estudo-ln: #7d8795;
+    --an-em_estudo-tx: #1c2430; --an-apenas_citado: #eceff3; --an-apenas_citado-ln: #6b7686; --an-apenas_citado-tx: #3d4756;
+    --an-descartado: #f6d5d6; --an-descartado-tx: #7a1a1d; --an-s0: #0072B2; --an-s1: #D55E00; --an-s2: #009E73; --an-s3: #CC79A7; --an-s4: #E69F00;
+    --an-s5: #56B4E9; --an-s6: #6a4c93; --an-s7: #6b7280; --an-pad-ln: rgba(255,255,255,.62); --an-f1: #b85400; --an-f1-ln: rgba(255,255,255,.62);
+    --an-k-fraca: #e7a3a5; --an-k-fraca-ln: #a3262a; --an-k-razoavel: #f4b183; --an-k-razoavel-ln: #8a4a10; --an-k-moderada: #f2c14e;
+    --an-k-moderada-ln: #8a6410; --an-k-substancial: #8fcfa8; --an-k-substancial-ln: #1b7a4b; --an-k-quase-ln: rgba(255,255,255,.55);
+    --an-cal-alta-ln: rgba(255,255,255,.55); --an-cal-media: #e0a526; --an-cal-media-ln: #6b4a00; --an-cal-baixa: #c9494d;
+    --an-cal-baixa-ln: rgba(255,255,255,.7); --an-res-mais3: #1f5f8b; --an-res-mais3-ln: rgba(255,255,255,.55); --an-res-mais2: #7fb0dc;
+    --an-res-mais2-ln: rgba(0,0,0,.3); --an-res-zero: #e8ecf1; --an-res-zero-ln: #e8ecf1; --an-res-menos2: #f5b97a;
+    --an-res-menos2-ln: rgba(0,0,0,.3); --an-res-menos3: #b85400; --an-res-menos3-ln: rgba(255,255,255,.55); --an-fx: #d1383d;
+    --an-fx-ln: rgba(255,255,255,.7); --an-ic: rgba(31,95,139,.16); --an-ic-ln: rgba(31,95,139,.75); --an-nv-aberto: #2e8b57;
+    --an-nv-aberto-ln: rgba(255,255,255,.5); --an-nv-parcial: #e0a526; --an-nv-parcial-ln: #6b4a00; --an-nv-fechado: #b3282d;
+    --an-nv-fechado-ln: rgba(255,255,255,.7); --an-calor0: #ffffff; --an-calor1: #cdeeea; --an-calor2: #86d3ca; --an-calor3: #2fa59a;
+    --an-calor4: #0b6560; --an-calor-tx0: #121a2c; --an-calor-tx1: #0b1620; --an-calor-tx2: #0b1620; --an-calor-tx3: #0b1620;
+    --an-calor-tx4: #ffffff; --an-claro-em_uso: #12306b; --an-claro-em_uso-ln: #2f5aa8; --an-claro-em_uso-tx: #ffffff; --an-claro-piloto: #9cc7ee;
+    --an-claro-piloto-ln: #4f86c0; --an-claro-piloto-tx: #0b2540; --an-claro-licitacao: #237a4b; --an-claro-licitacao-ln: #5fb88a;
+    --an-claro-licitacao-tx: #ffffff; --an-claro-anunciado: #f2c14e; --an-claro-anunciado-ln: #b8860b; --an-claro-anunciado-tx: #3b2a00;
+    --an-claro-em_estudo: #b5bcc6; --an-claro-em_estudo-ln: #7d8795; --an-claro-em_estudo-tx: #1c2430; --an-claro-apenas_citado: #eceff3;
+    --an-claro-apenas_citado-ln: #6b7686; --an-claro-apenas_citado-tx: #3d4756; --an-claro-descartado: #f6d5d6; --an-claro-descartado-tx: #7a1a1d;
+    --an-claro-s0: #0072B2; --an-claro-s1: #D55E00; --an-claro-s2: #009E73; --an-claro-s3: #CC79A7; --an-claro-s4: #E69F00; --an-claro-s5: #56B4E9;
+    --an-claro-s6: #6a4c93; --an-claro-s7: #6b7280; --an-claro-pad-ln: rgba(255,255,255,.62); --an-claro-f1: #b85400;
+    --an-claro-f1-ln: rgba(255,255,255,.62); --an-claro-k-fraca: #e7a3a5; --an-claro-k-fraca-ln: #a3262a; --an-claro-k-razoavel: #f4b183;
+    --an-claro-k-razoavel-ln: #8a4a10; --an-claro-k-moderada: #f2c14e; --an-claro-k-moderada-ln: #8a6410; --an-claro-k-substancial: #8fcfa8;
+    --an-claro-k-substancial-ln: #1b7a4b; --an-claro-k-quase-ln: rgba(255,255,255,.55); --an-claro-cal-alta-ln: rgba(255,255,255,.55);
+    --an-claro-cal-media: #e0a526; --an-claro-cal-media-ln: #6b4a00; --an-claro-cal-baixa: #c9494d; --an-claro-cal-baixa-ln: rgba(255,255,255,.7);
+    --an-claro-res-mais3: #1f5f8b; --an-claro-res-mais3-ln: rgba(255,255,255,.55); --an-claro-res-mais2: #7fb0dc;
+    --an-claro-res-mais2-ln: rgba(0,0,0,.3); --an-claro-res-zero: #e8ecf1; --an-claro-res-zero-ln: #e8ecf1; --an-claro-res-menos2: #f5b97a;
+    --an-claro-res-menos2-ln: rgba(0,0,0,.3); --an-claro-res-menos3: #b85400; --an-claro-res-menos3-ln: rgba(255,255,255,.55);
+    --an-claro-fx: #d1383d; --an-claro-fx-ln: rgba(255,255,255,.7); --an-claro-ic: rgba(31,95,139,.16); --an-claro-ic-ln: rgba(31,95,139,.75);
+    --an-claro-nv-aberto: #2e8b57; --an-claro-nv-aberto-ln: rgba(255,255,255,.5); --an-claro-nv-parcial: #e0a526; --an-claro-nv-parcial-ln: #6b4a00;
+    --an-claro-nv-fechado: #b3282d; --an-claro-nv-fechado-ln: rgba(255,255,255,.7); --an-claro-calor0: #ffffff; --an-claro-calor1: #cdeeea;
+    --an-claro-calor2: #86d3ca; --an-claro-calor3: #2fa59a; --an-claro-calor4: #0b6560; --an-claro-calor-tx0: #121a2c; --an-claro-calor-tx1: #0b1620;
+    --an-claro-calor-tx2: #0b1620; --an-claro-calor-tx3: #0b1620; --an-claro-calor-tx4: #ffffff; --an-escuro-em_uso: #a9d1fa;
+    --an-escuro-em_uso-ln: #7fb0e6; --an-escuro-em_uso-tx: #0a1f38; --an-escuro-piloto: #6fa8dc; --an-escuro-piloto-ln: #3f78b4;
+    --an-escuro-piloto-tx: #0a1f38; --an-escuro-licitacao: #3f9f6e; --an-escuro-licitacao-ln: #1d6b43; --an-escuro-licitacao-tx: #04170d;
+    --an-escuro-anunciado: #d9a73a; --an-escuro-anunciado-ln: #8a6410; --an-escuro-anunciado-tx: #2b1f00; --an-escuro-em_estudo: #5f6a78;
+    --an-escuro-em_estudo-ln: #8a96a6; --an-escuro-em_estudo-tx: #ffffff; --an-escuro-apenas_citado: #222a35; --an-escuro-apenas_citado-ln: #7b8594;
+    --an-escuro-apenas_citado-tx: #c3cbd6; --an-escuro-descartado: #4a2326; --an-escuro-descartado-tx: #f5b5b8; --an-escuro-s0: #56a8e0;
+    --an-escuro-s1: #f08a4b; --an-escuro-s2: #3fc79a; --an-escuro-s3: #e39bc3; --an-escuro-s4: #f2b84a; --an-escuro-s5: #7fcaf0;
+    --an-escuro-s6: #a58bd1; --an-escuro-s7: #a8a8a8; --an-escuro-pad-ln: rgba(0,0,0,.45); --an-escuro-f1: #f0a35e;
+    --an-escuro-f1-ln: rgba(0,0,0,.45); --an-escuro-k-fraca: #8a3a3d; --an-escuro-k-fraca-ln: #f5b5b8; --an-escuro-k-razoavel: #b8733a;
+    --an-escuro-k-razoavel-ln: #2b1500; --an-escuro-k-moderada: #d9a73a; --an-escuro-k-moderada-ln: #2b1f00; --an-escuro-k-substancial: #3f9f6e;
+    --an-escuro-k-substancial-ln: #04170d; --an-escuro-k-quase-ln: rgba(0,0,0,.4); --an-escuro-cal-alta-ln: rgba(0,0,0,.4);
+    --an-escuro-cal-media: #e8b45a; --an-escuro-cal-media-ln: #2b1f00; --an-escuro-cal-baixa: #f08a8d; --an-escuro-cal-baixa-ln: rgba(0,0,0,.45);
+    --an-escuro-res-mais3: #8fc0ea; --an-escuro-res-mais3-ln: rgba(0,0,0,.4); --an-escuro-res-mais2: #3f6f9c;
+    --an-escuro-res-mais2-ln: rgba(255,255,255,.35); --an-escuro-res-zero: #2a323d; --an-escuro-res-zero-ln: #2a323d;
+    --an-escuro-res-menos2: #8f5a24; --an-escuro-res-menos2-ln: rgba(255,255,255,.35); --an-escuro-res-menos3: #f0a35e;
+    --an-escuro-res-menos3-ln: rgba(0,0,0,.4); --an-escuro-fx: #f08a8d; --an-escuro-fx-ln: rgba(0,0,0,.45); --an-escuro-ic: rgba(143,192,234,.16);
+    --an-escuro-ic-ln: rgba(143,192,234,.8); --an-escuro-nv-aberto: #62c28e; --an-escuro-nv-aberto-ln: rgba(0,0,0,.4);
+    --an-escuro-nv-parcial: #e8b45a; --an-escuro-nv-parcial-ln: #2b1f00; --an-escuro-nv-fechado: #f08a8d; --an-escuro-nv-fechado-ln: rgba(0,0,0,.45);
+    --an-escuro-calor0: #101828; --an-escuro-calor1: #143a3a; --an-escuro-calor2: #1f6b66; --an-escuro-calor3: #34a89c; --an-escuro-calor4: #8de6da;
+    --an-escuro-calor-tx0: #e8edf7; --an-escuro-calor-tx1: #ffffff; --an-escuro-calor-tx2: #ffffff; --an-escuro-calor-tx3: #0b1620;
+    --an-escuro-calor-tx4: #0b1620;
   }
 }
 
@@ -433,7 +217,7 @@
 .an-grupo { fill: var(--an-suave); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
 .an-sep { stroke: var(--an-borda); stroke-width: 1; }
 .an-ct { font-size: 11.5px; font-weight: 600; }
-.an-leg { fill: var(--an-suave); font-size: 11.5px; }
+.an-leg { fill: var(--an-suave); font-size: 11px; letter-spacing: -.012em; }   /* a legenda é posicionada em Python com largura de texto estimada: em Inter 11,5px "Achados da empresa" encostava no quadradinho seguinte */
 .an-val { fill: var(--an-texto); font-size: 12.5px; font-weight: 600; }
 .an-halo, .an-val-dentro { fill: var(--an-texto); paint-order: stroke; stroke: var(--an-fundo); stroke-width: 3px; stroke-linejoin: round; font-weight: 700; font-size: 11.5px; }
 .an-val-dentro { font-size: 12.5px; }
@@ -607,19 +391,22 @@ a.an-link:focus-visible { outline: 3px solid var(--an-acento); outline-offset: 2
 .an-no { fill: var(--an-texto); }
 
 /* ---------- ranking de bloqueios ---------- */
-.an-ranking th[scope="row"] { font-weight: 600; text-transform: none; letter-spacing: 0; font-size: var(--fs-md); color: var(--an-texto); white-space: normal; overflow-wrap: break-word; min-width: 13rem; }
-tr.an-nivel-fechado th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-perigo); }
-tr.an-nivel-parcial th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-alerta); }
-tr.an-nivel-aberto th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-ok); }
+.an-ranking th[scope="row"] { position: relative; padding-left: 1.9rem; font-weight: 600; text-transform: none; letter-spacing: 0; font-size: var(--fs-md); color: var(--an-texto); background: transparent;
+  white-space: normal; overflow-wrap: break-word; min-width: 13rem; }
+/* marcador do nível: um ponto com halo no começo da linha (o nível também está escrito na coluna "situação", com glifo e texto) */
+.an-ranking th[scope="row"]::before { content: ""; position: absolute; left: .8rem; top: 1.02rem; width: .55rem; height: .55rem; border-radius: var(--raio-pilula); background: var(--an-suave); }
+tr.an-nivel-fechado th[scope="row"]::before { background: var(--an-perigo); box-shadow: 0 0 0 3px var(--an-perigo-fundo); }
+tr.an-nivel-parcial th[scope="row"]::before { background: var(--an-alerta); box-shadow: 0 0 0 3px var(--an-alerta-fundo); }
+tr.an-nivel-aberto th[scope="row"]::before { background: var(--an-ok); box-shadow: 0 0 0 3px var(--an-ok-fundo); }
 .an-ranking thead th { white-space: normal; vertical-align: bottom; }
 .an-celula-barra { min-width: 130px; }
-.an-barra-semaforo { width: 120px; max-width: none; height: 12px; display: block; }
+.an-barra-semaforo { width: 120px; max-width: none; height: 12px; display: block; border-radius: var(--raio-pilula); overflow: hidden; }
 .an-barra-nivel { stroke: var(--an-texto); stroke-width: .6; }
-.an-situacao { display: inline-flex; align-items: center; gap: .3em; padding: .1em .55em; border-radius: var(--raio-pilula); font-size: var(--fs-sm); font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
+.an-situacao { display: inline-flex; align-items: center; gap: .3em; padding: .1em .65em; border-radius: var(--raio-pilula); font-size: var(--fs-sm); font-weight: 700; border: 1px solid currentColor; white-space: nowrap; }
 .an-situacao::before { font-size: .9em; }
-.an-situacao-aberto { color: var(--an-ok); } .an-situacao-aberto::before { content: "\2713"; }
-.an-situacao-parcial { color: var(--an-alerta); } .an-situacao-parcial::before { content: "\25D0"; }
-.an-situacao-fechado { color: var(--an-perigo); } .an-situacao-fechado::before { content: "\2715"; }
+.an-situacao-aberto { color: var(--an-ok); background: var(--an-ok-fundo); } .an-situacao-aberto::before { content: "\2713"; }
+.an-situacao-parcial { color: var(--an-alerta); background: var(--an-alerta-fundo); } .an-situacao-parcial::before { content: "\25D0"; }
+.an-situacao-fechado { color: var(--an-perigo); background: var(--an-perigo-fundo); } .an-situacao-fechado::before { content: "\2715"; }
 
 /* ---------- razões de bloqueio pelo robots.txt (os selos .robots-* vêm de painel.css; aqui só o entorno) ---------- */
 .an-zero { color: var(--an-suave); }
@@ -630,31 +417,116 @@ tr.an-nivel-aberto th[scope="row"] { box-shadow: inset 4px 0 0 var(--an-ok); }
 .an-motivos .selo { white-space: normal; }
 
 /* ---------- selos estatísticos (selos_estatisticos.py); combinam com `.selo` de painel.css ---------- */
-.selo.ev-forte { color: var(--an-ok); background: var(--an-ok-fundo); border-color: var(--an-ok); }
-.selo.ev-moderada { color: var(--an-alerta); background: var(--an-alerta-fundo); border-color: var(--an-alerta); }
-.selo.ev-insuficiente { color: var(--an-suave); background: var(--an-fundo); border-color: var(--an-borda); border-style: dashed; }
-.selo.ev-sem { color: var(--an-suave); background: var(--an-fundo); border-color: var(--an-borda); border-style: dotted; }
-
-@media print {
-  .an-svg { max-width: none; }
-  a.an-link { color: inherit; }
-}
+.selo.ev-forte { color: var(--an-ok); background: var(--an-ok-fundo); border-color: var(--inclusao-borda); }
+.selo.ev-moderada { color: var(--an-alerta); background: var(--an-alerta-fundo); border-color: var(--duvida-borda); }
+.selo.ev-insuficiente { color: var(--an-suave); background: var(--an-fundo); border-color: var(--borda-controle); border-style: dashed; }
+.selo.ev-sem { color: var(--an-suave); background: var(--an-fundo); border-color: var(--borda-controle); border-style: dotted; }
 
 /* cabeçalhos longos das colunas da matriz */
 .an-matriz .an-cab { font-size: 11px; }
 
-/* ---- pagina /analises (abas, cartoes, blocos) ---- */
-.an-abas { display: flex; flex-wrap: wrap; gap: .4rem; margin: var(--esp-4) 0; }
-.an-abas a { padding: .35rem .8rem; border: 1px solid var(--borda); border-radius: var(--raio-pilula); text-decoration: none; }
-.an-abas a[aria-current="page"] { font-weight: 700; border-width: 2px; }
-.an-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--esp-3); margin: var(--esp-4) 0; }
-.an-cartoes .cartao { display: flex; flex-direction: column; padding: var(--esp-3); border: 1px solid var(--borda); border-radius: var(--raio-md); }
-.an-cartoes .cartao strong { font-size: var(--fs-2xl); }
-.an-bloco { margin: var(--esp-7) 0; padding-bottom: var(--esp-4); border-bottom: 1px solid var(--borda); }
-.an-bloco h2 { margin-bottom: .2rem; }
-.an-subtitulo { margin-top: 0; font-size: var(--fs-sm); opacity: .8; }
+/* ---------- moldura da página /analises ---------- */
+/* abas: controle segmentado (trilho suave com pílulas). A aba atual é a ficha branca com anel e relevo, no matiz da página. */
+.an-abas { display: flex; flex-wrap: wrap; gap: .2rem; width: fit-content; max-width: 100%; margin: var(--esp-4) 0 var(--esp-5); padding: .25rem; background: var(--superficie-subtil);
+  border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.an-abas a { display: inline-flex; align-items: center; gap: .45rem; min-height: 2.25rem; padding: .35rem .85rem; border: 1px solid transparent; border-radius: calc(var(--raio-md) - 3px);
+  color: var(--texto-suave); font-size: var(--fs-md); font-weight: 550; text-decoration: none; white-space: nowrap; }
+.an-abas a:hover { background: var(--superficie); color: var(--texto); border-color: var(--borda); }
+.an-abas a[aria-current="page"] { background: var(--superficie); color: var(--tom-tx); font-weight: 700; border-color: var(--tom-borda); box-shadow: var(--sombra-botao); }
+html.icones-ok .an-abas a::before { content: var(--ab-ic, "\e03b"); content: var(--ab-ic, "\e03b") / ""; font-family: var(--fonte-icones); font-weight: 400; font-size: 1.2em; line-height: 1; color: var(--texto-mutado); }
+html.icones-ok .an-abas a:hover::before { color: var(--tom-tx); }
+html.icones-ok .an-abas a[aria-current="page"]::before { content: var(--ab-icf, "\e03c"); content: var(--ab-icf, "\e03c") / ""; color: var(--tom-tx); }
+.an-abas a[href*="secao=visao"] { --ab-ic: "\e002"; --ab-icf: "\e003"; }
+.an-abas a[href*="secao=adocao"] { --ab-ic: "\e008"; --ab-icf: "\e009"; }
+.an-abas a[href*="secao=busca"] { --ab-ic: "\e029"; --ab-icf: "\e02a"; }
+.an-abas a[href*="secao=literatura"] { --ab-ic: "\e014"; --ab-icf: "\e015"; }
+.an-abas a[href*="secao=termos"] { --ab-ic: "\e14f"; --ab-icf: "\e150"; }
+.an-abas a[href*="secao=web"] { --ab-ic: "\e0ce"; --ab-icf: "\e0cf"; }
+.an-abas a[href*="secao=auditoria"] { --ab-ic: "\e01d"; --ab-icf: "\e01e"; }
+.an-abas a[href*="secao=operacao"] { --ab-ic: "\e03e"; --ab-icf: "\e03f"; }
+
+/* indicadores do banco: mesmo desenho dos .kpi de painel.css (rótulo em cima, número embaixo, brilho de matiz e ladrilho de ícone no canto).
+   Ícone e matiz de partida vêm da POSIÇÃO do cartão (a ordem do resumo do banco em analises.py); se a ordem mudar, ponha data-ic e data-tom no cartão: eles mandam. */
+.an-cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--esp-3); margin: var(--esp-4) 0 var(--esp-6); }
+:where(.an-cartoes .cartao) { --ic-tx: var(--tom-cobalto-tx); --ic-fundo: var(--tom-cobalto-fundo); --ic-borda: var(--tom-cobalto-borda); }
+:where(.an-cartoes .cartao:nth-child(1)) { --ic-f: "\e021"; --ic-tx: var(--tom-violeta-tx); --ic-fundo: var(--tom-violeta-fundo); --ic-borda: var(--tom-violeta-borda); }
+:where(.an-cartoes .cartao:nth-child(2)) { --ic-f: "\e063"; }
+:where(.an-cartoes .cartao:nth-child(3)) { --ic-f: "\e012"; --ic-tx: var(--tom-rosa-tx); --ic-fundo: var(--tom-rosa-fundo); --ic-borda: var(--tom-rosa-borda); }
+:where(.an-cartoes .cartao:nth-child(4)) { --ic-f: "\e018"; }
+:where(.an-cartoes .cartao:nth-child(5)) { --ic-f: "\e01e"; --ic-tx: var(--tom-violeta-tx); --ic-fundo: var(--tom-violeta-fundo); --ic-borda: var(--tom-violeta-borda); }
+:where(.an-cartoes .cartao:nth-child(6)) { --ic-f: "\e0d2"; --ic-tx: var(--tom-rosa-tx); --ic-fundo: var(--tom-rosa-fundo); --ic-borda: var(--tom-rosa-borda); }
+.an-cartoes .cartao { position: relative; display: flex; flex-direction: column; gap: .2rem; min-height: 6.2rem; margin: 0; padding: 1rem 1.15rem 1.05rem; overflow: hidden; border: 1px solid var(--borda);
+  border-radius: var(--raio); background-color: var(--superficie); background-image: radial-gradient(8rem 5.5rem at 100% 0, var(--ic-fundo), transparent 75%); box-shadow: var(--sombra); }
+.an-cartoes .cartao > span { order: -1; max-width: calc(100% - 2.6rem); color: var(--texto-suave); font-size: var(--fs-sm); font-weight: 550; line-height: 1.3; }
+.an-cartoes .cartao > strong { margin-top: auto; padding-top: .35rem; font-size: 2rem; font-weight: 700; letter-spacing: -.028em; line-height: 1.05; color: var(--texto); }
+html.icones-ok .an-cartoes .cartao::before { content: var(--ic-f, none); content: var(--ic-f, none) / ""; position: absolute; top: .85rem; right: .9rem; width: 2.1rem; height: 2.1rem; border-radius: .7rem; display: grid; place-items: center;
+  font-family: var(--fonte-icones); font-size: 1.2rem; line-height: 1; background: var(--ic-fundo); color: var(--ic-tx); box-shadow: inset 0 0 0 1px var(--ic-borda); }
+
+/* blocos: cada análise é um cartão com o título-conclusão ao lado de um ladrilho de ícone. O ícone e o matiz vêm do id do bloco; id desconhecido cai no padrão. */
+.an-bloco { --bl-tx: var(--tom-tx); --bl-fundo: var(--tom-fundo); --bl-borda: var(--tom-borda); --bl-ic: "\e03c";
+  position: relative; margin: 0 0 var(--esp-5); padding: 1.25rem var(--esp-6) var(--esp-5); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra); scroll-margin-top: 1rem; }
+.an-bloco > h2 { display: flex; align-items: flex-start; gap: .75rem; margin: 0 0 .25rem; font-size: 1.15rem; line-height: 1.3; letter-spacing: -.012em; }
+html.icones-ok .an-bloco > h2::before { content: var(--bl-ic); content: var(--bl-ic) / ""; flex: none; display: grid; place-items: center; width: 2.1rem; height: 2.1rem; margin-top: -.1rem; border-radius: .7rem; font-family: var(--fonte-icones);
+  font-size: 1.2rem; font-weight: 400; line-height: 1; background: var(--bl-fundo); color: var(--bl-tx); box-shadow: inset 0 0 0 1px var(--bl-borda); }
+.an-subtitulo { margin: 0 0 var(--esp-3); font-size: var(--fs-sm); color: var(--texto-suave); }
+html.icones-ok .an-bloco > .an-subtitulo { padding-left: 2.85rem; }
+.an-bloco .prontidao .cartao { box-shadow: none; }
 .an-grafico { overflow-x: auto; margin: var(--esp-3) 0; }
-.an-memoria { margin-top: var(--esp-3); }
-.an-pares { display: grid; grid-template-columns: max-content 1fr; gap: .2rem var(--esp-4); }
-.an-pares dt { font-weight: 600; }
-.an-pares dd { margin: 0; }
+.an-bloco#prontidao, .an-bloco#lgpd, .an-bloco#calibracao, .an-bloco#auditoria_negativos, .an-bloco#saturacao { --bl-tx: var(--tom-violeta-tx); --bl-fundo: var(--tom-violeta-fundo); --bl-borda: var(--tom-violeta-borda); }
+.an-bloco#hipoteses, .an-bloco#funil, .an-bloco#posicao_web { --bl-tx: var(--tom-cobalto-tx); --bl-fundo: var(--tom-cobalto-fundo); --bl-borda: var(--tom-cobalto-borda); }
+.an-bloco#maturidade, .an-bloco#regiao, .an-bloco#fornecedores { --bl-tx: var(--tom-petroleo-tx); --bl-fundo: var(--tom-petroleo-fundo); --bl-borda: var(--tom-petroleo-borda); }
+.an-bloco#falsa_exclusao, .an-bloco#opacidade, .an-bloco#nao_verificaveis, .an-bloco#tokens { --bl-tx: var(--tom-ambar-tx); --bl-fundo: var(--tom-ambar-fundo); --bl-borda: var(--tom-ambar-borda); }
+.an-bloco#concordancia_achados, .an-bloco#posicao_scholar, .an-bloco#tamanho { --bl-tx: var(--tom-rosa-tx); --bl-fundo: var(--tom-rosa-fundo); --bl-borda: var(--tom-rosa-borda); }
+.an-bloco#prontidao { --bl-ic: "\e0ea"; } .an-bloco#hipoteses { --bl-ic: "\e033"; } .an-bloco#maturidade { --bl-ic: "\e009"; }
+.an-bloco#regiao { --bl-ic: "\e114"; } .an-bloco#lgpd { --bl-ic: "\e0f0"; } .an-bloco#fornecedores { --bl-ic: "\e195"; }
+.an-bloco#funil { --bl-ic: "\e018"; } .an-bloco#posicao_web { --bl-ic: "\e186"; } .an-bloco#posicao_scholar { --bl-ic: "\e1aa"; }
+.an-bloco#saturacao { --bl-ic: "\e18c"; } .an-bloco#calibracao { --bl-ic: "\e162"; } .an-bloco#falsa_exclusao { --bl-ic: "\e1bf"; }
+.an-bloco#auditoria_negativos { --bl-ic: "\e1b0"; } .an-bloco#concordancia_achados { --bl-ic: "\e0ab"; } .an-bloco#opacidade { --bl-ic: "\e09c"; }
+.an-bloco#nao_verificaveis { --bl-ic: "\e10b"; } .an-bloco#tokens { --bl-ic: "\e0de"; } .an-bloco#tamanho { --bl-ic: "\e0d2"; }
+
+/* gaveta "Memória de cálculo": linha recolhível com ladrilho de ícone e o estado escrito (Mostrar/Ocultar) */
+.an-memoria { margin-top: var(--esp-4); background: var(--superficie-subtil); border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.an-memoria > summary { display: flex; align-items: center; gap: .6rem; min-height: 2.6rem; padding: .45rem var(--esp-4); border-radius: var(--raio-md); cursor: pointer; list-style: none; font-weight: 600; color: var(--texto); }
+.an-memoria > summary::-webkit-details-marker { display: none; }
+.an-memoria > summary::before { content: "\25B8"; flex: none; width: 1.25em; text-align: center; color: var(--acento); }
+.an-memoria[open] > summary::before { content: "\25BE"; }
+html.icones-ok .an-memoria > summary::before, html.icones-ok .an-memoria[open] > summary::before { content: "\e102"; content: "\e102" / ""; display: grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: .55rem;
+  font-family: var(--fonte-icones); font-size: 1rem; font-weight: 400; background: var(--bl-fundo, var(--tom-fundo)); color: var(--bl-tx, var(--tom-tx)); box-shadow: inset 0 0 0 1px var(--bl-borda, var(--tom-borda)); }
+.an-memoria > summary::after { content: "Mostrar"; margin-left: auto; font-size: var(--fs-sm); font-weight: 500; color: var(--texto-suave); }
+.an-memoria[open] > summary::after { content: "Ocultar"; }
+.an-memoria > summary:hover { background: var(--superficie); }
+.an-memoria[open] > summary { border-bottom: 1px solid var(--borda); border-radius: var(--raio-md) var(--raio-md) 0 0; }
+.an-memoria > :not(summary) { margin-left: var(--esp-4); margin-right: var(--esp-4); }
+.an-memoria > .tabela-rolavel { margin: var(--esp-3) var(--esp-4); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-sm); }
+.an-memoria > :last-child { margin-bottom: var(--esp-4); }
+.an-pares { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 var(--esp-5); margin-top: var(--esp-3); margin-bottom: var(--esp-3); }
+.an-pares dt, .an-pares dd { padding: .4rem 0; border-bottom: 1px dotted var(--borda-forte); }
+.an-pares dt { font-weight: 600; color: var(--texto-suave); }
+.an-pares dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.an-pares dt:last-of-type, .an-pares dd:last-of-type { border-bottom: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .an-abas a, .an-memoria > summary { transition: background-color var(--dur-curta) ease, border-color var(--dur-curta) ease, color var(--dur-curta) ease, box-shadow var(--dur-media) var(--ease); }
+}
+
+/* telas estreitas: as abas viram uma faixa que rola de lado (só ela rola; a página não ganha rolagem horizontal); indicadores em duas colunas; cartões mais justos */
+@media (max-width: 700px) {
+  .an-abas { flex-wrap: nowrap; width: auto; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--borda-forte) transparent; }
+  .an-abas a { flex: none; }
+  .an-cartoes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--esp-2); }
+  .an-cartoes .cartao { min-height: 5.6rem; padding: .8rem .85rem .85rem; }
+  .an-cartoes .cartao > strong { font-size: 1.55rem; }
+  .an-bloco { padding: var(--esp-4); }
+  html.icones-ok .an-bloco > .an-subtitulo { padding-left: 0; }
+  .an-pares { grid-template-columns: minmax(0, 1fr); }
+  .an-pares dt { border-bottom: 0; padding-bottom: 0; }
+}
+
+@media print {
+  .an-svg { max-width: none; }
+  a.an-link { color: inherit; }
+  .an-abas { display: none; }
+  .an-bloco, .an-cartoes .cartao { box-shadow: none; break-inside: avoid; }
+  .an-bloco > h2::before, .an-cartoes .cartao::before { display: none; }
+  .an-memoria > summary::before, .an-memoria > summary::after { display: none; }
+}

@@ -1,0 +1,49 @@
+/* ===== Impressão (Ctrl+P / PDF) =====
+   Folha clara de uma coluna: some o que só serve na tela (menu, filtros, botões, paginação, link de pular, enfeites) e ficam o título, a faixa do banco e os dados.
+   As cores do papel são as do tema claro (o tema escuro só existe na tela): o primeiro bloco repete os tokens que o tema escuro troca, com a mesma cadeia de var() do :root,
+   e quatro exceções fixas por valor, mais escuras para o papel (--fundo, --texto-suave, --borda, --borda-controle). tests/test_painel_navegacao.py confere que não divergem. */
+@media print {
+/*@IMPRESSAO:raiz*/
+  body { background: var(--superficie); color: var(--texto); }
+  .menu, .pular, .filtros, .form-busca, .paginacao, .navegacao, .abas, .an-abas, .acoes-texto, .atalhos, .decisao form, .botoes-status, form.em-linha,
+  button, .botao, .btn-status, .btn-decisao, .btn-pular, .fila-lateral, .motivos-rapidos, .tema-alternar, .topo, .conta, .acoes-pagina, .acoes-decisao, .fases, .form-secundario,
+  .ajuda-termo, .ajuda-balao, .escopo-guia, progress.progresso { display: none !important; }
+  /* faixa do banco: sem fundo (economiza tinta), contorno inteiro, texto escuro */
+  .banner { background: none; color: var(--texto); border: 1px solid var(--borda-controle); border-radius: var(--raio-sm); padding: var(--esp-1) var(--esp-3); }
+  .banner-detalhe { opacity: 1; background: none; border: 1px solid var(--borda-controle); }
+  .banner strong::before { display: none; }
+  .layout { display: block; min-height: 0; background: none; }
+  main { max-width: none; width: auto; padding: var(--esp-3) 0 0; }
+  main::before, main::after { display: none; }
+  .layout:has(.menu-lista a[aria-current="page"]) main > h1 { min-height: 0; padding: 0; }
+  .layout:has(.menu-lista a[aria-current="page"]) main > h1::before { display: none; }
+  .layout:has(.menu-lista a[aria-current="page"]) main > h1 + .sub { padding-left: 0; margin-top: 0; }
+  h1 { font-size: 1.6rem; }
+  .duas-colunas, .duas-colunas.funil-progresso, .duas-colunas.mapa-tabela, .duas-colunas.assimetricas, .distribuicoes, .an-cartoes, .triagem, .prontidao, .guia-interpretacao-grid { display: block; }
+  .duas-colunas > *, .distribuicoes > *, .guia-interpretacao-grid > * { margin-bottom: var(--esp-3); }
+  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .decisao { position: static; max-height: none; overflow: visible; }
+  .cartao, .kpi, .cartao-leitura, .guia-interpretacao, .acordeao-metodologico, .caixa-prisma, .aviso, .retorno, .vazio { box-shadow: none; }
+  .kpi { background-image: none; }
+  .kpi::before, .vazio::before { display: none; }
+  .kpi-rotulo { max-width: none; }
+  .vazio { padding-left: var(--esp-5); }
+  .cartao, .kpi { border-color: var(--borda); }
+  svg, figure, .cartao, .kpi, .verbete, .caixa-prisma, .lista-achados li, tr, blockquote, .trecho, .aviso, .retorno, .citado-grande, .guia-acao, .guia-interpretacao { break-inside: avoid; page-break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  .tabela-rolavel { overflow: visible; }
+  table { font-size: var(--fs-sm); }
+  th, td, td .selo, code { white-space: normal; overflow-wrap: anywhere; }
+  body:not(.relatorio) td, body:not(.relatorio) th { padding: var(--esp-1) var(--esp-2); min-width: 0 !important; }   /* o relatório estático tem larguras próprias */
+  tbody tr:hover, .lista-achados li:hover { background: none; }
+  .texto-pagina, pre.bruto { max-height: none !important; overflow: visible !important; }
+  .texto-pagina.cockpit-abstract-body { font-size: 1rem; }
+  svg, .selo, .aviso, .retorno, .solucao-destaque, .trecho.citado, .citado-grande, mark, .bloco { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  th button.ordenar { display: inline !important; font: inherit; }   /* o título da coluna é um botão (criado pelo script): no papel volta a ser texto, sem a seta */
+  .ordenar-seta, .dica-ordenar, .atalho-dica { display: none !important; }
+  th[aria-sort] { box-shadow: none; background: var(--superficie-subtil); color: var(--texto-suave); }
+  .acordeao-metodologico > summary::after, .escopo-guia > summary::after { display: none; }
+  a { color: inherit; }
+}

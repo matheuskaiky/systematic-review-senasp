@@ -224,27 +224,32 @@
   }
 })();
 
-/* ===== TRECHO PARA COLAR NO FIM DE painel/static/painel.js — fontes locais, SEM @font-face e SEM url( no CSS =====
-   Por quê: os testes proíbem a função de endereço em painel.css (o relatório estático embute esse arquivo) e só admitem um <link> nas páginas.
-   Então o CSS só nomeia as famílias ("Inter", "Source Serif 4" em --fonte-base e --fonte-leitura, com pilha de sistema como reserva) e este trecho
-   carrega os arquivos pela API de fontes do navegador (FontFace), do PRÓPRIO servidor (/static/fonts/). Nenhuma requisição escrita à mão,
-   nenhum endereço absoluto, nenhum <link rel="preload">. Sem JavaScript (ou se o arquivo falhar), a tela usa a fonte de sistema e continua legível.
-   Só carrega nas telas de triagem (onde está a tipografia de leitura): troque a condição abaixo se quiser as fontes em todas as páginas.
+/* ===== TRECHO PARA COLAR NO FIM DE painel/static/painel.js — fontes locais e ícones, SEM @font-face e SEM função de endereço no CSS =====
+   Por quê: os testes proíbem a função de endereço em painel.css (o relatório estático embute esse arquivo) e só admitem um link de folha nas páginas.
+   Então o CSS só NOMEIA as famílias ("Inter" em --fonte-base, "Source Serif 4" em --fonte-leitura e "Observatorio Icones" em --fonte-icones, com pilha de
+   sistema como reserva das duas primeiras) e este trecho carrega os arquivos pela API de fontes do navegador (FontFace), do PRÓPRIO servidor (/static/fonts/).
+   Nenhuma requisição escrita à mão, nenhum endereço absoluto, nenhum preload. Sem JavaScript (ou se o arquivo falhar), a tela usa a fonte de sistema,
+   fica sem os ícones e continua inteira e legível.
+   Ícones: só quando o arquivo da fonte de ícones chega o script acrescenta a classe icones-ok em html; todo o CSS de ícones está atrás dessa classe.
    Ao trocar um arquivo de fonte, troque também o NOME dele (o servidor pode guardar em cache por um ano). */
 (function () {
   "use strict";
 
-  if (!document.querySelector(".triagem") || !window.FontFace || !document.fonts) { return; }
+  if (!window.FontFace || !document.fonts) { return; }
 
   var FAMILIAS = [
-    { nome: "Inter", arquivo: "/static/fonts/inter-latin-wght-normal.woff2", peso: "100 900" },
-    { nome: "Source Serif 4", arquivo: "/static/fonts/source-serif-4-latin-wght-normal.woff2", peso: "200 900" }
+    { nome: "Inter", arquivo: "/static/fonts/inter-latin-wght-normal.woff2", peso: "100 900", icones: false },
+    { nome: "Source Serif 4", arquivo: "/static/fonts/source-serif-4-latin-wght-normal.woff2", peso: "200 900", icones: false },
+    { nome: "Observatorio Icones", arquivo: "/static/fonts/observatorio-icones-v1.woff2", peso: "400", icones: true }
   ];
 
   FAMILIAS.forEach(function (f) {
     try {
       var face = new window.FontFace(f.nome, "url(" + f.arquivo + ") format(\"woff2\")", { weight: f.peso, style: "normal", display: "swap" });
-      face.load().then(function (carregada) { document.fonts.add(carregada); }, function () { /* sem a fonte: segue a de sistema */ });
+      face.load().then(function (carregada) {
+        document.fonts.add(carregada);
+        if (f.icones) { document.documentElement.classList.add("icones-ok"); }
+      }, function () { /* sem a fonte: segue a de sistema (e sem ícones) */ });
     } catch (e) { /* navegador sem suporte: segue a de sistema */ }
   });
 })();

@@ -1,8 +1,11 @@
 /* ===== Base: reset, acessibilidade, tipografia ===== */
 * { box-sizing: border-box; }
 html { font-size: 16px; -webkit-text-size-adjust: 100%; scroll-padding-top: 1rem; }
-body { margin: 0; background: var(--fundo); color: var(--texto); line-height: var(--lh-base); font-family: var(--fonte-base); font-variant-numeric: tabular-nums;
+body { margin: 0; background: var(--fundo); color: var(--texto); line-height: var(--lh-base); font-family: var(--fonte-base);
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+/* algarismos de largura fixa so onde numeros se alinham em coluna: no texto corrido, o hifen de largura de digito separava
+   "busca-web" e as datas */
+.num, .kpi-valor, .num-prisma, .contagem, .fila-contagem, .gr-valor { font-variant-numeric: tabular-nums; }
 a { color: var(--acento); text-decoration-thickness: 1px; text-underline-offset: .18em; }
 a:hover { text-decoration-thickness: 2px; }
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible,

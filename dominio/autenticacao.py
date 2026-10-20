@@ -31,10 +31,11 @@ PERMISSOES = {
     "triar_artigos": "Triar artigos por título e resumo",
     "triar_texto_completo": "Triar artigos por texto completo",
     "ver_estatisticas_usuarios": "Ver as estatísticas por usuário",
+    "enviar_coletas": "Gerar o próprio token e enviar coletas do computador local para a nuvem",
 }
 
 PERMISSOES_ESCRITA = frozenset({"verificar_achados", "revogar_verificacao", "triar_artigos", "triar_texto_completo"})
-PERMISSOES_PROIBIDAS_VISITANTE = PERMISSOES_ESCRITA | {"ver_estatisticas_usuarios"}
+PERMISSOES_PROIBIDAS_VISITANTE = PERMISSOES_ESCRITA | {"ver_estatisticas_usuarios", "enviar_coletas"}
 
 ACOES_AUDITORIA = (
     "criar_usuario",
@@ -45,11 +46,17 @@ ACOES_AUDITORIA = (
     "salvar_permissoes",
     "criar_grupo",
     "renomear_grupo",
+    "gerar_token",
+    "revogar_token",
 )
 
 GRUPO_ADMIN = "Administrador"
 GRUPO_VISITANTE = "Visitante"
 SO_ADMIN = "_so_admin"
+LOGADO = "_logado"                  # qualquer usuario com sessao (nunca o visitante anonimo)
+
+PREFIXO_TOKEN = "srsp_"
+CARACTERES_DO_INICIO = 12           # o que a tela mostra para reconhecer o token (prefixo + 7 caracteres)
 
 GRUPOS_PADRAO = {
     "Administrador": set(PERMISSOES),
@@ -73,6 +80,21 @@ def hash_senha(senha: str, sal: bytes | None = None) -> str:
     sal_bytes = sal if sal else secrets.token_bytes(16)
     h = hashlib.scrypt(senha.encode("utf-8"), salt=sal_bytes, n=16384, r=8, p=1, dklen=32)
     return f"scrypt$16384$8$1${sal_bytes.hex()}${h.hex()}"
+
+
+def gerar_token_api() -> str:
+    """Token de envio: prefixo fixo + 32 bytes aleatorios em base64 de URL (43 caracteres), 48 caracteres no total."""
+    return PREFIXO_TOKEN + secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    """SHA-256 do token (o banco guarda so isto, como nas sessoes; o token tem 256 bits aleatorios)."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def inicio_do_token(token: str) -> str:
+    """O comeco do token que as telas mostram para reconhece-lo, sem revelar o resto."""
+    return token[:CARACTERES_DO_INICIO]
 
 
 @lru_cache(maxsize=1)
@@ -153,6 +175,12 @@ def permissao_exigida(metodo: str, caminho: str) -> str | None:
         return None
     if caminho == "/admin" or caminho.startswith("/admin/"):
         return SO_ADMIN
+    if caminho == "/conta" and metodo == "GET":
+        return LOGADO
+    if caminho == "/conta/token" and metodo == "POST":
+        return "enviar_coletas"
+    if caminho == "/conta/token/revogar" and metodo == "POST":
+        return LOGADO                                   # quem perdeu a permissao ainda pode revogar o proprio token
     if metodo == "GET" and (caminho.startswith("/execucoes") or caminho.startswith("/chamadas")):
         return "ver_chamadas"
     if metodo == "GET" and caminho == "/estatisticas-usuarios":
@@ -181,6 +209,8 @@ def pode(grupo: str, permissoes: set[str] | list[str], exigida: str | None) -> b
         return True
     if grupo == GRUPO_ADMIN:
         return True
+    if exigida == LOGADO:
+        return grupo != GRUPO_VISITANTE
     if exigida == SO_ADMIN:
         return False
     if grupo == GRUPO_VISITANTE and exigida in PERMISSOES_PROIBIDAS_VISITANTE:

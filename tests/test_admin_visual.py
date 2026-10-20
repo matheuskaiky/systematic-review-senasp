@@ -67,7 +67,8 @@ def test_templates_sem_abas_antigas_e_com_botoes_do_painel():
 
 @pytest.mark.parametrize("arquivo,titulos", [
     ("admin_usuarios", [("user", "Novo usuário")]),
-    ("admin_usuario", [("identification-badge", "Dados do usuário"), ("lock", "Redefinir senha"), ("shield-warning", "Situação da conta")]),
+    ("admin_usuario", [("identification-badge", "Dados do usuário"), ("lock", "Redefinir senha"), ("lock", "Token de envio"),
+                       ("shield-warning", "Situação da conta")]),
     ("admin_grupos", [("users", "Novo grupo"), ("tag", "Renomear {{ g.nome }}")]),
 ])
 def test_formularios_em_cartao_com_icone(arquivo, titulos):

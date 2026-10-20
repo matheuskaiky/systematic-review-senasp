@@ -19,6 +19,7 @@
         <th scope="col">Grupo</th>
         <th scope="col">Situação</th>
         <th scope="col">Último acesso</th>
+        <th scope="col">Token de envio</th>
       </tr>
     </thead>
     <tbody>
@@ -29,6 +30,7 @@
         <td>{{ u.grupo }}</td>
         <td>{{ "Ativa" if u.ativo else "Desativada" }}</td>
         <td>{{ fmt.data_hora(u.ultimo_acesso) if u.ultimo_acesso else "—" }}</td>
+        <td>{{ ("desde " ~ fmt.data_hora(u.token.criado_em)) if u.token else "—" }}</td>
       </tr>
       {% endfor %}
     </tbody>

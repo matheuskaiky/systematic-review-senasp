@@ -8,6 +8,8 @@
 </ul>
 {% elif ok %}
 <p class="aviso ok" role="status">Alteração gravada.</p>
+{% elif sem_token %}
+<p class="aviso ok" role="status">O usuário não tinha token ativo.</p>
 {% endif %}
 
 <section class="cartao"><h2 data-ic="identification-badge" data-tom="cobalto">Dados do usuário</h2>
@@ -51,6 +53,29 @@
 
   <button class="botao" type="submit">Redefinir senha</button>
 </form>
+</section>
+
+<section class="cartao"><h2 data-ic="lock" data-tom="cobalto">Token de envio</h2>
+{% if alvo.token %}
+<dl class="ficha">
+  <dt>Situação</dt><dd>Ativo, começa com <code>{{ alvo.token.inicio }}</code></dd>
+  <dt>Criado em</dt><dd>{{ fmt.data_hora(alvo.token.criado_em) }}</dd>
+  <dt>Último uso</dt><dd>{{ fmt.data_hora(alvo.token.ultimo_uso) if alvo.token.ultimo_uso else "nunca usado" }}</dd>
+</dl>
+<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="acao" value="revogar_token">
+  <button class="botao perigo" type="submit">Revogar token</button>
+</form>
+{% else %}
+{% if not alvo.ativo %}
+<p>Sem token ativo. Conta desativada: não pode ter token.</p>
+{% elif alvo.usuario_id == usuario.usuario_id %}
+<p>Sem token ativo. Gere o seu na página <a href="/conta">Minha conta</a>.</p>
+{% else %}
+<p>Sem token ativo. O próprio usuário gera o token na página Minha conta, se o grupo dele tiver a permissão de enviar coletas.</p>
+{% endif %}
+{% endif %}
 </section>
 
 {% if alvo.usuario_id != usuario.usuario_id %}

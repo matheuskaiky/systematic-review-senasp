@@ -47,6 +47,13 @@ DDL_STATEMENTS = (
     alvo TEXT,
     detalhe TEXT
 )""",
+    """CREATE TABLE IF NOT EXISTS tokens_api (
+    usuario_id INTEGER PRIMARY KEY REFERENCES usuarios(usuario_id),
+    token_hash TEXT NOT NULL UNIQUE,
+    inicio TEXT NOT NULL,
+    criado_em TEXT NOT NULL,
+    ultimo_uso TEXT
+)""",
     """CREATE TABLE IF NOT EXISTS configuracoes (
     chave TEXT PRIMARY KEY,
     valor TEXT NOT NULL
@@ -282,8 +289,9 @@ class ContasSQLite:
         """Retorna lista de todos os usuários ordenados por lower(nome)."""
         with self._conexao() as conn:
             rows = conn.execute(
-                "SELECT u.usuario_id, u.login, u.nome, g.nome, u.grupo_id, u.ativo, u.ultimo_acesso, u.criado_em "
-                "FROM usuarios u JOIN grupos g USING (grupo_id) "
+                "SELECT u.usuario_id, u.login, u.nome, g.nome, u.grupo_id, u.ativo, u.ultimo_acesso, u.criado_em, "
+                "t.inicio, t.criado_em, t.ultimo_uso "
+                "FROM usuarios u JOIN grupos g USING (grupo_id) LEFT JOIN tokens_api t ON t.usuario_id = u.usuario_id "
                 "ORDER BY lower(u.nome)"
             ).fetchall()
             return [
@@ -296,6 +304,7 @@ class ContasSQLite:
                     "ativo": r[5],
                     "ultimo_acesso": r[6],
                     "criado_em": r[7],
+                    "token": {"inicio": r[8], "criado_em": r[9], "ultimo_uso": r[10]} if r[8] is not None else None,
                 }
                 for r in rows
             ]
@@ -304,8 +313,9 @@ class ContasSQLite:
         """Retorna os dados do usuário ou None se não existir."""
         with self._conexao() as conn:
             row = conn.execute(
-                "SELECT u.usuario_id, u.login, u.nome, g.nome, u.grupo_id, u.ativo, u.ultimo_acesso, u.criado_em "
-                "FROM usuarios u JOIN grupos g USING (grupo_id) "
+                "SELECT u.usuario_id, u.login, u.nome, g.nome, u.grupo_id, u.ativo, u.ultimo_acesso, u.criado_em, "
+                "t.inicio, t.criado_em, t.ultimo_uso "
+                "FROM usuarios u JOIN grupos g USING (grupo_id) LEFT JOIN tokens_api t ON t.usuario_id = u.usuario_id "
                 "WHERE u.usuario_id = ?",
                 (usuario_id,),
             ).fetchone()
@@ -320,6 +330,7 @@ class ContasSQLite:
                 "ativo": row[5],
                 "ultimo_acesso": row[6],
                 "criado_em": row[7],
+                "token": {"inicio": row[8], "criado_em": row[9], "ultimo_uso": row[10]} if row[8] is not None else None,
             }
 
     def grupos(self) -> list[dict]:
@@ -399,24 +410,56 @@ class ContasSQLite:
             self._gravar_auditoria(conn, auditoria)
 
     def redefinir_senha(self, usuario_id: int, senha_hash: str, auditoria: tuple | None = None) -> None:
-        """Redefine senha, zera falhas e bloqueio, e remove sessões do usuário."""
+        """Redefine senha, zera falhas e bloqueio, e remove sessões e o token de envio do usuário."""
         with self._conexao(escrita=True) as conn:
             conn.execute(
                 "UPDATE usuarios SET senha_hash = ?, falhas_login = 0, bloqueado_ate = NULL WHERE usuario_id = ?",
                 (senha_hash, usuario_id),
             )
             conn.execute("DELETE FROM sessoes WHERE usuario_id = ?", (usuario_id,))
+            conn.execute("DELETE FROM tokens_api WHERE usuario_id = ?", (usuario_id,))   # conta recuperada: o envio tambem
             self._gravar_auditoria(conn, auditoria)
 
     def definir_ativo(self, usuario_id: int, ativo: int, auditoria: tuple | None = None) -> None:
-        """Define situação ativa/desativada do usuário; quando desativa, encerra as sessões."""
+        """Define situação ativa/desativada do usuário; quando desativa, encerra as sessões e apaga o token de envio."""
         with self._conexao(escrita=True) as conn:
             era_admin = self._admin_ativo(conn, usuario_id)
             conn.execute("UPDATE usuarios SET ativo = ? WHERE usuario_id = ?", (ativo, usuario_id))
             self._exigir_admin_ativo(conn, era_admin)
             if ativo == 0:
                 conn.execute("DELETE FROM sessoes WHERE usuario_id = ?", (usuario_id,))
+                conn.execute("DELETE FROM tokens_api WHERE usuario_id = ?", (usuario_id,))   # conta desativada nao envia
             self._gravar_auditoria(conn, auditoria)
+
+    def gravar_token(self, usuario_id: int, token_hash: str, inicio: str, agora: str, auditoria: tuple | None = None) -> bool:
+        """Grava o token de envio do usuário (só o hash e o começo), trocando o anterior se havia. Devolve True quando
+        trocou um anterior. ValueError se o usuário não existe ou está desativado."""
+        with self._conexao(escrita=True) as conn:
+            ativo = conn.execute("SELECT ativo FROM usuarios WHERE usuario_id = ?", (usuario_id,)).fetchone()
+            if ativo is None or ativo[0] != 1:
+                raise ValueError("Conta inexistente ou desativada: não pode ter token.")
+            trocou = conn.execute("DELETE FROM tokens_api WHERE usuario_id = ?", (usuario_id,)).rowcount == 1
+            conn.execute("INSERT INTO tokens_api (usuario_id, token_hash, inicio, criado_em) VALUES (?, ?, ?, ?)",
+                         (usuario_id, token_hash, inicio, agora))
+            if auditoria is not None:
+                quem, acao, alvo, _, quando = auditoria
+                auditoria = (quem, acao, alvo, "substituiu o token anterior" if trocou else None, quando)
+            self._gravar_auditoria(conn, auditoria)
+            return trocou
+
+    def revogar_token(self, usuario_id: int, auditoria: tuple | None = None) -> bool:
+        """Apaga o token de envio do usuário. Devolve True se havia um; sem token, não grava nada (nem auditoria)."""
+        with self._conexao(escrita=True) as conn:
+            apagou = conn.execute("DELETE FROM tokens_api WHERE usuario_id = ?", (usuario_id,)).rowcount == 1
+            if apagou:
+                self._gravar_auditoria(conn, auditoria)
+            return apagou
+
+    def token_do_usuario(self, usuario_id: int) -> dict | None:
+        """{inicio, criado_em, ultimo_uso} do token de envio do usuário, ou None."""
+        with self._conexao() as conn:
+            r = conn.execute("SELECT inicio, criado_em, ultimo_uso FROM tokens_api WHERE usuario_id = ?", (usuario_id,)).fetchone()
+            return {"inicio": r[0], "criado_em": r[1], "ultimo_uso": r[2]} if r else None
 
     @staticmethod
     def _admin_ativo(conn, usuario_id: int) -> bool:
@@ -572,4 +615,5 @@ class ContasSQLite:
                     (nome, senha_hash, admin_grupo_id, usuario_id),
                 )
                 conn.execute("DELETE FROM sessoes WHERE usuario_id = ?", (usuario_id,))
+                conn.execute("DELETE FROM tokens_api WHERE usuario_id = ?", (usuario_id,))   # senha nova: token tambem
                 return "atualizado"

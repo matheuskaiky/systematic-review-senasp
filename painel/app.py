@@ -181,17 +181,20 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     def sem_banco(request):
         return pagina(request, "sem_banco.html", status=503)
 
+    def contas_ocupadas(request):
+        """A unica resposta para o banco de contas ocupado (usada aqui e nas rotas extras)."""
+        request.state.usuario = None
+        request.state.contas_indisponiveis = True
+        return erro(
+            request,
+            503,
+            "Banco de contas ocupado",
+            "O banco de contas está ocupado. Tente de novo em alguns segundos.",
+        )
+
     # ---------- controle de acesso (quando autenticacao esta ligada) ----------
     if contexto.autenticacao:
-        def _erro_contas_ocupadas(request):
-            request.state.usuario = None
-            request.state.contas_indisponiveis = True
-            return erro(
-                request,
-                503,
-                "Banco de contas ocupado",
-                "O banco de contas está ocupado. Tente de novo em alguns segundos.",
-            )
+        _erro_contas_ocupadas = contas_ocupadas
 
         @app.middleware("http")
         async def acesso(request: Request, call_next):
@@ -1032,5 +1035,6 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
 
     from painel import rotas_extras
     rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos, entidades=entidades,
-                                                 pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita, contas=contas))
+                                                 pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita, contas=contas,
+                                                 contas_ocupadas=contas_ocupadas))
     return app

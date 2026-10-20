@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block titulo %}Minha conta{% endblock %}
+{% block conteudo %}
+<h1>Minha conta</h1>
+{% if aviso %}<p class="aviso ok" role="status">{{ aviso }}</p>{% endif %}
+
+<section class="cartao"><h2 data-ic="identification-badge" data-tom="cobalto">Seus dados</h2>
+<dl class="ficha">
+  <dt>Nome</dt><dd>{{ conta.nome }}</dd>
+  <dt>Login</dt><dd>{{ conta.login }}</dd>
+  <dt>Grupo</dt><dd>{{ conta.grupo }}</dd>
+</dl>
+<p><small>Para mudar nome, login, grupo ou senha, fale com um administrador do painel.</small></p>
+</section>
+
+{% if pode_enviar or token %}
+<section class="cartao"><h2 data-ic="lock" data-tom="cobalto">Token de envio</h2>
+<p>O token deixa a coleta feita no seu computador enviar os resultados para este painel. Ele vale como a sua senha para esse envio: guarde-o só no seu computador e não o mande a ninguém.</p>
+{% if token_novo %}
+<div class="aviso ok">
+  <p><strong>Copie o token agora: ele não aparece de novo.</strong> Não recarregue esta página: recarregar gera outro token. Se perder, gere outro (o atual deixa de valer).</p>
+  <p><code id="token-novo" class="token-novo">{{ token_novo }}</code></p>
+  <p><button type="button" class="botao" data-copiar="token-novo" data-aviso="token-aviso" hidden>Copiar token</button>
+  <span id="token-aviso" role="status" aria-live="polite"></span></p>
+</div>
+{% endif %}
+{% if token %}
+<dl class="ficha">
+  <dt>Situação</dt><dd>Ativo, começa com <code>{{ token.inicio }}</code></dd>
+  <dt>Criado em</dt><dd>{{ fmt.data_hora(token.criado_em) }}</dd>
+  <dt>Último uso</dt><dd>{{ fmt.data_hora(token.ultimo_uso) if token.ultimo_uso else "nunca usado" }}</dd>
+</dl>
+{% else %}
+<p>Você não tem token ativo.</p>
+{% endif %}
+{% if pode_enviar %}
+<form method="post" action="/conta/token">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="botao" type="submit">{{ "Gerar outro token (o atual deixa de valer)" if token else "Gerar token" }}</button>
+</form>
+{% else %}
+<p><small>Seu grupo não tem mais a permissão de enviar coletas: o token não envia nada. Você pode revogá-lo.</small></p>
+{% endif %}
+{% if token %}
+<form method="post" action="/conta/token/revogar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="botao perigo" type="submit">Revogar token</button>
+</form>
+{% endif %}
+</section>
+{% endif %}
+<script src="/static/copiar.js" defer></script>
+{% endblock %}

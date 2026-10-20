@@ -37,9 +37,12 @@ def _snapshot(origem, pasta):
     return destino
 
 
+NUNCA_COPIADAS = ("meta_schema", "tokens_api")    # o token de envio so vale no banco onde foi gerado (D98)
+
+
 def _tabelas_sqlite(con):
     return [n for (n,) in con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
-                                      "AND name <> 'meta_schema' ORDER BY rowid")]
+                                      "ORDER BY rowid") if n not in NUNCA_COPIADAS]
 
 
 def ordem_de_copia(tabelas, pais):

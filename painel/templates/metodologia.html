@@ -13,7 +13,7 @@
 {% endif %}
 
 <p class="acoes-texto">
-  <button type="button" class="botao" id="copiar-texto" data-texto="{{ m.texto }}" hidden>Copiar texto</button>
+  <button type="button" class="botao" id="copiar-texto" data-copiar="texto-metodologia" data-aviso="copiar-aviso" data-texto="{{ m.texto }}" hidden>Copiar texto</button>
   <span id="copiar-aviso" role="status" aria-live="polite"></span>
 </p>
 
@@ -32,5 +32,5 @@
   </section>
 {% endif %}
 </div>
-<script src="/static/metodologia.js" defer></script>
+<script src="/static/copiar.js" defer></script>
 {% endblock %}

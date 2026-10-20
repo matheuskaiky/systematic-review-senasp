@@ -442,9 +442,10 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .banner .conta { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--esp-3); min-width: 0; }
 .banner .conta + .tema-alternar { margin-left: var(--esp-2); }
 .banner .conta-nome { opacity: .88; }
-.banner .conta-entrar, .banner .conta-admin, .banner .conta-estatisticas { color: var(--texto-banner); }
+.banner .conta-entrar, .banner .conta-admin, .banner .conta-estatisticas, .banner .conta-nome { color: var(--texto-banner); }
 .banner .conta a:focus-visible, .banner .form-sair button:focus-visible { outline-color: var(--texto-banner); }
 .form-sair { display: inline; margin: 0; }
+.token-novo { display: inline-block; padding: var(--esp-1) var(--esp-2); font-size: var(--fs-md); overflow-wrap: anywhere; user-select: all; }
 .banner .form-sair button { min-height: 1.75rem; padding: 0 var(--esp-2); border: 1px solid currentColor; border-radius: var(--raio-pilula); background: none; color: var(--texto-banner); font: inherit; cursor: pointer; }
 
 /* ===== Componentes: cartões, indicadores, avisos, selos, botões, tabelas, filtros, listas, fichas ===== */

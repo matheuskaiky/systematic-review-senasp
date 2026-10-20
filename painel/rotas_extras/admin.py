@@ -27,15 +27,7 @@ def registrar(c) -> None:
 
     app = c.app
 
-    def _erro_contas_ocupadas(request: Request):
-        request.state.usuario = None
-        request.state.contas_indisponiveis = True
-        return c.erro(
-            request,
-            503,
-            "Banco de contas ocupado",
-            "O banco de contas está ocupado. Tente de novo em alguns segundos.",
-        )
+    _erro_contas_ocupadas = c.contas_ocupadas
 
     @app.get("/admin")
     def admin_raiz(request: Request):
@@ -176,6 +168,7 @@ def registrar(c) -> None:
             grupos=grupos,
             form=form,
             ok=(request.query_params.get("ok") == "1"),
+            sem_token=(request.query_params.get("ok") == "sem-token"),
         )
 
     @app.post("/admin/usuarios/{usuario_id}")
@@ -224,7 +217,7 @@ def registrar(c) -> None:
                 form=form,
             )
 
-        if acao not in ("dados", "senha", "desativar", "reativar"):
+        if acao not in ("dados", "senha", "desativar", "reativar", "revogar_token"):
             return _re_render(["Ação desconhecida."])
 
         acting_admin = request.state.usuario
@@ -360,6 +353,14 @@ def registrar(c) -> None:
                 return _erro_contas_ocupadas(request)
 
             return RedirectResponse(f"/admin/usuarios/{uid}?ok=1", status_code=303)
+
+        elif acao == "revogar_token":
+            try:
+                apagou = c.contas.revogar_token(uid, auditoria=(acting_admin_login, "revogar_token", alvo["login"], None, agora))
+            except autenticacao.ContasOcupadas:
+                return _erro_contas_ocupadas(request)
+
+            return RedirectResponse(f"/admin/usuarios/{uid}?ok=" + ("1" if apagou else "sem-token"), status_code=303)
 
     @app.get("/admin/grupos")
     def listar_grupos_view(request: Request):

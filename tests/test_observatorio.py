@@ -97,7 +97,7 @@ def test_banner_com_conta_antes_do_botao_de_tema(painel):
     assert _entrar(cli, "chefe").status_code == 303
     b = _banner(cli.get("/").text)
     assert '<div class="conta">' in b and b.index('<div class="conta">') < b.index('class="tema-alternar"')
-    for trecho in ('class="conta-admin" href="/admin"', '<span class="conta-nome">Chefe</span>', '<form method="post" action="/sair" class="form-sair">'):
+    for trecho in ('class="conta-admin" href="/admin"', '<a class="conta-nome" href="/conta" title="Minha conta">Chefe</a>', '<form method="post" action="/sair" class="form-sair">'):
         assert trecho in b, trecho
 
 

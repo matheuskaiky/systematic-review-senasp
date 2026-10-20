@@ -189,7 +189,7 @@ def test_sem_script_inline_nem_estilo_inline_e_com_csp(ctx):
     r = cli.get("/metodologia")
     assert not re.search(r"<script(?![^>]*\bsrc=)", r.text) and ' style="' not in r.text and "onclick=" not in r.text
     assert "script-src 'self'" in r.headers["content-security-policy"]
-    assert 'src="/static/metodologia.js"' in r.text and 'href="/static/metodologia.css"' in r.text
+    assert 'src="/static/copiar.js"' in r.text and 'href="/static/metodologia.css"' in r.text
 
 
 def test_pagina_funciona_sem_javascript(ctx):
@@ -198,8 +198,10 @@ def test_pagina_funciona_sem_javascript(ctx):
     html = cli.get("/metodologia").text
     botao = re.search(r'<button[^>]*id="copiar-texto"[^>]*>', html).group(0)
     assert " hidden" in botao and 'type="button"' in botao
+    assert 'data-copiar="texto-metodologia"' in botao and 'data-aviso="copiar-aviso"' in botao
+    assert 'id="texto-metodologia"' in html and 'id="copiar-aviso"' in html
     assert "A busca no Google Scholar foi feita" in _texto_da_pagina(html)
-    js = cli.get("/static/metodologia.js")
+    js = cli.get("/static/copiar.js")
     assert js.status_code == 200 and "navigator.clipboard" in js.text and "execCommand" in js.text and "getSelection" in js.text
     assert cli.get("/static/metodologia.css").status_code == 200
 

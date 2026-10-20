@@ -70,7 +70,7 @@ def test_regras_de_nome(nome, erros):
 
 def test_catalogo_e_grupos_padrao():
     assert list(A.PERMISSOES) == ["ver_painel", "ver_nomes_revisores", "ver_chamadas", "verificar_achados", "revogar_verificacao",
-                                  "triar_artigos", "triar_texto_completo", "ver_estatisticas_usuarios"]
+                                  "triar_artigos", "triar_texto_completo", "ver_estatisticas_usuarios", "enviar_coletas"]
     assert A.PERMISSOES_ESCRITA == {"verificar_achados", "revogar_verificacao", "triar_artigos", "triar_texto_completo"}
     assert A.GRUPOS_PADRAO == {
         "Administrador": set(A.PERMISSOES), "Visitante": {"ver_painel"}, "Leitor": {"ver_painel", "ver_nomes_revisores"},

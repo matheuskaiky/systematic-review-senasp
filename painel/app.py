@@ -279,6 +279,14 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     async def nao_encontrado(request, exc):
         return erro(request, 404, "Página não encontrada", "O endereço não existe neste painel.")
 
+    @app.exception_handler(405)
+    async def metodo_nao_permitido(request, exc):
+        # endereco que so recebe formulario (POST) aberto pela barra de enderecos: pagina de erro do painel, nao JSON cru
+        resposta = erro(request, 405, "Endereço só para formulários",
+                        "Este endereço só recebe o envio de um formulário. Volte à página anterior e use o botão.")
+        resposta.headers.update(getattr(exc, "headers", None) or {})       # mantem o Allow exigido pelo HTTP
+        return resposta
+
     if contexto.autenticacao:
         def _pagina_entrar(request, status, proximo, erro, aviso, login_digitado):
             try:

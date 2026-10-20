@@ -240,7 +240,7 @@
   var FAMILIAS = [
     { nome: "Inter", arquivo: "/static/fonts/inter-latin-wght-normal.woff2", peso: "100 900", icones: false },
     { nome: "Source Serif 4", arquivo: "/static/fonts/source-serif-4-latin-wght-normal.woff2", peso: "200 900", icones: false },
-    { nome: "Observatorio Icones", arquivo: "/static/fonts/observatorio-icones-v1.woff2", peso: "400", icones: true }
+    { nome: "Observatorio Icones", arquivo: "/static/fonts/observatorio-icones-v2.woff2", peso: "400", icones: true }
   ];
 
   FAMILIAS.forEach(function (f) {

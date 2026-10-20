@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Constrói static/fonts/observatorio-icones-v1.woff2 a partir dos SVG do Phosphor Icons (MIT) mais a marca própria.
+"""Constrói static/fonts/observatorio-icones-v2.woff2 a partir dos SVG do Phosphor Icons (MIT) mais a marca própria.
 
 Uso:  python3 construir_fonte_icones.py  <pasta assets do @phosphor-icons/core>  <lista.txt>  <saida.woff2>  <saida.json>
 
@@ -110,10 +110,11 @@ def principal(pasta_assets, lista, saida_woff2, saida_json):
     fb.setupGlyphOrder(ordem)
     fb.setupCharacterMap(cmap)
     fb.setupGlyf(glifos)
-    fb.setupHorizontalMetrics({g: (UPM, 0) for g in ordem})
+    # recuo esquerdo = inicio real do desenho (xMin): com 0, o navegador deslocava cada icone para a esquerda pela propria margem
+    fb.setupHorizontalMetrics({g: (UPM, getattr(fb.font["glyf"][g], "xMin", 0)) for g in ordem})
     fb.setupHorizontalHeader(ascent=UPM, descent=0, lineGap=0)
-    fb.setupNameTable({"familyName": "Observatorio Icones", "styleName": "Regular", "uniqueFontIdentifier": "Observatorio Icones v1",
-                       "fullName": "Observatorio Icones Regular", "psName": "ObservatorioIcones-Regular", "version": "Version 1.0",
+    fb.setupNameTable({"familyName": "Observatorio Icones", "styleName": "Regular", "uniqueFontIdentifier": "Observatorio Icones v2",
+                       "fullName": "Observatorio Icones Regular", "psName": "ObservatorioIcones-Regular", "version": "Version 2.0",
                        "licenseDescription": "Glifos derivados do Phosphor Icons (MIT, Copyright 2023 Phosphor Icons). Marca propria do projeto."})
     fb.setupOS2(sTypoAscender=UPM, sTypoDescender=0, sTypoLineGap=0, usWinAscent=UPM, usWinDescent=0, fsType=0, fsSelection=0x80 | 0x40)
     fb.font["OS/2"].version = 4   # fsSelection com os bits 6 e 7 só vale na versão 4 da tabela

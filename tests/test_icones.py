@@ -6,7 +6,7 @@ import re
 import pytest
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
-CAMINHOS = {"css": str(RAIZ / "painel/static/painel.css"), "fonte": str(RAIZ / "painel/static/fonts/observatorio-icones-v1.woff2"), "templates": str(RAIZ / "painel/templates"), "codigo": str(RAIZ / "painel")}
+CAMINHOS = {"css": str(RAIZ / "painel/static/painel.css"), "fonte": str(RAIZ / "painel/static/fonts/observatorio-icones-v2.woff2"), "templates": str(RAIZ / "painel/templates"), "codigo": str(RAIZ / "painel")}
 MATIZES = {"cobalto", "petroleo", "violeta", "ambar", "rosa"}
 
 

@@ -81,7 +81,7 @@ def test_impressao_mantem_as_regras_do_projeto():
 
 
 def test_fonte_de_icones_e_licenca_junto():
-    fonte = RAIZ / "painel" / "static" / "fonts" / "observatorio-icones-v1.woff2"
+    fonte = RAIZ / "painel" / "static" / "fonts" / "observatorio-icones-v2.woff2"
     assert fonte.is_file() and fonte.read_bytes()[:4] == b"wOF2"
     assert (fonte.parent / "LICENSE-PhosphorIcons-MIT.txt").is_file()
 

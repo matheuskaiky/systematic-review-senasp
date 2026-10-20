@@ -13,7 +13,7 @@ LIMITE_BYTES = 150_000  # por arquivo; hoje: Inter ~48 KB, Source Serif 4 ~51 KB
 ARQUIVOS = {
     "Inter": "inter-latin-wght-normal.woff2",
     "Source Serif 4": "source-serif-4-latin-wght-normal.woff2",
-    "Observatorio Icones": "observatorio-icones-v1.woff2",
+    "Observatorio Icones": "observatorio-icones-v2.woff2",
 }
 TOKENS = {"--fonte-base": "Inter", "--fonte-leitura": "Source Serif 4", "--fonte-icones": "Observatorio Icones"}
 FOLHAS = ("painel", "analises", "solucoes", "classificadores", "metodologia", "relevancia", "triagem_escopo")

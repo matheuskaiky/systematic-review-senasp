@@ -77,6 +77,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_chamadas_idem
 -- v_gasto_real pergunta, para cada chamada sem custo, se o provedor registra custo em alguma outra (EXISTS por provedor):
 -- sem este indice cada pergunta varre a tabela inteira (medido: 533 ms -> poucos ms com 2.300 chamadas)
 CREATE INDEX IF NOT EXISTS ix_chamadas_provedor_custo ON chamadas(provedor, custo_usd);
+-- itens com chamada numa execucao e etapa (o --limite vale para a execucao inteira, retomadas incluidas)
+CREATE INDEX IF NOT EXISTS ix_chamadas_run_etapa_chave ON chamadas(run_id, etapa, chave_idempotencia);
 
 -- ===== Task 2: literature =====
 CREATE TABLE IF NOT EXISTS artigos (

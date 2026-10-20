@@ -149,6 +149,13 @@ class RepositorioSQLite:
     def confirmar(self):
         self.conn.commit()
 
+    def desfazer(self):
+        self.conn.rollback()
+
+    def pendente(self):
+        """Ha gravacao ainda nao confirmada na transacao aberta."""
+        return self.conn.in_transaction
+
     # ---------- run ----------
     def validar_runs_origem(self, runs):
         """Cada execucao de origem (--de) precisa existir; encerra com mensagem para a primeira que faltar."""
@@ -184,6 +191,20 @@ class RepositorioSQLite:
                       run_origem=run_origem, ambiente_json=ambiente_json)
         self.conn.commit()
         return run_id
+
+    def argumentos_da_execucao(self, run_id):
+        """Argumentos da linha de comando com que a execucao foi criada (execucoes.ambiente_json): {} se nao houver registro
+        (execucao inexistente ou coluna NULL), None se o registro estiver ilegivel (texto vazio, JSON invalido ou sem o formato
+        esperado)."""
+        linha = self.conn.execute("SELECT ambiente_json FROM execucoes WHERE run_id=?", (run_id,)).fetchone()
+        if not linha or linha["ambiente_json"] is None:
+            return {}
+        try:
+            ambiente = json.loads(linha["ambiente_json"])
+        except ValueError:
+            return None
+        argumentos = ambiente.get("argumentos", {}) if isinstance(ambiente, dict) else None
+        return argumentos if isinstance(argumentos, dict) else None
 
     def obter_run_origem(self, run_id):
         """C5: run_origem guardado para a execucao (None se nao houver). Com varias origens e o texto como foi gravado,
@@ -221,6 +242,11 @@ class RepositorioSQLite:
     def ja_feito(self, run_id, chave):
         return self.conn.execute("SELECT 1 FROM chamadas WHERE run_id=? AND chave_idempotencia=? AND sucesso=1",
                                  (run_id, chave)).fetchone() is not None
+
+    def chaves_com_chamada(self, run_id, etapa):
+        """Chaves dos itens que ja tiveram ao menos uma chamada (com sucesso ou nao) nesta execucao e etapa: o --limite conta estes."""
+        return {l[0] for l in self.conn.execute("SELECT DISTINCT chave_idempotencia FROM chamadas WHERE run_id=? AND etapa=?",
+                                                (run_id, etapa))}
 
     def resultado_chamada(self, run_id, chave):
         """C8: resultado guardado de uma chamada ja concluida (sucesso, n_retornados); None se ela nao foi concluida."""

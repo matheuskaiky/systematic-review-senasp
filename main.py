@@ -190,12 +190,35 @@ def _listar_classificacao(args, repo, de, ufs, params, classificador_nome):
         print(f"{i.url_id:>6}  {i.uf}  {dominio_de(i.url)}  {motivo}")
 
 
+def _limite(texto):
+    """--limite: inteiro maior ou igual a 1 (zero ou negativo significariam "sem limite" e chamadas pagas sem teto)."""
+    try:
+        n = int(texto)
+    except ValueError:
+        n = 0
+    if n < 1:
+        raise argparse.ArgumentTypeError("precisa ser um inteiro maior ou igual a 1")
+    return n
+
+
 def rodar(args, etapas):
     tecnologias = _tecnologias_da_busca(args)       # valida antes de abrir o banco ou exigir chave
+    if args.limite and "academico" in etapas:
+        raise SystemExit("--limite não vale para a busca acadêmica: limite a busca com --termos e --paginas.")
+    if getattr(args, "listar", False) and args.retomar:
+        raise SystemExit("--listar não vale com --retomar: a prévia não conhece as chamadas já feitas da execução.")
     fab = Fabrica(simulado=args.simulado)
     repo, snap = fab.repo, S.snapshot_config()
     # C5: na retomada, sem --de, reaproveita o --de guardado na execucao original (uma ou varias execucoes)
     de = separar_runs(args.de) or separar_runs(repo.obter_run_origem(args.retomar) if args.retomar else None)
+    if args.retomar and args.limite is None:
+        gravados = repo.argumentos_da_execucao(args.retomar)
+        if gravados is None:
+            raise SystemExit(f"Os argumentos gravados da execução {args.retomar} estão ilegíveis. Ao retomar, informe --limite.")
+        anterior = gravados.get("limite")
+        if anterior:
+            raise SystemExit(f"Esta execução foi criada com --limite {anterior}. Ao retomar, repita --limite {anterior}: "
+                             "sem ele a retomada não teria teto de chamadas.")
     # C5: etapa que le o resultado de outra etapa que nao roda no mesmo comando exige --de
     precisa_de = (("download" in etapas and "busca_web" not in etapas)
                   or ("classificacao" in etapas and "download" not in etapas))
@@ -258,6 +281,7 @@ def rodar(args, etapas):
                                    max_falhas_por_item=S.CLASSIFICACAO["max_falhas_por_item"],
                                    so_nao_classificadas=so_nao_classificadas, urls=urls)
     except KeyboardInterrupt:
+        repo.desfazer()                             # o que ficou pendente (sem confirmar) nao entra no banco
         status = "interrompida"
         logging.warning("Interrupted. Resume with: python main.py %s --retomar %s", args.cmd, run_id)
     except CotaDiariaEsgotada as e:
@@ -265,9 +289,11 @@ def rodar(args, etapas):
         _avisar_cota_diaria(e, args.cmd, run_id)
     except SystemExit:
         # a fabrica encerra com SystemExit (ex.: falta de chave); a execucao nao pode constar como concluida
+        repo.desfazer()
         status = "falhou"
         raise
     except Exception:
+        repo.desfazer()
         status = "falhou"
         logging.exception("Run failed")
     finally:
@@ -389,15 +415,18 @@ def triar_escopo(a):
         if r["parou_por_custo"]:
             print("PARADA pelo teto de custo antes de terminar; os itens restantes seguem sem triagem (ver metricas_run).")
     except KeyboardInterrupt:
+        repo.desfazer()
         status = "interrompida"
         logging.warning("Interrupted. Rode de novo o mesmo comando: os itens já triados são pulados.")
     except CotaDiariaEsgotada as e:
         status = "interrompida"
         _avisar_cota_diaria(e, a.cmd, run_id)
     except SystemExit:
+        repo.desfazer()
         status = "falhou"
         raise
     except Exception:
+        repo.desfazer()
         status = "falhou"
         logging.exception("Run failed")
     finally:
@@ -630,7 +659,7 @@ def main():
         s.add_argument("--paginas", type=int); s.add_argument("--perfil")
         s.add_argument("--idioma-resultados", metavar="LR",
                        help="filtro de idioma dos resultados no Scholar (lr, ex. lang_pt)")
-        s.add_argument("--limite", type=int, help="max. items per stage (testing)")
+        s.add_argument("--limite", type=_limite, help="max. items per stage (testing)")
         s.add_argument("--auditoria", type=int, default=0,
                        help="N URLs descartadas pelo pre-filtro de palavras-chave tambem sao baixadas e classificadas (auditoria)")
         if nome in ("baixar", "classificar"):
@@ -655,7 +684,7 @@ def main():
     s.add_argument("--estratificar", action="store_true", help="espalha a amostra por relevancia e termo (artigos) ou UF e download (web)")
     s.add_argument("--semente", default="triagem-escopo", help="semente da amostra (a mesma semente repete a mesma amostra)")
     s.add_argument("--lote", type=int, help=f"itens por chamada (padrao {TE.LOTE_PADRAO}, maximo {TE.LOTE_MAXIMO}; com --curta, padrao {TE.LOTE_PADRAO_CURTA}, maximo {TE.LOTE_MAXIMO_CURTA})")
-    s.add_argument("--limite", type=int, help="maximo de itens a enviar nesta execucao")
+    s.add_argument("--limite", type=_limite, help="maximo de itens a enviar nesta execucao")
     s.add_argument("--max-custo", type=float, help=f"teto de custo da execucao em US$ (padrao {TE.MAX_CUSTO_PADRAO_USD})")
     s.add_argument("--refazer", action="store_true", help="triar de novo itens que ja tem triagem com este prompt")
     s.add_argument("--estimar", action="store_true", help="mostra itens, chamadas e custo, sem nenhuma chamada e sem chave")

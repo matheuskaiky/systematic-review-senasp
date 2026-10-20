@@ -3,7 +3,7 @@ import logging
 import time
 from dataclasses import asdict
 from dominio.servicos import hash_chave
-from aplicacao.comum import registrar_chamada
+from aplicacao.comum import item_gravado
 
 
 def executar(repo, bruto, academico, run_id, termos, filtros, max_paginas, segredos, pausa):
@@ -20,12 +20,11 @@ def executar(repo, bruto, academico, run_id, termos, filtros, max_paginas, segre
                     break
                 continue
             pag = academico.buscar_pagina(termo, inicio, filtros)
-            chamada_id, _ = registrar_chamada(repo, bruto, run_id, "busca_academica", "termo", termo.id,
-                                              chave, pag.chamada, segredos, pagina=p + 1)
-            novos = repo.salvar_artigos(chamada_id, run_id, termo.id, pag.artigos) if pag.chamada.sucesso else 0
-            repo.atualizar_chamada(chamada_id, total_reportado=pag.total_reportado,
-                                   n_retornados=len(pag.artigos), n_novos=novos)
-            repo.confirmar()
+            with item_gravado(repo, bruto, run_id, "busca_academica", "termo", termo.id, chave, pag.chamada, segredos,
+                              pagina=p + 1) as chamada_id:
+                novos = repo.salvar_artigos(chamada_id, run_id, termo.id, pag.artigos) if pag.chamada.sucesso else 0
+                repo.atualizar_chamada(chamada_id, total_reportado=pag.total_reportado,
+                                       n_retornados=len(pag.artigos), n_novos=novos)
             logging.info("[%s p%d] ok=%s returned=%d new=%d approx_total=%s lat=%sms", termo.id, p + 1,
                          pag.chamada.sucesso, len(pag.artigos), novos, pag.total_reportado, pag.chamada.latencia_ms)
             time.sleep(pausa)

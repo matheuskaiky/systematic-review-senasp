@@ -6,7 +6,7 @@ from dominio.servicos import hash_chave
 from dominio.triagem_escopo import (chave_item, enriquecer_termos, escolher_amostra, fora_do_recorte_temporal, lotes,
                                     custo_lote_usd, montar_esquema, montar_mensagem_usuario, sistema_da_fonte,
                                     validar_resposta)
-from aplicacao.comum import registrar_chamada
+from aplicacao.comum import item_gravado, registrar_falha_apos_chamada
 
 ETAPA = "triagem_escopo"
 
@@ -88,42 +88,47 @@ def executar(repo, bruto, triador, run_id, fonte, mapas, config, precos, segredo
         res = triador.triar(grupo, instr)
         r["chamadas"] += 1
         linhas = None
-        if res.chamada.erro is None:
-            linhas, extras = validar_resposta(grupo, res.texto_resposta, config)
-            if not extras["json_valido"]:
-                res.chamada.erro = "resposta_json_invalida: o texto do modelo nao e JSON no formato esperado"
-                linhas = None
-        chamada_id, _ = registrar_chamada(repo, bruto, run_id, ETAPA, "lote", f"{fonte}:{len(grupo)}:{chaves[0]}", chave,
-                                          res.chamada, segredos)
+        try:
+            if res.chamada.erro is None:
+                linhas, extras = validar_resposta(grupo, res.texto_resposta, config)
+                if not extras["json_valido"]:
+                    res.chamada.erro = "resposta_json_invalida: o texto do modelo nao e JSON no formato esperado"
+                    linhas = None
+        except BaseException as e:
+            registrar_falha_apos_chamada(repo, bruto, run_id, ETAPA, "lote", f"{fonte}:{len(grupo)}:{chaves[0]}", chave,
+                                         res.chamada, segredos, e, "falha_ao_validar")
+            raise
         acumulado += res.chamada.custo_usd or 0.0
-        if res.chamada.extras.get("cota_diaria_esgotada"):
-            # a cota diaria do provedor acabou: repetir hoje so gasta tempo. A chamada ficou registrada (auditoria), os
-            # itens deste lote seguem sem triagem (e podem ser repetidos) e os lotes anteriores ja estao gravados.
-            repo.registrar_metrica(run_id, "triagem_escopo_parada_cota_diaria", 1)
-            repo.registrar_metrica(run_id, "triagem_escopo_itens_triados", r["itens_triados"])
-            repo.confirmar()
+        cota = res.chamada.extras.get("cota_diaria_esgotada")
+        with item_gravado(repo, bruto, run_id, ETAPA, "lote", f"{fonte}:{len(grupo)}:{chaves[0]}", chave, res.chamada,
+                          segredos) as chamada_id:
+            if cota:
+                # a cota diaria do provedor acabou: repetir hoje so gasta tempo. A chamada ficou registrada (auditoria), os
+                # itens deste lote seguem sem triagem (e podem ser repetidos) e os lotes anteriores ja estao gravados.
+                repo.registrar_metrica(run_id, "triagem_escopo_parada_cota_diaria", 1)
+                repo.registrar_metrica(run_id, "triagem_escopo_itens_triados", r["itens_triados"])
+            elif linhas is None:
+                r["lotes_falhos"] += 1
+                motivo = str(res.chamada.erro)
+                if motivo.startswith("resposta_truncada"):
+                    logging.error("[triagem_escopo %d/%d] FALHA: resposta cortada por MAX_TOKENS; nenhum item do lote foi "
+                                  "aproveitado (tokens e custo ficaram gravados). Reduza --lote.", n, len(lista))
+                else:
+                    logging.error("[triagem_escopo %d/%d] FALHA do lote (itens ficam sem triagem e podem ser repetidos): %s",
+                                  n, len(lista), motivo)
+            else:
+                repo.salvar_triagem_escopo(run_id, chamada_id, config.versao, linhas)
+                sem = len(extras["ids_ausentes"])
+                r["itens_triados"] += len(linhas) - sem
+                r["itens_sem_resposta"] += sem
+                if sem or extras["ids_duplicados"] or extras["ids_desconhecidos"]:
+                    logging.warning("[triagem_escopo %d/%d] ids ausentes=%s duplicados=%s desconhecidos=%s", n, len(lista),
+                                    extras["ids_ausentes"], extras["ids_duplicados"], extras["ids_desconhecidos"])
+                logging.info("[triagem_escopo %d/%d] ok itens=%d invalidos=%d", n, len(lista), len(linhas),
+                             sum(1 for l in linhas if not l["valido"]))
+        if cota:
             raise CotaDiariaEsgotada(triador.nome, "Os itens do lote afetado seguem sem triagem.",
                                      res.chamada.extras.get("cota_renova_em_s"), res.chamada.extras.get("cota_motivo", "cota_diaria"))
-        if linhas is None:
-            r["lotes_falhos"] += 1
-            motivo = str(res.chamada.erro)
-            if motivo.startswith("resposta_truncada"):
-                logging.error("[triagem_escopo %d/%d] FALHA: resposta cortada por MAX_TOKENS; nenhum item do lote foi "
-                              "aproveitado (tokens e custo ficaram gravados). Reduza --lote.", n, len(lista))
-            else:
-                logging.error("[triagem_escopo %d/%d] FALHA do lote (itens ficam sem triagem e podem ser repetidos): %s",
-                              n, len(lista), motivo)
-        else:
-            repo.salvar_triagem_escopo(run_id, chamada_id, config.versao, linhas)
-            sem = len(extras["ids_ausentes"])
-            r["itens_triados"] += len(linhas) - sem
-            r["itens_sem_resposta"] += sem
-            if sem or extras["ids_duplicados"] or extras["ids_desconhecidos"]:
-                logging.warning("[triagem_escopo %d/%d] ids ausentes=%s duplicados=%s desconhecidos=%s", n, len(lista),
-                                extras["ids_ausentes"], extras["ids_duplicados"], extras["ids_desconhecidos"])
-            logging.info("[triagem_escopo %d/%d] ok itens=%d invalidos=%d", n, len(lista), len(linhas),
-                         sum(1 for l in linhas if not l["valido"]))
-        repo.confirmar()
         time.sleep(pausa)
     r["custo_usd"] = acumulado
     for chave_m, valor in (("triagem_escopo_itens_triados", r["itens_triados"]),

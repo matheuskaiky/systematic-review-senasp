@@ -385,6 +385,10 @@ SELECT d.* FROM achados_descartados d JOIN r_classificacoes k ON k.classificacao
 DROP VIEW IF EXISTS r_artigos;
 CREATE VIEW r_artigos AS
 SELECT a.* FROM artigos a WHERE a.artigo_id IN (SELECT artigo_id FROM r_ocorrencias UNION SELECT artigo_id FROM ocorrencias_manuais);
+-- triagem humana so dos artigos do relatorio: artigo que so apareceu em execucao fora do relatorio nao entra nas contagens
+DROP VIEW IF EXISTS r_triagem;
+CREATE VIEW r_triagem AS
+SELECT t.* FROM triagem t WHERE t.artigo_id IN (SELECT artigo_id FROM r_artigos);
 
 -- Origem efetiva de cada classificacao: o dominio final da pagina (apos redirecionamentos), quando houve download.
 DROP VIEW IF EXISTS v_fonte_da_classificacao;
@@ -656,28 +660,28 @@ UNION ALL SELECT 11, 'identificacao', 'removidos por ferramenta automatica (tria
        (SELECT n FROM removidos_escopo)
 UNION ALL SELECT 12, 'triagem', 'artigos unicos para triagem', (SELECT COUNT(*) FROM r_artigos) - (SELECT n FROM removidos_escopo)
 UNION ALL SELECT 13, 'triagem', 'avaliados por titulo e resumo',
-       (SELECT COUNT(*) FROM triagem WHERE decisao IN ('incluir', 'excluir'))
-UNION ALL SELECT 14, 'triagem', 'excluidos por titulo e resumo', (SELECT COUNT(*) FROM triagem WHERE decisao = 'excluir')
-UNION ALL SELECT 15, 'triagem', 'incluidos por titulo e resumo', (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir')
+       (SELECT COUNT(*) FROM r_triagem WHERE decisao IN ('incluir', 'excluir'))
+UNION ALL SELECT 14, 'triagem', 'excluidos por titulo e resumo', (SELECT COUNT(*) FROM r_triagem WHERE decisao = 'excluir')
+UNION ALL SELECT 15, 'triagem', 'incluidos por titulo e resumo', (SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir')
 UNION ALL SELECT 16, 'triagem', 'pendentes de titulo e resumo',
-       (SELECT COUNT(*) FROM r_artigos) - (SELECT n FROM removidos_escopo) - (SELECT COUNT(*) FROM triagem WHERE decisao IN ('incluir', 'excluir'))
+       (SELECT COUNT(*) FROM r_artigos) - (SELECT n FROM removidos_escopo) - (SELECT COUNT(*) FROM r_triagem WHERE decisao IN ('incluir', 'excluir'))
 UNION ALL SELECT 17, 'elegibilidade', 'avaliados por texto completo',
-       (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND decisao_texto_completo IN ('incluir', 'excluir'))
+       (SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir' AND decisao_texto_completo IN ('incluir', 'excluir'))
 UNION ALL SELECT 18, 'elegibilidade', 'excluidos por texto completo',
-       (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND decisao_texto_completo = 'excluir')
+       (SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir' AND decisao_texto_completo = 'excluir')
 UNION ALL SELECT 19, 'elegibilidade', 'aguardando texto completo',
-       (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND COALESCE(decisao_texto_completo, 'pendente') = 'pendente')
+       (SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir' AND COALESCE(decisao_texto_completo, 'pendente') = 'pendente')
 UNION ALL SELECT 20, 'inclusao', 'incluidos no estudo (texto completo)',
-       (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir' AND decisao_texto_completo = 'incluir');
+       (SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir' AND decisao_texto_completo = 'incluir');
 
 DROP VIEW IF EXISTS v_motivos_exclusao;
 CREATE VIEW v_motivos_exclusao AS
 SELECT etapa, motivo, n FROM (
     SELECT 'titulo_resumo' AS etapa, COALESCE(NULLIF(TRIM(motivo), ''), '(sem motivo)') AS motivo, COUNT(*) AS n
-    FROM triagem WHERE decisao = 'excluir' GROUP BY 2
+    FROM r_triagem WHERE decisao = 'excluir' GROUP BY 2
     UNION ALL
     SELECT 'texto_completo', COALESCE(NULLIF(TRIM(motivo_texto_completo), ''), '(sem motivo)'), COUNT(*)
-    FROM triagem WHERE decisao = 'incluir' AND decisao_texto_completo = 'excluir' GROUP BY 2)
+    FROM r_triagem WHERE decisao = 'incluir' AND decisao_texto_completo = 'excluir' GROUP BY 2)
 ORDER BY etapa DESC, n DESC, motivo;
 
 -- Registro de buscas (anexo do protocolo): cada requisicao ao Scholar e cada busca manual, com string, filtros e data.
@@ -842,9 +846,9 @@ SELECT
   (SELECT COUNT(*) FROM r_chamadas WHERE etapa = 'busca_web' AND sucesso = 1) AS requisicoes_busca_web,
   (SELECT COUNT(DISTINCT url_id || '|' || uf) FROM v_status_url WHERE confirmado = 1) AS fontes_confirmadas,
   ROUND((SELECT SUM(custo_usd) FROM r_chamadas) / NULLIF((SELECT COUNT(*) FROM v_status_url WHERE confirmado = 1), 0), 4) AS custo_por_fonte_confirmada_usd,
-  (SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir') AS artigos_incluidos,
+  (SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir') AS artigos_incluidos,
   ROUND(1.0 * (SELECT COUNT(*) FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1)
-        / NULLIF((SELECT COUNT(*) FROM triagem WHERE decisao = 'incluir'), 0), 2) AS creditos_por_artigo_incluido;
+        / NULLIF((SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir'), 0), 2) AS creditos_por_artigo_incluido;
 
 -- ===== Auditoria da coleta: o que aconteceu com cada item selecionado =====
 

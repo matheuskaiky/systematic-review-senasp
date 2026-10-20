@@ -76,7 +76,7 @@ def test_banco_sem_tabelas_nao_quebra_nenhuma_aba(tmp_path):
     app, _ = _app(vazio, tmp_path / "raw", tmp_path, somente_leitura=True)
     cli = TestClient(app)
     for secao in SECOES:
-        assert cli.get(f"/analises?secao={secao}").status_code in (200, 503), secao
+        assert cli.get(f"/analises?secao={secao}").status_code == 200, secao   # banco vazio: cada secao mostra o vazio
 
 
 def test_banco_com_esquema_e_sem_dados_nao_quebra(tmp_path):

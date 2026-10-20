@@ -37,6 +37,10 @@ def ambiente_cli(tmp_path, monkeypatch, raiz_limpa):
     monkeypatch.setattr(S, "OUT_DIR", tmp_path / "outputs")
     monkeypatch.setitem(S.OPCOES["excel"], "pasta", tmp_path / "outputs")
     monkeypatch.setattr(S, "PAUSAS", {k: 0 for k in S.PAUSAS})
+    # o commit gravado em cada execucao vem de 3 chamadas ao git (segundos cada em /mnt/c); nenhum teste da CLI confere
+    # esse valor, e o proprio _commit_git tem testes com um repositorio de verdade (test_auditoria_coleta.py)
+    import main
+    monkeypatch.setattr(main, "_commit_git", lambda: "teste00")
     return tmp_path
 
 

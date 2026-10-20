@@ -283,7 +283,7 @@ def test_sem_servidor_nao_ha_aquecimento_e_falha_do_aquecimento_nao_derruba(mode
     with TestClient(app2) as c2:
         app2.state.aquecimento_cache_texto.join(timeout=10)
         assert app2.state.cache_textos.tamanho() == 0
-        assert c2.get("/buscar-texto").status_code in (200, 503)
+        assert c2.get("/buscar-texto").status_code == 503                  # sem banco: aviso de banco ausente
 
 
 # ---------- Etapa 4 do front-end: a cadeia de drill-down solucoes -> buscar-texto -> achados ----------

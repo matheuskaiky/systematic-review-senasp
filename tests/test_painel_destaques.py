@@ -231,7 +231,7 @@ def test_solucoes_cartao_tem_ancora_estavel_e_indicadores_clicaveis(cli):
 
 def test_nome_com_acento_e_codificado_nos_links(cli):
     h = cli.get("/solucoes").text
-    assert "/buscar-texto?q=BO%20F%C3%A1cil&amp;uf=PI&amp;inteira=1" in h or "BO Fácil" in h
+    assert "/buscar-texto?q=BO%20F%C3%A1cil&amp;uf=PI&amp;inteira=1" in h
     linha = _linha(h, LONGO)
     assert 'href="/achados?uf=PI&amp;q=BO%20F%C3%A1cil"' in linha
     assert "<script" not in h.lower().replace("<script src", "")

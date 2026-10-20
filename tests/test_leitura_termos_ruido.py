@@ -156,7 +156,7 @@ def test_prefiltro_palavras_candidatas_e_desempenho(web):
     d = {x["palavra"]: x for x in r["desempenho_prefiltro"]}
     assert d["camera"]["n"] == 2 and d["camera"]["n_elegivel"] == 1 and d["reconhecimento facial"]["n"] == 0
     # `senasp` aparece em 2 dos 3 elegiveis descartados; com suporte minimo 5 (padrao) nao ha candidata; baixando o suporte ela surge
-    assert all(c["n_frente"] >= 5 for c in r["palavras_candidatas"])
+    assert r["palavras_candidatas"] == []
 
 
 def test_prefiltro_em_banco_so_com_execucao_antiga_ou_sem_triagem(tmp_path, modelo):

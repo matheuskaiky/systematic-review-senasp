@@ -2,6 +2,8 @@
 import pathlib
 import subprocess
 
+import pytest
+
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
 # o `.gitignore` do pesquisador tem acrescimos locais (*.zip etc.) que ficam fora do commit: aqui so se exige o que o repositorio ja tem
 PADROES_OBRIGATORIOS = (".env", "data/", "outputs/", "logs/", "__pycache__/", ".venv/", ".pytest_cache/")
@@ -18,7 +20,7 @@ def test_gitignore_cobre_dados_logs_caches_e_segredos():
 
 def test_nenhum_arquivo_proibido_esta_rastreado():
     if not (RAIZ / ".git").exists():
-        return                                      # exportacao sem historico: so vale a regra do .gitignore acima
+        pytest.skip("exportacao sem historico git: so vale a regra do .gitignore")
     rastreados = subprocess.run(["git", "ls-files"], cwd=RAIZ, capture_output=True, text=True).stdout.splitlines()
     proibidos = [f for f in rastreados if f == ".env" or f.endswith((".pyc", ".log", ".zip", ".db", ".xlsx"))
                  or f.split("/")[0] in ("data", "logs", "outputs", "docs", ".claude")
@@ -28,7 +30,7 @@ def test_nenhum_arquivo_proibido_esta_rastreado():
 
 def test_logs_e_caches_sao_ignorados_pelo_git():
     if not (RAIZ / ".git").exists():
-        return
+        pytest.skip("exportacao sem historico git")
     for caminho in ("logs/20261016_130958_5cb9a1.log", "painel/__pycache__/app.cpython-312.pyc", "dominio/__pycache__/x.pyc",
                     "analises/.venv/bin/python", "data/busca.db", "outputs/resultado.xlsx", ".env"):
         r = subprocess.run(["git", "check-ignore", "-q", caminho], cwd=RAIZ)

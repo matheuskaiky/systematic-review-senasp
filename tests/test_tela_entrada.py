@@ -309,8 +309,11 @@ def navegador_entrada(painel):
     servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=porta, log_level="error"))
     fio = threading.Thread(target=servidor.run, daemon=True)
     fio.start()
-    while not servidor.started:
+    for _ in range(200):                                 # ate 10 s; um servidor que nao sobe falha o teste, nao trava a bateria
+        if servidor.started:
+            break
         time.sleep(0.05)
+    assert servidor.started, "o servidor do teste nao subiu em 10 s"
     with sync_playwright() as p:
         try:
             chromium = p.chromium.launch()

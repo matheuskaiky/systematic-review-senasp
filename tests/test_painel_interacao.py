@@ -135,10 +135,11 @@ def navegador(demo, tmp_path_factory):
     servidor = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=porta, log_level="error"))
     fio = threading.Thread(target=servidor.run, daemon=True)
     fio.start()
-    for _ in range(100):
+    for _ in range(200):                                 # ate 10 s
         if servidor.started:
             break
         time.sleep(0.05)
+    assert servidor.started, "o servidor do teste nao subiu em 10 s"
     playwright = sync_playwright().start()
     try:
         chromium = playwright.chromium.launch()

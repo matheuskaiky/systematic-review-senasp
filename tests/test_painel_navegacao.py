@@ -95,8 +95,8 @@ def test_a_pagina_atual_leva_aria_current_e_o_grupo_dela_vem_aberto(cliente):
         assert r.status_code == 200, rota
         menu = _menu(r.text)
         marcados = [h for _, _, links in menu for h, a, _ in links if a]
-        if atual is None:                                     # /revisao/achados redireciona para um achado: vale o destino
-            assert marcados == ["/achados"], rota
+        if atual is None:                                     # /revisao/achados redireciona para um achado da fila: marca a fila
+            assert marcados == ["/revisao/achados"], rota
             continue
         assert marcados == [atual], (rota, marcados)          # exatamente um link marcado no menu
         abertos = [nome for nome, aberto, _ in menu if aberto]

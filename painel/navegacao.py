@@ -1,7 +1,8 @@
 """Menu lateral do painel: três grupos de links, na ordem em que o pesquisador trabalha.
 
-Só apresentação: nenhuma rota é criada ou removida aqui. `grupos(caminho)` devolve, para o caminho da página atual, os grupos
-com cada link marcado como atual (vira `aria-current="page"`) e o grupo que contém a página atual marcado como aberto.
+Só apresentação: nenhuma rota é criada ou removida aqui. `grupos(caminho, em_fila)` devolve, para o caminho da página atual, os
+grupos com cada link marcado como atual (vira `aria-current="page"`) e o grupo que contém a página atual marcado como aberto.
+Um achado ou um artigo aberto pela fila de revisão (`?fila=1`) marca a fila ("Revisar achados", "Triar artigos"), não a lista.
 """
 
 # (endereço, texto, prefixo que também marca o link como atual, prefixos de outro link que NÃO contam)
@@ -44,9 +45,15 @@ def _atual(caminho, href, prefixo, excecoes):
     return bool(prefixo) and _sob(caminho, prefixo) and not any(_sob(caminho, e) for e in excecoes)
 
 
-def grupos(caminho):
+# na fila de revisão, a página de um item conta como a página da fila
+_FILAS = (("/achados", "/revisao/achados"), ("/literatura/artigos", "/literatura/triagem"))
+
+
+def grupos(caminho, em_fila=False):
     """Lista de {id, nome, aberto, itens: [{href, texto, atual}]} para o `caminho` (ex.: `/estados/SP`) da página atual."""
     caminho = (caminho.rstrip("/") or "/") if caminho else ""          # sem caminho conhecido: nenhum link atual
+    if em_fila:
+        caminho = next((fila for lista, fila in _FILAS if _sob(caminho, lista)), caminho)
     saida = []
     for id_, nome, itens in _GRUPOS:
         marcados = [{"href": h, "texto": t, "atual": _atual(caminho, h, p, ex)} for h, t, p, ex in itens]

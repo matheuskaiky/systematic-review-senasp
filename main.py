@@ -667,6 +667,19 @@ def migrar_robots(a, fab):
         print("Nada a atualizar: o banco já está migrado.")
 
 
+def _pg_migrar():
+    """Aplica as migracoes do PostgreSQL com a conexao direta (no Neon, a URL sem -pooler). Nunca roda ao subir o painel."""
+    from adaptadores import migrador_postgres
+    url = os.environ.get("DATABASE_URL_DIRECT", "").strip()
+    if not url:
+        raise SystemExit("Defina DATABASE_URL_DIRECT no ambiente: a conexão direta do PostgreSQL (no Neon, a URL sem -pooler).")
+    try:
+        feitos = migrador_postgres.aplicar(url)
+    except migrador_postgres.ErroMigracao as erro:          # mensagens fixas: nunca repetem a URL
+        raise SystemExit(str(erro))
+    print(("Migrações aplicadas: " + ", ".join(feitos)) if feitos else "Esquema PostgreSQL em dia: nenhuma migração pendente.")
+
+
 def main():
     p = argparse.ArgumentParser(description="Survey automation (AI in Public Security)")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -779,7 +792,12 @@ def main():
     s.add_argument("--simulado", action="store_true")
     s.add_argument("--demo", action="store_true", help="contas do painel de demonstração no servidor (contas_demo.db)")
 
+    sub.add_parser("pg-migrar", help="aplica as migracoes do banco PostgreSQL do painel na nuvem (usa DATABASE_URL_DIRECT do ambiente)")
+
     a = p.parse_args()
+    if a.cmd == "pg-migrar":
+        _pg_migrar()
+        return
     fab = Fabrica(simulado=getattr(a, "simulado", False), demo=getattr(a, "demo", False))
     if a.cmd == "estimar":
         estimar(a)

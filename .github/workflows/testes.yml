@@ -25,6 +25,33 @@ jobs:
           PYTHON_DOTENV_DISABLED: "1"
         run: python -m pytest -q -m "not local" -rs
 
+  testes-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock.txt
+      - name: Dependencias
+        run: pip install -r requirements.lock.txt
+      - name: Testes contra PostgreSQL real (servico descartavel do CI)
+        env:
+          PYTHON_DOTENV_DISABLED: "1"
+          PG_TESTE_URL: postgresql://postgres:teste@localhost:5432/postgres
+        run: python -m pytest -q -m postgres -rs
+
   imagem:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

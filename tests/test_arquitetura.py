@@ -18,7 +18,8 @@ def test_dominio_e_aplicacao_nao_conhecem_adaptadores_config_ou_infra():
 
 
 def test_bibliotecas_de_io_ficam_nos_adaptadores():
-    assert not _viola(r"^\s*(from|import)\s+(sqlite3|requests|trafilatura|pypdf|openpyxl)\b", ["dominio", "aplicacao"])
+    assert not _viola(r"^\s*(from|import)\s+(sqlite3|requests|trafilatura|pypdf|openpyxl|psycopg|psycopg_pool)\b", ["dominio", "aplicacao"])
+    assert not _viola(r"^\s*(from|import)\s+(psycopg|psycopg_pool)\b", ["painel"])          # o painel le e grava pelas portas
 
 
 def test_adaptadores_nao_conhecem_aplicacao_nem_composicao():

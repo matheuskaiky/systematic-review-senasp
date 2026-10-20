@@ -5,7 +5,8 @@ import pytest
 
 import config.settings as S
 
-CHAVES = ("SERPAPI_KEY", "PERPLEXITY_API_KEY", "GEMINI_API_KEY", "LLM_API_KEY", "RESEARCHER_EMAIL")
+CHAVES = ("SERPAPI_KEY", "PERPLEXITY_API_KEY", "GEMINI_API_KEY", "LLM_API_KEY", "RESEARCHER_EMAIL",
+          "DATABASE_URL", "DATABASE_URL_DIRECT")         # nenhum teste toca um banco PostgreSQL real
 
 
 @pytest.fixture(autouse=True)
@@ -57,3 +58,26 @@ def copiar_demo(tmp_path_factory):
         shutil.copytree(modelo, destino, dirs_exist_ok=True)
         return destino / banco.name, destino / "raw_demo"
     return copiar
+
+
+@pytest.fixture
+def pg_url():
+    """Um banco PostgreSQL novo e vazio por teste, num servidor descartavel (PG_TESTE_URL aponta o banco de administracao,
+    ex.: postgresql://postgres:teste@127.0.0.1:55432/postgres). Apagado no fim. Sem PG_TESTE_URL, o teste e pulado."""
+    import os
+    import uuid
+    from urllib.parse import urlsplit, urlunsplit
+    adm = os.environ.get("PG_TESTE_URL", "").strip()
+    if not adm:
+        pytest.skip("PG_TESTE_URL nao definida: sem PostgreSQL de teste")
+    from urllib.parse import urlsplit as _u
+    if (_u(adm).hostname or "") not in ("localhost", "127.0.0.1"):
+        pytest.fail("PG_TESTE_URL so pode apontar para um PostgreSQL local descartavel: os testes criam e apagam bancos")
+    import psycopg
+    nome = "t_" + uuid.uuid4().hex[:12]
+    with psycopg.connect(adm, autocommit=True) as c:
+        c.execute(f"CREATE DATABASE {nome}")
+    p = urlsplit(adm)
+    yield urlunsplit((p.scheme, p.netloc, "/" + nome, p.query, ""))
+    with psycopg.connect(adm, autocommit=True) as c:
+        c.execute(f"DROP DATABASE IF EXISTS {nome} WITH (FORCE)")

@@ -58,7 +58,7 @@ class LeituraTermosRuido:
             return vazio
         run = self._ler("""SELECT e.run_id, json_extract(e.config_json, '$.politica_download') AS politica FROM execucoes e
                            WHERE e.comando = 'pipeline-uf' AND EXISTS (SELECT 1 FROM selecao_download s WHERE s.run_id = e.run_id)
-                           ORDER BY e.iniciado_em DESC, e.run_id DESC LIMIT 1""")
+                           ORDER BY e.iniciado_em DESC, e.rowid DESC LIMIT 1""")
         if not run:
             return vazio
         run_id = run[0]["run_id"]

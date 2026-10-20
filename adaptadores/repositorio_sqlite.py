@@ -563,7 +563,7 @@ class RepositorioSQLite:
     # ---------- export and imports ----------
     def tabelas_para_exportacao(self):
         consultas = {
-            "Execucoes": "SELECT * FROM execucoes ORDER BY iniciado_em",
+            "Execucoes": "SELECT * FROM execucoes ORDER BY iniciado_em, rowid",
             "Funil": "SELECT * FROM v_funil",
             "Custos": "SELECT * FROM v_custos",
             "Falhas": "SELECT * FROM v_falhas",

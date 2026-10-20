@@ -534,7 +534,7 @@ SELECT termo_id, query, idioma, grupo, pai FROM (
     SELECT json_extract(j.value, '$.id') AS termo_id, json_extract(j.value, '$.query') AS query,
            json_extract(j.value, '$.idioma') AS idioma, json_extract(j.value, '$.grupo') AS grupo,
            json_extract(j.value, '$.pai') AS pai,
-           ROW_NUMBER() OVER (PARTITION BY json_extract(j.value, '$.id') ORDER BY e.iniciado_em DESC, e.run_id DESC) AS rn
+           ROW_NUMBER() OVER (PARTITION BY json_extract(j.value, '$.id') ORDER BY e.iniciado_em DESC, e.rowid DESC) AS rn
     FROM execucoes e, json_each(e.config_json, '$.termos') j)
 WHERE rn = 1;
 

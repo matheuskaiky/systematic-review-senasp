@@ -118,7 +118,7 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         return self._consulta("""
             SELECT e.run_id, e.comando, e.status, e.iniciado_em, e.finalizado_em, e.no_relatorio,
                    (SELECT COALESCE(SUM(custo_usd), 0) FROM chamadas c WHERE c.run_id=e.run_id) AS custo_usd
-            FROM execucoes e ORDER BY e.iniciado_em DESC, e.run_id DESC LIMIT ?""", (min(max(int(n), 1), 50),))
+            FROM execucoes e ORDER BY e.iniciado_em DESC, e.rowid DESC LIMIT ?""", (min(max(int(n), 1), 50),))
 
     def cidades(self):
         """Cidades que tem achado (so secretarias municipais), para o filtro."""
@@ -136,7 +136,7 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
                    (SELECT COUNT(*) FROM chamadas c WHERE c.run_id=e.run_id) AS n_chamadas,
                    (SELECT COUNT(*) FROM chamadas c WHERE c.run_id=e.run_id AND c.sucesso=0) AS n_falhas,
                    (SELECT COALESCE(SUM(custo_usd), 0) FROM chamadas c WHERE c.run_id=e.run_id) AS custo_usd
-            FROM execucoes e ORDER BY e.iniciado_em DESC, e.run_id DESC""")
+            FROM execucoes e ORDER BY e.iniciado_em DESC, e.rowid DESC""")
         for l in linhas:
             l["runs_origem"] = separar_runs(l["run_origem"])        # `run_origem` guarda varias, separadas por virgula
         return linhas
@@ -158,13 +158,13 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         e["runs_origem"] = separar_runs(e["run_origem"])
         # `run_origem` guarda varias execucoes separadas por virgula: procura o run_id como um item inteiro da lista
         e["run_destino"] = [l["run_id"] for l in self._consulta(
-            "SELECT run_id FROM execucoes WHERE instr(',' || run_origem || ',', ',' || ? || ',') > 0 ORDER BY iniciado_em", (run_id,))]
+            "SELECT run_id FROM execucoes WHERE instr(',' || run_origem || ',', ',' || ? || ',') > 0 ORDER BY iniciado_em, rowid", (run_id,))]
         return e
 
     def opcoes_chamadas(self):
         return {"etapas": [l["etapa"] for l in self._consulta("SELECT DISTINCT etapa FROM chamadas ORDER BY etapa")],
                 "provedores": [l["provedor"] for l in self._consulta("SELECT DISTINCT provedor FROM chamadas ORDER BY provedor")],
-                "runs": [l["run_id"] for l in self._consulta("SELECT run_id FROM execucoes ORDER BY iniciado_em DESC")]}
+                "runs": [l["run_id"] for l in self._consulta("SELECT run_id FROM execucoes ORDER BY iniciado_em DESC, rowid DESC")]}
 
     def chamadas(self, filtros, pagina=1, por_pagina=50):
         por_pagina = min(max(int(por_pagina), 1), LIMITE_POR_PAGINA)

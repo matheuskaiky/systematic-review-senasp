@@ -14,7 +14,7 @@ class LeituraClassificadores:
     def execucoes_classificacao(self):
         """Execucoes do comando `classificar` (dentro ou fora do relatorio), da mais recente para a mais antiga."""
         return [self._com_origens(l) for l in
-                self._consulta(_EXECUCOES_CLASSIFICAR + " ORDER BY e.iniciado_em DESC, e.run_id DESC")]
+                self._consulta(_EXECUCOES_CLASSIFICAR + " ORDER BY e.iniciado_em DESC, e.rowid DESC")]
 
     def execucao_classificacao(self, run_id):
         return self._com_origens(self._um(_EXECUCOES_CLASSIFICAR + " AND e.run_id=?", (run_id,)))

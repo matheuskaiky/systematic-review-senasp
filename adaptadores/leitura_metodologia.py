@@ -9,14 +9,14 @@ class LeituraMetodologia:
     def _runs(self, etapa):
         return [l["run_id"] for l in self._consulta(
             """SELECT c.run_id FROM r_chamadas c JOIN execucoes e ON e.run_id=c.run_id WHERE c.etapa=?
-               GROUP BY c.run_id ORDER BY MIN(e.iniciado_em), c.run_id""", (etapa,))]
+               GROUP BY c.run_id ORDER BY MIN(e.iniciado_em), MIN(e.rowid)""", (etapa,))]
 
     def fatos_metodologia(self, n_ufs=27):
         """Dicionario simples com os fatos que o texto de metodologia descreve. Nada e calculado alem de contagens:
         o que nao existe vem como 0, None ou lista vazia (o texto diz que falta, nunca inventa)."""
         execucoes = self._consulta("""SELECT run_id, comando, status, iniciado_em, finalizado_em, config_hash, commit_git,
                                              no_relatorio, motivo_exclusao
-                                      FROM execucoes ORDER BY iniciado_em, run_id""")
+                                      FROM execucoes ORDER BY iniciado_em, rowid""")
         retomadas = self._consulta("""SELECT run_id, COUNT(*) AS n FROM execucoes_retomadas GROUP BY run_id ORDER BY run_id""")
 
         # ---------- busca academica ----------

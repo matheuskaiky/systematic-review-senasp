@@ -8,7 +8,7 @@
 
 {% if m.ressalvas %}
 <section class="aviso aviso-lista" aria-label="Ressalvas">
-  <strong>Antes de usar este texto</strong>: {{ m.ressalvas|length }} {{ "ressalva" if m.ressalvas|length == 1 else "ressalvas" }} sobre os dados. <a href="#ressalvas">Ler as ressalvas</a>.
+  <strong class="em-linha">Antes de usar este texto</strong>: {{ m.ressalvas|length }} {{ "ressalva" if m.ressalvas|length == 1 else "ressalvas" }} sobre os dados. <a href="#ressalvas">Ler as ressalvas</a>.
 </section>
 {% endif %}
 

@@ -38,7 +38,7 @@
 </details>
 <p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> artigo(s) · <a href="/literatura/triagem?{{ base }}">triar os pendentes desta lista</a></p>
 {% if res.ocultos_llm %}{% set f_todos = filtros.copy() %}{% set _ = f_todos.update({"llm": "todos"}) %}{% set f_exc = filtros.copy() %}{% set _ = f_exc.update({"llm": "excluido"}) %}
-<p class="aviso" role="status"><strong>{{ fmt.numero(res.ocultos_llm) }}</strong> artigo(s) excluído(s) pelo modelo estão ocultos desta lista (quarentena temporária: nada foi apagado e a decisão é sua).
+<p class="aviso" role="status"><strong class="em-linha">{{ fmt.numero(res.ocultos_llm) }}</strong> artigo(s) excluído(s) pelo modelo estão ocultos desta lista (quarentena temporária: nada foi apagado e a decisão é sua).
   <a href="/literatura/artigos?{{ urlencode(f_todos) }}">Mostrar</a> · <a href="/literatura/artigos?{{ urlencode(f_exc) }}">ver só os excluídos</a> · <a href="/triagem-escopo">entender a triagem do modelo</a></p>{% endif %}
 {% if not res.itens and res.total %}
 <p class="vazio">Não há artigos nesta página: são {{ fmt.numero(res.total) }} em {{ paginas }} página(s). <a href="/literatura/artigos?{{ base }}{{ '&' if base }}p=1">Ir para a primeira</a>.</p>

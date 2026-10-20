@@ -30,7 +30,7 @@ html.icones-ok .kpi[data-ic]::before { content: var(--ic-f); position: absolute;
 .aviso::before { content: ""; position: absolute; left: .85rem; top: .8rem; width: 2rem; height: 2rem; border-radius: .65rem; background: var(--av-solido); color: var(--texto-botao);
   display: grid; place-items: center; font-size: 1.15rem; line-height: 1; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25); }
 html.icones-ok .aviso::before { content: var(--av-ic); font-family: var(--fonte-icones); }
-.aviso > strong:first-child { display: block; margin-bottom: .1rem; }
+.aviso > strong:first-child:not(.em-linha) { display: block; margin-bottom: .1rem; }   /* titulo do aviso; .em-linha comeca uma frase */
 .aviso p { margin: .25rem 0 0; }
 .aviso-lista ul, .aviso ul { margin: .35rem 0 0; padding-left: 1.15rem; }
 .aviso li::marker { color: var(--av-solido); }

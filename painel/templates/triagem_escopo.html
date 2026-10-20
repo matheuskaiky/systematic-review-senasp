@@ -114,7 +114,7 @@
   </form>
   <p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> item(ns){% if not filtros.status %} (elegíveis e em quarentena){% endif %}</p>
   {% if res.ocultos %}
-  <p class="aviso" role="status"><strong>{{ fmt.numero(res.ocultos) }}</strong> item(ns) excluído(s) pelo modelo estão ocultos desta lista (quarentena temporária: nada foi apagado e a decisão é sua).
+  <p class="aviso" role="status"><strong class="em-linha">{{ fmt.numero(res.ocultos) }}</strong> item(ns) excluído(s) pelo modelo estão ocultos desta lista (quarentena temporária: nada foi apagado e a decisão é sua).
     <a href="{{ url(status='todos') }}#lista">Mostrar</a> · <a href="{{ url(status='excluido') }}#lista">ver só os excluídos</a></p>{% endif %}
   {% if not res.itens and res.total %}
   <p class="vazio">Não há itens nesta página: são {{ fmt.numero(res.total) }} em {{ paginas }} página(s). <a href="{{ url() }}#lista">Ir para a primeira</a>.</p>

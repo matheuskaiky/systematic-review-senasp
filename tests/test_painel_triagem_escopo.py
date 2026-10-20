@@ -197,7 +197,7 @@ def test_lista_padrao_mostra_elegivel_e_quarentena_e_conta_os_ocultos(cenario):
     h = cli.get("/triagem-escopo?fonte=artigo").text
     lista = h[h.index('id="h-lista"'):h.index('id="h-execs"')]
     assert ids_na_lista(lista) == {ids["a"], ids["c"], ids["f"]}            # f: excluido, mas a conferencia falhou (nao e oculto)
-    assert re.search(r"<strong>5</strong> item\(ns\) excluído\(s\) pelo modelo estão ocultos desta lista", lista)
+    assert re.search(r"<strong class=\"em-linha\">5</strong> item\(ns\) excluído\(s\) pelo modelo estão ocultos desta lista", lista)
     assert "nada foi apagado e a decisão é sua" in lista and 'href="/triagem-escopo?fonte=artigo&amp;status=todos#lista"' in lista
     todos = cli.get("/triagem-escopo?fonte=artigo&status=todos").text
     assert ids_na_lista(todos) == {ids[k] for k in "abcdefgh"} and "estão ocultos desta lista" not in todos
@@ -333,7 +333,7 @@ def test_lista_de_artigos_oculta_os_excluidos_pelo_modelo_mas_nunca_os_decididos
 def test_linha_de_contagem_e_alternancia_da_triagem_llm(cenario):
     cli, _, ids, leitura = cenario
     h = cli.get("/literatura/artigos").text
-    assert re.search(r"<strong>3</strong> artigo\(s\) excluído\(s\) pelo modelo estão ocultos desta lista", h)
+    assert re.search(r"<strong class=\"em-linha\">3</strong> artigo\(s\) excluído\(s\) pelo modelo estão ocultos desta lista", h)
     assert 'href="/literatura/artigos?llm=todos">Mostrar</a>' in h and "llm=excluido" in h
     assert '<select name="llm">' in h and "padrão (sem os excluídos pelo modelo)" in h and "apenas excluídos pelo modelo" in h
     # a linha respeita os outros filtros e some quando o filtro ja mostra os excluidos
@@ -345,7 +345,7 @@ def test_linha_de_contagem_e_alternancia_da_triagem_llm(cenario):
     sem = ids_na_lista(cli.get("/literatura/artigos?llm=sem_avaliacao&decisao=pendente").text)
     assert ids["i"] in sem and not ({ids["a"], ids["b"], ids["c"]} & sem)
     h_dec = cli.get("/literatura/artigos?decisao=pendente").text
-    assert re.search(r"<strong>3</strong> artigo\(s\) excluído\(s\)", h_dec)                       # filtros combinam com a linha
+    assert re.search(r"<strong class=\"em-linha\">3</strong> artigo\(s\) excluído\(s\)", h_dec)                       # filtros combinam com a linha
     assert "estão ocultos" not in cli.get("/literatura/artigos?decisao=incluir").text
     assert leitura.artigos({"decisao": "incluir"}, 1, 50)["ocultos_llm"] == 0                      # incluidos nunca estao ocultos
     # paginacao e fila mantem a escolha
@@ -379,7 +379,7 @@ def test_contagens_da_visao_de_literatura_e_de_relevancia_ignoram_os_ocultos(cen
     assert tri["total"] == total - 3 and tri["ocultos_llm"] == 3
     assert sum(leitura.contagem_relevancia().values()) == total - 3
     h = cli.get("/literatura").text
-    assert re.search(r"<strong>3</strong> artigo\(s\) excluído\(s\) pelo modelo estão ocultos destas contagens", h)
+    assert re.search(r"<strong class=\"em-linha\">3</strong> artigo\(s\) excluído\(s\) pelo modelo estão ocultos destas contagens", h)
     assert f'<span class="kpi-valor">{total - 3}</span><span class="kpi-rotulo">Artigos únicos' in h.replace("\n", "")
 
 

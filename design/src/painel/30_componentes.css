@@ -107,6 +107,11 @@ td .selo { white-space: normal; font-size: var(--fs-xs); }
 .botao:active { filter: brightness(.96); transform: translateY(1px); }
 .botao.secundario { background-color: var(--superficie); background-image: none; color: var(--texto); border-color: var(--borda-controle); box-shadow: var(--sombra-botao), var(--realce); }
 .botao.secundario:hover { border-color: var(--acento); color: var(--acento); filter: none; }
+/* formularios da administracao: campos empilhados com largura de leitura; botao de perigo (desativar conta) em contorno vermelho */
+.form-admin { display: grid; gap: .35rem; max-width: 32rem; margin: 0; }
+.form-admin .botao { justify-self: start; margin-top: var(--esp-2); }
+.botao.perigo { background-color: var(--superficie); background-image: none; color: var(--perigo); border-color: var(--perigo); box-shadow: none; }
+.botao.perigo:hover { background-color: var(--perigo-fundo); color: var(--perigo); filter: none; }
 .botao.pequeno { min-height: 2rem; padding: .25rem .75rem; font-size: var(--fs-sm); border-radius: var(--raio-sm); }
 html.icones-ok .botao[data-ic]::before, html.icones-ok a[data-ic]::before, html.icones-ok button[data-ic]::before { content: var(--ic); font-family: var(--fonte-icones); font-weight: 400; font-size: 1.2em; line-height: 1; }
 html.icones-ok .selo[data-ic]::before { content: var(--ic-f); font-family: var(--fonte-icones); font-weight: 400; line-height: 1; }

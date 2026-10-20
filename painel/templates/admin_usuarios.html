@@ -9,7 +9,6 @@
 {% elif ok %}
 <p class="aviso ok" role="status">Alteração gravada.</p>
 {% endif %}
-<p class="admin-abas"><a href="/admin/usuarios">Usuários</a> · <a href="/admin/grupos">Permissões por grupo</a> · <a href="/admin/auditoria">Registro de administração</a> · <a href="/estatisticas-usuarios">Atividade dos revisores</a></p>
 
 <div class="tabela-rolavel">
   <table>
@@ -36,8 +35,8 @@
   </table>
 </div>
 
-<h2>Novo usuário</h2>
-<form method="post" action="/admin/usuarios" class="form-entrar">
+<section class="cartao"><h2 data-ic="user" data-tom="cobalto">Novo usuário</h2>
+<form method="post" action="/admin/usuarios" class="form-admin">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label for="login">Login</label>
   <input type="text" id="login" name="login" autocomplete="off" maxlength="40" required value="{{ form.login }}">
@@ -64,6 +63,7 @@
   <label for="senha2">Repita a senha</label>
   <input type="password" id="senha2" name="senha2" autocomplete="new-password" maxlength="200" required>
 
-  <button type="submit">Criar usuário</button>
+  <button class="botao" type="submit">Criar usuário</button>
 </form>
+</section>
 {% endblock %}

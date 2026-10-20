@@ -9,7 +9,6 @@
 {% elif ok %}
 <p class="aviso ok" role="status">Alteração gravada.</p>
 {% endif %}
-<p class="admin-abas"><a href="/admin/usuarios">Usuários</a> · <a href="/admin/grupos">Permissões por grupo</a> · <a href="/admin/auditoria">Registro de administração</a> · <a href="/estatisticas-usuarios">Atividade dos revisores</a></p>
 
 <form method="post" action="/admin/grupos">
   <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -37,27 +36,29 @@
       </tbody>
     </table>
   </div>
-  <button type="submit">Salvar permissões</button>
+  <button class="botao" type="submit">Salvar permissões</button>
 </form>
 <p><small>Visitante é quem não entrou no painel. O Administrador tem tudo e não pode ser alterado; os visitantes nunca recebem permissões de escrita.</small></p>
 
-<h2>Novo grupo</h2>
-<form method="post" action="/admin/grupos/novo" class="form-entrar">
+<section class="cartao"><h2 data-ic="users" data-tom="cobalto">Novo grupo</h2>
+<form method="post" action="/admin/grupos/novo" class="form-admin">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label for="nome-grupo">Nome do grupo</label>
   <input type="text" id="nome-grupo" name="nome" maxlength="40" required value="{{ form.novo }}">
-  <button type="submit">Criar grupo</button>
+  <button class="botao" type="submit">Criar grupo</button>
 </form>
+</section>
 
 {% for g in grupos %}
 {% if g.nome not in grupos_padrao and not g.fixo %}
-<h2>Renomear {{ g.nome }}</h2>
-<form method="post" action="/admin/grupos/{{ g.grupo_id }}/renomear" class="form-entrar">
+<section class="cartao"><h2 data-ic="tag" data-tom="cobalto">Renomear {{ g.nome }}</h2>
+<form method="post" action="/admin/grupos/{{ g.grupo_id }}/renomear" class="form-admin">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label for="renomear-{{ g.grupo_id }}">Novo nome para {{ g.nome }}</label>
   <input type="text" id="renomear-{{ g.grupo_id }}" name="nome" maxlength="40" required value="{{ form.renomear.get(g.grupo_id, '') }}">
-  <button type="submit">Renomear</button>
+  <button class="botao" type="submit">Renomear</button>
 </form>
+</section>
 {% endif %}
 {% endfor %}
 {% endblock %}

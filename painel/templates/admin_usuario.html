@@ -9,10 +9,9 @@
 {% elif ok %}
 <p class="aviso ok" role="status">Alteração gravada.</p>
 {% endif %}
-<p class="admin-abas"><a href="/admin/usuarios">Usuários</a> · <a href="/admin/grupos">Permissões por grupo</a> · <a href="/admin/auditoria">Registro de administração</a> · <a href="/estatisticas-usuarios">Atividade dos revisores</a></p>
 
-<h2>Dados do usuário</h2>
-<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}" class="form-entrar">
+<section class="cartao"><h2 data-ic="identification-badge" data-tom="cobalto">Dados do usuário</h2>
+<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}" class="form-admin">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="acao" value="dados">
   <label for="login">Login</label>
@@ -34,13 +33,14 @@
     {% endfor %}
   </select>
 
-  <button type="submit">Salvar dados</button>
+  <button class="botao" type="submit">Salvar dados</button>
 </form>
+</section>
 
 <p><small>Mudar o nome não altera as decisões já gravadas, que guardam o nome da época; para desfazer essas decisões, o nome precisa voltar a ser o antigo ou um administrador desfaz.</small></p>
 
-<h2>Redefinir senha</h2>
-<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}" class="form-entrar">
+<section class="cartao"><h2 data-ic="lock" data-tom="cobalto">Redefinir senha</h2>
+<form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}" class="form-admin">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="acao" value="senha">
   <label for="nova-senha">Nova senha</label>
@@ -49,23 +49,25 @@
   <label for="nova-senha2">Repita a nova senha</label>
   <input type="password" id="nova-senha2" name="senha2" autocomplete="new-password" maxlength="200" required>
 
-  <button type="submit">Redefinir senha</button>
+  <button class="botao" type="submit">Redefinir senha</button>
 </form>
+</section>
 
 {% if alvo.usuario_id != usuario.usuario_id %}
-<h2>Situação da conta</h2>
+<section class="cartao"><h2 data-ic="shield-warning" data-tom="cobalto">Situação da conta</h2>
 {% if alvo.ativo %}
 <form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="acao" value="desativar">
-  <button type="submit">Desativar conta</button>
+  <button class="botao perigo" type="submit">Desativar conta</button>
 </form>
 {% else %}
 <form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="acao" value="reativar">
-  <button type="submit">Reativar conta</button>
+  <button class="botao secundario" type="submit">Reativar conta</button>
 </form>
 {% endif %}
+</section>
 {% endif %}
 {% endblock %}

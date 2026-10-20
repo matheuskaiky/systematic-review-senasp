@@ -2,9 +2,6 @@
 {% block titulo %}Atividade dos revisores{% endblock %}
 {% block conteudo %}
 <h1>Atividade dos revisores</h1>
-{% if usuario and usuario.grupo == "Administrador" %}
-<p class="admin-abas"><a href="/admin/usuarios">Usuários</a> · <a href="/admin/grupos">Permissões por grupo</a> · <a href="/admin/auditoria">Registro de administração</a> · <a href="/estatisticas-usuarios">Atividade dos revisores</a></p>
-{% endif %}
 
 {% if not totais %}
 <p class="vazio">Ainda não há decisões de revisores.</p>

@@ -362,14 +362,23 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .menu-lista a[href='/chamadas'] { --mi: "\e02f"; --mi-f: "\e030"; --mt-fundo: var(--menu-ambar-fundo); --mt-tx: var(--menu-ambar-tx); --mt-solido: var(--menu-ambar-solido); }
 .menu-lista a[href='/metodologia'] { --mi: "\e032"; --mi-f: "\e033"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
 .menu-lista a[href='/sobre'] { --mi: "\e035"; --mi-f: "\e036"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
+.menu-lista a[href='/admin/usuarios'] { --mi: "\e0aa"; --mi-f: "\e0ab"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
+.menu-lista a[href='/admin/grupos'] { --mi: "\e0ef"; --mi-f: "\e0f0"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
+.menu-lista a[href='/admin/auditoria'] { --mi: "\e0d7"; --mi-f: "\e0d8"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
+.menu-lista a[href='/estatisticas-usuarios'] { --mi: "\e0e3"; --mi-f: "\e0e4"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
 .menu-grupo[data-grupo="revisao"] > summary { --mi: "\e038"; --mt-tx: var(--menu-cobalto-tx); }
 .menu-grupo[data-grupo="analises"] > summary { --mi: "\e03b"; --mt-tx: var(--menu-violeta-tx); }
 .menu-grupo[data-grupo="auditoria"] > summary { --mi: "\e03e"; --mt-tx: var(--menu-ambar-tx); }
+.menu-grupo[data-grupo="administracao"] > summary { --mi: "\e1c4"; --mt-tx: var(--menu-cobalto-tx); }
 /* Matiz da página = matiz do item atual do menu. Sem item atual (404, erro): cobalto, definido em .layout. */
 .layout:has(.menu-lista a[href='/'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/literatura/prisma'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/metodologia'][aria-current="page"]),
-.layout:has(.menu-lista a[href='/sobre'][aria-current="page"]) { --tom-tx: var(--tom-cobalto-tx); --tom-fundo: var(--tom-cobalto-fundo); --tom-borda: var(--tom-cobalto-borda); --tom-solido: var(--tom-cobalto-solido); --tom-solido-tx: var(--tom-cobalto-solido-tx); }
+.layout:has(.menu-lista a[href='/sobre'][aria-current="page"]),
+.layout:has(.menu-lista a[href='/admin/usuarios'][aria-current="page"]),
+.layout:has(.menu-lista a[href='/admin/grupos'][aria-current="page"]),
+.layout:has(.menu-lista a[href='/admin/auditoria'][aria-current="page"]),
+.layout:has(.menu-lista a[href='/estatisticas-usuarios'][aria-current="page"]) { --tom-tx: var(--tom-cobalto-tx); --tom-fundo: var(--tom-cobalto-fundo); --tom-borda: var(--tom-cobalto-borda); --tom-solido: var(--tom-cobalto-solido); --tom-solido-tx: var(--tom-cobalto-solido-tx); }
 .layout:has(.menu-lista a[href='/estados'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/achados'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/revisao/achados'][aria-current="page"]),
@@ -403,6 +412,10 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .layout:has(.menu-lista a[href='/chamadas'][aria-current="page"]) { --pg-ic: "\e02f"; --pg-ic-f: "\e030"; --pg-ic-d: "\e031"; }
 .layout:has(.menu-lista a[href='/metodologia'][aria-current="page"]) { --pg-ic: "\e032"; --pg-ic-f: "\e033"; --pg-ic-d: "\e034"; }
 .layout:has(.menu-lista a[href='/sobre'][aria-current="page"]) { --pg-ic: "\e035"; --pg-ic-f: "\e036"; --pg-ic-d: "\e037"; }
+.layout:has(.menu-lista a[href='/admin/usuarios'][aria-current="page"]) { --pg-ic: "\e0aa"; --pg-ic-f: "\e0ab"; --pg-ic-d: "\e0ac"; }
+.layout:has(.menu-lista a[href='/admin/grupos'][aria-current="page"]) { --pg-ic: "\e0ef"; --pg-ic-f: "\e0f0"; --pg-ic-d: "\e0f1"; }
+.layout:has(.menu-lista a[href='/admin/auditoria'][aria-current="page"]) { --pg-ic: "\e0d7"; --pg-ic-f: "\e0d8"; --pg-ic-d: "\e0d9"; }
+.layout:has(.menu-lista a[href='/estatisticas-usuarios'][aria-current="page"]) { --pg-ic: "\e0e3"; --pg-ic-f: "\e0e4"; --pg-ic-d: "\e0e5"; }
 
 /* telas estreitas: a marca no topo e três grupos recolhíveis; só o da página atual vem aberto e seus links viram uma fileira que quebra linha */
 @media (max-width: 900px) {
@@ -543,6 +556,11 @@ td .selo { white-space: normal; font-size: var(--fs-xs); }
 .botao:active { filter: brightness(.96); transform: translateY(1px); }
 .botao.secundario { background-color: var(--superficie); background-image: none; color: var(--texto); border-color: var(--borda-controle); box-shadow: var(--sombra-botao), var(--realce); }
 .botao.secundario:hover { border-color: var(--acento); color: var(--acento); filter: none; }
+/* formularios da administracao: campos empilhados com largura de leitura; botao de perigo (desativar conta) em contorno vermelho */
+.form-admin { display: grid; gap: .35rem; max-width: 32rem; margin: 0; }
+.form-admin .botao { justify-self: start; margin-top: var(--esp-2); }
+.botao.perigo { background-color: var(--superficie); background-image: none; color: var(--perigo); border-color: var(--perigo); box-shadow: none; }
+.botao.perigo:hover { background-color: var(--perigo-fundo); color: var(--perigo); filter: none; }
 .botao.pequeno { min-height: 2rem; padding: .25rem .75rem; font-size: var(--fs-sm); border-radius: var(--raio-sm); }
 html.icones-ok .botao[data-ic]::before, html.icones-ok a[data-ic]::before, html.icones-ok button[data-ic]::before { content: var(--ic); content: var(--ic) / ""; font-family: var(--fonte-icones); font-weight: 400; font-size: 1.2em; line-height: 1; }
 html.icones-ok .selo[data-ic]::before { content: var(--ic-f); content: var(--ic-f) / ""; font-family: var(--fonte-icones); font-weight: 400; line-height: 1; }

@@ -45,17 +45,25 @@ def _atual(caminho, href, prefixo, excecoes):
     return bool(prefixo) and _sob(caminho, prefixo) and not any(_sob(caminho, e) for e in excecoes)
 
 
+# só para administradores: as telas de administração (antes só pelo link "Administração" do topo)
+_ADMIN = ("administracao", "Administração", (
+    ("/admin/usuarios", "Usuários", "/admin/usuarios", ()),
+    ("/admin/grupos", "Permissões por grupo", "/admin/grupos", ()),
+    ("/admin/auditoria", "Registro de administração", "/admin/auditoria", ()),
+    ("/estatisticas-usuarios", "Atividade dos revisores", "/estatisticas-usuarios", ()),
+))
+
 # na fila de revisão, a página de um item conta como a página da fila
 _FILAS = (("/achados", "/revisao/achados"), ("/literatura/artigos", "/literatura/triagem"))
 
 
-def grupos(caminho, em_fila=False):
+def grupos(caminho, em_fila=False, admin=False):
     """Lista de {id, nome, aberto, itens: [{href, texto, atual}]} para o `caminho` (ex.: `/estados/SP`) da página atual."""
     caminho = (caminho.rstrip("/") or "/") if caminho else ""          # sem caminho conhecido: nenhum link atual
     if em_fila:
         caminho = next((fila for lista, fila in _FILAS if _sob(caminho, lista)), caminho)
     saida = []
-    for id_, nome, itens in _GRUPOS:
+    for id_, nome, itens in _GRUPOS + ((_ADMIN,) if admin else ()):
         marcados = [{"href": h, "texto": t, "atual": _atual(caminho, h, p, ex)} for h, t, p, ex in itens]
         saida.append({"id": id_, "nome": nome, "aberto": any(i["atual"] for i in marcados), "itens": marcados})
     return saida

@@ -82,10 +82,11 @@ def _auditoria(contas_db):
 @pytest.mark.parametrize("caminho,titulo", [("/admin/usuarios", "Usuários"), ("/admin/grupos", "Permissões por grupo"),
                                             ("/admin/auditoria", "Registro de administração"),
                                             ("/estatisticas-usuarios", "Atividade dos revisores")])
-def test_paginas_acessiveis_com_abas(adm, caminho, titulo):
+def test_paginas_acessiveis_marcadas_no_menu(adm, caminho, titulo):
     cli, _, _, _ = adm
     h = cli.get(caminho).text
-    assert f"<h1>{titulo}</h1>" in h and 'class="admin-abas"' in h and verificar(h) == []
+    assert f"<h1>{titulo}</h1>" in h and f'<a href="{caminho}" aria-current="page">{titulo}</a>' in h and verificar(h) == []
+    assert 'class="admin-abas"' not in h                                     # o grupo Administracao do menu substituiu as abas
 
 
 def test_admin_redireciona_lista_e_links(adm):
@@ -97,7 +98,7 @@ def test_admin_redireciona_lista_e_links(adm):
     inicio = cli.get("/").text
     assert 'class="conta-admin" href="/admin"' in inicio and 'class="conta-estatisticas" href="/estatisticas-usuarios"' in inicio
     nav = inicio[inicio.index("<nav"):inicio.index("</nav>")]
-    assert "/admin" not in nav
+    assert '<details class="menu-grupo" data-grupo="administracao">' in nav and '<a href="/admin/usuarios">Usuários</a>' in nav
 
 
 # ====================== usuarios ======================

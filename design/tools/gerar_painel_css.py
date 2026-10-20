@@ -34,8 +34,11 @@ MENU = [
     ("/execucoes/comparar", "git-diff", "violeta"), ("/solucoes", "lightbulb", "ambar"),
     ("/buscar-texto", "magnifying-glass", "petroleo"), ("/execucoes", "play-circle", "ambar"), ("/chamadas", "plugs-connected", "ambar"),
     ("/metodologia", "flask", "cobalto"), ("/sobre", "database", "cobalto"),
+    ("/admin/usuarios", "users", "cobalto"), ("/admin/grupos", "shield-check", "cobalto"),
+    ("/admin/auditoria", "list-magnifying-glass", "cobalto"), ("/estatisticas-usuarios", "chart-pie-slice", "cobalto"),
 ]
-GRUPOS = [("revisao", "list-checks", "cobalto"), ("analises", "chart-bar", "violeta"), ("auditoria", "gear-six", "ambar")]
+GRUPOS = [("revisao", "list-checks", "cobalto"), ("analises", "chart-bar", "violeta"), ("auditoria", "gear-six", "ambar"),
+          ("administracao", "shield-star", "cobalto")]
 # a marca do menu (fixada pelo teste NA) não leva ícone de página; o hero de /revisao/achados e de /achados/{id} herda o de /achados.
 
 

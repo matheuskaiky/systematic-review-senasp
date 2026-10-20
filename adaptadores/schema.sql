@@ -561,7 +561,7 @@ SELECT at.termo_id, t.query, t.idioma, t.grupo, pt.n_requisicoes, pt.n_paginas, 
        COALESCE(SUM(tr.artigo_id IS NULL OR tr.decisao = 'pendente'), 0) AS n_pendentes,
        ROUND(100.0 * SUM(tr.decisao = 'incluir') / NULLIF(SUM(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct,
        COALESCE(SUM(tr.decisao = 'incluir' AND pa.n_termos = 1), 0) AS n_incluidos_exclusivos,
-       COALESCE(SUM(tr.decisao_texto_completo = 'incluir'), 0) AS n_incluidos_finais
+       COALESCE(SUM(tr.decisao = 'incluir' AND tr.decisao_texto_completo = 'incluir'), 0) AS n_incluidos_finais
 FROM art_termo at
 JOIN por_artigo pa ON pa.artigo_id = at.artigo_id
 LEFT JOIN triagem tr ON tr.artigo_id = at.artigo_id
@@ -987,7 +987,7 @@ SELECT af.fonte, COUNT(*) AS n_artigos,
        COALESCE(SUM(tr.artigo_id IS NULL OR tr.decisao = 'pendente'), 0) AS n_pendentes,
        ROUND(100.0 * SUM(tr.decisao = 'incluir') / NULLIF(SUM(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct,
        COALESCE(SUM(tr.decisao = 'incluir' AND pa.n_fontes = 1), 0) AS n_incluidos_exclusivos,
-       COALESCE(SUM(tr.decisao_texto_completo = 'incluir'), 0) AS n_incluidos_finais
+       COALESCE(SUM(tr.decisao = 'incluir' AND tr.decisao_texto_completo = 'incluir'), 0) AS n_incluidos_finais
 FROM af JOIN por_artigo pa ON pa.artigo_id = af.artigo_id
 LEFT JOIN triagem tr ON tr.artigo_id = af.artigo_id
 GROUP BY af.fonte ORDER BY n_incluidos DESC, taxa_inclusao_pct DESC, n_artigos DESC;

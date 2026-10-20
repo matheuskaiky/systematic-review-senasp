@@ -6,6 +6,7 @@ import hmac
 import json
 import mimetypes
 import secrets
+import threading
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from pathlib import Path
@@ -111,10 +112,15 @@ def _filtros_sql(filtros, ent):
     return {**filtros, "solucao_pares": pares} if pares else filtros       # nome que nao e de nenhuma entidade nao filtra (como antes)
 
 
+CONFERENCIAS_SIMULTANEAS = 4   # conferencias de senha (scrypt) ao mesmo tempo no login
+
+
 def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     if contexto.autenticacao and contas is None:
         raise ValueError("criar_app: contas é obrigatório com autenticação")
     if contexto.autenticacao:
+        autenticacao.hash_ficticio()   # calculado na partida: o primeiro login inexistente nao paga duas conferencias
+        conferencias = threading.BoundedSemaphore(CONFERENCIAS_SIMULTANEAS)
         contas.garantir_padrao()
 
     app = FastAPI(title="Painel de resultados", docs_url=None, redoc_url=None, openapi_url=None)
@@ -322,23 +328,19 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 return _form_erro("credenciais", 400)
 
             try:
-                u = contas.usuario_por_login(l)
+                tentativa = contas.reservar_tentativa(l, agora)   # bloqueio conferido e tentativa contada numa transacao so
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
 
-            if not u or u["ativo"] == 0:
-                return _form_erro("credenciais", 400)
-
-            bloq_dt = autenticacao.ler_instante(u.get("bloqueado_ate"))
-            if bloq_dt is not None and bloq_dt > agora_dt:
+            if tentativa["situacao"] == "bloqueado":
                 return _form_erro("limite", 429)
-
-            if not autenticacao.conferir_senha(senha, u["senha_hash"]):
-                try:
-                    contas.registrar_falha(u["usuario_id"], agora)
-                except autenticacao.ContasOcupadas:
-                    return _erro_contas_ocupadas(request)
-                return _form_erro("credenciais", 400)
+            u = tentativa["usuario"]
+            # login inexistente ou inativo confere contra o hash ficticio: mesmo tempo de uma senha errada. No maximo
+            # CONFERENCIAS_SIMULTANEAS conferencias (scrypt: CPU e ~16 MB cada) rodam ao mesmo tempo; as outras esperam
+            with conferencias:
+                certa = autenticacao.conferir_senha(senha, u["senha_hash"] if u else autenticacao.hash_ficticio())
+            if not u or not certa:
+                return _form_erro("credenciais", 400)          # a tentativa ja foi contada na reserva
 
             try:
                 old_token = request.cookies.get("sessao")
@@ -347,9 +349,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
 
                 token = secrets.token_urlsafe(32)
                 token_hash = hashlib.sha256(token.encode()).hexdigest()
-                contas.abrir_sessao(u["usuario_id"], token_hash, agora)
+                aberta = contas.abrir_sessao(u["usuario_id"], token_hash, agora, senha_hash=u["senha_hash"])
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
+            if not aberta:
+                return _form_erro("credenciais", 400)          # a senha mudou (ou a conta foi desativada) durante o login
 
             resposta = RedirectResponse(prox_seguro, status_code=303)
             eh_https = (request.url.scheme == "https")

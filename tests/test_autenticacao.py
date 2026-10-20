@@ -165,18 +165,6 @@ def test_sessao_expira_em_12h_e_atualiza_so_depois_de_60s(contas):
     assert _con(caminho).execute("SELECT COUNT(*) FROM sessoes").fetchone()[0] == 0
 
 
-def test_bloqueio_exatamente_na_quinta_falha(contas):
-    c, caminho = contas
-    uid = _usuario(c, caminho)
-    for _ in range(4):
-        c.registrar_falha(uid, _agora())
-    falhas, bloq = _con(caminho).execute("SELECT falhas_login, bloqueado_ate FROM usuarios").fetchone()
-    assert (falhas, bloq) == (4, None)
-    c.registrar_falha(uid, _agora())
-    falhas, bloq = _con(caminho).execute("SELECT falhas_login, bloqueado_ate FROM usuarios").fetchone()
-    assert falhas == 0 and bloq is not None
-
-
 def test_definir_admin_cria_atualiza_e_derruba_sessoes(contas):
     c, caminho = contas
     assert c.definir_admin("chefe", "Chefe", A.hash_senha(SENHA), _agora()) == "criado"

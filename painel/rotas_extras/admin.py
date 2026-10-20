@@ -339,6 +339,8 @@ def registrar(c) -> None:
                     0,
                     auditoria=(acting_admin_login, "desativar_usuario", alvo["login"], None, agora),
                 )
+            except ValueError as e:
+                return _re_render([str(e)])
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
 

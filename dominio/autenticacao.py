@@ -1,5 +1,6 @@
 """Regras de domínio para autenticação, controle de acesso e segurança de sessões."""
 from datetime import datetime
+from functools import lru_cache
 import hashlib
 import hmac
 import re
@@ -64,6 +65,7 @@ PROXIMO_MAX = 2000
 FALHAS_ATE_BLOQUEIO = 5
 MINUTOS_DE_BLOQUEIO = 5
 HORAS_DE_SESSAO = 12
+DIAS_MAXIMOS_DE_SESSAO = 7          # validade absoluta: uma sessao em uso continuo tambem expira
 
 
 def hash_senha(senha: str, sal: bytes | None = None) -> str:
@@ -71,6 +73,13 @@ def hash_senha(senha: str, sal: bytes | None = None) -> str:
     sal_bytes = sal if sal else secrets.token_bytes(16)
     h = hashlib.scrypt(senha.encode("utf-8"), salt=sal_bytes, n=16384, r=8, p=1, dklen=32)
     return f"scrypt$16384$8$1${sal_bytes.hex()}${h.hex()}"
+
+
+@lru_cache(maxsize=1)
+def hash_ficticio() -> str:
+    """Hash fixo usado quando o login nao existe ou esta inativo: conferir contra ele gasta o mesmo tempo de uma senha
+    errada de verdade, para o tempo de resposta nao revelar quais logins existem."""
+    return hash_senha("tempo-de-resposta-constante", sal=bytes(16))
 
 
 def conferir_senha(senha: str, guardado: str | None) -> bool:

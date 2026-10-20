@@ -138,10 +138,11 @@ class ContasSQLite:
             }
 
     def usuario_da_sessao(self, token_hash: str, agora: str) -> dict | None:
-        """Valida a sessão por ociosidade (12h) e usuário ativo, atualizando acessos."""
+        """Valida a sessão por ociosidade (12h), validade absoluta (7 dias desde a criação) e usuário ativo, atualizando acessos.
+        Criação ou último uso ilegíveis ou no futuro invalidam a sessão."""
         with self._conexao(escrita=True) as conn:
             row = conn.execute(
-                "SELECT s.token_hash, s.usuario_id, s.ultimo_uso, u.login, u.nome, u.ativo, g.nome, g.grupo_id "
+                "SELECT s.token_hash, s.usuario_id, s.ultimo_uso, u.login, u.nome, u.ativo, g.nome, g.grupo_id, s.criada_em "
                 "FROM sessoes s JOIN usuarios u USING (usuario_id) JOIN grupos g USING (grupo_id) "
                 "WHERE s.token_hash = ?",
                 (token_hash,),
@@ -149,14 +150,18 @@ class ContasSQLite:
             if not row:
                 return None
 
-            _, usuario_id, ultimo_uso_str, login, nome, ativo, grupo_nome, grupo_id = row
+            _, usuario_id, ultimo_uso_str, login, nome, ativo, grupo_nome, grupo_id, criada_em_str = row
             if ativo != 1:
                 conn.execute("DELETE FROM sessoes WHERE usuario_id = ?", (usuario_id,))
                 return None
 
             ultimo_uso_dt = autenticacao.ler_instante(ultimo_uso_str)
             agora_dt = autenticacao.ler_instante(agora)
-            if ultimo_uso_dt is None or agora_dt is None or (agora_dt - ultimo_uso_dt) >= timedelta(hours=autenticacao.HORAS_DE_SESSAO):
+            criada_dt = autenticacao.ler_instante(criada_em_str)
+            if (ultimo_uso_dt is None or agora_dt is None or criada_dt is None
+                    or criada_dt > agora_dt or ultimo_uso_dt > agora_dt
+                    or (agora_dt - ultimo_uso_dt) >= timedelta(hours=autenticacao.HORAS_DE_SESSAO)
+                    or (agora_dt - criada_dt) >= timedelta(days=autenticacao.DIAS_MAXIMOS_DE_SESSAO)):
                 conn.execute("DELETE FROM sessoes WHERE token_hash = ?", (token_hash,))
                 return None
 
@@ -175,22 +180,51 @@ class ContasSQLite:
                 "permissoes": permissoes,
             }
 
-    def registrar_falha(self, usuario_id: int, agora: str) -> None:
-        """Registra falha de login e bloqueia a conta temporariamente na 5ª falha."""
+    def reservar_tentativa(self, login: str, agora: str) -> dict:
+        """Reserva uma tentativa de login antes de conferir a senha, numa transacao so: varios pedidos simultaneos para o
+        mesmo login nunca conferem mais de FALHAS_ATE_BLOQUEIO senhas por janela de bloqueio. A tentativa reservada conta
+        como falha ate o acerto (abrir_sessao zera); a reserva que leva a contagem a FALHAS_ATE_BLOQUEIO ja grava o bloqueio,
+        que vence sozinho em MINUTOS_DE_BLOQUEIO (nenhuma conta fica bloqueada para sempre se a conferencia nao terminar).
+        Uma contagem gravada que nao e inteiro >= 0 conta como cheia (bloqueia ja, com prazo).
+        Devolve {"situacao": "inexistente" | "bloqueado" | "reservado", "usuario": dict | None}."""
         agora_dt = autenticacao.ler_instante(agora)
         bloq_ate = (agora_dt + timedelta(minutes=autenticacao.MINUTOS_DE_BLOQUEIO)).isoformat()
         with self._conexao(escrita=True) as conn:
-            conn.execute(
-                "UPDATE usuarios SET "
-                "falhas_login = CASE WHEN falhas_login + 1 >= 5 THEN 0 ELSE falhas_login + 1 END, "
-                "bloqueado_ate = CASE WHEN falhas_login + 1 >= 5 THEN ? ELSE bloqueado_ate END "
-                "WHERE usuario_id = ?",
-                (bloq_ate, usuario_id),
-            )
+            row = conn.execute(
+                "SELECT u.usuario_id, u.login, u.nome, g.nome, u.ativo, u.senha_hash, u.falhas_login, u.bloqueado_ate "
+                "FROM usuarios u JOIN grupos g USING (grupo_id) WHERE u.login = ?",
+                (login,),
+            ).fetchone()
+            if not row or row[4] != 1:
+                return {"situacao": "inexistente", "usuario": None}
+            falhas = row[6]
+            if type(falhas) is not int or falhas < 0:
+                falhas = autenticacao.FALHAS_ATE_BLOQUEIO    # contagem que o painel nao gravaria: conta como cheia
+            bloq_dt = autenticacao.ler_instante(row[7])
+            if bloq_dt is not None and bloq_dt > agora_dt:
+                return {"situacao": "bloqueado", "usuario": None}
+            if bloq_dt is not None:
+                falhas = 0                              # o bloqueio venceu: a contagem recomeca
+            if falhas >= autenticacao.FALHAS_ATE_BLOQUEIO:
+                # contagem cheia sem bloqueio gravado (estado antigo): bloqueia agora, com prazo
+                conn.execute("UPDATE usuarios SET bloqueado_ate = ? WHERE usuario_id = ?", (bloq_ate, row[0]))
+                return {"situacao": "bloqueado", "usuario": None}
+            falhas += 1
+            conn.execute("UPDATE usuarios SET falhas_login = ?, bloqueado_ate = ? WHERE usuario_id = ?",
+                         (falhas, bloq_ate if falhas >= autenticacao.FALHAS_ATE_BLOQUEIO else None, row[0]))
+            return {"situacao": "reservado", "usuario": {
+                "usuario_id": row[0], "login": row[1], "nome": row[2], "grupo": row[3], "ativo": row[4],
+                "senha_hash": row[5], "falhas_login": falhas, "bloqueado_ate": None}}
 
-    def abrir_sessao(self, usuario_id: int, token_hash: str, agora: str) -> None:
-        """Registra nova sessão, zera falhas e remove bloqueios de login."""
+    def abrir_sessao(self, usuario_id: int, token_hash: str, agora: str, senha_hash: str | None = None) -> bool:
+        """Registra nova sessão, zera falhas e remove bloqueios de login. Com `senha_hash` (o hash que acabou de ser
+        conferido), só abre se o usuário continua ativo e com essa mesma senha: uma senha redefinida no meio do login não
+        abre sessão com a senha antiga. Devolve se abriu."""
         with self._conexao(escrita=True) as conn:
+            if senha_hash is not None and not conn.execute(
+                    "SELECT 1 FROM usuarios WHERE usuario_id = ? AND ativo = 1 AND senha_hash = ?",
+                    (usuario_id, senha_hash)).fetchone():
+                return False
             conn.execute(
                 "INSERT INTO sessoes (token_hash, usuario_id, criada_em, ultimo_uso) VALUES (?, ?, ?, ?)",
                 (token_hash, usuario_id, agora, agora),
@@ -199,6 +233,7 @@ class ContasSQLite:
                 "UPDATE usuarios SET falhas_login = 0, bloqueado_ate = NULL, ultimo_acesso = ? WHERE usuario_id = ?",
                 (agora, usuario_id),
             )
+            return True
 
     def fechar_sessao(self, token_hash: str) -> None:
         """Remove a sessão do banco se ela existir."""
@@ -351,10 +386,12 @@ class ContasSQLite:
                 raise ValueError(f"Grupo não existe: {grupo_id}")
             if row_g[1] == autenticacao.GRUPO_VISITANTE:
                 raise ValueError("O grupo Visitante não recebe usuários.")
+            era_admin = self._admin_ativo(conn, usuario_id)
             conn.execute(
                 "UPDATE usuarios SET login = ?, nome = ?, grupo_id = ? WHERE usuario_id = ?",
                 (login, nome, grupo_id, usuario_id),
             )
+            self._exigir_admin_ativo(conn, era_admin)
             self._gravar_auditoria(conn, auditoria)
 
     def redefinir_senha(self, usuario_id: int, senha_hash: str, auditoria: tuple | None = None) -> None:
@@ -370,10 +407,28 @@ class ContasSQLite:
     def definir_ativo(self, usuario_id: int, ativo: int, auditoria: tuple | None = None) -> None:
         """Define situação ativa/desativada do usuário; quando desativa, encerra as sessões."""
         with self._conexao(escrita=True) as conn:
+            era_admin = self._admin_ativo(conn, usuario_id)
             conn.execute("UPDATE usuarios SET ativo = ? WHERE usuario_id = ?", (ativo, usuario_id))
+            self._exigir_admin_ativo(conn, era_admin)
             if ativo == 0:
                 conn.execute("DELETE FROM sessoes WHERE usuario_id = ?", (usuario_id,))
             self._gravar_auditoria(conn, auditoria)
+
+    @staticmethod
+    def _admin_ativo(conn, usuario_id: int) -> bool:
+        return conn.execute("SELECT 1 FROM usuarios u JOIN grupos g USING (grupo_id) WHERE u.usuario_id = ? AND g.nome = ? "
+                            "AND u.ativo = 1", (usuario_id, autenticacao.GRUPO_ADMIN)).fetchone() is not None
+
+    @staticmethod
+    def _exigir_admin_ativo(conn, era_admin: bool) -> None:
+        """Dentro da mesma transacao da mudanca: se ela tirou um administrador ativo e nao sobrou nenhum, e desfeita com esta
+        mensagem (dois administradores rebaixando um ao outro ao mesmo tempo nao zeram os administradores)."""
+        if not era_admin:
+            return
+        n = conn.execute("SELECT COUNT(*) FROM usuarios u JOIN grupos g USING (grupo_id) WHERE g.nome = ? AND u.ativo = 1",
+                         (autenticacao.GRUPO_ADMIN,)).fetchone()[0]
+        if n == 0:
+            raise ValueError("O painel precisa de pelo menos um administrador ativo.")
 
     def _aplicar_permissoes(self, conn, grupo_id: int, novas: set[str], atuais: set[str]) -> tuple[set[str], set[str]]:
         adicionadas = novas - atuais

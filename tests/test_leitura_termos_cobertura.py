@@ -318,8 +318,8 @@ def test_ganho_combinacoes_com_termo_composto(tmp_path, modelo_vazio):
 
 # ============================== banco de demonstração ==============================
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory):
-    return painel_demo.construir(tmp_path_factory.mktemp("demo_cobertura"))
+def demo(copiar_demo):
+    return copiar_demo("demo_cobertura")[0]
 
 
 def test_demo_sem_triagem_de_escopo_e_com_triagem(demo, tmp_path):

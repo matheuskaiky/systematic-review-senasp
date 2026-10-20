@@ -279,8 +279,8 @@ def test_simulacao_ignora_vereditos_invalidos_e_artigos_sem_veredito(artigos):
 
 # ---------------------------------------------------------------- banco de demonstracao, vazio e antigo
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory):
-    return painel_demo.construir(tmp_path_factory.mktemp("demo_termos_ruido"))
+def demo(copiar_demo):
+    return copiar_demo("demo_termos_ruido")[0]
 
 
 @pytest.mark.parametrize("nome,args", METODOS)

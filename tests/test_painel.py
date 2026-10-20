@@ -24,9 +24,8 @@ def _app(banco, raw, tmp_path, somente_leitura=False, nome="demo"):
 
 
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory):
-    pasta = tmp_path_factory.mktemp("demo")
-    return painel_demo.construir(pasta), pasta / "raw_demo"
+def demo(copiar_demo):
+    return copiar_demo("demo")
 
 
 @pytest.fixture

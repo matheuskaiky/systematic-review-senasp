@@ -24,8 +24,8 @@ METODOS = [
 
 
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory):
-    return painel_demo.construir(tmp_path_factory.mktemp("demo_analises"))
+def demo(copiar_demo):
+    return copiar_demo("demo_analises")[0]
 
 
 @pytest.fixture

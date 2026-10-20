@@ -17,9 +17,8 @@ SECOES = [chave for chave, _ in ABAS]
 
 
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory):
-    pasta = tmp_path_factory.mktemp("demo_analises")
-    return painel_demo.construir(pasta), pasta / "raw_demo"
+def demo(copiar_demo):
+    return copiar_demo("demo_analises")
 
 
 @pytest.fixture

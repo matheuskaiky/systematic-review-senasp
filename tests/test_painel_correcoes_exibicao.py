@@ -11,9 +11,8 @@ from test_painel import _app
 
 
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory):
-    pasta = tmp_path_factory.mktemp("demo_exibicao")
-    return painel_demo.construir(pasta), pasta / "raw_demo"
+def demo(copiar_demo):
+    return copiar_demo("demo_exibicao")
 
 
 @pytest.fixture

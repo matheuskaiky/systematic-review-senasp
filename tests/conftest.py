@@ -1,4 +1,5 @@
 import logging
+import shutil
 
 import pytest
 
@@ -37,3 +38,18 @@ def ambiente_cli(tmp_path, monkeypatch, raiz_limpa):
     monkeypatch.setitem(S.OPCOES["excel"], "pasta", tmp_path / "outputs")
     monkeypatch.setattr(S, "PAUSAS", {k: 0 for k in S.PAUSAS})
     return tmp_path
+
+
+@pytest.fixture(scope="session")
+def copiar_demo(tmp_path_factory):
+    """Constroi o banco de demonstracao uma vez por sessao (leva uns 18 s) e entrega a cada modulo uma copia propria da pasta,
+    com `demo.db` e `raw_demo/`: os modulos que gravam no banco nao contaminam os outros. Devolve (banco, raw)."""
+    import painel_demo
+    modelo = tmp_path_factory.mktemp("demo_modelo")
+    banco = painel_demo.construir(modelo)
+
+    def copiar(nome):
+        destino = tmp_path_factory.mktemp(nome)
+        shutil.copytree(modelo, destino, dirs_exist_ok=True)
+        return destino / banco.name, destino / "raw_demo"
+    return copiar

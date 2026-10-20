@@ -168,9 +168,8 @@ def test_bloco_destravado_e_aviso_de_aplicacao_perdida():
 
 
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory):
-    pasta = tmp_path_factory.mktemp("demo_prontidao")
-    return painel_demo.construir(pasta), pasta / "raw_demo"
+def demo(copiar_demo):
+    return copiar_demo("demo_prontidao")
 
 
 def _cliente(banco, raw, tmp_path):

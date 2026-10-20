@@ -385,7 +385,7 @@ def _c(tmp_path, sql, *args):
 
 def _runs(tmp_path, comando=None):
     return [r["run_id"] for r in _banco(tmp_path).execute(
-        "SELECT run_id FROM execucoes WHERE comando LIKE ? ORDER BY iniciado_em, run_id", (f"{comando or ''}%",))]
+        "SELECT run_id FROM execucoes WHERE comando LIKE ? ORDER BY iniciado_em, rowid", (f"{comando or ''}%",))]
 
 
 def _duas_buscas(ambiente_cli, monkeypatch):

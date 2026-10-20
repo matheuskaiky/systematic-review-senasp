@@ -218,9 +218,8 @@ def test_etapas_com_a_nova_tecnologia_gravam_o_achado_e_descartam_o_invalido(tmp
 
 # ---------- painel com a demonstracao ----------
 @pytest.fixture(scope="module")
-def demo(tmp_path_factory):
-    pasta = tmp_path_factory.mktemp("demo_atendimento")
-    return painel_demo.construir(pasta), pasta / "raw_demo"
+def demo(copiar_demo):
+    return copiar_demo("demo_atendimento")
 
 
 @pytest.fixture

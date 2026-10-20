@@ -14,6 +14,22 @@ def hash_chave(*partes):
     return hashlib.sha1("|".join(str(p) for p in partes).encode("utf-8")).hexdigest()
 
 
+def url_valida(url):
+    """A URL pode ser gravada e baixada: texto sem nenhum espaco (nem nas pontas) e sem caractere de controle, que o
+    urlsplit le (porta inclusive), com esquema http ou https e com host que nao e so "www.". Qualquer outra coisa e
+    descartada antes de chegar ao banco ou a rede (um link malformado nao derruba a etapa)."""
+    if not isinstance(url, str) or not url:
+        return False
+    if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in url):
+        return False
+    try:
+        p = urlsplit(url)
+        p.port
+    except ValueError:
+        return False
+    return p.scheme.lower() in ("http", "https") and bool((p.hostname or "").removeprefix("www."))
+
+
 def normalizar_url(url):
     p = urlsplit(url.strip())
     host = p.netloc.lower().removeprefix("www.")

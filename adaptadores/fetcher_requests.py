@@ -4,8 +4,10 @@ import time
 from urllib.robotparser import RobotFileParser
 from urllib.parse import urljoin, urlsplit
 import requests
+from requests.utils import requote_uri
 
 from dominio.modelos import RegistroChamada, ArquivoBaixado
+from dominio.servicos import url_valida
 from infra.http import chamar, extras_http
 from infra.util import agora
 
@@ -120,6 +122,9 @@ class FetcherRequests:
         reg = RegistroChamada(provedor=self.nome, operacao="baixar", parametros={"url": url},
                               requisitado_em=agora(), raw_ext="bin")
         vazio = ArquivoBaixado(url, None, "", b"", False, reg)
+        if not url_valida(url):
+            reg.erro = "url_invalida"                 # nada e requisitado, nem o robots.txt
+            return vazio
         atual, visitadas, soma_ms = url, [url], 0
         for salto in range(self._max_redir + 1):
             if self._robots_on:
@@ -149,10 +154,20 @@ class FetcherRequests:
                        allow_redirects=False, ler_corpo_erro=_CORPO_ERRO_MAX)
             soma_ms += r.get("latencia_total_ms") or 0
             resp = r["resp"]
-            destino = resp.headers.get("Location") if resp is not None else None
+            destino = ((resp.headers.get("Location") or "").strip() or None) if resp is not None else None
             if resp is not None and r["erro"] is None and resp.status_code in _REDIRECIONAMENTOS and destino:
                 resp.close()
-                atual = urljoin(atual, destino)
+                try:
+                    # espaco no caminho (comum em nomes de PDF) e codificado como o requests faria; o resto e conferido
+                    proximo = requote_uri(urljoin(atual, destino))
+                except ValueError:
+                    proximo = None
+                if proximo is None or not url_valida(proximo):
+                    reg.erro = "url_invalida_apos_redirecionamento"
+                    reg.extras["redirecionamentos"] = visitadas
+                    reg.extras["destino_invalido"] = destino[:2000]
+                    return vazio
+                atual = proximo
                 visitadas.append(atual)
                 continue
             break

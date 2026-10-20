@@ -127,6 +127,7 @@ thead th:first-child { border-top-left-radius: var(--raio-sm); }
 thead th:last-child { border-top-right-radius: var(--raio-sm); }
 tbody tr:last-child td, tbody tr:last-child th { border-bottom: 0; }
 td.num, th.num { text-align: right; }
+th code { text-transform: none; letter-spacing: normal; }   /* identificador (run_id, chave) fica como e gravado */
 td.num[data-valor="0"] { color: var(--texto-mutado); }
 tbody tr:hover { background: var(--tom-fundo); }
 .tabela-rolavel + p, .tabela-rolavel + .explica { margin-top: var(--esp-3); }   /* texto logo depois da tabela: respiro em cima */

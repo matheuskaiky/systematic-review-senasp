@@ -5,8 +5,8 @@
 <h1>Comparar execuções</h1>
 <p class="sub">Por que duas execuções deram resultados diferentes? Escolha duas: o painel mostra o funil lado a lado e o que mudou na configuração.</p>
 <form class="filtros" method="get" action="/execucoes/comparar">
-  <label>Execução A <select name="a">{% for e in todas %}<option value="{{ e.run_id }}"{% if e.run_id == a %} selected{% endif %}>{{ e.run_id }} · {{ e.comando }}</option>{% endfor %}</select></label>
-  <label>Execução B <select name="b">{% for e in todas %}<option value="{{ e.run_id }}"{% if e.run_id == b %} selected{% endif %}>{{ e.run_id }} · {{ e.comando }}</option>{% endfor %}</select></label>
+  <label class="larga">Execução A <select name="a">{% for e in todas %}<option value="{{ e.run_id }}"{% if e.run_id == a %} selected{% endif %}>{{ e.run_id }} · {{ e.comando }}</option>{% endfor %}</select></label>
+  <label class="larga">Execução B <select name="b">{% for e in todas %}<option value="{{ e.run_id }}"{% if e.run_id == b %} selected{% endif %}>{{ e.run_id }} · {{ e.comando }}</option>{% endfor %}</select></label>
   <button class="botao" type="submit">Comparar</button>
 </form>
 {% if ea and eb %}

@@ -241,6 +241,43 @@ O painel fica em `https://<DOMAIN_NAME>`. O banco, as decisões e as contas fica
 
 **Concorrência:** o SQLite roda em modo WAL (quem lê não espera quem grava; um escritor por vez) com um único processo do servidor.
 
+## Implantação do Painel no Google Cloud Run (PostgreSQL no Neon)
+
+Só o painel vai para a nuvem: a coleta, a classificação e as chaves de API continuam no computador do pesquisador, sobre o SQLite local (o padrão de todos os comandos). Na nuvem, as decisões e as contas ficam num PostgreSQL do Neon; o Cloud Run não guarda arquivos. O banco da nuvem começa vazio: nenhum comando copia para lá o banco com dados reais.
+
+**Antes:** um projeto no Google Cloud com faturamento ativo, o `gcloud` instalado e logado (`gcloud auth login`), o Docker local, e um projeto no Neon com PostgreSQL 16 ou 17 (de preferência na região São Paulo, `aws-sa-east-1`). O banco do Neon já vem com a ordenação `C.UTF-8`, a que o painel exige. Do Neon saem duas URLs: a do pool (com `-pooler` no host), usada pelo painel, e a direta (sem `-pooler`), usada só para migrar. As duas são segredos: nunca vão para arquivo versionado nem para o histórico do terminal (os comandos abaixo as leem do teclado com `read -rs`).
+
+1. Variáveis do terminal e serviços do Google Cloud:
+   ```bash
+   export PROJETO=<id-do-projeto> REGIAO=southamerica-east1
+   export NUMERO=$(gcloud projects describe "$PROJETO" --format='value(projectNumber)')
+   gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com --project "$PROJETO"
+   gcloud artifacts repositories create painel --repository-format=docker --location="$REGIAO" --project "$PROJETO"
+   ```
+2. A URL do pool como segredo, lido pelo Cloud Run:
+   ```bash
+   read -rs URL && printf '%s' "$URL" | gcloud secrets create painel-database-url --data-file=- --project "$PROJETO"; unset URL
+   gcloud secrets add-iam-policy-binding painel-database-url --project "$PROJETO" \
+     --member="serviceAccount:${NUMERO}-compute@developer.gserviceaccount.com" --role=roles/secretmanager.secretAccessor
+   ```
+3. Tabelas e views no Neon (do computador local, com a URL direta) e o primeiro administrador (com a URL do pool):
+   ```bash
+   read -rs DATABASE_URL_DIRECT && export DATABASE_URL_DIRECT && python main.py pg-migrar; unset DATABASE_URL_DIRECT
+   read -rs DATABASE_URL && export DATABASE_URL && DB_BACKEND=postgres python main.py usuario-admin --login <login> --nome "<nome>"; unset DATABASE_URL
+   ```
+4. Imagem e implantação (uma instância, que dorme sem uso):
+   ```bash
+   gcloud auth configure-docker "$REGIAO-docker.pkg.dev"
+   export IMAGEM="$REGIAO-docker.pkg.dev/$PROJETO/painel/painel:$(git rev-parse --short HEAD)"
+   docker build -f Dockerfile.cloudrun -t "$IMAGEM" . && docker push "$IMAGEM"
+   gcloud run deploy painel --image "$IMAGEM" --region "$REGIAO" --project "$PROJETO" --allow-unauthenticated \
+     --max-instances=1 --min-instances=0 --update-secrets=DATABASE_URL=painel-database-url:latest \
+     --set-env-vars=PAINEL_HOSTS=painel-${NUMERO}.${REGIAO}.run.app
+   ```
+   O painel fica em `https://painel-<número do projeto>.southamerica-east1.run.app`, sempre com login. `--allow-unauthenticated` só deixa a página abrir na internet; o acesso continua exigindo usuário e senha do painel.
+
+**Atualizar:** quando o código trouxer migração nova, rode antes o `pg-migrar` do passo 3 (o painel se recusa a subir com o esquema desatualizado e diz o que falta); depois repita o passo 4. **Voltar atrás:** `gcloud run services update-traffic painel --to-revisions=<revisão anterior>=100 --region "$REGIAO" --project "$PROJETO"` (as revisões aparecem em `gcloud run revisions list --service painel --region "$REGIAO" --project "$PROJETO"`). **Demonstração:** num banco do Neon vazio e migrado, `read -rs DATABASE_URL_DIRECT && export DATABASE_URL_DIRECT && python main.py pg-demo; unset DATABASE_URL_DIRECT` carrega os dados fictícios do `painel-demo`.
+
 ## Análises Estatísticas Avançadas (`analises/`)
 
 Os scripts analíticos avançados ficam isolados em `analises/`, operando em modo somente-leitura sobre o banco SQLite:

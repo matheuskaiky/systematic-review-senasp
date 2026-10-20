@@ -91,3 +91,51 @@ jobs:
         env:
           DOMAIN_NAME: localhost
         run: docker compose logs
+
+  imagem-cloudrun:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: teste
+          POSTGRES_INITDB_ARGS: --locale-provider=libc --locale=C.UTF-8
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Monta a imagem do Cloud Run
+        run: docker build -f Dockerfile.cloudrun -t painel-cloudrun .
+      - name: Aplica as migracoes pela imagem e sobe o painel como no Cloud Run (PORT, sem disco, PostgreSQL)
+        run: |
+          docker run --rm --network host -e DATABASE_URL_DIRECT=postgresql://postgres:teste@127.0.0.1:5432/postgres \
+            painel-cloudrun python main.py pg-migrar
+          docker run -d --name painel --network host -e PORT=8080 \
+            -e DATABASE_URL=postgresql://postgres:teste@127.0.0.1:5432/postgres -e PAINEL_HOSTS=localhost painel-cloudrun
+      - name: Confere a entrada atras do proxy do Cloud Run (cookie seguro) e a recusa de outro site
+        run: |
+          for i in $(seq 1 60); do
+            codigo=$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: localhost' -H 'X-Forwarded-Proto: https' http://localhost:8080/entrar || true)
+            [ "$codigo" = "200" ] && break
+            sleep 2
+          done
+          [ "$codigo" = "200" ] || { echo "o painel nao respondeu (ultimo codigo: $codigo)"; exit 1; }
+          curl -s -c cookies.txt -D cabecalhos.txt -o entrar.html -H 'Host: localhost' -H 'X-Forwarded-Proto: https' http://localhost:8080/entrar
+          cat cabecalhos.txt
+          grep -qiE '^set-cookie: csrf=[^;]+;.*secure' cabecalhos.txt
+          token=$(grep -o 'name="csrf" value="[^"]*"' entrar.html | head -1 | sed 's/.*value="//; s/"$//')
+          envio() {
+            curl -s -b cookies.txt -o /dev/null -w '%{http_code}' -H 'Host: localhost' -H 'X-Forwarded-Proto: https' -H "Origin: $1" \
+              --data-urlencode "login=ninguem" --data-urlencode "senha=errada-errada" --data-urlencode "proximo=/" \
+              --data-urlencode "csrf=$token" http://localhost:8080/entrar
+          }
+          codigo=$(envio https://localhost)
+          [ "$codigo" = "400" ] || { echo "envio do proprio painel deveria dar 400 (credenciais), deu $codigo"; exit 1; }
+          codigo=$(envio https://outro-site.example)
+          [ "$codigo" = "403" ] || { echo "envio de outro site deveria dar 403, deu $codigo"; exit 1; }
+      - name: Registros do conteiner
+        if: always()
+        run: docker logs painel

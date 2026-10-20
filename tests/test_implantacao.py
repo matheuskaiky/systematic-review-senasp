@@ -92,3 +92,49 @@ def test_ci_sobe_a_imagem_atras_do_caddy():
     assert 'codigo=$(envio https://localhost)\n          [ "$codigo" = "400" ]' in w
     assert 'codigo=$(envio https://outro-site.example)\n          [ "$codigo" = "403" ]' in w
     assert '[ "$codigo" = "200" ] || { echo "o painel nao respondeu (ultimo codigo: $codigo)"; exit 1; }' in w
+
+
+def test_dockerfile_do_cloud_run():
+    assert (RAIZ / "Dockerfile.cloudrun").is_file()
+    d = _ler("Dockerfile.cloudrun")
+    for trecho in ("FROM python:3.12.15-slim", "PYTHONDONTWRITEBYTECODE=1", "PYTHONUNBUFFERED=1", "PYTHON_DOTENV_DISABLED=1",
+                   "DB_BACKEND=postgres", 'PAINEL_PROXY_IPS="*"', "WORKDIR /app", "COPY requirements.lock.txt ./",
+                   "RUN pip install --no-cache-dir -r requirements.lock.txt",
+                   "RUN useradd --create-home painel && mkdir -p /app/data && chown -R painel /app/data", "USER painel",
+                   'CMD ["sh", "-c", "exec python main.py painel --servidor --porta \\"${PORT:-8080}\\""]'):
+        assert trecho in d, trecho
+    assert not any(c in d for c in CHAVES + ("DATABASE_URL=", "postgresql://"))
+    assert "--demo" not in d and "VOLUME" not in d and "painel-demo" not in d
+
+
+def test_env_example_tem_as_variaveis_do_postgres_vazias():
+    linhas = [l for l in _ler(".env.example").splitlines() if l.strip() and not l.startswith("#")]
+    assert {"DB_BACKEND=", "DATABASE_URL=", "DATABASE_URL_DIRECT="} <= set(linhas)
+
+
+def test_readme_explica_o_cloud_run():
+    r = _ler("README.md")
+    assert "## Implantação do Painel no Google Cloud Run (PostgreSQL no Neon)" in r
+    for trecho in ('read -rs URL && printf \'%s\' "$URL" | gcloud secrets create painel-database-url --data-file=- --project "$PROJETO"; unset URL',
+                   "--role=roles/secretmanager.secretAccessor",
+                   "read -rs DATABASE_URL_DIRECT && export DATABASE_URL_DIRECT && python main.py pg-migrar; unset DATABASE_URL_DIRECT",
+                   'DB_BACKEND=postgres python main.py usuario-admin --login <login> --nome "<nome>"; unset DATABASE_URL',
+                   'docker build -f Dockerfile.cloudrun -t "$IMAGEM" . && docker push "$IMAGEM"',
+                   "--max-instances=1 --min-instances=0 --update-secrets=DATABASE_URL=painel-database-url:latest",
+                   "--set-env-vars=PAINEL_HOSTS=painel-${NUMERO}.${REGIAO}.run.app",
+                   "gcloud run services update-traffic painel --to-revisions=<revisão anterior>=100"):
+        assert trecho in r, trecho
+    assert "pg-importar" not in r and "postgresql://" not in r
+
+
+def test_ci_sobe_a_imagem_do_cloud_run():
+    w = _ler(".github/workflows/testes.yml")
+    assert "\n  imagem-cloudrun:\n" in w
+    job = w[w.index("  imagem-cloudrun:"):]
+    for trecho in ("POSTGRES_INITDB_ARGS: --locale-provider=libc --locale=C.UTF-8",
+                   "run: docker build -f Dockerfile.cloudrun -t painel-cloudrun .",
+                   "painel-cloudrun python main.py pg-migrar", "-e PORT=8080",
+                   "grep -qiE '^set-cookie: csrf=[^;]+;.*secure' cabecalhos.txt",
+                   'codigo=$(envio https://localhost)\n          [ "$codigo" = "400" ]',
+                   'codigo=$(envio https://outro-site.example)\n          [ "$codigo" = "403" ]'):
+        assert trecho in job, trecho

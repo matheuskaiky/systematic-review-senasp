@@ -1,0 +1,21 @@
+# Painel no Google Cloud Run com PostgreSQL no Neon (D96): sem disco e sem volume (decisões e contas ficam no PostgreSQL),
+# sem Caddy (o HTTPS é do Cloud Run, que é o único caminho até o contêiner). Só o painel roda aqui: a coleta e as chaves de
+# API ficam no computador do pesquisador. DATABASE_URL e PAINEL_HOSTS chegam na implantação (a URL como segredo).
+FROM python:3.12.15-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHON_DOTENV_DISABLED=1 \
+    DB_BACKEND=postgres \
+    PAINEL_PROXY_IPS="*"
+
+WORKDIR /app
+COPY requirements.lock.txt ./
+RUN pip install --no-cache-dir -r requirements.lock.txt
+
+COPY . .
+RUN useradd --create-home painel && mkdir -p /app/data && chown -R painel /app/data
+USER painel
+
+# O Cloud Run informa a porta em PORT (8080 por padrão).
+CMD ["sh", "-c", "exec python main.py painel --servidor --porta \"${PORT:-8080}\""]

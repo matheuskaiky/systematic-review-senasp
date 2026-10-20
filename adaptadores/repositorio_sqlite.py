@@ -46,6 +46,54 @@ _COLUNAS_NOVAS = {
 }
 
 
+# Linhas do catalogo de referencias (exportar-referencias e o download pelo painel leem a mesma consulta)
+SQL_CATALOGO = """
+        WITH ult_triagem AS (
+            SELECT item_id AS artigo_id, status AS status_escopo, tipo_documento, escopo_geografico, dominio_tematico
+            FROM triagem_escopo
+            WHERE fonte = 'artigo' AND uf = '' AND valido = 1
+              AND id IN (
+                  SELECT MAX(id) FROM triagem_escopo
+                  WHERE fonte = 'artigo' AND uf = '' AND valido = 1
+                  GROUP BY item_id
+              )
+        ),
+        art_consultas AS (
+            SELECT artigo_id, GROUP_CONCAT(query, '; ') AS consultas
+            FROM (
+                SELECT DISTINCT ro.artigo_id, vt.query
+                FROM r_ocorrencias ro
+                JOIN v_termos vt ON vt.termo_id = ro.termo_id
+                ORDER BY vt.query
+            )
+            GROUP BY artigo_id
+        ),
+        art_termos AS (
+            SELECT artigo_id, GROUP_CONCAT(termo_id, ', ') AS termos
+            FROM (
+                SELECT DISTINCT artigo_id, termo_id
+                FROM r_ocorrencias
+                ORDER BY termo_id
+            )
+            GROUP BY artigo_id
+        )
+        SELECT a.artigo_id, a.titulo, a.ano, a.link, a.autores_publicacao, a.citacoes,
+               ut.status_escopo, ut.tipo_documento, ut.escopo_geografico, ut.dominio_tematico,
+               ac.consultas, at.termos,
+               COALESCE(tr.decisao, 'pendente') AS decisao,
+               lr.categoria, lr.eixo, lr.prioridade, lr.status_leitura, lr.notas
+        FROM r_artigos a
+        LEFT JOIN ult_triagem ut ON ut.artigo_id = a.artigo_id
+        LEFT JOIN triagem tr ON tr.artigo_id = a.artigo_id
+        LEFT JOIN art_consultas ac ON ac.artigo_id = a.artigo_id
+        LEFT JOIN art_termos at ON at.artigo_id = a.artigo_id
+        LEFT JOIN leitura_referencias lr ON lr.artigo_id = a.artigo_id
+        WHERE (ut.status_escopo IS NULL OR ut.status_escopo <> 'excluido')
+          AND COALESCE(tr.decisao, 'pendente') <> 'excluir'
+        ORDER BY a.artigo_id
+        """
+
+
 class RepositorioSQLite:
     def __init__(self, caminho):
         caminho = Path(caminho)
@@ -1209,52 +1257,7 @@ class RepositorioSQLite:
 
     def linhas_catalogo(self):
         """Uma consulta SQL com as linhas do catalogo de referencias a partir de `r_artigos`."""
-        sql = """
-        WITH ult_triagem AS (
-            SELECT item_id AS artigo_id, status AS status_escopo, tipo_documento, escopo_geografico, dominio_tematico
-            FROM triagem_escopo
-            WHERE fonte = 'artigo' AND uf = '' AND valido = 1
-              AND id IN (
-                  SELECT MAX(id) FROM triagem_escopo
-                  WHERE fonte = 'artigo' AND uf = '' AND valido = 1
-                  GROUP BY item_id
-              )
-        ),
-        art_consultas AS (
-            SELECT artigo_id, GROUP_CONCAT(query, '; ') AS consultas
-            FROM (
-                SELECT DISTINCT ro.artigo_id, vt.query
-                FROM r_ocorrencias ro
-                JOIN v_termos vt ON vt.termo_id = ro.termo_id
-                ORDER BY vt.query
-            )
-            GROUP BY artigo_id
-        ),
-        art_termos AS (
-            SELECT artigo_id, GROUP_CONCAT(termo_id, ', ') AS termos
-            FROM (
-                SELECT DISTINCT artigo_id, termo_id
-                FROM r_ocorrencias
-                ORDER BY termo_id
-            )
-            GROUP BY artigo_id
-        )
-        SELECT a.artigo_id, a.titulo, a.ano, a.link, a.autores_publicacao, a.citacoes,
-               ut.status_escopo, ut.tipo_documento, ut.escopo_geografico, ut.dominio_tematico,
-               ac.consultas, at.termos,
-               COALESCE(tr.decisao, 'pendente') AS decisao,
-               lr.categoria, lr.eixo, lr.prioridade, lr.status_leitura, lr.notas
-        FROM r_artigos a
-        LEFT JOIN ult_triagem ut ON ut.artigo_id = a.artigo_id
-        LEFT JOIN triagem tr ON tr.artigo_id = a.artigo_id
-        LEFT JOIN art_consultas ac ON ac.artigo_id = a.artigo_id
-        LEFT JOIN art_termos at ON at.artigo_id = a.artigo_id
-        LEFT JOIN leitura_referencias lr ON lr.artigo_id = a.artigo_id
-        WHERE (ut.status_escopo IS NULL OR ut.status_escopo <> 'excluido')
-          AND COALESCE(tr.decisao, 'pendente') <> 'excluir'
-        ORDER BY a.artigo_id
-        """
-        return [dict(l) for l in self.conn.execute(sql)]
+        return [dict(l) for l in self.conn.execute(SQL_CATALOGO)]
 
     def salvar_leitura(self, linhas):
         """Salva campos de leitura de referencias preenchidos em planilha."""

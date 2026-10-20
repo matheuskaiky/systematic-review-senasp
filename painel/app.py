@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.templating import Jinja2Templates
 
-from aplicacao import revisao, sugestoes as sugestoes_uc
+from aplicacao import catalogo as catalogo_uc, exportacao, revisao, sugestoes as sugestoes_uc
 from dominio.sugestoes import CAMPOS_ACHADO, chave_autor, ficha_da_decisao
 from dominio import autenticacao, relevancia as relev
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
@@ -99,6 +99,9 @@ class Contexto:
     hosts_permitidos: tuple = ("127.0.0.1", "localhost")   # DNS rebinding: qualquer outro Host e recusado
     backup_feito: bool = field(default=False)
     autenticacao: bool = field(default=False)
+    modelos_referencias: dict = field(default_factory=dict)      # nome -> ModeloPlanilhaReferencias (config/modelos_exportacao.py)
+    categorias_referencias: dict = field(default_factory=dict)   # config/categorias_referencias.py
+    eixos_tematicos: dict = field(default_factory=dict)          # config/eixos_tematicos.py
 
 
 def _filtros(params):
@@ -589,6 +592,23 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                               {t: contexto.termos.get(t, "") for t in termos})
         return pagina(request, "literatura.html", d=d, grafico_anos=grafico_anos, calor=calor, tri=leitura.contagem_triagem(),
                       rel=leitura.contagem_relevancia())
+
+    @app.get("/literatura/catalogo.xlsx")
+    def catalogo_xlsx(request: Request, modelo: str = ""):
+        """Catalogo de referencias num modelo de planilha (o mesmo arquivo de `python main.py exportar-referencias`)."""
+        if "triar_artigos" not in _perms(request):           # alem do middleware: o catalogo leva as notas de leitura
+            return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
+        if not leitura.existe():
+            return sem_banco(request)
+        escolhido = contexto.modelos_referencias.get(modelo)
+        if escolhido is None:
+            return erro(request, 404, "Modelo de planilha desconhecido",
+                        "Use um dos modelos: " + ", ".join(sorted(contexto.modelos_referencias)) + ".")
+        cat = catalogo_uc.montar_catalogo(leitura.linhas_catalogo())
+        abas = exportacao.planilhas_referencias(cat, escolhido, contexto.categorias_referencias, contexto.eixos_tematicos)
+        return Response(exportacao.planilha_xlsx(abas),
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f'attachment; filename="{escolhido.arquivo}"', "Cache-Control": "no-store"})
 
     @app.get("/literatura/artigos", response_class=HTMLResponse)
     def artigos(request: Request):

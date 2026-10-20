@@ -157,6 +157,8 @@ def permissao_exigida(metodo: str, caminho: str) -> str | None:
         return "ver_chamadas"
     if metodo == "GET" and caminho == "/estatisticas-usuarios":
         return "ver_estatisticas_usuarios"
+    if metodo == "GET" and caminho == "/literatura/catalogo.xlsx":
+        return "triar_artigos"                          # o catalogo leva as notas de leitura: visitante nao baixa
     if metodo == "GET":
         return "ver_painel"
     if metodo == "POST" and caminho.endswith(("/sugerir", "/aceitar", "/descartar")):

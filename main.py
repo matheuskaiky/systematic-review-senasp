@@ -488,7 +488,8 @@ def abrir_painel(a, fab):
         solucoes_conhecidas=tuple(SOLUCOES_CONHECIDAS),
         comando_criar_banco="python main.py painel-demo" if a.demo else
         "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5",
-        autenticacao=autenticacao)
+        autenticacao=autenticacao, modelos_referencias=dict(MODELOS_REFERENCIAS),
+        categorias_referencias=dict(CATEGORIAS_REFERENCIAS), eixos_tematicos=dict(EIXOS_TEMATICOS))
     if servidor:
         contexto.hosts_permitidos = dominios + ("127.0.0.1", "localhost")   # o dominio publico e o acesso de dentro da VM
     if not fab.caminho_banco.exists() and a.demo:
@@ -848,9 +849,7 @@ def main():
         abas = exportacao.planilhas_referencias(cat, modelo, CATEGORIAS_REFERENCIAS, EIXOS_TEMATICOS)
         caminho = Path(a.saida) if a.saida else S.OUT_DIR / modelo.arquivo
         caminho.parent.mkdir(parents=True, exist_ok=True)
-        with pd.ExcelWriter(caminho) as w:
-            for nome_aba, df in abas.items():
-                df.to_excel(w, sheet_name=nome_aba, index=False)
+        caminho.write_bytes(exportacao.planilha_xlsx(abas))           # o mesmo arquivo do download pelo painel
         print(f"Catalogo ({modelo.nome}): {len(cat)} referencias -> {caminho}")
     elif a.cmd == "leitura-importar":
         modelo = MODELOS_REFERENCIAS[a.modelo]

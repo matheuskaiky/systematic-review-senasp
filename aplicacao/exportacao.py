@@ -1,9 +1,11 @@
 from collections import OrderedDict
+from io import BytesIO
 import re
 import pandas as pd
 
 from aplicacao import rotulagem as RT
 from dominio import auditoria_negativos as AN
+from dominio.planilha import celula_segura
 from dominio.catalogo import SIGNIFICADO_COLUNAS, STATUS_LEITURA_PADRAO, validar_leitura
 
 
@@ -43,6 +45,8 @@ def planilhas_referencias(catalogo, modelo, categorias, eixos):
             filtrados = [r for r in catalogo if r["pais_escopo"] == "Brasil"]
         elif filtro == "internacional":
             filtrados = [r for r in catalogo if r["pais_escopo"] == "Internacional"]
+        elif isinstance(filtro, tuple) and filtro[0] == "categoria":
+            filtrados = [r for r in catalogo if r["categoria"] == filtro[1]]
         else:
             filtrados = list(catalogo)
 
@@ -66,6 +70,16 @@ def planilhas_referencias(catalogo, modelo, categorias, eixos):
         )
 
     return abas
+
+
+def planilha_xlsx(abas):
+    """As abas (nome -> DataFrame) num arquivo .xlsx em memoria, na ordem recebida, com as celulas de texto pela regra C3
+    (download pelo painel e comando exportar-referencias: o mesmo arquivo)."""
+    saida = BytesIO()
+    with pd.ExcelWriter(saida) as w:
+        for nome_aba, df in abas.items():
+            df.map(celula_segura).to_excel(w, sheet_name=nome_aba, index=False)
+    return saida.getvalue()
 
 
 def _celula_para_texto(v):

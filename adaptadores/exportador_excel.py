@@ -1,24 +1,12 @@
 from datetime import datetime
 from pathlib import Path
 import pandas as pd
-from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from dominio.planilha import LIMITE_CELULA, MARCADOR, celula_segura
 
-LIMITE_CELULA = 32_000          # o Excel aceita 32.767 caracteres por celula; sobra margem para o marcador
-MARCADOR = "…[truncado]"
 MAX_ABA = 31                    # limite do Excel para o nome de uma aba
 
 
-def _limpar(valor):
-    """C3: tira caracteres de controle (o openpyxl levanta IllegalCharacterError), corta texto acima do limite da
-    celula com marcador visivel e impede que texto da web que comece com "=" vire formula no Excel."""
-    if not isinstance(valor, str):
-        return valor
-    valor = ILLEGAL_CHARACTERS_RE.sub("", valor)
-    if len(valor) > LIMITE_CELULA:
-        valor = valor[:LIMITE_CELULA - len(MARCADOR)] + MARCADOR
-    if valor.startswith("="):
-        valor = " " + valor
-    return valor
+_limpar = celula_segura           # a regra C3 fica em dominio/planilha.py (uma so implementacao)
 
 
 def _limpar_tabela(df):

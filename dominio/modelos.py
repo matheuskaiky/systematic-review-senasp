@@ -76,7 +76,7 @@ class ModeloPlanilhaReferencias:
     nome: str
     arquivo: str                 # nome do arquivo .xlsx gerado em outputs/
     colunas: tuple               # ((cabecalho, campo), ...) na ordem das colunas; campo em dominio.catalogo.CAMPOS_CATALOGO
-    abas: tuple                  # ((nome_da_aba, filtro), ...); filtro: None (todas), "brasil" ou "internacional"
+    abas: tuple                  # ((nome_da_aba, filtro), ...); filtro: None (todas), "brasil", "internacional" ou ("categoria", nome)
     explicar_colunas: bool = False   # True acrescenta a aba "Colunas" (cabecalho e significado)
 
 

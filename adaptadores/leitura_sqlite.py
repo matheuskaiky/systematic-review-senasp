@@ -21,6 +21,7 @@ from adaptadores.leitura_solucoes import LeituraSolucoes
 from adaptadores.leitura_termos_cobertura import LeituraTermosCobertura
 from adaptadores.leitura_termos_ruido import LeituraTermosRuido
 from adaptadores.leitura_triagem_escopo import LeituraTriagemEscopo
+from adaptadores.repositorio_sqlite import SQL_CATALOGO
 from dominio.entrada import separar_runs
 from dominio.relevancia import NIVEIS, pontuar_relevancia
 from dominio.sugestoes import CAMPOS_ACHADO, CAMPOS_ARTIGO, ficha_da_decisao
@@ -354,6 +355,10 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
                          FROM (SELECT decisao FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0)""")
         d["ocultos_llm"] = self._um(f"SELECT COALESCE(SUM(llm_oculto), 0) AS n FROM ({self._BASE_ARTIGOS})")["n"]
         return d
+
+    def linhas_catalogo(self):
+        """Linhas do catalogo de referencias, a mesma consulta do comando exportar-referencias."""
+        return self._consulta(SQL_CATALOGO)
 
     def literatura(self):
         return {

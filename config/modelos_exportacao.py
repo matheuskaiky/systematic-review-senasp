@@ -1,4 +1,5 @@
 """Modelos de planilha do catalogo de referencias (comando exportar-referencias). Um modelo novo entra aqui, sem mudar codigo."""
+from config.categorias_referencias import CATEGORIAS_REFERENCIAS
 from dominio.modelos import ModeloPlanilhaReferencias
 
 _COLUNAS_PROFESSOR = (
@@ -38,11 +39,8 @@ MODELOS_REFERENCIAS = {
         "professor",
         "referencias_modelo_professor.xlsx",
         _COLUNAS_PROFESSOR,
-        (
-            ("Todas as Referencias", None),
-            ("Brasil", "brasil"),
-            ("Internacional", "internacional"),
-        ),
+        # como nas planilhas mestre do professor: todas, e uma aba por Categoria (em ordem alfabetica; categoria nova ganha aba)
+        (("Todas as Referencias", None),) + tuple((c, ("categoria", c)) for c in sorted(CATEGORIAS_REFERENCIAS)),
     ),
 }
 

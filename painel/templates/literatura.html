@@ -41,5 +41,11 @@
   <p class="sub">Quanto mais escura a célula, mais artigos os dois termos encontraram juntos. A diagonal mostra o total de cada termo. Passe o mouse para ver o termo.</p>
   <div class="tabela-rolavel">{{ calor|safe }}</div>
   <ul class="legenda"><li><span class="amostra calor-diag"></span> total do termo</li><li><span class="amostra calor-1"></span> poucos <span class="amostra calor-4"></span> muitos artigos em comum</li></ul></section>
+{% if d.n_artigos and ctx.modelos_referencias and "triar_artigos" in perms %}
+<section class="cartao" aria-labelledby="catalogo-titulo"><h2 id="catalogo-titulo" data-ic="download-simple" data-tom="rosa">Catálogo de referências</h2>
+  <p>Os artigos do relatório que nem o modelo nem a triagem humana excluíram, com categoria, eixo, prioridade, status de leitura e notas. O modelo do professor traz uma aba por categoria, como as planilhas dele; o do projeto acrescenta eixo, citações, termos e as decisões. O que for preenchido na primeira aba (Todas as Referencias, ou Referencias no modelo do projeto) volta com <code>python main.py leitura-importar</code>; as outras abas são só para leitura.</p>
+  <p class="acoes-texto"><a class="botao" href="/literatura/catalogo.xlsx?modelo=professor">Baixar no modelo do professor</a> <a class="botao secundario" href="/literatura/catalogo.xlsx?modelo=padrao">Baixar no modelo do projeto</a></p>
+</section>
+{% endif %}
 {% endif %}
 {% endblock %}

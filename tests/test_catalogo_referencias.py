@@ -31,7 +31,8 @@ CATEGORIAS_PROFESSOR = {
     "Internacional_Etica": "Internacional: Europa (AI Act), EUA (COMPAS), Sul Global, reconhecimento facial",
 }
 ABAS_PADRAO = ["Referencias", "Referencias_Brasil", "Referencias_Internacional", "Legenda", "Indice_Tematico", "Colunas"]
-ABAS_PROFESSOR = ["Todas as Referencias", "Brasil", "Internacional", "Legenda", "Indice_Tematico"]
+ABAS_PROFESSOR = ["Todas as Referencias", "Brasil", "Brasil_Casos", "Brasil_Etica", "Geral", "Inteligencia Policial", "Internacional",
+                  "Internacional_Etica", "Legenda", "Indice_Tematico"]          # uma aba por Categoria, como as planilhas mestre
 
 
 # ====================== configuracao ======================
@@ -48,7 +49,8 @@ def test_eixos_tematicos_tem_no_minimo_os_do_professor():
 def test_modelo_professor_reproduz_colunas_e_abas():
     m = M.MODELOS_REFERENCIAS["professor"]
     assert [c for c, _ in m.colunas] == CABECALHOS_PROFESSOR
-    assert [a for a, _ in m.abas] == ["Todas as Referencias", "Brasil", "Internacional"]
+    assert [a for a, _ in m.abas] == ["Todas as Referencias"] + sorted(K.CATEGORIAS_REFERENCIAS)
+    assert [f for _, f in m.abas] == [None] + [("categoria", c) for c in sorted(K.CATEGORIAS_REFERENCIAS)]
 
 
 def test_ha_mais_de_um_modelo_e_o_padrao_e_o_do_projeto():
@@ -65,7 +67,7 @@ def test_todo_campo_dos_modelos_existe_no_catalogo():
     from dominio.catalogo import CAMPOS_CATALOGO
     for m in M.MODELOS_REFERENCIAS.values():
         assert {campo for _, campo in m.colunas} <= set(CAMPOS_CATALOGO)
-        assert {filtro for _, filtro in m.abas} <= {None, "brasil", "internacional"}
+        assert {filtro for _, filtro in m.abas} <= {None, "brasil", "internacional"} | {("categoria", c) for c in K.CATEGORIAS_REFERENCIAS}
 
 
 # ====================== dominio ======================
@@ -127,8 +129,8 @@ def test_exporta_no_modelo_do_professor(com_artigos, monkeypatch):
     todas = abas["Todas as Referencias"]
     assert list(todas.columns) == CABECALHOS_PROFESSOR
     assert ids[2] not in set(todas["ID"])                                  # excluido pelo modelo nao entra
-    assert ids[0] in set(abas["Brasil"]["ID"]) and ids[0] not in set(abas["Internacional"]["ID"])
-    assert ids[1] in set(abas["Internacional"]["ID"])
+    for categoria in K.CATEGORIAS_REFERENCIAS:                              # cada aba: os artigos daquela Categoria, nem mais nem menos
+        assert set(abas[categoria]["ID"]) == set(todas[todas["Categoria"] == categoria]["ID"]), categoria
     linha = todas[todas["ID"] == ids[0]].iloc[0]
     assert (linha["Pais/escopo"], linha["Tipo de fonte"], linha["Status de leitura"]) == ("Brasil", "Artigo cientifico", "Nao iniciado")
     assert linha["Autor/Instituicao"] == "Autor"                         # "Autor - Revista, 2023" no simulado

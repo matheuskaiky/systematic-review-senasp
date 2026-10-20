@@ -1,0 +1,13 @@
+# Lista do que ENTRA na imagem (todo o resto fica fora: dados, segredos, documentos, testes)
+*
+!main.py
+!composicao.py
+!painel_demo.py
+!requirements.lock.txt
+!adaptadores
+!aplicacao
+!dominio
+!infra
+!config
+!painel
+**/__pycache__

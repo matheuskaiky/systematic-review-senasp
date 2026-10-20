@@ -24,3 +24,43 @@ jobs:
         env:
           PYTHON_DOTENV_DISABLED: "1"
         run: python -m pytest -q -m "not local" -rs
+
+  imagem:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sobe o painel atras do Caddy (demonstracao, https em localhost)
+        env:
+          DOMAIN_NAME: localhost
+        run: docker compose up -d --build
+      - name: Confere a entrada pelo HTTPS do Caddy
+        run: |
+          for i in $(seq 1 90); do
+            codigo=$(curl -sk -o /dev/null -w '%{http_code}' https://localhost/entrar || true)
+            [ "$codigo" = "200" ] && break
+            sleep 2
+          done
+          [ "$codigo" = "200" ] || { echo "o painel nao respondeu (ultimo codigo: $codigo)"; exit 1; }
+          curl -sk -c cookies.txt -D cabecalhos.txt -o entrar.html https://localhost/entrar
+          cat cabecalhos.txt
+          grep -qi '^strict-transport-security: max-age=31536000' cabecalhos.txt
+          grep -qiE '^set-cookie: csrf=[^;]+;.*secure' cabecalhos.txt
+          grep -q 'action="/entrar"' entrar.html
+      - name: Confere o envio do proprio painel e a recusa de outro site atras do Caddy
+        run: |
+          token=$(grep -o 'name="csrf" value="[^"]*"' entrar.html | head -1 | sed 's/.*value="//; s/"$//')
+          envio() {
+            curl -sk -b cookies.txt -o /dev/null -w '%{http_code}' -H "Origin: $1" \
+              --data-urlencode "login=ninguem" --data-urlencode "senha=errada-errada" --data-urlencode "proximo=/" \
+              --data-urlencode "csrf=$token" https://localhost/entrar
+          }
+          codigo=$(envio https://localhost)
+          [ "$codigo" = "400" ] || { echo "envio do proprio painel deveria dar 400 (credenciais), deu $codigo"; exit 1; }
+          codigo=$(envio https://outro-site.example)
+          [ "$codigo" = "403" ] || { echo "envio de outro site deveria dar 403, deu $codigo"; exit 1; }
+      - name: Registros dos conteineres
+        if: always()
+        env:
+          DOMAIN_NAME: localhost
+        run: docker compose logs

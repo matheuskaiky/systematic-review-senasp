@@ -235,7 +235,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         request.state.csrf = token
         resposta = await call_next(request)
         if not request.cookies.get("csrf"):
-            resposta.set_cookie("csrf", token, httponly=True, samesite="strict")
+            resposta.set_cookie("csrf", token, httponly=True, samesite="strict", secure=(request.url.scheme == "https"))
         resposta.headers["Content-Security-Policy"] = CSP
         resposta.headers["X-Content-Type-Options"] = "nosniff"
         resposta.headers["Referrer-Policy"] = "same-origin"
@@ -361,7 +361,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 secure=eh_https,
                 path="/",
             )
-            resposta.set_cookie("csrf", secrets.token_urlsafe(32), httponly=True, samesite="strict")  # token novo a cada entrada
+            resposta.set_cookie("csrf", secrets.token_urlsafe(32), httponly=True, samesite="strict", secure=eh_https)  # token novo a cada entrada
             return resposta
 
         @app.post("/sair")

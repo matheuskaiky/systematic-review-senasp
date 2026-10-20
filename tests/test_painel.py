@@ -361,7 +361,9 @@ def test_demo_e_deterministica_e_nao_toca_nos_outros_bancos(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     pa, pb = painel_demo.construir(a), painel_demo.construir(b)
     consulta = "SELECT uf, tecnologia, status_reportado, evidencia, confianca, evidencia_confere FROM achados ORDER BY achado_id"
-    assert sqlite3.connect(pa).execute(consulta).fetchall() == sqlite3.connect(pb).execute(consulta).fetchall()
+    ca, cb = sqlite3.connect(pa), sqlite3.connect(pb)
+    assert ca.execute(consulta).fetchall() == cb.execute(consulta).fetchall()
+    ca.close(), cb.close()                       # com WAL, -wal e -shm existem enquanto houver conexao aberta
     assert sorted(p.name for p in a.iterdir()) == ["demo.db", "raw_demo"]
 
 

@@ -288,4 +288,4 @@ def test_a_pagina_nunca_escreve_no_banco(ctx):
     for rota in ("/classificadores", _url(a, b), _url(b, a), _url(a, a), f"/classificadores?a={a}&b=nao-existe"):
         cli.get(rota)
     assert hashlib.sha256(copia.read_bytes()).hexdigest() == antes
-    assert not list(copia.parent.glob("demo.db-*"))              # nenhum -wal/-shm novo
+    assert all(p.stat().st_size == 0 for p in copia.parent.glob("demo.db-wal"))   # com WAL, o -wal existe mas fica vazio

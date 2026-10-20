@@ -3,6 +3,8 @@ import dataclasses
 import hashlib
 import json
 import logging
+import os
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -443,16 +445,30 @@ def _avisar_conflitos(repo, rotulo):
               + ", ".join(f"{i} (linha {l})" for i, l in conflitos))
 
 
-def _caminho_contas(fab, simulado):
-    caminho = fab.caminho_banco.parent / ("contas_simulado.db" if simulado else "contas.db")
+def _caminho_contas(fab, simulado, demo=False):
+    caminho = fab.caminho_banco.parent / ("contas_simulado.db" if simulado else "contas_demo.db" if demo else "contas.db")
     if caminho == fab.caminho_banco:
         raise SystemExit("O banco da pesquisa não pode se chamar contas.db nem contas_simulado.db.")
     return caminho
 
 
 def abrir_painel(a, fab):
-    """Liga o painel aos adaptadores e o serve em 127.0.0.1. Importa o servidor so aqui: as demais etapas nao precisam dele."""
-    if a.host not in ("127.0.0.1", "localhost"):
+    """Liga o painel aos adaptadores e o serve em 127.0.0.1; com --servidor, atras de um proxy reverso (Caddy) com HTTPS, sempre
+    com login. Importa o servidor so aqui: as demais etapas nao precisam dele."""
+    servidor = getattr(a, "servidor", False)
+    if a.simulado and a.demo:
+        raise SystemExit("Use --simulado ou --demo, não os dois.")
+    if servidor:
+        if a.somente_leitura:
+            raise SystemExit("--somente-leitura desliga o login e não vale com --servidor.")
+        dominios = tuple(h.strip().lower() for h in os.environ.get("PAINEL_HOSTS", "").split(",") if h.strip())
+        if not dominios:
+            raise SystemExit("--servidor exige a variável PAINEL_HOSTS com o domínio do painel "
+                             "(por exemplo, revisao.exemplo.br; vários separados por vírgula).")
+        for d in dominios:
+            if not re.fullmatch(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*", d):
+                raise SystemExit(f"PAINEL_HOSTS aceita só nomes de domínio, sem esquema, porta, barra ou '*': {d}")
+    elif a.host not in ("127.0.0.1", "localhost"):
         raise SystemExit("O painel só aceita conexões locais (127.0.0.1).")
     import uvicorn
     from adaptadores.repositorio_sqlite import RepositorioSQLite
@@ -463,8 +479,8 @@ def abrir_painel(a, fab):
         from painel_demo import SOLUCOES_CONHECIDAS_DEMO as SOLUCOES_CONHECIDAS
     else:
         from config.solucoes_conhecidas import SOLUCOES_CONHECIDAS
-    autenticacao = not a.demo and not a.somente_leitura
-    contas = ContasSQLite(_caminho_contas(fab, a.simulado)) if autenticacao else None
+    autenticacao = servidor or (not a.demo and not a.somente_leitura)   # no servidor o login vale ate na demonstracao
+    contas = ContasSQLite(_caminho_contas(fab, a.simulado, a.demo)) if autenticacao else None
     contexto = Contexto(
         banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
         pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
@@ -473,6 +489,8 @@ def abrir_painel(a, fab):
         comando_criar_banco="python main.py painel-demo" if a.demo else
         "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5",
         autenticacao=autenticacao)
+    if servidor:
+        contexto.hosts_permitidos = dominios + ("127.0.0.1", "localhost")   # o dominio publico e o acesso de dentro da VM
     if not fab.caminho_banco.exists() and a.demo:
         raise SystemExit("O banco de demonstração não existe. Rode antes: python main.py painel-demo")
     if fab.caminho_banco.exists():
@@ -487,6 +505,13 @@ def abrir_painel(a, fab):
         app = criar_app(fab.leitura_painel(), fab.novo_repositorio, fab.bruto, contexto, contas=contas)
     else:
         app = criar_app(fab.leitura_painel(), fab.novo_repositorio, fab.bruto, contexto)
+    if servidor:
+        # atras do Caddy: o esquema (https) vem do X-Forwarded-Proto, aceito so de quem esta em PAINEL_PROXY_IPS (padrao: a
+        # propria maquina; o docker-compose.yml libera a rede interna, onde so o Caddy alcanca a porta)
+        proxy = os.environ.get("PAINEL_PROXY_IPS", "").strip() or "127.0.0.1"
+        print(f"Painel ({banco}, servidor): 0.0.0.0:{a.porta} para {', '.join(dominios)}")
+        uvicorn.run(app, host="0.0.0.0", port=a.porta, log_level="warning", proxy_headers=True, forwarded_allow_ips=proxy)
+        return
     print(f"Painel ({banco}): http://{a.host}:{a.porta}   (Ctrl+C para encerrar)")
     uvicorn.run(app, host=a.host, port=a.porta, log_level="warning")
 
@@ -498,6 +523,8 @@ def usuario_admin(a):
     from dominio.autenticacao import validar_login, validar_nome, validar_senha, hash_senha
     from adaptadores.contas_sqlite import ContasSQLite
 
+    if a.simulado and a.demo:                       # antes de pedir a senha
+        raise SystemExit("Use --simulado ou --demo, não os dois.")
     try:
         senha1 = getpass.getpass("Senha: ")
         senha2 = getpass.getpass("Repita a senha: ")
@@ -514,8 +541,8 @@ def usuario_admin(a):
     if msgs:
         raise SystemExit("Nada foi gravado.\n" + "\n".join(msgs))
 
-    fab = Fabrica(simulado=a.simulado)
-    caminho = _caminho_contas(fab, a.simulado)
+    fab = Fabrica(simulado=a.simulado, demo=a.demo)
+    caminho = _caminho_contas(fab, a.simulado, a.demo)
     contas = ContasSQLite(caminho)
     agora = datetime.now(timezone.utc).isoformat()
     try:
@@ -725,6 +752,8 @@ def main():
     s.add_argument("--simulado", action="store_true"); s.add_argument("--demo", action="store_true")
     s.add_argument("--porta", type=int, default=8000); s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--somente-leitura", action="store_true", help="nenhuma decisao pode ser gravada")
+    s.add_argument("--servidor", action="store_true",
+                   help="serve atrás de um proxy com HTTPS (Caddy), sempre com login; exige PAINEL_HOSTS")
     s = sub.add_parser("painel-relatorio", help="gera um arquivo HTML unico (sem scripts) com os resultados do banco")
     s.add_argument("--simulado", action="store_true"); s.add_argument("--demo", action="store_true")
     s.add_argument("--saida", help="arquivo .html de saida (padrao: outputs/relatorio_AAAAMMDD_HHMM.html)")
@@ -747,6 +776,7 @@ def main():
     s.add_argument("--login", required=True)
     s.add_argument("--nome", required=True)
     s.add_argument("--simulado", action="store_true")
+    s.add_argument("--demo", action="store_true", help="contas do painel de demonstração no servidor (contas_demo.db)")
 
     a = p.parse_args()
     fab = Fabrica(simulado=getattr(a, "simulado", False), demo=getattr(a, "demo", False))

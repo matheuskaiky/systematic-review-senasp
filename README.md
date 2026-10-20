@@ -205,6 +205,42 @@ python main.py painel-relatorio
 
 ---
 
+## Implantação do Painel na Nuvem (Oracle Cloud)
+
+Só o painel vai para o servidor: a coleta, a triagem e as chaves de API continuam na máquina de quem pesquisa. A primeira implantação usa o banco de demonstração, sempre com login. O painel roda atrás do Caddy, que emite e renova o certificado HTTPS do domínio.
+
+**Na Oracle Cloud (uma vez):**
+
+1. Crie uma instância Ubuntu 22.04 ou 24.04 (por exemplo, *VM.Standard.A1.Flex*) com IPv4 público.
+2. Libere as portas 80 e 443 na *Security List* da rede (regras de entrada TCP, origem `0.0.0.0/0`) e no firewall da própria VM:
+
+```bash
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+3. No registrador do domínio, crie um registro `A` apontando o nome do painel (por exemplo, `revisao`) para o IP público da VM.
+
+**Na VM:**
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
+sudo usermod -aG docker $USER            # saia e entre de novo na sessão
+git clone <URL_DO_REPOSITORIO> painel && cd painel
+cp .env.example .env                     # preencha só DOMAIN_NAME (as chaves de API ficam vazias no servidor)
+docker compose up -d --build
+docker compose exec app python main.py usuario-admin --login <login> --nome "<nome>" --demo
+```
+
+Se o repositório for privado, clone com uma chave de implantação (*deploy key*, só leitura) do GitHub cadastrada na VM.
+
+O painel fica em `https://<DOMAIN_NAME>`. O banco, as decisões e as contas ficam no volume `dados` do Docker e sobrevivem a reinícios e atualizações (`git pull && docker compose up -d --build`). Para recomeçar a demonstração do zero: `docker compose exec app python main.py painel-demo && docker compose restart app`.
+
+**Cópias de segurança:** `scripts/backup_db.sh` copia os bancos com o painel no ar (API de backup do SQLite) para `./backups` e apaga as cópias com mais de 14 dias. Para rodar todo dia às 3h, acrescente ao `crontab -e` da VM: `0 3 * * * cd ~/painel && bash scripts/backup_db.sh >> backups/backup.log 2>&1`. Guarde também cópias fora da VM.
+
+**Concorrência:** o SQLite roda em modo WAL (quem lê não espera quem grava; um escritor por vez) com um único processo do servidor.
+
 ## Análises Estatísticas Avançadas (`analises/`)
 
 Os scripts analíticos avançados ficam isolados em `analises/`, operando em modo somente-leitura sobre o banco SQLite:

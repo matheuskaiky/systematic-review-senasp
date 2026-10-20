@@ -5,6 +5,7 @@ from pathlib import Path
 import sqlite3
 
 from dominio import autenticacao
+from infra.sqlite_wal import ligar_wal
 
 DDL_STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS grupos (
@@ -66,6 +67,8 @@ class ContasSQLite:
             conn = sqlite3.connect(self.caminho, isolation_level=None)
             conn.execute("PRAGMA foreign_keys = ON")
             conn.execute("PRAGMA busy_timeout = 5000")
+            ligar_wal(conn, self.caminho)                  # leitores nao esperam quem grava; so troca uma vez
+            conn.execute("PRAGMA synchronous = FULL")
             if escrita:
                 conn.execute("BEGIN IMMEDIATE")
             else:

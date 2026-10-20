@@ -1,0 +1,47 @@
+# Painel atrás do Caddy (HTTPS automático no domínio). Nenhuma chave de API vai para o servidor.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      PAINEL_HOSTS: ${DOMAIN_NAME:?defina DOMAIN_NAME no .env}
+      PAINEL_PROXY_IPS: "*"          # só o Caddy alcança a porta 8000 (rede interna, porta não publicada)
+    volumes:
+      - dados:/app/data
+    expose:
+      - "8000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  caddy:
+    image: caddy:2.11.7
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME:?defina DOMAIN_NAME no .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  dados:
+  caddy_data:
+  caddy_config:

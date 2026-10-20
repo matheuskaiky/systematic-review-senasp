@@ -12,6 +12,7 @@ from dominio.modelos import CandidatoDownload, ItemClassificacao
 from dominio.servicos import (normalizar_url, dominio_de, eh_oficial, chave_dedup_titulo, palavras_chave_tecnologia,
                               evidencia_cita_termo, evidencia_cita_lgpd, normalizar_status_final)
 from dominio.entrada import separar_runs, juntar_runs
+from infra.sqlite_wal import ligar_wal
 from infra.util import agora
 from dominio.sugestoes import CAMPOS_ACHADO, CAMPOS_ARTIGO, chave_autor, ficha_da_decisao
 
@@ -55,6 +56,11 @@ class RepositorioSQLite:
         # Quem GRAVA espera ate 60 s por um bloqueio de leitura (o painel aberto pode estar lendo, e em /mnt/c uma leitura
         # lenta segura o banco). Com 5 s, uma classificacao longa morria com "database is locked" (16/10/2026).
         self.conn.execute("PRAGMA busy_timeout = 60000")
+        # WAL: quem le nao espera quem grava (um escritor por vez continua valendo). O modo fica gravado no arquivo, entao so se
+        # troca uma vez (a troca precisa do banco sem outra conexao aberta). synchronous=FULL vale por conexao e prioriza a
+        # durabilidade das decisoes humanas confirmadas.
+        ligar_wal(self.conn, caminho)
+        self.conn.execute("PRAGMA synchronous = FULL")
         self._preparar_esquema()
         self._garantir_colunas()
 

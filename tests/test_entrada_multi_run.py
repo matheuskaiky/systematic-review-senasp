@@ -396,7 +396,12 @@ def _duas_buscas(ambiente_cli, monkeypatch):
 
 
 def _impressao(tmp_path):
-    return hashlib.sha256((tmp_path / "data" / "simulado.db").read_bytes()).hexdigest()
+    """Conteudo do banco (nao os bytes do arquivo: com WAL, fechar uma conexao descarrega o -wal no arquivo principal)."""
+    conn = sqlite3.connect(tmp_path / "data" / "simulado.db")
+    try:
+        return hashlib.sha256("\n".join(conn.iterdump()).encode("utf-8")).hexdigest()
+    finally:
+        conn.close()
 
 
 def test_pipeline_simulado_com_duas_buscas(ambiente_cli, monkeypatch):

@@ -92,20 +92,24 @@ class ContasSQLite:
         with self._conexao(escrita=True) as conn:
             for stmt in DDL_STATEMENTS:
                 conn.execute(stmt)
-            agora = datetime.now(timezone.utc).isoformat()
-            for grupo, perms in autenticacao.GRUPOS_PADRAO.items():
-                fixo = 1 if grupo in (autenticacao.GRUPO_ADMIN, autenticacao.GRUPO_VISITANTE) else 0
-                cursor = conn.execute(
-                    "INSERT OR IGNORE INTO grupos (nome, fixo, criado_em) VALUES (?, ?, ?)",
-                    (grupo, fixo, agora),
-                )
-                if cursor.rowcount == 1:
-                    grupo_id = cursor.lastrowid
-                    for p in sorted(perms):
-                        conn.execute(
-                            "INSERT INTO grupo_permissoes (grupo_id, permissao) VALUES (?, ?)",
-                            (grupo_id, p),
-                        )
+            self._semear_grupos(conn)
+
+    def _semear_grupos(self, conn) -> None:
+        """Grupos padrão e suas permissões; não mexe em grupo que já existe (idempotente)."""
+        agora = datetime.now(timezone.utc).isoformat()
+        for grupo, perms in autenticacao.GRUPOS_PADRAO.items():
+            fixo = 1 if grupo in (autenticacao.GRUPO_ADMIN, autenticacao.GRUPO_VISITANTE) else 0
+            cursor = conn.execute(
+                "INSERT OR IGNORE INTO grupos (nome, fixo, criado_em) VALUES (?, ?, ?)",
+                (grupo, fixo, agora),
+            )
+            if cursor.rowcount == 1:
+                grupo_id = cursor.lastrowid
+                for p in sorted(perms):
+                    conn.execute(
+                        "INSERT INTO grupo_permissoes (grupo_id, permissao) VALUES (?, ?)",
+                        (grupo_id, p),
+                    )
 
     def permissoes_do_grupo(self, nome: str) -> set[str]:
         """Retorna o conjunto de permissões do grupo informado."""

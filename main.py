@@ -15,7 +15,7 @@ from config import consultas as C, prompts as P, vocabulario as V, triagem_escop
 from config.categorias_referencias import CATEGORIAS_REFERENCIAS
 from config.eixos_tematicos import EIXOS_TEMATICOS
 from config.modelos_exportacao import MODELOS_REFERENCIAS, MODELO_REFERENCIAS_PADRAO
-from composicao import Fabrica
+from composicao import Fabrica, banco_do_ambiente
 from dominio.esquemas import esquema_classificacao
 from dominio.modelos import ParametrosClassificacao
 from dominio.erros import CotaDiariaEsgotada
@@ -480,7 +480,7 @@ def abrir_painel(a, fab):
     else:
         from config.solucoes_conhecidas import SOLUCOES_CONHECIDAS
     autenticacao = servidor or (not a.demo and not a.somente_leitura)   # no servidor o login vale ate na demonstracao
-    contas = ContasSQLite(_caminho_contas(fab, a.simulado, a.demo)) if autenticacao else None
+    contas = fab.contas(_caminho_contas(fab, a.simulado, a.demo)) if autenticacao else None
     contexto = Contexto(
         banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
         pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
@@ -492,9 +492,16 @@ def abrir_painel(a, fab):
         categorias_referencias=dict(CATEGORIAS_REFERENCIAS), eixos_tematicos=dict(EIXOS_TEMATICOS))
     if servidor:
         contexto.hosts_permitidos = dominios + ("127.0.0.1", "localhost")   # o dominio publico e o acesso de dentro da VM
-    if not fab.caminho_banco.exists() and a.demo:
+    if fab.postgres:
+        # PostgreSQL (painel na nuvem): o painel nunca migra; so confere que as migracoes estao todas aplicadas
+        pendentes = fab.esquema_postgres_pendente()
+        if pendentes:
+            raise SystemExit("O esquema PostgreSQL está desatualizado: rode python main.py pg-migrar (faltam: "
+                             + ", ".join(pendentes) + ").")
+        contexto.nome_banco = "PostgreSQL"
+    elif not fab.caminho_banco.exists() and a.demo:
         raise SystemExit("O banco de demonstração não existe. Rode antes: python main.py painel-demo")
-    if fab.caminho_banco.exists():
+    elif fab.caminho_banco.exists():
         # o painel le o banco sem aplicar o esquema; depois de uma atualizacao do codigo faltariam colunas e views. Aplica-se aqui,
         # uma unica vez (abrir o repositorio so grava se a assinatura do esquema mudou: D55). Em --somente-leitura nao se grava.
         if not a.somente_leitura:
@@ -544,7 +551,7 @@ def usuario_admin(a):
 
     fab = Fabrica(simulado=a.simulado, demo=a.demo)
     caminho = _caminho_contas(fab, a.simulado, a.demo)
-    contas = ContasSQLite(caminho)
+    contas = fab.contas(caminho)
     agora = datetime.now(timezone.utc).isoformat()
     try:
         resultado = contas.definir_admin(a.login, a.nome.strip(), hash_senha(senha1), agora)
@@ -667,17 +674,47 @@ def migrar_robots(a, fab):
         print("Nada a atualizar: o banco já está migrado.")
 
 
-def _pg_migrar():
-    """Aplica as migracoes do PostgreSQL com a conexao direta (no Neon, a URL sem -pooler). Nunca roda ao subir o painel."""
-    from adaptadores import migrador_postgres
+def _pg_url_direta():
     url = os.environ.get("DATABASE_URL_DIRECT", "").strip()
     if not url:
         raise SystemExit("Defina DATABASE_URL_DIRECT no ambiente: a conexão direta do PostgreSQL (no Neon, a URL sem -pooler).")
+    return url
+
+
+def _pg_demo():
+    """Carrega o banco de demonstracao no PostgreSQL ja migrado e vazio (uma vez; nunca apaga nem sobrescreve nada). A
+    copia de um banco com dados reais nao tem comando: o banco da nuvem comeca vazio (D97)."""
+    import tempfile
+    import painel_demo
+    from adaptadores import migrador_postgres
+    from adaptadores.postgres import importador
+    url = _pg_url_direta()
+    try:
+        migrador_postgres.conferir_url(url)
+        if migrador_postgres.pendentes(url):
+            raise SystemExit("O esquema PostgreSQL está desatualizado: rode antes python main.py pg-migrar.")
+        with tempfile.TemporaryDirectory() as pasta:
+            relatorio = importador.importar(painel_demo.construir(Path(pasta)), url)
+    except (migrador_postgres.ErroMigracao, importador.ErroImportacao) as erro:
+        raise SystemExit(str(erro))
+    for tabela, (n, _) in relatorio.items():
+        print(f"{tabela}: {n}")
+    print(f"Importação conferida: {sum(n for n, _ in relatorio.values())} linhas em {len(relatorio)} tabelas.")
+
+
+def _pg_migrar():
+    """Aplica as migracoes do PostgreSQL com a conexao direta (no Neon, a URL sem -pooler). Nunca roda ao subir o painel."""
+    from adaptadores import migrador_postgres
+    url = _pg_url_direta()
     try:
         feitos = migrador_postgres.aplicar(url)
     except migrador_postgres.ErroMigracao as erro:          # mensagens fixas: nunca repetem a URL
         raise SystemExit(str(erro))
     print(("Migrações aplicadas: " + ", ".join(feitos)) if feitos else "Esquema PostgreSQL em dia: nenhuma migração pendente.")
+
+
+# com DB_BACKEND=postgres (o painel na nuvem, D96) so estes comandos rodam; a coleta e o resto ficam no SQLite local
+COMANDOS_NO_POSTGRES = ("painel", "usuario-admin", "pg-migrar", "pg-demo")
 
 
 def main():
@@ -793,10 +830,16 @@ def main():
     s.add_argument("--demo", action="store_true", help="contas do painel de demonstração no servidor (contas_demo.db)")
 
     sub.add_parser("pg-migrar", help="aplica as migracoes do banco PostgreSQL do painel na nuvem (usa DATABASE_URL_DIRECT do ambiente)")
+    sub.add_parser("pg-demo", help="carrega o banco de demonstracao no PostgreSQL vazio (usa DATABASE_URL_DIRECT; nunca sobrescreve)")
 
     a = p.parse_args()
+    if a.cmd not in COMANDOS_NO_POSTGRES and banco_do_ambiente() == "postgres":
+        raise SystemExit(f"O comando {a.cmd} roda só no SQLite local: tire DB_BACKEND=postgres do ambiente.")
     if a.cmd == "pg-migrar":
         _pg_migrar()
+        return
+    if a.cmd == "pg-demo":
+        _pg_demo()
         return
     fab = Fabrica(simulado=getattr(a, "simulado", False), demo=getattr(a, "demo", False))
     if a.cmd == "estimar":

@@ -76,9 +76,9 @@ FROM classificacoes k JOIN urls u ON u.url_id = k.url_id LEFT JOIN paginas p ON 
 
 DROP VIEW IF EXISTS v_custos CASCADE;
 CREATE VIEW v_custos AS
-SELECT run_id, etapa, provedor, COUNT(*) AS n_chamadas, SUM(sucesso) AS n_ok,
-       COUNT(*)-SUM(sucesso) AS n_falhas, SUM(tokens_entrada) AS tokens_entrada,
-       SUM(tokens_saida) AS tokens_saida, ROUND(SUM(custo_usd),4) AS custo_usd,
+SELECT run_id, etapa, provedor, COUNT(*) AS n_chamadas, compat_soma(sucesso) AS n_ok,
+       COUNT(*)-compat_soma(sucesso) AS n_falhas, compat_soma(tokens_entrada) AS tokens_entrada,
+       compat_soma(tokens_saida) AS tokens_saida, ROUND(compat_soma(custo_usd),4) AS custo_usd,
        ROUND(AVG(latencia_ms)) AS latencia_media_ms
 FROM chamadas GROUP BY run_id, etapa, provedor;
 
@@ -119,9 +119,9 @@ DROP VIEW IF EXISTS v_resumo_municipio CASCADE;
 CREATE VIEW v_resumo_municipio AS                  -- so secretarias municipais (achados com cidade)
 SELECT k.uf, k.cidade,
   COUNT(*) AS n_achados,
-  SUM(a.verificado) AS n_verificados,
-  SUM(CASE WHEN a.verificado=1 AND COALESCE(a.status_final,'')<>'descartado' THEN 1 ELSE 0 END) AS n_confirmados,
-  SUM(COALESCE(a.evidencia_confere,0)) AS n_evidencia_ok
+  compat_soma(a.verificado) AS n_verificados,
+  compat_soma(CASE WHEN a.verificado=1 AND COALESCE(a.status_final,'')<>'descartado' THEN 1 ELSE 0 END) AS n_confirmados,
+  compat_soma(COALESCE(a.evidencia_confere,0)) AS n_evidencia_ok
 FROM r_achados a JOIN r_classificacoes k ON k.classificacao_id=a.classificacao_id
 WHERE k.cidade IS NOT NULL
 GROUP BY k.uf, k.cidade;
@@ -130,10 +130,10 @@ DROP VIEW IF EXISTS v_resumo_uf CASCADE;
 CREATE VIEW v_resumo_uf AS
 SELECT a.uf,
   COUNT(*) AS n_achados,
-  SUM(a.verificado) AS n_verificados,
-  SUM(CASE WHEN a.verificado=1 AND COALESCE(a.status_final,'')<>'descartado' THEN 1 ELSE 0 END) AS n_confirmados,
-  SUM(COALESCE(a.evidencia_confere,0)) AS n_evidencia_ok,
-  SUM(f.fonte_oficial_efetiva) AS n_fonte_oficial
+  compat_soma(a.verificado) AS n_verificados,
+  compat_soma(CASE WHEN a.verificado=1 AND COALESCE(a.status_final,'')<>'descartado' THEN 1 ELSE 0 END) AS n_confirmados,
+  compat_soma(COALESCE(a.evidencia_confere,0)) AS n_evidencia_ok,
+  compat_soma(f.fonte_oficial_efetiva) AS n_fonte_oficial
 FROM r_achados a
 JOIN r_classificacoes k ON k.classificacao_id=a.classificacao_id
 JOIN v_fonte_da_classificacao f ON f.classificacao_id=k.classificacao_id
@@ -141,9 +141,9 @@ GROUP BY a.uf;
 
 DROP VIEW IF EXISTS v_metricas_por_termo CASCADE;
 CREATE VIEW v_metricas_por_termo AS
-SELECT run_id, alvo_id AS termo_id, COUNT(*) AS n_requisicoes, SUM(sucesso) AS n_sucesso,
-       COUNT(*)-SUM(sucesso) AS n_falhas, MAX(total_reportado) AS total_reportado_aprox,
-       SUM(n_retornados) AS n_retornados, SUM(n_novos) AS n_novos_artigos,
+SELECT run_id, alvo_id AS termo_id, COUNT(*) AS n_requisicoes, compat_soma(sucesso) AS n_sucesso,
+       COUNT(*)-compat_soma(sucesso) AS n_falhas, MAX(total_reportado) AS total_reportado_aprox,
+       compat_soma(n_retornados) AS n_retornados, compat_soma(n_novos) AS n_novos_artigos,
        ROUND(AVG(latencia_ms)) AS latencia_media_ms
 FROM chamadas WHERE etapa='busca_academica' GROUP BY run_id, alvo_id;
 
@@ -165,8 +165,8 @@ GROUP BY o1.termo_id, o2.termo_id;
 
 DROP VIEW IF EXISTS v_manuais_resumo CASCADE;
 CREATE VIEW v_manuais_resumo AS
-SELECT base, COUNT(*) AS n_buscas, SUM(n_resultados) AS total_resultados,
-       SUM(n_apos_filtro) AS total_apos_filtro, SUM(n_selecionados) AS total_selecionados
+SELECT base, COUNT(*) AS n_buscas, compat_soma(n_resultados) AS total_resultados,
+       compat_soma(n_apos_filtro) AS total_apos_filtro, compat_soma(n_selecionados) AS total_selecionados
 FROM buscas_manuais GROUP BY base;
 
 -- ===== Metricas para o relatorio: rendimento dos termos, PRISMA, rendimento da busca web, qualidade do LLM =====
@@ -193,14 +193,14 @@ WITH art_termo AS (SELECT DISTINCT termo_id, artigo_id FROM r_ocorrencias),
 SELECT at.termo_id, t.query, t.idioma, t.grupo, pt.n_requisicoes, pt.n_paginas, pt.total_reportado_aprox,
        COUNT(*) AS n_artigos,
        ROUND(100.0::double precision * COUNT(*) / NULLIF(pt.total_reportado_aprox, 0), 2) AS cobertura_pct,
-       COALESCE(SUM(pa.n_termos = 1), 0) AS n_exclusivos,
-       ROUND(100.0::double precision * SUM(pa.n_termos = 1) / COUNT(*), 1) AS pct_exclusivos,
-       COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos,
-       COALESCE(SUM(tr.decisao = 'excluir'), 0) AS n_excluidos,
-       COALESCE(SUM(tr.artigo_id IS NULL OR tr.decisao = 'pendente'), 0) AS n_pendentes,
-       ROUND(100.0::double precision * SUM(tr.decisao = 'incluir') / NULLIF(SUM(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct,
-       COALESCE(SUM(tr.decisao = 'incluir' AND pa.n_termos = 1), 0) AS n_incluidos_exclusivos,
-       COALESCE(SUM(tr.decisao = 'incluir' AND tr.decisao_texto_completo = 'incluir'), 0) AS n_incluidos_finais
+       COALESCE(compat_soma(pa.n_termos = 1), 0) AS n_exclusivos,
+       ROUND(100.0::double precision * compat_soma(pa.n_termos = 1) / NULLIF(COUNT(*), 0), 1) AS pct_exclusivos,
+       COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incluidos,
+       COALESCE(compat_soma(tr.decisao = 'excluir'), 0) AS n_excluidos,
+       COALESCE(compat_soma(tr.artigo_id IS NULL OR tr.decisao = 'pendente'), 0) AS n_pendentes,
+       ROUND(100.0::double precision * compat_soma(tr.decisao = 'incluir') / NULLIF(compat_soma(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct,
+       COALESCE(compat_soma(tr.decisao = 'incluir' AND pa.n_termos = 1), 0) AS n_incluidos_exclusivos,
+       COALESCE(compat_soma(tr.decisao = 'incluir' AND tr.decisao_texto_completo = 'incluir'), 0) AS n_incluidos_finais
 FROM art_termo at
 JOIN por_artigo pa ON pa.artigo_id = at.artigo_id
 LEFT JOIN triagem tr ON tr.artigo_id = at.artigo_id
@@ -212,14 +212,14 @@ ORDER BY n_incluidos DESC NULLS LAST, taxa_inclusao_pct DESC NULLS LAST, n_artig
 DROP VIEW IF EXISTS v_pares_termos CASCADE;
 CREATE VIEW v_pares_termos AS
 WITH art_termo AS (SELECT DISTINCT termo_id, artigo_id FROM r_ocorrencias),
-     tamanho AS (SELECT at.termo_id, COUNT(*) AS n, COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incl
+     tamanho AS (SELECT at.termo_id, COUNT(*) AS n, COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incl
                  FROM art_termo at LEFT JOIN triagem tr ON tr.artigo_id = at.artigo_id GROUP BY at.termo_id)
 SELECT a.termo_id AS termo_a, b.termo_id AS termo_b, ta.n AS n_a, tb.n AS n_b,
        COUNT(*) AS n_em_comum, ta.n + tb.n - COUNT(*) AS n_uniao,
-       ROUND(1.0::double precision * COUNT(*) / (ta.n + tb.n - COUNT(*)), 3) AS jaccard,
-       ROUND(100.0::double precision * COUNT(*) / LEAST(ta.n, tb.n), 1) AS pct_do_menor_contido,
-       COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos_em_comum,
-       ta.n_incl + tb.n_incl - COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos_uniao
+       ROUND(1.0::double precision * COUNT(*) / NULLIF((ta.n + tb.n - COUNT(*)), 0), 3) AS jaccard,
+       ROUND(100.0::double precision * COUNT(*) / NULLIF(CASE WHEN (ta.n) IS NULL OR (tb.n) IS NULL THEN NULL ELSE LEAST(ta.n, tb.n) END, 0), 1) AS pct_do_menor_contido,
+       COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incluidos_em_comum,
+       ta.n_incl + tb.n_incl - COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incluidos_uniao
 FROM art_termo a
 JOIN art_termo b ON a.artigo_id = b.artigo_id AND a.termo_id < b.termo_id
 JOIN tamanho ta ON ta.termo_id = a.termo_id
@@ -235,17 +235,17 @@ WITH por_artigo AS (
     FROM r_ocorrencias o JOIN v_termos t ON t.termo_id = o.termo_id GROUP BY o.artigo_id)
 SELECT CASE WHEN p.tem_pt = 1 AND p.tem_en = 1 THEN 'ambos' WHEN p.tem_pt = 1 THEN 'apenas_pt' ELSE 'apenas_en' END AS achado_por,
        COUNT(*) AS n_artigos,
-       COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos,
-       COALESCE(SUM(tr.decisao = 'excluir'), 0) AS n_excluidos
+       COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incluidos,
+       COALESCE(compat_soma(tr.decisao = 'excluir'), 0) AS n_excluidos
 FROM por_artigo p LEFT JOIN triagem tr ON tr.artigo_id = p.artigo_id
 GROUP BY achado_por;
 
 DROP VIEW IF EXISTS v_rendimento_por_pagina CASCADE;
 CREATE VIEW v_rendimento_por_pagina AS
 SELECT c.pagina, COUNT(*) AS n_ocorrencias, COUNT(DISTINCT o.artigo_id) AS n_artigos,
-       COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos,
-       COALESCE(SUM(tr.decisao = 'excluir'), 0) AS n_excluidos,
-       ROUND(100.0::double precision * SUM(tr.decisao = 'incluir') / NULLIF(SUM(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct
+       COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incluidos,
+       COALESCE(compat_soma(tr.decisao = 'excluir'), 0) AS n_excluidos,
+       ROUND(100.0::double precision * compat_soma(tr.decisao = 'incluir') / NULLIF(compat_soma(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct
 FROM r_ocorrencias o
 JOIN r_chamadas c ON c.chamada_id = o.chamada_id
 LEFT JOIN triagem tr ON tr.artigo_id = o.artigo_id
@@ -257,7 +257,7 @@ DROP VIEW IF EXISTS v_curva_descoberta CASCADE;
 CREATE VIEW v_curva_descoberta AS
 SELECT c.chamada_id, c.alvo_id AS termo_id, c.pagina, c.n_retornados, c.n_novos,
        ROUND(100.0::double precision * c.n_novos / NULLIF(c.n_retornados, 0), 1) AS pct_novos,
-       SUM(c.n_novos) OVER (ORDER BY c.chamada_id NULLS FIRST) AS novos_acumulado
+       compat_soma(c.n_novos) OVER (ORDER BY c.chamada_id NULLS FIRST) AS novos_acumulado
 FROM r_chamadas c WHERE c.etapa = 'busca_academica' AND c.sucesso = 1;
 
 DROP VIEW IF EXISTS v_motivos_exclusao CASCADE;
@@ -304,7 +304,7 @@ SELECT p.modelo_id, p.perfil, p.tecnologia,
        COUNT(DISTINCT p.consulta_id) AS n_consultas_com_resultado,
        COUNT(DISTINCT p.url_id || '|' || p.uf) AS n_urls,
        ROUND(100.0::double precision * COUNT(DISTINCT CASE WHEN u.fonte_oficial = 1 THEN p.url_id || '|' || p.uf END)
-             / COUNT(DISTINCT p.url_id || '|' || p.uf), 1) AS pct_oficiais,
+             / NULLIF(COUNT(DISTINCT p.url_id || '|' || p.uf), 0), 1) AS pct_oficiais,
        COUNT(DISTINCT CASE WHEN s.n_achados > 0 THEN p.url_id || '|' || p.uf END) AS n_urls_com_achado,
        COUNT(DISTINCT CASE WHEN s.verificado = 1 THEN p.url_id || '|' || p.uf END) AS n_urls_verificadas,
        COUNT(DISTINCT CASE WHEN s.confirmado = 1 THEN p.url_id || '|' || p.uf END) AS n_urls_confirmadas
@@ -320,7 +320,7 @@ WITH mu AS (SELECT DISTINCT compat_substr(consulta_id, 1, instr(consulta_id, '-'
      tamanho AS (SELECT modelo_id, COUNT(*) AS n FROM mu GROUP BY modelo_id)
 SELECT a.modelo_id AS modelo_a, b.modelo_id AS modelo_b, ta.n AS n_urls_a, tb.n AS n_urls_b,
        COUNT(*) AS n_em_comum, ta.n + tb.n - COUNT(*) AS n_uniao,
-       ROUND(1.0::double precision * COUNT(*) / (ta.n + tb.n - COUNT(*)), 3) AS jaccard,
+       ROUND(1.0::double precision * COUNT(*) / NULLIF((ta.n + tb.n - COUNT(*)), 0), 3) AS jaccard,
        (SELECT COUNT(*) FROM mu x JOIN v_status_url s ON s.url_id = x.url_id AND s.uf = x.uf
          WHERE x.modelo_id = a.modelo_id AND s.confirmado = 1
            AND NOT EXISTS (SELECT 1 FROM mu y WHERE y.modelo_id = b.modelo_id AND y.url_id = x.url_id AND y.uf = x.uf)) AS confirmadas_so_em_a,
@@ -336,9 +336,9 @@ GROUP BY a.modelo_id, b.modelo_id, ta.n, tb.n;
 DROP VIEW IF EXISTS v_rendimento_por_posicao CASCADE;
 CREATE VIEW v_rendimento_por_posicao AS
 SELECT r.posicao, COUNT(*) AS n_resultados, COUNT(DISTINCT r.url_id || '|' || r.uf) AS n_urls,
-       COALESCE(SUM(s.verificado = 1), 0) AS n_verificados,
-       COALESCE(SUM(s.confirmado = 1), 0) AS n_confirmados,
-       ROUND(100.0::double precision * SUM(s.confirmado = 1) / NULLIF(SUM(s.verificado = 1), 0), 1) AS taxa_confirmacao_pct
+       COALESCE(compat_soma(s.verificado = 1), 0) AS n_verificados,
+       COALESCE(compat_soma(s.confirmado = 1), 0) AS n_confirmados,
+       ROUND(100.0::double precision * compat_soma(s.confirmado = 1) / NULLIF(compat_soma(s.verificado = 1), 0), 1) AS taxa_confirmacao_pct
 FROM r_resultados_web r LEFT JOIN v_status_url s ON s.url_id = r.url_id AND s.uf = r.uf
 GROUP BY r.posicao ORDER BY r.posicao NULLS FIRST;
 
@@ -346,8 +346,8 @@ DROP VIEW IF EXISTS v_consultas_vazias CASCADE;
 CREATE VIEW v_consultas_vazias AS
 SELECT compat_substr(alvo_id, 1, instr(alvo_id, '-') - 1) AS modelo_id,
        compat_substr(compat_substr(alvo_id, instr(alvo_id, '-') + 1), instr(compat_substr(alvo_id, instr(alvo_id, '-') + 1), '-') + 1) AS tecnologia,
-       COUNT(*) AS n_consultas, SUM(COALESCE(n_retornados, 0) = 0) AS n_sem_resultado,
-       ROUND(100.0::double precision * SUM(COALESCE(n_retornados, 0) = 0) / COUNT(*), 1) AS pct_sem_resultado
+       COUNT(*) AS n_consultas, compat_soma(COALESCE(n_retornados, 0) = 0) AS n_sem_resultado,
+       ROUND(100.0::double precision * compat_soma(COALESCE(n_retornados, 0) = 0) / NULLIF(COUNT(*), 0), 1) AS pct_sem_resultado
 FROM r_chamadas WHERE etapa = 'busca_web' AND sucesso = 1
 GROUP BY modelo_id, tecnologia;
 
@@ -364,10 +364,10 @@ GROUP BY a.uf, a.tecnologia, a.status_final ORDER BY a.uf NULLS FIRST, a.tecnolo
 DROP VIEW IF EXISTS v_precisao_llm CASCADE;
 CREATE VIEW v_precisao_llm AS
 SELECT a.confianca, k.origem_texto, a.evidencia_confere, f.fonte_oficial_efetiva AS fonte_oficial, COUNT(*) AS n_achados,
-       COALESCE(SUM(a.verificado = 1), 0) AS n_verificados,
-       COALESCE(SUM(a.verificado = 1 AND COALESCE(a.status_final, '') <> 'descartado'), 0) AS n_confirmados,
-       ROUND(100.0::double precision * SUM(a.verificado = 1 AND COALESCE(a.status_final, '') <> 'descartado')
-             / NULLIF(SUM(a.verificado = 1), 0), 1) AS taxa_confirmacao_pct
+       COALESCE(compat_soma(a.verificado = 1), 0) AS n_verificados,
+       COALESCE(compat_soma(a.verificado = 1 AND COALESCE(a.status_final, '') <> 'descartado'), 0) AS n_confirmados,
+       ROUND(100.0::double precision * compat_soma(a.verificado = 1 AND COALESCE(a.status_final, '') <> 'descartado')
+             / NULLIF(compat_soma(a.verificado = 1), 0), 1) AS taxa_confirmacao_pct
 FROM r_achados a
 JOIN r_classificacoes k ON k.classificacao_id = a.classificacao_id
 JOIN v_fonte_da_classificacao f ON f.classificacao_id = k.classificacao_id
@@ -385,29 +385,29 @@ CREATE VIEW v_qualidade_classificacao AS
 WITH por_classificacao AS (
     SELECT k.classificacao_id, k.classificador, k.prompt_versao, k.origem_texto, k.json_valido, k.relevante,
            k.texto_truncado, k.n_achados_invalidos, k.chamada_id, COUNT(a.achado_id) AS n_achados,
-           COALESCE(SUM(a.evidencia_confere = 1), 0) AS n_evidencia_ok
+           COALESCE(compat_soma(a.evidencia_confere = 1), 0) AS n_evidencia_ok
     FROM r_classificacoes_historico k LEFT JOIN r_achados_historico a ON a.classificacao_id = k.classificacao_id
     GROUP BY k.classificacao_id, k.classificador, k.prompt_versao, k.origem_texto, k.json_valido, k.relevante, k.texto_truncado, k.n_achados_invalidos, k.chamada_id)
 SELECT p.classificador, p.prompt_versao, p.origem_texto, COUNT(*) AS n_classificacoes,
-       ROUND(100.0::double precision * SUM(p.json_valido) / COUNT(*), 1) AS pct_json_valido,
-       ROUND(100.0::double precision * SUM(p.relevante) / COUNT(*), 1) AS pct_relevante,
-       ROUND(1.0::double precision * SUM(p.n_achados) / COUNT(*), 2) AS achados_por_classificacao,
-       ROUND(100.0::double precision * SUM(p.n_evidencia_ok) / NULLIF(SUM(p.n_achados), 0), 1) AS pct_achados_evidencia_ok,
-       SUM(p.n_achados_invalidos) AS n_achados_fora_do_vocabulario,
-       ROUND(100.0::double precision * SUM(p.texto_truncado) / COUNT(*), 1) AS pct_texto_truncado,
-       SUM(c.tokens_entrada) AS tokens_entrada, SUM(c.tokens_saida) AS tokens_saida,
-       ROUND(SUM(c.custo_usd), 4) AS custo_usd, ROUND(AVG(c.latencia_ms)) AS latencia_media_ms
+       ROUND(100.0::double precision * compat_soma(p.json_valido) / NULLIF(COUNT(*), 0), 1) AS pct_json_valido,
+       ROUND(100.0::double precision * compat_soma(p.relevante) / NULLIF(COUNT(*), 0), 1) AS pct_relevante,
+       ROUND(1.0::double precision * compat_soma(p.n_achados) / NULLIF(COUNT(*), 0), 2) AS achados_por_classificacao,
+       ROUND(100.0::double precision * compat_soma(p.n_evidencia_ok) / NULLIF(compat_soma(p.n_achados), 0), 1) AS pct_achados_evidencia_ok,
+       compat_soma(p.n_achados_invalidos) AS n_achados_fora_do_vocabulario,
+       ROUND(100.0::double precision * compat_soma(p.texto_truncado) / NULLIF(COUNT(*), 0), 1) AS pct_texto_truncado,
+       compat_soma(c.tokens_entrada) AS tokens_entrada, compat_soma(c.tokens_saida) AS tokens_saida,
+       ROUND(compat_soma(c.custo_usd), 4) AS custo_usd, ROUND(AVG(c.latencia_ms)) AS latencia_media_ms
 FROM por_classificacao p JOIN r_chamadas c ON c.chamada_id = p.chamada_id
 GROUP BY p.classificador, p.prompt_versao, p.origem_texto;
 
 DROP VIEW IF EXISTS v_eficiencia CASCADE;
 CREATE VIEW v_eficiencia AS
 SELECT
-  COALESCE((SELECT SUM(custo_usd) FROM r_chamadas), 0) AS custo_total_usd,
+  COALESCE((SELECT compat_soma(custo_usd) FROM r_chamadas), 0) AS custo_total_usd,
   (SELECT COUNT(*) FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1) AS creditos_scholar,
   (SELECT COUNT(*) FROM r_chamadas WHERE etapa = 'busca_web' AND sucesso = 1) AS requisicoes_busca_web,
   (SELECT COUNT(DISTINCT url_id || '|' || uf) FROM v_status_url WHERE confirmado = 1) AS fontes_confirmadas,
-  ROUND((SELECT SUM(custo_usd) FROM r_chamadas) / NULLIF((SELECT COUNT(*) FROM v_status_url WHERE confirmado = 1), 0), 4) AS custo_por_fonte_confirmada_usd,
+  ROUND((SELECT compat_soma(custo_usd) FROM r_chamadas) / NULLIF((SELECT COUNT(*) FROM v_status_url WHERE confirmado = 1), 0), 4) AS custo_por_fonte_confirmada_usd,
   (SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir') AS artigos_incluidos,
   ROUND(1.0::double precision * (SELECT COUNT(*) FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1)
         / NULLIF((SELECT COUNT(*) FROM r_triagem WHERE decisao = 'incluir'), 0), 2) AS creditos_por_artigo_incluido;
@@ -429,13 +429,13 @@ SELECT s.run_id, s.url_id, s.uf, s.auditoria, u.dominio, u.fonte_oficial, p.domi
             WHEN p.extracao_ok = 1 THEN 'ok'
             ELSE 'falha_extracao' END AS resultado,
        CASE WHEN c.chamada_id IS NULL THEN 'limite_ou_interrompida'
-            WHEN c.sucesso = 0 THEN CASE WHEN c.erro LIKE 'bloqueado_por_robots%' THEN 'bloqueado_por_robots'
-                                         WHEN c.erro LIKE 'robots_inacessivel%' THEN 'robots_inacessivel'
-                                         WHEN c.erro LIKE 'erro_de_leitura%' THEN 'erro_de_leitura'
-                                         WHEN c.erro LIKE 'HTTP %' AND c.http_status IS NOT NULL THEN 'http_' || c.http_status
+            WHEN c.sucesso = 0 THEN CASE WHEN c.erro ILIKE 'bloqueado_por_robots%' COLLATE "C" THEN 'bloqueado_por_robots'
+                                         WHEN c.erro ILIKE 'robots_inacessivel%' COLLATE "C" THEN 'robots_inacessivel'
+                                         WHEN c.erro ILIKE 'erro_de_leitura%' COLLATE "C" THEN 'erro_de_leitura'
+                                         WHEN c.erro ILIKE 'HTTP %' COLLATE "C" AND c.http_status IS NOT NULL THEN 'http_' || c.http_status
                                          ELSE 'erro_de_rede' END
             WHEN p.extracao_ok = 1 THEN 'ok'
-            WHEN p.motivo_falha LIKE 'erro:%' THEN compat_substr(p.motivo_falha, 1, instr(p.motivo_falha || '(', '(') - 1)
+            WHEN p.motivo_falha ILIKE 'erro:%' COLLATE "C" THEN compat_substr(p.motivo_falha, 1, instr(p.motivo_falha || '(', '(') - 1)
             ELSE COALESCE(p.motivo_falha, 'sem_pagina') END AS motivo
 FROM selecao_download s
 JOIN urls u ON u.url_id = s.url_id
@@ -450,7 +450,7 @@ CREATE VIEW v_extracao AS
 SELECT resultado, motivo, COALESCE(fonte_oficial_final, fonte_oficial) AS fonte_oficial, COALESCE(content_type, '') AS content_type,
        COUNT(DISTINCT run_id || '|' || url_id) AS n_urls,
        ROUND(100.0::double precision * COUNT(DISTINCT run_id || '|' || url_id)
-             / (SELECT COUNT(DISTINCT run_id || '|' || url_id) FROM v_resultado_download WHERE no_relatorio = 1), 1) AS pct
+             / NULLIF((SELECT COUNT(DISTINCT run_id || '|' || url_id) FROM v_resultado_download WHERE no_relatorio = 1), 0), 1) AS pct
 FROM v_resultado_download WHERE no_relatorio = 1
 GROUP BY resultado, motivo, COALESCE(fonte_oficial_final, fonte_oficial), COALESCE(content_type, '') ORDER BY n_urls DESC NULLS LAST;
 
@@ -547,16 +547,16 @@ WITH removidos_escopo AS (
 SELECT 1 AS ordem, 'identificacao' AS fase, 'execucoes de busca academica' AS metrica,
        (SELECT COUNT(DISTINCT run_id) FROM r_chamadas WHERE etapa = 'busca_academica') AS valor
 UNION ALL SELECT 2, 'identificacao', 'Google Scholar: registros retornados',
-       COALESCE((SELECT SUM(n_retornados) FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1), 0)
+       COALESCE((SELECT compat_soma(n_retornados) FROM r_chamadas WHERE etapa = 'busca_academica' AND sucesso = 1), 0)
 UNION ALL SELECT 3, 'identificacao', 'buscas manuais: registros retornados (contagem informada)',
-       COALESCE((SELECT SUM(n_resultados) FROM buscas_manuais), 0)
+       COALESCE((SELECT compat_soma(n_resultados) FROM buscas_manuais), 0)
 UNION ALL SELECT 4, 'identificacao', 'Google Scholar: duplicatas entre termos removidas',
        (SELECT COUNT(*) FROM r_ocorrencias) - (SELECT COUNT(DISTINCT artigo_id) FROM r_ocorrencias)
 UNION ALL SELECT 5, 'identificacao', 'Google Scholar: artigos unicos', (SELECT COUNT(DISTINCT artigo_id) FROM r_ocorrencias)
 UNION ALL SELECT 6, 'identificacao', 'buscas manuais: apos filtro da base (contagem informada)',
-       COALESCE((SELECT SUM(n_apos_filtro) FROM buscas_manuais), 0)
+       COALESCE((SELECT compat_soma(n_apos_filtro) FROM buscas_manuais), 0)
 UNION ALL SELECT 7, 'identificacao', 'buscas manuais: selecionados (contagem informada)',
-       COALESCE((SELECT SUM(n_selecionados) FROM buscas_manuais), 0)
+       COALESCE((SELECT compat_soma(n_selecionados) FROM buscas_manuais), 0)
 UNION ALL SELECT 8, 'identificacao', 'buscas manuais: artigos importados (por base)',
        (SELECT COUNT(DISTINCT artigo_id || '|' || base) FROM ocorrencias_manuais)
 UNION ALL SELECT 9, 'identificacao', 'registros (artigo x fonte) apos remover duplicatas entre termos',
@@ -586,14 +586,14 @@ CREATE VIEW v_rendimento_fonte AS
 WITH af AS (SELECT DISTINCT artigo_id, fonte FROM v_ocorrencias_fonte),
      por_artigo AS (SELECT artigo_id, COUNT(*) AS n_fontes FROM af GROUP BY artigo_id)
 SELECT af.fonte, COUNT(*) AS n_artigos,
-       COALESCE(SUM(pa.n_fontes = 1), 0) AS n_exclusivos,
-       ROUND(100.0::double precision * SUM(pa.n_fontes = 1) / COUNT(*), 1) AS pct_exclusivos,
-       COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos,
-       COALESCE(SUM(tr.decisao = 'excluir'), 0) AS n_excluidos,
-       COALESCE(SUM(tr.artigo_id IS NULL OR tr.decisao = 'pendente'), 0) AS n_pendentes,
-       ROUND(100.0::double precision * SUM(tr.decisao = 'incluir') / NULLIF(SUM(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct,
-       COALESCE(SUM(tr.decisao = 'incluir' AND pa.n_fontes = 1), 0) AS n_incluidos_exclusivos,
-       COALESCE(SUM(tr.decisao = 'incluir' AND tr.decisao_texto_completo = 'incluir'), 0) AS n_incluidos_finais
+       COALESCE(compat_soma(pa.n_fontes = 1), 0) AS n_exclusivos,
+       ROUND(100.0::double precision * compat_soma(pa.n_fontes = 1) / NULLIF(COUNT(*), 0), 1) AS pct_exclusivos,
+       COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incluidos,
+       COALESCE(compat_soma(tr.decisao = 'excluir'), 0) AS n_excluidos,
+       COALESCE(compat_soma(tr.artigo_id IS NULL OR tr.decisao = 'pendente'), 0) AS n_pendentes,
+       ROUND(100.0::double precision * compat_soma(tr.decisao = 'incluir') / NULLIF(compat_soma(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct,
+       COALESCE(compat_soma(tr.decisao = 'incluir' AND pa.n_fontes = 1), 0) AS n_incluidos_exclusivos,
+       COALESCE(compat_soma(tr.decisao = 'incluir' AND tr.decisao_texto_completo = 'incluir'), 0) AS n_incluidos_finais
 FROM af JOIN por_artigo pa ON pa.artigo_id = af.artigo_id
 LEFT JOIN triagem tr ON tr.artigo_id = af.artigo_id
 GROUP BY af.fonte ORDER BY n_incluidos DESC NULLS LAST, taxa_inclusao_pct DESC NULLS LAST, n_artigos DESC NULLS LAST;
@@ -603,8 +603,8 @@ CREATE VIEW v_sobreposicao_fontes AS
 WITH af AS (SELECT DISTINCT artigo_id, fonte FROM v_ocorrencias_fonte),
      tamanho AS (SELECT fonte, COUNT(*) AS n FROM af GROUP BY fonte)
 SELECT a.fonte AS fonte_a, b.fonte AS fonte_b, ta.n AS n_a, tb.n AS n_b, COUNT(*) AS n_em_comum,
-       ta.n + tb.n - COUNT(*) AS n_uniao, ROUND(1.0::double precision * COUNT(*) / (ta.n + tb.n - COUNT(*)), 3) AS jaccard,
-       COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos_em_comum
+       ta.n + tb.n - COUNT(*) AS n_uniao, ROUND(1.0::double precision * COUNT(*) / NULLIF((ta.n + tb.n - COUNT(*)), 0), 3) AS jaccard,
+       COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incluidos_em_comum
 FROM af a JOIN af b ON a.artigo_id = b.artigo_id AND a.fonte < b.fonte
 JOIN tamanho ta ON ta.fonte = a.fonte JOIN tamanho tb ON tb.fonte = b.fonte
 LEFT JOIN triagem tr ON tr.artigo_id = a.artigo_id
@@ -613,9 +613,9 @@ GROUP BY a.fonte, b.fonte, ta.n, tb.n ORDER BY jaccard DESC NULLS LAST;
 DROP VIEW IF EXISTS v_rendimento_termo_fonte CASCADE;
 CREATE VIEW v_rendimento_termo_fonte AS
 SELECT o.fonte, o.termo_id, COUNT(DISTINCT o.artigo_id) AS n_artigos,
-       COALESCE(SUM(tr.decisao = 'incluir'), 0) AS n_incluidos,
-       COALESCE(SUM(tr.decisao = 'excluir'), 0) AS n_excluidos,
-       ROUND(100.0::double precision * SUM(tr.decisao = 'incluir') / NULLIF(SUM(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct
+       COALESCE(compat_soma(tr.decisao = 'incluir'), 0) AS n_incluidos,
+       COALESCE(compat_soma(tr.decisao = 'excluir'), 0) AS n_excluidos,
+       ROUND(100.0::double precision * compat_soma(tr.decisao = 'incluir') / NULLIF(compat_soma(tr.decisao IN ('incluir', 'excluir')), 0), 1) AS taxa_inclusao_pct
 FROM (SELECT DISTINCT artigo_id, fonte, termo_id FROM v_ocorrencias_fonte) o
 LEFT JOIN triagem tr ON tr.artigo_id = o.artigo_id
 GROUP BY o.fonte, o.termo_id ORDER BY o.fonte NULLS FIRST, o.termo_id NULLS FIRST;
@@ -635,7 +635,7 @@ SELECT t.termo_id AS termo_composto, t.pai AS termo_pai, t.query,
 FROM v_termos t
 JOIN v_rendimento_termo c ON c.termo_id = t.termo_id
 JOIN v_rendimento_termo p ON p.termo_id = t.pai
-LEFT JOIN v_pares_termos par ON par.termo_a = LEAST(t.termo_id, t.pai) AND par.termo_b = GREATEST(t.termo_id, t.pai)
+LEFT JOIN v_pares_termos par ON par.termo_a = CASE WHEN (t.termo_id) IS NULL OR (t.pai) IS NULL THEN NULL ELSE LEAST(t.termo_id, t.pai) END AND par.termo_b = CASE WHEN (t.termo_id) IS NULL OR (t.pai) IS NULL THEN NULL ELSE GREATEST(t.termo_id, t.pai) END
 WHERE COALESCE(t.pai, '') <> '';
 
 DROP VIEW IF EXISTS v_pares_auditoria CASCADE;
@@ -685,12 +685,12 @@ CREATE VIEW v_auditoria_prefiltro AS
 WITH amostra AS (SELECT run_id, url_id, uf FROM r_selecao_download WHERE auditoria = 1),
      descartadas AS (SELECT run_id, COUNT(*) AS n FROM r_selecao_download WHERE selecionada = 0 AND motivo = 'prefiltro_palavras' GROUP BY run_id)
 SELECT a.run_id, d.n AS n_descartadas_prefiltro, COUNT(*) AS n_amostra,
-       COALESCE(SUM(st.url_id IS NOT NULL), 0) AS n_classificadas,
-       COALESCE(SUM(st.n_achados > 0), 0) AS n_com_achado,
-       COALESCE(SUM(st.verificado = 1), 0) AS n_verificadas,
-       COALESCE(SUM(st.confirmado = 1), 0) AS n_confirmadas,
-       ROUND(100.0::double precision * SUM(st.n_achados > 0) / NULLIF(SUM(st.url_id IS NOT NULL), 0), 1) AS taxa_com_achado_pct,
-       ROUND(1.0::double precision * d.n * SUM(st.n_achados > 0) / NULLIF(SUM(st.url_id IS NOT NULL), 0), 1) AS estimativa_com_achado_entre_descartadas
+       COALESCE(compat_soma(st.url_id IS NOT NULL), 0) AS n_classificadas,
+       COALESCE(compat_soma(st.n_achados > 0), 0) AS n_com_achado,
+       COALESCE(compat_soma(st.verificado = 1), 0) AS n_verificadas,
+       COALESCE(compat_soma(st.confirmado = 1), 0) AS n_confirmadas,
+       ROUND(100.0::double precision * compat_soma(st.n_achados > 0) / NULLIF(compat_soma(st.url_id IS NOT NULL), 0), 1) AS taxa_com_achado_pct,
+       ROUND(1.0::double precision * d.n * compat_soma(st.n_achados > 0) / NULLIF(compat_soma(st.url_id IS NOT NULL), 0), 1) AS estimativa_com_achado_entre_descartadas
 FROM amostra a
 LEFT JOIN v_status_url st ON st.url_id = a.url_id AND st.uf = a.uf
 LEFT JOIN descartadas d ON d.run_id = a.run_id
@@ -715,14 +715,14 @@ WITH pares AS (
     FROM v_ultima_revisao_triagem a JOIN v_ultima_revisao_triagem b ON a.artigo_id = b.artigo_id AND a.revisor < b.revisor),
  tot AS (
     SELECT revisor_a, revisor_b, COUNT(*) AS n,
-           SUM(da = 'incluir' AND db = 'incluir') AS n11, SUM(da = 'incluir' AND db = 'excluir') AS n10,
-           SUM(da = 'excluir' AND db = 'incluir') AS n01, SUM(da = 'excluir' AND db = 'excluir') AS n00
+           compat_soma(da = 'incluir' AND db = 'incluir') AS n11, compat_soma(da = 'incluir' AND db = 'excluir') AS n10,
+           compat_soma(da = 'excluir' AND db = 'incluir') AS n01, compat_soma(da = 'excluir' AND db = 'excluir') AS n00
     FROM pares GROUP BY revisor_a, revisor_b),
  base AS (
-    SELECT *, ((n11 + n10) * 1.0::double precision / n) * ((n11 + n01) * 1.0::double precision / n) + ((n01 + n00) * 1.0::double precision / n) * ((n10 + n00) * 1.0::double precision / n) AS pe FROM tot)
+    SELECT *, ((n11 + n10) * 1.0::double precision / NULLIF(n, 0)) * ((n11 + n01) * 1.0::double precision / NULLIF(n, 0)) + ((n01 + n00) * 1.0::double precision / NULLIF(n, 0)) * ((n10 + n00) * 1.0::double precision / NULLIF(n, 0)) AS pe FROM tot)
 SELECT revisor_a, revisor_b, n AS n_artigos_em_comum, n11 AS ambos_incluem, n00 AS ambos_excluem, n10 + n01 AS discordancias,
-       ROUND(100.0::double precision * (n11 + n00) / n, 1) AS concordancia_pct,
-       ROUND((((n11 + n00) * 1.0::double precision / n) - pe) / NULLIF(1 - pe, 0), 3) AS kappa
+       ROUND(100.0::double precision * (n11 + n00) / NULLIF(n, 0), 1) AS concordancia_pct,
+       ROUND((((n11 + n00) * 1.0::double precision / NULLIF(n, 0)) - pe) / NULLIF(1 - pe, 0), 3) AS kappa
 FROM base;
 
 DROP VIEW IF EXISTS v_discordancias_triagem CASCADE;
@@ -737,9 +737,9 @@ ORDER BY a.artigo_id NULLS FIRST;
 
 DROP VIEW IF EXISTS v_gasto_real CASCADE;
 CREATE VIEW v_gasto_real AS
-SELECT c.provedor, e.no_relatorio, COUNT(*) AS n_chamadas, COALESCE(SUM(c.sucesso), 0) AS n_ok,
-       ROUND(COALESCE(SUM(c.custo_usd), 0), 4) AS custo_registrado_usd,
-       COALESCE(SUM(c.sucesso = 1 AND c.custo_usd IS NULL
+SELECT c.provedor, e.no_relatorio, COUNT(*) AS n_chamadas, COALESCE(compat_soma(c.sucesso), 0) AS n_ok,
+       ROUND(COALESCE(compat_soma(c.custo_usd), 0), 4) AS custo_registrado_usd,
+       COALESCE(compat_soma(c.sucesso = 1 AND c.custo_usd IS NULL
                     AND EXISTS (SELECT 1 FROM chamadas x WHERE x.provedor = c.provedor AND x.custo_usd IS NOT NULL)), 0) AS n_ok_sem_custo
 FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id
 GROUP BY c.provedor, e.no_relatorio;
@@ -756,12 +756,12 @@ WHERE k.json_valido = 0;       -- r_classificacoes so traz a vigente do par, que
 DROP VIEW IF EXISTS v_consistencia_evidencia CASCADE;
 CREATE VIEW v_consistencia_evidencia AS
 SELECT k.classificador, k.prompt_versao, COUNT(*) AS n_achados,
-       COALESCE(SUM(a.evidencia_cita_tecnologia = 1), 0) AS n_evidencia_cita_tecnologia,
-       ROUND(100.0::double precision * SUM(a.evidencia_cita_tecnologia = 1) / NULLIF(SUM(a.evidencia_cita_tecnologia IS NOT NULL), 0), 1) AS pct_evidencia_cita_tecnologia,
-       COALESCE(SUM(a.menciona_lgpd = 1), 0) AS n_lgpd_modelo,
-       COALESCE(SUM(a.menciona_lgpd = 1 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_modelo_com_respaldo,
-       COALESCE(SUM(a.menciona_lgpd = 1 AND COALESCE(a.evidencia_cita_lgpd, 0) = 0), 0) AS n_lgpd_modelo_sem_respaldo,
-       COALESCE(SUM(COALESCE(a.menciona_lgpd, 0) = 0 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_no_trecho_sem_flag
+       COALESCE(compat_soma(a.evidencia_cita_tecnologia = 1), 0) AS n_evidencia_cita_tecnologia,
+       ROUND(100.0::double precision * compat_soma(a.evidencia_cita_tecnologia = 1) / NULLIF(compat_soma(a.evidencia_cita_tecnologia IS NOT NULL), 0), 1) AS pct_evidencia_cita_tecnologia,
+       COALESCE(compat_soma(a.menciona_lgpd = 1), 0) AS n_lgpd_modelo,
+       COALESCE(compat_soma(a.menciona_lgpd = 1 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_modelo_com_respaldo,
+       COALESCE(compat_soma(a.menciona_lgpd = 1 AND COALESCE(a.evidencia_cita_lgpd, 0) = 0), 0) AS n_lgpd_modelo_sem_respaldo,
+       COALESCE(compat_soma(COALESCE(a.menciona_lgpd, 0) = 0 AND a.evidencia_cita_lgpd = 1), 0) AS n_lgpd_no_trecho_sem_flag
 FROM r_achados_historico a JOIN r_classificacoes_historico k ON k.classificacao_id = a.classificacao_id
 GROUP BY k.classificador, k.prompt_versao;
 
@@ -785,16 +785,16 @@ WITH pares AS (
            CASE WHEN a.status_final = b.status_final THEN 1 ELSE 0 END AS status_igual
     FROM v_ultima_revisao_achados a JOIN v_ultima_revisao_achados b ON a.achado_id = b.achado_id AND a.revisor < b.revisor),
  tot AS (
-    SELECT revisor_a, revisor_b, COUNT(*) AS n, SUM(status_igual) AS n_status_iguais,
-           SUM(da = 'confirmado' AND db = 'confirmado') AS n11, SUM(da = 'confirmado' AND db = 'descartado') AS n10,
-           SUM(da = 'descartado' AND db = 'confirmado') AS n01, SUM(da = 'descartado' AND db = 'descartado') AS n00
+    SELECT revisor_a, revisor_b, COUNT(*) AS n, compat_soma(status_igual) AS n_status_iguais,
+           compat_soma(da = 'confirmado' AND db = 'confirmado') AS n11, compat_soma(da = 'confirmado' AND db = 'descartado') AS n10,
+           compat_soma(da = 'descartado' AND db = 'confirmado') AS n01, compat_soma(da = 'descartado' AND db = 'descartado') AS n00
     FROM pares GROUP BY revisor_a, revisor_b),
  base AS (
-    SELECT *, ((n11 + n10) * 1.0::double precision / n) * ((n11 + n01) * 1.0::double precision / n) + ((n01 + n00) * 1.0::double precision / n) * ((n10 + n00) * 1.0::double precision / n) AS pe FROM tot)
+    SELECT *, ((n11 + n10) * 1.0::double precision / NULLIF(n, 0)) * ((n11 + n01) * 1.0::double precision / NULLIF(n, 0)) + ((n01 + n00) * 1.0::double precision / NULLIF(n, 0)) * ((n10 + n00) * 1.0::double precision / NULLIF(n, 0)) AS pe FROM tot)
 SELECT revisor_a, revisor_b, n AS n_achados_em_comum, n11 AS ambos_confirmam, n00 AS ambos_descartam, n10 + n01 AS discordancias,
-       ROUND(100.0::double precision * (n11 + n00) / n, 1) AS concordancia_pct,
-       ROUND((((n11 + n00) * 1.0::double precision / n) - pe) / NULLIF(1 - pe, 0), 3) AS kappa,
-       n_status_iguais, ROUND(100.0::double precision * n_status_iguais / n, 1) AS concordancia_status_pct
+       ROUND(100.0::double precision * (n11 + n00) / NULLIF(n, 0), 1) AS concordancia_pct,
+       ROUND((((n11 + n00) * 1.0::double precision / NULLIF(n, 0)) - pe) / NULLIF(1 - pe, 0), 3) AS kappa,
+       n_status_iguais, ROUND(100.0::double precision * n_status_iguais / NULLIF(n, 0), 1) AS concordancia_status_pct
 FROM base;
 
 DROP VIEW IF EXISTS v_discordancias_achados CASCADE;
@@ -827,8 +827,8 @@ WITH por_classificacao AS (
     SELECT n.classificacao_id, MAX(n.tinha_aplicacao) AS perdida
     FROM auditoria_negativos n JOIN r_classificacoes_historico k ON k.classificacao_id = n.classificacao_id
     GROUP BY n.classificacao_id)
-SELECT 'total' AS grupo, NULL AS tecnologia, COUNT(*) AS n_auditadas, COALESCE(SUM(perdida), 0) AS n_com_aplicacao_perdida,
-       ROUND(100.0::double precision * SUM(perdida) / NULLIF(COUNT(*), 0), 1) AS taxa_perdida_pct
+SELECT 'total' AS grupo, NULL AS tecnologia, COUNT(*) AS n_auditadas, COALESCE(compat_soma(perdida), 0) AS n_com_aplicacao_perdida,
+       ROUND(100.0::double precision * compat_soma(perdida) / NULLIF(COUNT(*), 0), 1) AS taxa_perdida_pct
 FROM por_classificacao
 UNION ALL
 SELECT 'tecnologia', COALESCE(n.tecnologia, '(sem tecnologia)'), NULL, COUNT(DISTINCT n.classificacao_id), NULL

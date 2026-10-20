@@ -60,24 +60,35 @@ def copiar_demo(tmp_path_factory):
     return copiar
 
 
-@pytest.fixture
-def pg_url():
-    """Um banco PostgreSQL novo e vazio por teste, num servidor descartavel (PG_TESTE_URL aponta o banco de administracao,
-    ex.: postgresql://postgres:teste@127.0.0.1:55432/postgres). Apagado no fim. Sem PG_TESTE_URL, o teste e pulado."""
+def _banco_pg_descartavel():
+    """Um banco PostgreSQL novo e vazio num servidor descartavel (PG_TESTE_URL aponta o banco de administracao, ex.:
+    postgresql://postgres:teste@127.0.0.1:55432/postgres), com a colacao do Neon (C.UTF-8). Apagado no fim. Sem
+    PG_TESTE_URL, o teste e pulado; um servidor que nao e local e recusado (os testes criam e apagam bancos)."""
     import os
     import uuid
     from urllib.parse import urlsplit, urlunsplit
     adm = os.environ.get("PG_TESTE_URL", "").strip()
     if not adm:
         pytest.skip("PG_TESTE_URL nao definida: sem PostgreSQL de teste")
-    from urllib.parse import urlsplit as _u
-    if (_u(adm).hostname or "") not in ("localhost", "127.0.0.1"):
+    if (urlsplit(adm).hostname or "") not in ("localhost", "127.0.0.1"):
         pytest.fail("PG_TESTE_URL so pode apontar para um PostgreSQL local descartavel: os testes criam e apagam bancos")
     import psycopg
     nome = "t_" + uuid.uuid4().hex[:12]
     with psycopg.connect(adm, autocommit=True) as c:
-        c.execute(f"CREATE DATABASE {nome}")
+        c.execute(f"CREATE DATABASE {nome} TEMPLATE template0 LC_COLLATE 'C.UTF-8' LC_CTYPE 'C.UTF-8'")
     p = urlsplit(adm)
-    yield urlunsplit((p.scheme, p.netloc, "/" + nome, p.query, ""))
-    with psycopg.connect(adm, autocommit=True) as c:
-        c.execute(f"DROP DATABASE IF EXISTS {nome} WITH (FORCE)")
+    try:
+        yield urlunsplit((p.scheme, p.netloc, "/" + nome, p.query, ""))
+    finally:
+        with psycopg.connect(adm, autocommit=True) as c:
+            c.execute(f"DROP DATABASE IF EXISTS {nome} WITH (FORCE)")
+
+
+@pytest.fixture
+def pg_url():
+    yield from _banco_pg_descartavel()
+
+
+@pytest.fixture(scope="module")
+def pg_url_modulo():
+    yield from _banco_pg_descartavel()

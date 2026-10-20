@@ -14,7 +14,7 @@ from adaptadores.postgres import traducao as T
 
 RAIZ = Path(__file__).resolve().parent.parent
 MIGRACOES = RAIZ / "adaptadores" / "postgres" / "migracoes"
-ARQUIVOS = ["V0001_compatibilidade.sql", "V0002_tabelas.sql", "R_views.sql"]
+ARQUIVOS = ["V0001_compatibilidade.sql", "V0002_tabelas.sql", "V0003_soma_como_sqlite.sql", "R_views.sql"]
 
 
 # ====================== sem PostgreSQL ======================
@@ -30,10 +30,12 @@ def test_migracoes_presentes_e_em_ordem():
 
 
 @pytest.mark.parametrize("entrada,saida", [
-    ("SELECT MIN(a, b) FROM t", "SELECT LEAST(a, b) FROM t"),
-    ("SELECT MAX(t.x, COALESCE(y, 0)) FROM t", "SELECT GREATEST(t.x, COALESCE(y, 0)) FROM t"),
+    # NULL em qualquer argumento da NULL, como no SQLite (o LEAST/GREATEST do PostgreSQL ignoraria o NULL)
+    ("SELECT MIN(a, b) FROM t", "SELECT CASE WHEN (a) IS NULL OR (b) IS NULL THEN NULL ELSE LEAST(a, b) END FROM t"),
+    ("SELECT MAX(t.x, COALESCE(y, 0)) FROM t",
+     "SELECT CASE WHEN (t.x) IS NULL OR (COALESCE(y, 0)) IS NULL THEN NULL ELSE GREATEST(t.x, COALESCE(y, 0)) END FROM t"),
     ("SELECT MIN(x), MAX(f(a, b)) FROM t", "SELECT MIN(x), MAX(f(a, b)) FROM t"),
-    ("SELECT MAX(MIN(a, b)) FROM t", "SELECT MAX(LEAST(a, b)) FROM t"),
+    ("SELECT MAX(MIN(a, b)) FROM t", "SELECT MAX(CASE WHEN (a) IS NULL OR (b) IS NULL THEN NULL ELSE LEAST(a, b) END) FROM t"),
 ])
 def test_min_max_com_dois_argumentos_viram_least_greatest(entrada, saida):
     assert T._min_max_escalares(entrada) == saida
@@ -332,3 +334,64 @@ def test_quebra_de_linha_nao_muda_o_hash(tmp_path):
     a.write_bytes(b"SELECT 1;\nSELECT 2;\n")
     b.write_bytes(b"SELECT 1;\r\nSELECT 2;\r\n")
     assert M._hash(a) == M._hash(b)
+
+
+@pytest.mark.postgres
+def test_banco_com_colacao_de_idioma_e_recusado(pg_url):
+    import os
+    import uuid
+    from urllib.parse import urlsplit, urlunsplit
+    import psycopg
+    adm = os.environ["PG_TESTE_URL"]
+    nome = "t_" + uuid.uuid4().hex[:12]
+    with psycopg.connect(adm, autocommit=True) as c:
+        c.execute(f"CREATE DATABASE {nome} TEMPLATE template0 LC_COLLATE 'en_US.utf8' LC_CTYPE 'en_US.utf8'")
+    p = urlsplit(adm)
+    url = urlunsplit((p.scheme, p.netloc, "/" + nome, p.query, ""))
+    try:
+        msg = ("O banco PostgreSQL precisa da ordenação byte a byte (C ou C.UTF-8, o padrão do Neon) e usa en_US.utf8: "
+               "crie outro banco com LC_COLLATE 'C.UTF-8'.")
+        with pytest.raises(M.ErroMigracao) as e:
+            M.aplicar(url)
+        assert str(e.value) == msg
+        with psycopg.connect(url) as c:
+            assert c.execute("SELECT to_regclass('versao_esquema')").fetchone()[0] is None      # nada foi aplicado
+    finally:
+        with psycopg.connect(adm, autocommit=True) as c:
+            c.execute(f"DROP DATABASE IF EXISTS {nome} WITH (FORCE)")
+
+
+
+@pytest.mark.postgres
+def test_banco_icu_e_recusado_mesmo_com_lc_collate_c(pg_url):
+    import os
+    import uuid
+    from urllib.parse import urlsplit, urlunsplit
+    import psycopg
+    adm = os.environ["PG_TESTE_URL"]
+    nome = "t_" + uuid.uuid4().hex[:12]
+    with psycopg.connect(adm, autocommit=True) as c:
+        c.execute(f"CREATE DATABASE {nome} TEMPLATE template0 LOCALE_PROVIDER icu ICU_LOCALE 'en-US' "
+                  "LC_COLLATE 'C.UTF-8' LC_CTYPE 'C.UTF-8'")
+    p = urlsplit(adm)
+    url = urlunsplit((p.scheme, p.netloc, "/" + nome, p.query, ""))
+    try:
+        with pytest.raises(M.ErroMigracao) as e:
+            M.aplicar(url)
+        assert str(e.value) == ("O banco PostgreSQL precisa da ordenação byte a byte (C ou C.UTF-8, o padrão do Neon) e usa "
+                                "ICU en-US: crie outro banco com LC_COLLATE 'C.UTF-8'.")
+    finally:
+        with psycopg.connect(adm, autocommit=True) as c:
+            c.execute(f"DROP DATABASE IF EXISTS {nome} WITH (FORCE)")
+
+
+@pytest.mark.postgres
+def test_todas_as_views_rodam_no_banco_vazio(pg_url):
+    """Sem dados, contagens dao zero: nenhuma divisao por zero (no SQLite da NULL) pode virar erro."""
+    import psycopg
+    M.aplicar(pg_url)
+    with psycopg.connect(pg_url) as c:
+        views = [v for (v,) in c.execute("SELECT table_name FROM information_schema.views WHERE table_schema = 'public'")]
+        for v in views:
+            c.execute(f"SELECT * FROM {v}").fetchall()
+    assert len(views) == 73

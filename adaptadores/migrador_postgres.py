@@ -34,24 +34,32 @@ LOCAIS = ("localhost", "127.0.0.1", "::1")
 INVALIDA = "A URL do PostgreSQL é inválida (confira o formato postgresql://usuario:senha@host/banco)."
 
 
-def conferir_url(url):
-    """A migracao precisa de sessao propria (trava consultiva): nunca a URL do pool (-pooler no Neon). Host remoto exige
-    TLS (sslmode=require ou mais forte). Decide pelos valores que a conexao vai usar (o leitor de URL do psycopg: parametro
-    repetido vale o ultimo, `host=` na query vale mais que o host do endereco, varios hosts separados por virgula).
-    A mensagem nunca repete a URL."""
+def analisar_url(url):
+    """(hosts, remoto_sem_tls) pelos valores que a conexao vai usar (o leitor de URL do psycopg: parametro repetido vale o
+    ultimo, `host=` na query vale mais que o host do endereco, varios hosts separados por virgula, `hostaddr`). URL sem
+    host e invalida (a libpq cairia no PGHOST ou no service do ambiente). Usada pela migracao e pelo pool do painel."""
     if not isinstance(url, str) or not url.startswith(("postgresql://", "postgres://")):
         raise ErroMigracao(INVALIDA)
     try:
         info = conninfo_to_dict(url)
     except psycopg.Error:
         raise ErroMigracao(INVALIDA) from None
+    if info.get("service"):
+        raise ErroMigracao(INVALIDA)
     hosts = [h.strip().lower() for chave in ("host", "hostaddr") for h in str(info.get(chave) or "").split(",") if h.strip()]
     if not hosts:
         raise ErroMigracao(INVALIDA)
+    remotos = [h for h in hosts if h not in LOCAIS and not h.startswith("/")]
+    return hosts, bool(remotos) and info.get("sslmode") not in ("require", "verify-ca", "verify-full")
+
+
+def conferir_url(url):
+    """A migracao precisa de sessao propria (trava consultiva): nunca a URL do pool (-pooler no Neon). Host remoto exige
+    TLS (sslmode=require ou mais forte). A mensagem nunca repete a URL."""
+    hosts, sem_tls = analisar_url(url)
     if any("-pooler" in h for h in hosts):
         raise ErroMigracao("Use a conexão direta (sem -pooler) para migrar: a URL do pool não mantém a trava da migração.")
-    remotos = [h for h in hosts if h not in LOCAIS and not h.startswith("/")]
-    if remotos and info.get("sslmode") not in ("require", "verify-ca", "verify-full"):
+    if sem_tls:
         raise ErroMigracao("Conexão remota sem TLS: acrescente sslmode=require à URL do PostgreSQL.")
 
 
@@ -74,9 +82,50 @@ def _ordem_dos_versionados(versionados, feitos):
         raise ErroMigracao("Migração nova numerada antes da última aplicada: " + ", ".join(n for n in novos if n < max(aplicados)) + ".")
 
 
+COLACOES_BYTE_A_BYTE = ("C", "C.UTF-8", "C.utf8", "POSIX")
+
+
+VERSAO_MINIMA = 160000                    # subconsulta sem apelido no FROM (as consultas do painel e do catalogo): 16+
+
+
+def _conferir_servidor(conn):
+    """Versao do servidor (16 ou mais nova) e colacao byte a byte; recusa antes de aplicar ou de abrir o painel."""
+    versao = int(conn.execute("SELECT current_setting('server_version_num')").fetchone()[0])
+    if versao < VERSAO_MINIMA:
+        raise ErroMigracao(f"O PostgreSQL precisa ser da versão 16 ou mais nova (este é {versao // 10000}): "
+                           "crie o projeto do Neon com a versão 16 ou 17.")
+    _conferir_colacao(conn)
+
+
+def _conferir_colacao(conn):
+    """O texto precisa ser ordenado e comparado byte a byte, como no SQLite (o Neon usa C.UTF-8 por padrao): provedor
+    libc com LC_COLLATE C/C.UTF-8/POSIX, ou o provedor builtin (PostgreSQL 17) com C ou C.UTF-8. ICU nunca (o LC_COLLATE
+    de um banco ICU nao e a colacao usada). A colacao de um banco nao muda depois de criado: com outra, recusa antes de
+    aplicar qualquer coisa."""
+    colacao, provedor, icu, builtin = conn.execute(
+        "SELECT d.datcollate, d.datlocprovider::text, to_jsonb(d) ->> 'daticulocale', to_jsonb(d) ->> 'datlocale' "
+        "FROM pg_database d WHERE d.datname = current_database()").fetchone()
+    if provedor == "c" and colacao in COLACOES_BYTE_A_BYTE:
+        return
+    if provedor == "b" and builtin in ("C", "C.UTF-8"):
+        return
+    usa = {"c": colacao, "i": f"ICU {icu or builtin}", "b": f"builtin {builtin}"}.get(provedor, f"o provedor {provedor}")
+    raise ErroMigracao("O banco PostgreSQL precisa da ordenação byte a byte (C ou C.UTF-8, o padrão do Neon) e usa "
+                       f"{usa}: crie outro banco com LC_COLLATE 'C.UTF-8'.")
+
+
 def _registro(conn):
     conn.execute("CREATE TABLE IF NOT EXISTS versao_esquema (arquivo TEXT PRIMARY KEY, sha256 TEXT NOT NULL, aplicada_em TEXT NOT NULL)")
     return dict(conn.execute("SELECT arquivo, sha256 FROM versao_esquema").fetchall())
+
+
+def pendentes_na_conexao(conn, pasta=PASTA):
+    """Os mesmos pendentes de `pendentes`, lendo por uma conexao ja aberta (o pool do painel, que usa a URL -pooler)."""
+    versionados, repetiveis = _arquivos(pasta)
+    _conferir_servidor(conn)
+    existe = conn.execute("SELECT to_regclass('versao_esquema') IS NOT NULL").fetchone()[0]
+    feitos = dict(conn.execute("SELECT arquivo, sha256 FROM versao_esquema").fetchall()) if existe else {}
+    return [p.name for p in versionados if feitos.get(p.name) != _hash(p)] + [p.name for p in repetiveis if feitos.get(p.name) != _hash(p)]
 
 
 def pendentes(url, pasta=PASTA):
@@ -84,6 +133,7 @@ def pendentes(url, pasta=PASTA):
     conferir_url(url)
     versionados, repetiveis = _arquivos(pasta)
     with _conectar(url) as conn:
+        _conferir_servidor(conn)
         existe = conn.execute("SELECT to_regclass('versao_esquema') IS NOT NULL").fetchone()[0]
         feitos = dict(conn.execute("SELECT arquivo, sha256 FROM versao_esquema").fetchall()) if existe else {}
     alterados = [p.name for p in versionados if p.name in feitos and feitos[p.name] != _hash(p)]
@@ -103,6 +153,7 @@ def aplicar(url, pasta=PASTA):
         trava.execute("SELECT pg_advisory_lock(%s)", (TRAVA,))
         try:
             with _conectar(url) as conn:
+                _conferir_servidor(conn)
                 feitos = _registro(conn)
                 conn.commit()
                 alterados = [p.name for p in versionados if p.name in feitos and feitos[p.name] != _hash(p)]

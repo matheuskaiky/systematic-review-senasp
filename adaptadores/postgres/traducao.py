@@ -46,27 +46,119 @@ def traduz_ddl(sql):
     return s
 
 
+def segmentos(sql):
+    """[(tipo, texto)] com tipo 'codigo', 'literal' ('...', com '' dentro) ou 'comentario' (-- ate o fim da linha, /* */).
+    Juntos, os textos refazem o SQL exato."""
+    out, i, ini, n = [], 0, 0, len(sql)
+    while i < n:
+        if sql[i] == "'":
+            j = i + 1
+            while True:
+                k = sql.find("'", j)
+                if k < 0:
+                    k = n - 1
+                    break
+                if k + 1 < n and sql[k + 1] == "'":
+                    j = k + 2
+                    continue
+                break
+            tipo, fim = "literal", k + 1
+        elif sql.startswith("--", i):
+            k = sql.find("\n", i)
+            tipo, fim = "comentario", (n if k < 0 else k)
+        elif sql.startswith("/*", i):
+            k = sql.find("*/", i + 2)
+            tipo, fim = "comentario", (n if k < 0 else k + 2)
+        else:
+            i += 1
+            continue
+        if ini < i:
+            out.append(("codigo", sql[ini:i]))
+        out.append((tipo, sql[i:fim]))
+        i = ini = fim
+    if ini < n:
+        out.append(("codigo", sql[ini:]))
+    return out
+
+
+def mascara(sql):
+    """O SQL com o miolo dos literais trocado por '_' e os comentarios por espacos, do mesmo tamanho: as posicoes valem
+    para o texto original, e nada dentro de aspas ou comentario e confundido com codigo."""
+    return "".join(t if tipo == "codigo" else (t[0] + "_" * (len(t) - 2) + t[-1] if tipo == "literal" and len(t) >= 2
+                                               else ("_" * len(t) if tipo == "literal" else " " * len(t)))
+                   for tipo, t in segmentos(sql))
+
+
+def sem_comentarios(sql):
+    return "".join(" " if tipo == "comentario" else t for tipo, t in segmentos(sql))
+
+
 def _min_max_escalares(sql):
-    """MIN(a, b) / MAX(a, b) com dois argumentos no nivel de cima -> LEAST / GREATEST (agregados ficam como estao)."""
-    out, pos, padrao = "", 0, re.compile(r"\b(MIN|MAX)\(")
+    """MIN(a, b, ...) / MAX(a, b, ...) com mais de um argumento -> LEAST / GREATEST, com NULL quando algum argumento e
+    NULL (como no SQLite; o LEAST do PostgreSQL ignoraria o NULL). Agregados (um argumento) ficam como estao."""
+    mas, out, pos = mascara(sql), "", 0
+    padrao = re.compile(r"\b(MIN|MAX)\(", re.I)
     while True:
-        m = padrao.search(sql, pos)
+        m = padrao.search(mas, pos)
         if not m:
             return out + sql[pos:]
-        prof, j, virgula = 1, m.end(), False
-        while prof:
-            c = sql[j]
-            prof += (c == "(") - (c == ")")
-            virgula = virgula or (c == "," and prof == 1)
-            j += 1
-        out += sql[pos:m.start()] + (("LEAST" if m.group(1) == "MIN" else "GREATEST") if virgula else m.group(1)) + "("
-        pos = m.end()
+        args, fim = _argumentos(mas, m.end())
+        if len(args) < 2:
+            out += sql[pos:m.end()]
+            pos = m.end()
+            continue
+        if any("?" in mas[a:b] for a, b in args):
+            raise ValueError("MIN/MAX com mais de um argumento não aceita parâmetro (?) no PostgreSQL: o argumento seria repetido.")
+        partes = [_min_max_escalares(sql[a:b].strip()) for a, b in args]
+        funcao = "LEAST" if m.group(1).upper() == "MIN" else "GREATEST"
+        out += (sql[pos:m.start()] + "CASE WHEN " + " OR ".join(f"({p}) IS NULL" for p in partes)
+                + f" THEN NULL ELSE {funcao}(" + ", ".join(partes) + ") END")
+        pos = fim
 
 
 def _fora_de_aspas(sql, funcao):
-    """Aplica `funcao` so ao texto fora de literais '...' (strings SQL ficam intactas)."""
-    partes = re.split(r"('(?:[^']|'')*')", sql)
-    return "".join(p if i % 2 else funcao(p) for i, p in enumerate(partes))
+    """Aplica `funcao` so ao codigo (literais '...' e comentarios ficam intactos)."""
+    return "".join(funcao(t) if tipo == "codigo" else t for tipo, t in segmentos(sql))
+
+
+def _fim_do_operando(mas, k):
+    """Fim do operando primario que comeca em mas[k] (depois de um operador binario): (...), chamada f(...), nome,
+    numero, literal ou ?; com sinal na frente. ValueError quando nao e nenhum desses (ex.: CASE)."""
+    if mas[k] in "+-":
+        k += 1
+        while mas[k].isspace():
+            k += 1
+    if mas[k] == "(":
+        return _argumentos(mas, k + 1)[1]
+    if mas[k] == "'":
+        return mas.index("'", k + 1) + 1
+    if mas[k] == "?":
+        return k + 1
+    m = re.compile(r"[\w.]+").match(mas, k)
+    if not m or re.fullmatch(r"(?i)CASE|SELECT|NOT|EXISTS|FROM|WHERE|AND|OR|THEN|ELSE|END|AS", m.group(0)):
+        raise ValueError(f"Divisão por expressão sem parênteses não suportada no PostgreSQL: {mas[k:k + 40]!r}.")
+    j = m.end()
+    if j < len(mas) and mas[j] == "(":
+        j = _argumentos(mas, j + 1)[1]
+    return j
+
+
+def divisao_como_sqlite(sql):
+    """x / 0 da NULL no SQLite e erro no PostgreSQL: o divisor (o operando logo depois de /) vira NULLIF(divisor, 0).
+    Um divisor que ja e NULLIF(...) fica como esta."""
+    mas = mascara(sql)
+    out, pos, i = "", 0, 0
+    while True:
+        i = mas.find("/", pos)
+        if i < 0:
+            return out + sql[pos:]
+        k = i + 1
+        while mas[k].isspace():
+            k += 1
+        j = _fim_do_operando(mas, k)
+        divisor = sql[k:j]
+        out += sql[pos:k] + (divisor if re.match(r"(?i)NULLIF\(", divisor) else f"NULLIF({divisor}, 0)")
+        pos = j
 
 
 def _decimais_como_real(trecho):
@@ -74,43 +166,181 @@ def _decimais_como_real(trecho):
     return re.sub(r"(?<![\w.])(\d+\.\d+)(?![\w.])", r"\1::double precision", trecho)
 
 
+def _soma_como_sqlite(trecho):
+    """SUM -> compat_soma (migracao V0003): soma de reais com a compensacao de erro do SQLite, inteiros como inteiro."""
+    return re.sub(r"\bSUM\(", "compat_soma(", trecho, flags=re.I)
+
+
+_CONDICAO = re.compile(r"(<>|!=|<=|>=|=|<|>|\bIS\b|\bLIKE\b|\bIN\b|\bAND\b|\bOR\b|\bNOT\b|\bEXISTS\b)", re.I)
+
+
+def _argumentos(sql, ini):
+    """Lista de (inicio, fim) dos argumentos da chamada que abre em sql[ini - 1] == '('; e o fim da chamada."""
+    prof, j, comeco, args = 1, ini, ini, []
+    while prof:
+        c = sql[j]
+        if c == "'":
+            j = sql.index("'", j + 1)
+            while j + 1 < len(sql) and sql[j + 1] == "'":
+                j = sql.index("'", j + 2)
+        elif c == "(":
+            prof += 1
+        elif c == ")":
+            prof -= 1
+            if prof == 0:
+                args.append((comeco, j))
+        elif c == "," and prof == 1:
+            args.append((comeco, j))
+            comeco = j + 1
+        j += 1
+    return args, j
+
+
+def _no_nivel_de_cima(trecho):
+    """O trecho sem o que esta entre parenteses e entre aspas (para achar operadores do nivel de cima)."""
+    out, prof, i = "", 0, 0
+    while i < len(trecho):
+        c = trecho[i]
+        if c == "'":
+            i = trecho.index("'", i + 1) + 1
+            continue
+        prof += (c == "(") - (c == ")")
+        out += c if prof == 0 and c not in "()" else " "
+        i += 1
+    return out
+
+
+def coalesce_de_condicao(sql):
+    """COALESCE(condicao, 0): no SQLite a condicao vale 0/1; no PostgreSQL e booleano e nao combina com o numero. A
+    condicao (operador de comparacao no nivel de cima do primeiro argumento) vira (condicao)::int."""
+    mas, out, pos = mascara(sql), "", 0
+    padrao = re.compile(r"\bCOALESCE\(", re.I)
+    while True:
+        m = padrao.search(mas, pos)
+        if not m:
+            return out + sql[pos:]
+        args, fim = _argumentos(mas, m.end())
+        primeiro = sql[args[0][0]:args[0][1]]
+        outros = [sql[a:b].strip() for a, b in args[1:]]
+        if not re.fullmatch(r"(?is)\s*CASE\b.*\bEND\s*", mas[args[0][0]:args[0][1]]) \
+                and _CONDICAO.search(_no_nivel_de_cima(mas[args[0][0]:args[0][1]])) and any(re.fullmatch(r"-?\d+(\.\d+)?(::[a-z ]+)?", o) for o in outros):
+            novo = "(" + primeiro.strip() + ")::int"
+            out += sql[pos:args[0][0]] + novo
+            pos = args[0][1]
+        else:
+            out += sql[pos:m.end()]
+            pos = m.end()
+
+
+def like_como_sqlite(sql):
+    """LIKE do SQLite ignora maiusculas so em letras ASCII: ILIKE sobre texto COLLATE "C" faz exatamente isso. O SQLite
+    nao tem caractere de escape padrao e o PostgreSQL usa a barra invertida: sem ESCAPE explicito, o padrao `?` ou um
+    literal com barra invertida recebe ESCAPE ''. Padrao concatenado (||) ou qualquer outro sem ESCAPE e recusado
+    (ValueError)."""
+    mas, out, pos = mascara(sql), "", 0
+    padrao = re.compile(r"\bLIKE\b", re.I)
+    while True:
+        m = padrao.search(mas, pos)
+        if not m:
+            return out + sql[pos:]
+        k = m.end()
+        while k < len(mas) and mas[k].isspace():
+            k += 1
+        j = _fim_do_operando(mas, k)
+        operando = sql[k:j]
+        tem_escape = re.match(r"\s+ESCAPE\b", mas[j:], re.I)
+        if re.match(r"\s*\|\|", mas[j:]):
+            raise ValueError("LIKE com padrão concatenado (||) não suportado no PostgreSQL: monte o padrão no Python e use ?.")
+        if tem_escape or (operando.startswith("'") and "\\" not in operando):
+            extra = ""
+        elif operando == "?" or operando.startswith("'"):
+            extra = " ESCAPE ''"
+        else:
+            raise ValueError(f"LIKE sem ESCAPE com padrão {operando!r}: escreva o padrão como ? ou literal.")
+        out += sql[pos:m.start()] + "ILIKE" + sql[m.end():k] + operando + ' COLLATE "C"' + extra
+        pos = j
+
+
+def ordem_do_group_concat(sql):
+    """GROUP_CONCAT junta na ordem em que o SQLite le as linhas (aqui, sempre a ordem do proprio valor: as subconsultas
+    ordenam por ele); o PostgreSQL nao garante ordem na agregacao. Acrescenta ORDER BY <valor> dentro da chamada."""
+    mas, out, pos, padrao = mascara(sql), "", 0, re.compile(r"\bgroup_concat\(", re.I)
+    while True:
+        m = padrao.search(mas, pos)
+        if not m:
+            return out + sql[pos:]
+        args, fim = _argumentos(mas, m.end())
+        valor = re.sub(r"^\s*DISTINCT\s+", "", sql[args[0][0]:args[0][1]], flags=re.I).strip()
+        out += sql[pos:fim - 1] + f" ORDER BY {valor})"
+        pos = fim
+
+
 def ordem_dos_nulos(sql):
     """No SQLite o NULL e o menor valor: ORDER BY x poe NULL primeiro, ORDER BY x DESC poe por ultimo. O PostgreSQL faz o
     contrario; cada item de ORDER BY recebe NULLS FIRST / NULLS LAST explicito."""
-    out, pos, padrao = "", 0, re.compile(r"\bORDER BY\b")
+    mas, out, pos, padrao = mascara(sql), "", 0, re.compile(r"\bORDER BY\b", re.I)
     while True:
-        m = padrao.search(sql, pos)
+        m = padrao.search(mas, pos)
         if not m:
             return out + sql[pos:]
         out += sql[pos:m.end()]
         j, prof, ini, itens = m.end(), 0, m.end(), []
-        while j < len(sql):
-            c = sql[j]
+        while j < len(mas):
+            c = mas[j]
             if c == "(":
                 prof += 1
             elif c == ")":
                 if prof == 0:
                     break
                 prof -= 1
-            elif prof == 0 and (c in ";" or re.match(r"\s+(LIMIT|OFFSET|ROWS|RANGE|UNION)\b", sql[j:])):
+            elif prof == 0 and (c in ";" or re.match(r"\s+(LIMIT|OFFSET|ROWS|RANGE|UNION)\b", mas[j:], re.I)):
                 break
             if prof == 0 and c == ",":
-                itens.append(sql[ini:j])
+                itens.append((ini, j))
                 ini = j + 1
             j += 1
-        itens.append(sql[ini:j])
+        itens.append((ini, j))
         novos = []
-        for it in itens:
-            nucleo = it.rstrip()
+        for a, b in itens:
+            it, vis = sql[a:b], mas[a:b]
+            nucleo = it[:len(vis.rstrip())]
             fim = it[len(nucleo):]
-            if re.search(r"\bNULLS (FIRST|LAST)\s*$", nucleo):
+            if re.search(r"\bNULLS (FIRST|LAST)\s*$", vis, re.I):
                 novos.append(it)
-            elif re.search(r"\bDESC\s*$", nucleo):
+            elif re.search(r"\bDESC\s*$", vis, re.I):
                 novos.append(nucleo + " NULLS LAST" + fim)
             else:
                 novos.append(nucleo + " NULLS FIRST" + fim)
         out += ",".join(novos)
         pos = j
+
+
+def caixa_como_sqlite(sql):
+    """lower/upper do SQLite so mudam letras ASCII. No PostgreSQL isso vale com a colacao "C"; um parametro ou expressao
+    sem coluna "C" usaria a do banco (C.UTF-8, que muda todas as letras). O argumento recebe COLLATE "C"."""
+    mas, out, pos, padrao = mascara(sql), "", 0, re.compile(r"\b(lower|upper)\(", re.I)
+    while True:
+        m = padrao.search(mas, pos)
+        if not m:
+            return out + sql[pos:]
+        args, fim = _argumentos(mas, m.end())
+        out += sql[pos:m.end()] + "(" + caixa_como_sqlite(sql[args[0][0]:args[0][1]].strip()) + ') COLLATE "C")'
+        pos = fim
+
+
+def semantica_sqlite(sql):
+    """As regras comuns as views e as consultas do Python, nesta ordem (lista fechada: ADR-postgresql-neon)."""
+    s = divisao_como_sqlite(sql)
+    s = _min_max_escalares(s)
+    s = _fora_de_aspas(s, lambda t: re.sub(r"\browid\b", "ordem_gravacao", t))     # so execucoes tem a coluna (V0002)
+    s = _fora_de_aspas(s, _decimais_como_real)
+    s = _fora_de_aspas(s, lambda t: re.sub(r"\bsubstr\(", "compat_substr(", t))
+    s = _fora_de_aspas(s, _soma_como_sqlite)
+    s = coalesce_de_condicao(s)
+    s = ordem_do_group_concat(s)
+    s = like_como_sqlite(s)
+    s = caixa_como_sqlite(s)
+    return ordem_dos_nulos(s)
 
 
 def _completar_group_by(sql, coluna):
@@ -153,9 +383,6 @@ def views_postgres(texto_schema):
     out = []
     for nome, b in _ordem_por_dependencia(blocos_de_views(texto_schema)):
         b = b.replace(f"DROP VIEW IF EXISTS {nome};", f"DROP VIEW IF EXISTS {nome} CASCADE;")
-        b = _min_max_escalares(b)
-        b = re.sub(r"\be\.rowid\b", "e.ordem_gravacao", b)
-        b = re.sub(r"(?<![.\w])rowid\b", "ordem_gravacao", b)
         if nome == "v_termos":
             b = re.sub(r"json_extract\(j\.value, '\$\.([a-z_]+)'\)", r"(j.value ->> '\1')", b)
         for de, para in TROCAS.get(nome, ()):
@@ -163,10 +390,7 @@ def views_postgres(texto_schema):
             b = b.replace(de, para)
         for coluna in GROUP_BY_EXTRA.get(nome, ()):
             b = _completar_group_by(b, coluna)
-        b = _fora_de_aspas(b, _decimais_como_real)
-        b = _fora_de_aspas(b, lambda t: re.sub(r"\bsubstr\(", "compat_substr(", t))
-        b = ordem_dos_nulos(b)
-        out.append(b)
+        out.append(semantica_sqlite(b))
     return ("-- Views do relatorio e do painel (migracao repetivel): o texto do schema.sql traduzido por\n"
             "-- adaptadores/postgres/traducao.py. NAO edite a mao: rode python scripts/gerar_esquema_postgres.py.\n\n"
             + "\n\n".join(out) + "\n")

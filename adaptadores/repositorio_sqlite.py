@@ -1026,11 +1026,12 @@ class RepositorioSQLite:
 
     def copia_de_seguranca(self, pasta, manter=10, sufixo="painel"):
         """Copia consistente do banco (API de backup do SQLite) em `pasta`, chamada `<banco>_<sufixo>_<data>.db`; mantem as
-        `manter` mais recentes com esse sufixo (`manter=None` mantem todas)."""
+        `manter` mais recentes com esse sufixo (`manter=None` mantem todas). A data vai ate o microssegundo: duas copias no
+        mesmo segundo nao se sobrescrevem, e a ordem dos nomes continua a ordem das copias."""
         pasta = Path(pasta)
         pasta.mkdir(parents=True, exist_ok=True)
         nome = Path(self.conn.execute("PRAGMA database_list").fetchone()["file"]).stem
-        destino = pasta / f"{nome}_{sufixo}_{datetime.now():%Y%m%d_%H%M%S}.db"
+        destino = pasta / f"{nome}_{sufixo}_{datetime.now():%Y%m%d_%H%M%S_%f}.db"
         copia = sqlite3.connect(destino)
         try:
             self.conn.backup(copia)

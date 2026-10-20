@@ -93,12 +93,27 @@ def test_copia_de_seguranca_e_consistente_e_guarda_so_as_ultimas(repo, tmp_path)
     a = _ids(repo)[0]
     repo.verificar_achado(a, "em_uso", "Ana", None, PERMITIDOS)
     pasta = tmp_path / "bk"
-    import sqlite3, time
-    for _ in range(4):
-        destino = repo.copia_de_seguranca(pasta, manter=2)
-        time.sleep(1.1)
-    assert len(list(pasta.glob("*.db"))) == 2
+    import sqlite3
+    from pathlib import Path
+    copias = [repo.copia_de_seguranca(pasta, manter=2) for _ in range(4)]      # no mesmo segundo: nomes distintos
+    destino = copias[-1]
+    assert len(set(copias)) == 4
+    assert sorted(p.name for p in pasta.glob("*.db")) == sorted(Path(c).name for c in copias[-2:])
     assert sqlite3.connect(destino).execute("SELECT verificado FROM achados WHERE achado_id=?", (a,)).fetchone()[0] == 1
+
+
+def test_copia_com_nome_antigo_em_segundos_sai_primeiro_no_rodizio(repo, tmp_path):
+    """Nomes antigos (so segundos) e novos (com microssegundos) convivem: a ordem dos nomes continua a ordem das copias."""
+    from pathlib import Path
+    pasta = tmp_path / "bk"
+    pasta.mkdir()
+    nome = Path(repo.conn.execute("PRAGMA database_list").fetchone()["file"]).stem
+    antiga = pasta / f"{nome}_painel_20200101_000000.db"
+    antiga.write_bytes(b"")
+    novas = [repo.copia_de_seguranca(pasta, manter=2) for _ in range(2)]
+    assert not antiga.exists()
+    assert sorted(p.name for p in pasta.glob("*.db")) == sorted(Path(c).name for c in novas)
+    assert all(len(Path(c).stem.rsplit("_", 3)[-1]) == 6 for c in novas)    # microssegundos com 6 digitos
 
 
 def test_migracao_acrescenta_colunas_de_desfazer_em_banco_antigo(tmp_path):

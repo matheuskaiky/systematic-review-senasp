@@ -76,10 +76,11 @@ def item_gravado(repo, bruto, run_id, etapa, alvo_tipo, alvo_id, chave, reg, seg
     """Grava a chamada e o que o item produziu numa transacao so, confirmada ao sair do bloco. Se algo falha antes da
     confirmacao (erro de banco, Ctrl+C), desfaz o que o item gravou e regrava a chamada como falha ("falha_ao_gravar: <Tipo>"),
     apontando para o mesmo arquivo bruto: a chamada paga continua rastreada e a retomada refaz o item (ate o limite de
-    falhas da etapa). O que estava pendente antes do item (metricas) e confirmado antes, para o desfazer so pegar o item."""
-    repo.confirmar()
+    falhas da etapa). O que estava pendente antes do item (metricas) e confirmado antes, para o desfazer so pegar o item; se
+    essa confirmacao falhar, o pendente e desfeito e a chamada paga e registrada como falha do mesmo jeito."""
     chamada_id = raw_path = None
     try:
+        repo.confirmar()
         chamada_id, raw_path = registrar_chamada(repo, bruto, run_id, etapa, alvo_tipo, alvo_id, chave, reg, segredos,
                                                  uf=uf, pagina=pagina)
         yield chamada_id

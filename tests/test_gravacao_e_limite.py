@@ -408,3 +408,44 @@ def test_interrupcao_na_extracao_continua_interrupcao_mesmo_se_o_registro_da_fal
     log = "".join(p.read_text(encoding="utf-8") for p in (ambiente_cli / "logs").glob("*.log"))
     assert "O registro da falha depois da chamada levantou OperationalError; segue a excecao original (KeyboardInterrupt)" in log
 
+
+
+# ====================== a confirmacao do que estava pendente, no inicio do item ======================
+def test_falha_ao_confirmar_o_pendente_antes_do_item_registra_a_chamada_como_falha(ambiente_cli):
+    from aplicacao.comum import item_gravado
+    repo, bruto, run, reg = _cenario(ambiente_cli)
+    repo.registrar_metrica(run, "pendente_de_antes", 1)
+    repo.falhar_confirmar = "antes"                                # a primeira confirmacao (a do pendente) falha
+    corpo = []
+    with pytest.raises(sqlite3.OperationalError):
+        with item_gravado(repo, bruto, run, "busca_web", "consulta_web", "Q1", "k1", reg, []):
+            corpo.append(1)
+    assert corpo == []                                              # o item nao chega a gravar nada
+    assert _linhas(repo, run) == [(0, "falha_ao_gravar: OperationalError")]
+    assert "pendente_de_antes" not in _metricas(repo, run)          # o pendente foi desfeito
+
+
+def test_interrupcao_na_confirmacao_do_pendente_registra_a_chamada_e_mantem_o_pendente(ambiente_cli):
+    from aplicacao.comum import item_gravado
+    repo, bruto, run, reg = _cenario(ambiente_cli)
+    repo.registrar_metrica(run, "pendente_de_antes", 1)
+    repo.falhar_confirmar = "depois"                               # confirma o pendente e entao chega o Ctrl+C
+    with pytest.raises(KeyboardInterrupt):
+        with item_gravado(repo, bruto, run, "busca_web", "consulta_web", "Q1", "k1", reg, []):
+            pass
+    assert _linhas(repo, run) == [(0, "falha_ao_gravar: KeyboardInterrupt")]
+    assert _metricas(repo, run)["pendente_de_antes"] == 1
+
+
+def test_falha_ao_confirmar_o_pendente_e_ao_registrar_a_falha_mantem_a_excecao_original(ambiente_cli):
+    from aplicacao.comum import item_gravado
+    repo, bruto, run, reg = _cenario(ambiente_cli)
+    repo.falhar_confirmar = "antes"
+
+    def segunda(**campos):                                         # o registro da falha tambem falha, com outro erro
+        raise RuntimeError("segunda falha")
+    repo.salvar_chamada = segunda
+    with pytest.raises(sqlite3.OperationalError, match="^database is locked$"):
+        with item_gravado(repo, bruto, run, "busca_web", "consulta_web", "Q1", "k1", reg, []):
+            pass
+    assert _linhas(repo, run) == []

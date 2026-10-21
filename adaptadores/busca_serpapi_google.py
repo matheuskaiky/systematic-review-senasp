@@ -12,6 +12,8 @@ class BuscaSerpApiGoogle:
         self._chave, self._pais, self._timeout = chave, pais, timeout
 
     def _params(self, consulta, filtros):
+        if filtros.idiomas or filtros.pais:
+            raise ValueError("SerpApi Google: language and country filters per profile are not supported")
         q = consulta.texto
         if filtros.dominios_incluir:        # translation of the neutral filter into Google operators
             q += " (" + " OR ".join(f"site:{d.lstrip('.')}" for d in filtros.dominios_incluir) + ")"

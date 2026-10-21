@@ -21,6 +21,13 @@ class BuscaPerplexity:
         dominios = list(filtros.dominios_incluir) or [f"-{d}" for d in filtros.dominios_excluir]
         if dominios:
             corpo["search_domain_filter"] = dominios
+        # Documentacao da Search API (consultada em 21/10/2026): `search_language_filter` recebe codigos ISO 639-1 e
+        # `country` um codigo ISO 3166-1 alfa-2; a amostra de 21/10/2026 com ["pt"] e "BR" trouxe so paginas em portugues.
+        # o formato de idiomas e pais e conferido ao criar o FiltrosBusca (dominio/modelos.py)
+        if filtros.idiomas:
+            corpo["search_language_filter"] = list(filtros.idiomas)
+        if filtros.pais:
+            corpo["country"] = filtros.pais
         corpo.update(self._extra)
         return corpo
 

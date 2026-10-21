@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -61,6 +62,16 @@ class FiltrosBusca:
     dominios_incluir: tuple = ()
     dominios_excluir: tuple = ()
     max_resultados: int = 10
+    idiomas: tuple = ()       # codigos ISO 639-1 dos resultados (ex. ("pt",)); vazio = sem filtro de idioma
+    pais: str = ""            # codigo ISO 3166-1 alfa-2 (ex. "BR"); vazio = sem filtro de pais
+
+    def __post_init__(self):
+        # um perfil invalido nao chega a existir: a chave de idempotencia e o pedido usam os mesmos valores conferidos aqui
+        if not (isinstance(self.idiomas, tuple)
+                and all(isinstance(i, str) and re.fullmatch(r"[a-z]{2}", i) for i in self.idiomas)):
+            raise ValueError("FiltrosBusca: idiomas precisa ser uma tupla de códigos ISO 639-1 de duas letras minúsculas")
+        if not (isinstance(self.pais, str) and (self.pais == "" or re.fullmatch(r"[A-Z]{2}", self.pais))):
+            raise ValueError("FiltrosBusca: pais precisa ser vazio ou um código ISO 3166-1 de duas letras maiúsculas")
 
 
 @dataclass(frozen=True)

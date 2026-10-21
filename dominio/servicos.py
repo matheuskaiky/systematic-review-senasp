@@ -14,6 +14,19 @@ def hash_chave(*partes):
     return hashlib.sha1("|".join(str(p) for p in partes).encode("utf-8")).hexdigest()
 
 
+def chave_filtros_busca(filtros):
+    """Texto dos filtros de um perfil de busca web para a chave de idempotencia. `idiomas` e `pais` so entram quando
+    preenchidos, para que os perfis sem eles tenham a mesma chave de antes desses campos (a retomada de uma execucao
+    antiga nao repete chamadas ja pagas)."""
+    d = {"dominios_excluir": list(filtros.dominios_excluir), "dominios_incluir": list(filtros.dominios_incluir),
+         "max_resultados": filtros.max_resultados}
+    if filtros.idiomas:
+        d["idiomas"] = list(filtros.idiomas)
+    if filtros.pais:
+        d["pais"] = filtros.pais
+    return json.dumps(d, sort_keys=True)
+
+
 def url_valida(url):
     """A URL pode ser gravada e baixada: texto sem nenhum espaco (nem nas pontas) e sem caractere de controle, que o
     urlsplit le (porta inclusive), com esquema http ou https e com host que nao e so "www.". Qualquer outra coisa e

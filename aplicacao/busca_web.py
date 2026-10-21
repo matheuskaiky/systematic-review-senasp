@@ -1,8 +1,6 @@
-import json
 import logging
 import time
-from dataclasses import asdict
-from dominio.servicos import hash_chave, url_valida
+from dominio.servicos import chave_filtros_busca, hash_chave, url_valida
 from aplicacao.comum import item_gravado
 
 
@@ -10,7 +8,7 @@ def executar(repo, bruto, busca, run_id, consultas, perfis, segredos, pausa, lim
     chamadas = repo.chaves_com_chamada(run_id, "busca_web")   # o --limite vale para a execucao inteira, retomadas incluidas
     for c in consultas:
         filtros = perfis[c.perfil]
-        chave = hash_chave("busca_web", busca.nome, c.id, json.dumps(asdict(filtros), sort_keys=True))
+        chave = hash_chave("busca_web", busca.nome, c.id, chave_filtros_busca(filtros))
         if repo.ja_feito(run_id, chave):
             continue
         if limite and chave not in chamadas and len(chamadas) >= limite:

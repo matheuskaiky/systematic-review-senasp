@@ -128,6 +128,7 @@ def snapshot_config():
         "termos": c.TERMOS + c.TERMOS_COMPOSTOS, "filtros_academicos": c.FILTROS_ACADEMICOS,
         "max_paginas_academico": c.MAX_PAGINAS_ACADEMICO,
         "modelos_web": c.MODELOS_WEB, "perfis_busca_web": c.PERFIS_BUSCA_WEB,
+        "conjuntos_literatura": c.CONJUNTOS_LITERATURA, "filtros_literatura_web": c.FILTROS_LITERATURA_WEB,
         "modelos_web_municipais": c.MODELOS_WEB_MUNICIPAIS, "municipios": c.MUNICIPIOS,
         "politica_download": c.POLITICA_DOWNLOAD, "ufs": c.UFS,
         "tecnologias": v.TECNOLOGIAS, "status": v.STATUS,

@@ -163,6 +163,28 @@ PERFIS_BUSCA_WEB = {
         max_resultados=10),
 }
 
+# ---------- Busca de literatura cientifica e cinzenta (D103, D104, D105) ----------
+# Consultas aprovadas pelo pesquisador em 21/10/2026, por conjunto de termos do orientador. Cada consulta e um pedido
+# proprio (D105), sem aspas, e a mesma lista serve as duas fontes (Perplexity e Scholar).
+CONJUNTOS_LITERATURA = {
+    "A": (
+        Termo("LA1", "inteligência artificial segurança pública viés algorítmico investigação criminal", "pt", "conjunto_A"),
+        Termo("LA2", "inteligência artificial investigação criminal viés algorítmico", "pt", "conjunto_A"),
+        Termo("LA3", "inteligência artificial segurança pública viés algorítmico", "pt", "conjunto_A"),
+        Termo("LA4", "inteligência artificial segurança pública investigação criminal", "pt", "conjunto_A"),
+        Termo("LA5", "viés algorítmico investigação criminal segurança pública", "pt", "conjunto_A"),
+    ),
+    "B": (
+        Termo("LB1", "inteligência artificial segurança pública viés algorítmico discriminação ética", "pt", "conjunto_B"),
+        Termo("LB2", "inteligência artificial segurança pública discriminação", "pt", "conjunto_B"),
+        Termo("LB3", "inteligência artificial segurança pública ética", "pt", "conjunto_B"),
+        Termo("LB4", "viés algorítmico discriminação segurança pública", "pt", "conjunto_B"),
+        Termo("LB5", "inteligência artificial viés algorítmico ética", "pt", "conjunto_B"),
+    ),
+}
+# Filtros da busca web desta frente (D103): 20 resultados por consulta, so paginas em portugues, pais Brasil.
+FILTROS_LITERATURA_WEB = FiltrosBusca(max_resultados=20, idiomas=("pt",), pais="BR")
+
 # Which URLs are worth downloading (cost and time control).
 # (Keywords stay in Portuguese on purpose: they are matched against Portuguese titles/snippets.)
 POLITICA_DOWNLOAD = PoliticaDownload(
@@ -181,6 +203,9 @@ assert len({t.id for t in TERMOS}) == len(TERMOS), "Duplicate term IDs"
 assert len({t.id for t in TERMOS + TERMOS_COMPOSTOS}) == len(TERMOS + TERMOS_COMPOSTOS), "Duplicate term IDs across TERMOS and TERMOS_COMPOSTOS"
 _ids_termos = {t.id for t in TERMOS}
 assert all(t.pai in _ids_termos for t in TERMOS_COMPOSTOS), "Every pai of TERMOS_COMPOSTOS must exist in TERMOS"
+_ids_literatura = [t.id for ts in CONJUNTOS_LITERATURA.values() for t in ts]
+assert len(set(_ids_literatura)) == len(_ids_literatura), "Duplicate term IDs in CONJUNTOS_LITERATURA"
+assert not set(_ids_literatura) & {t.id for t in TERMOS + TERMOS_COMPOSTOS}, "CONJUNTOS_LITERATURA ids must not reuse TERMOS ids"
 assert len({m.id for m in MODELOS_WEB}) == len(MODELOS_WEB), "Duplicate template IDs"
 assert len(UFS) == 27, "The state list must have 27 entries"
 assert len({m.id for m in MODELOS_WEB + MODELOS_WEB_MUNICIPAIS}) == len(MODELOS_WEB + MODELOS_WEB_MUNICIPAIS), "Duplicate template IDs"

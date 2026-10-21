@@ -54,7 +54,7 @@ def limpar_segredos(texto, segredos):
     return texto
 
 
-def chamar(metodo, url, *, params=None, json_body=None, headers=None, timeout=60,
+def chamar(metodo, url, *, params=None, json_body=None, corpo=None, headers=None, timeout=60,
            max_tentativas=4, espera_base=2, stream=False, allow_redirects=True, ler_corpo_erro=0, nao_repetir=None):
     """HTTP with retry/backoff. Never raises: returns a metrics dict.
 
@@ -62,6 +62,7 @@ def chamar(metodo, url, *, params=None, json_body=None, headers=None, timeout=60
     entre tentativas) e `historico` (uma entrada por tentativa). `latencia_ms` continua sendo a da ultima.
     `nao_repetir(resposta)`, se dado e verdadeiro para um status retentavel, encerra sem novas tentativas (cota diaria).
     `allow_redirects=False` deixa o chamador seguir os redirecionamentos (para checar o robots.txt de cada destino).
+    `corpo` (bytes) vai como esta no corpo do pedido (ex.: JSON ja compactado com gzip), no lugar de `json_body`.
     Com stream=True e `ler_corpo_erro=N`, uma resposta de erro tem os primeiros N bytes do corpo devolvidos em
     `corpo_erro` antes de ser fechada (permite distinguir um bloqueio de WAF de um 403 genuino).
     """
@@ -75,7 +76,7 @@ def chamar(metodo, url, *, params=None, json_body=None, headers=None, timeout=60
     for tentativa in range(1, max_tentativas + 1):
         t0 = time.perf_counter()
         try:
-            r = requests.request(metodo, url, params=params, json=json_body, headers=headers,
+            r = requests.request(metodo, url, params=params, json=json_body, data=corpo, headers=headers,
                                  timeout=timeout, stream=stream, allow_redirects=allow_redirects)
             latencia = int((time.perf_counter() - t0) * 1000)
             if r.status_code in RETENTAVEIS and tentativa < max_tentativas and not (nao_repetir and nao_repetir(r)):

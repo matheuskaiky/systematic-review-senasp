@@ -83,6 +83,23 @@ class Fabrica:
             return S.DATA_DIR / "demo.db"
         return S.DATA_DIR / "simulado.db" if self.simulado else Path(S.OPCOES["sqlite"]["caminho"])
 
+    def envio_nuvem(self):
+        """O cliente que envia execucoes para o painel na nuvem (D98), com a URL e o token do .env; mensagens fixas."""
+        import re
+        from adaptadores.envio_nuvem import EnvioNuvem
+        from dominio.autenticacao import RE_TOKEN
+        url = os.environ.get("PAINEL_NUVEM_URL", "").strip()
+        token = os.environ.get("PAINEL_TOKEN", "").strip()
+        if not url:
+            raise SystemExit("Defina PAINEL_NUVEM_URL no .env: o endereço do painel na nuvem (https://...).")
+        if not re.fullmatch(r"https://[^\s/?#]+/?|http://(localhost|127\.0\.0\.1)(:[0-9]{1,5})?/?", url):
+            raise SystemExit("PAINEL_NUVEM_URL precisa ser só o endereço do painel, começando com https:// (ou http://localhost para teste).")
+        if not token:
+            raise SystemExit("Defina PAINEL_TOKEN no .env: o token da sua página Minha conta no painel.")
+        if not RE_TOKEN.fullmatch(token):
+            raise SystemExit("PAINEL_TOKEN não tem o formato de um token do painel (srsp_ e mais 43 caracteres).")
+        return EnvioNuvem(url, token)
+
     @cached_property
     def postgres(self):
         """(pool, chaves) quando DB_BACKEND=postgres (o painel na nuvem, D96); None no SQLite, o padrao. Nunca volta ao

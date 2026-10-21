@@ -87,6 +87,9 @@ def gerar_token_api() -> str:
     return PREFIXO_TOKEN + secrets.token_urlsafe(32)
 
 
+RE_TOKEN = re.compile(r"srsp_[A-Za-z0-9_-]{43}")
+
+
 def hash_token(token: str) -> str:
     """SHA-256 do token (o banco guarda so isto, como nas sessoes; o token tem 256 bits aleatorios)."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()

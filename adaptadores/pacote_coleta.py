@@ -5,11 +5,10 @@ Juntar: tudo numa transacao com a trava de escrita; a execucao pertence a quem a
 achados pela chave natural (a linha da nuvem, se existe, nunca muda); as outras linhas sao achadas pela correspondencia
 (execucao, tabela, numero local) -> numero na nuvem: linha nova entra, linha que mudou tem so os campos da coleta
 atualizados, e nada e apagado. Os campos de decisao humana nunca sao escritos."""
+from contextlib import nullcontext
+
 from dominio import pacote_coleta as P
-
-
-class ErroPacote(Exception):
-    pass
+from dominio.pacote_coleta import ErroPacote
 
 
 _DA_EXECUCAO = {
@@ -78,15 +77,17 @@ def juntar(conn, pacote, usuario_id, agora):
         raise ErroPacote("Pacote recusado: " + " ".join(erros[:5]) + (f" (e mais {len(erros) - 5})" if len(erros) > 5 else ""))
     run_id, tabelas = pacote["run_id"], pacote["tabelas"]
     if conn.in_transaction:
-        raise ErroPacote("A junção precisa de uma conexão sem transação aberta (ela é tudo ou nada).")
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        relatorio = _juntar(conn, run_id, tabelas, pacote["externas"]["paginas"], usuario_id, agora)
-        conn.commit()
-        return relatorio
-    except BaseException:
-        conn.rollback()
-        raise
+        raise RuntimeError("A junção precisa de uma conexão sem transação aberta (ela é tudo ou nada).")
+    # no PostgreSQL: trava propria dos envios (o painel continua gravando) e sem savepoint por comando (tudo ou nada)
+    with (conn.modo_envio() if hasattr(conn, "modo_envio") else nullcontext()):
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            relatorio = _juntar(conn, run_id, tabelas, pacote["externas"]["paginas"], usuario_id, agora)
+            conn.commit()
+            return relatorio
+        except BaseException:
+            conn.rollback()
+            raise
 
 
 def _juntar(conn, run_id, tabelas, paginas_externas, usuario_id, agora):

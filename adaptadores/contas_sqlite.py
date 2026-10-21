@@ -455,6 +455,25 @@ class ContasSQLite:
                 self._gravar_auditoria(conn, auditoria)
             return apagou
 
+    def usuario_do_token(self, token_hash: str) -> dict | None:
+        """O dono ativo do token de envio ({usuario_id, login, nome, grupo, permissoes}) ou None. Só lê (sem a trava de
+        gravação das contas): um token inventado não segura os logins."""
+        with self._conexao() as conn:
+            row = conn.execute(
+                "SELECT u.usuario_id, u.login, u.nome, u.ativo, g.nome, g.grupo_id FROM tokens_api t "
+                "JOIN usuarios u USING (usuario_id) JOIN grupos g USING (grupo_id) WHERE t.token_hash = ?",
+                (token_hash,),
+            ).fetchone()
+            if not row or row[3] != 1:
+                return None
+            permissoes = {r[0] for r in conn.execute("SELECT permissao FROM grupo_permissoes WHERE grupo_id = ?", (row[5],))}
+            return {"usuario_id": row[0], "login": row[1], "nome": row[2], "grupo": row[4], "permissoes": permissoes}
+
+    def registrar_uso_do_token(self, token_hash: str, agora: str) -> None:
+        """Último uso = o último envio aceito pela nuvem."""
+        with self._conexao(escrita=True) as conn:
+            conn.execute("UPDATE tokens_api SET ultimo_uso = ? WHERE token_hash = ?", (agora, token_hash))
+
     def token_do_usuario(self, usuario_id: int) -> dict | None:
         """{inicio, criado_em, ultimo_uso} do token de envio do usuário, ou None."""
         with self._conexao() as conn:

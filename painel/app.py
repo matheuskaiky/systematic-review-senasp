@@ -28,6 +28,8 @@ from painel.entidades import Entidades, explicacao_da_entidade, link_entidade
 from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_do_brasil, mapa_de_calor
 
 AQUI = Path(__file__).parent
+AVISO_BRUTO = "O arquivo bruto não foi encontrado em data/raw."
+AVISO_BRUTO_NUVEM = "O arquivo bruto fica no computador onde a coleta rodou: ele não é enviado para a nuvem."
 CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
        "base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 FILTROS_CHAMADAS = ("run", "etapa", "provedor", "uf", "resultado", "q")
@@ -102,6 +104,8 @@ class Contexto:
     modelos_referencias: dict = field(default_factory=dict)      # nome -> ModeloPlanilhaReferencias (config/modelos_exportacao.py)
     categorias_referencias: dict = field(default_factory=dict)   # config/categorias_referencias.py
     eixos_tematicos: dict = field(default_factory=dict)          # config/eixos_tematicos.py
+    brutos_aqui: bool = True                                     # False na nuvem: os arquivos brutos ficam no computador da coleta (D99)
+    aceita_envios: bool = False                                  # True so no painel da nuvem (PostgreSQL): POST /api/coletas (D98)
 
 
 def _filtros(params):
@@ -199,6 +203,9 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         @app.middleware("http")
         async def acesso(request: Request, call_next):
             if request.url.path.startswith("/static/"):
+                return await call_next(request)
+            if request.url.path == "/api/coletas" and contexto.aceita_envios:   # autentica pelo token de envio (D98)
+                request.state.usuario, request.state.perms = None, frozenset()
                 return await call_next(request)
 
             agora = datetime.now(timezone.utc).isoformat()
@@ -540,7 +547,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         try:
             dados = bruto.ler(c["raw_path"])
         except (OSError, ValueError):
-            return {"existe": False, "aviso": "O arquivo bruto não foi encontrado em data/raw."}
+            return {"existe": False, "aviso": AVISO_BRUTO if contexto.brutos_aqui else AVISO_BRUTO_NUVEM}
         out = {"existe": True, "tamanho": len(dados), "cortado": len(dados) > LIMITE_BRUTO, "arvore": None, "texto": None}
         amostra = dados[:LIMITE_BRUTO]
         if not out["cortado"]:
@@ -573,7 +580,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         try:
             dados = bruto.ler(c["raw_path"])
         except (OSError, ValueError):
-            return erro(request, 404, "Arquivo não encontrado", "O arquivo bruto não foi encontrado em data/raw.")
+            return erro(request, 404, "Arquivo não encontrado", AVISO_BRUTO if contexto.brutos_aqui else AVISO_BRUTO_NUVEM)
         return Response(dados, media_type="application/octet-stream",
                         headers={"Content-Disposition": f'attachment; filename="chamada_{chamada_id}.{_extensao(c)}"'})
 
@@ -767,7 +774,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             try:
                 texto = bruto.ler(a["texto_path"]).decode("utf-8", "replace")
             except (OSError, ValueError):
-                texto, aviso = "", "O arquivo do texto extraído não foi encontrado em data/raw."
+                texto, aviso = "", ("O arquivo do texto extraído não foi encontrado em data/raw." if contexto.brutos_aqui else
+                                    "O texto extraído fica no computador onde a coleta rodou: ele não é enviado para a nuvem.")
         else:
             texto = f"{a['titulo'] or ''}\n{a['snippet'] or ''}"
         if a["n_chars_enviados"]:
@@ -1036,5 +1044,5 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     from painel import rotas_extras
     rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos, entidades=entidades,
                                                  pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita, contas=contas,
-                                                 contas_ocupadas=contas_ocupadas))
+                                                 contas_ocupadas=contas_ocupadas, novo_repositorio=repositorio_fabrica))
     return app

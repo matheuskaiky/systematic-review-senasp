@@ -14,6 +14,7 @@ cada consulta, eles recebem esta conexao, que se comporta como a do modulo `sqli
 Nada aqui le o ambiente: a URL chega pronta de composicao.py."""
 import re
 import sqlite3
+from contextlib import contextmanager
 from functools import lru_cache
 
 import psycopg
@@ -25,6 +26,7 @@ from adaptadores.postgres import traducao as T
 
 TRAVA_ESCRITA = 726_473_202          # trava consultiva das gravacoes da pesquisa (o "um gravador por vez" do SQLite)
 TRAVA_CONTAS = 726_473_203           # a das contas: no SQLite eram dois arquivos, cada um com a sua trava
+TRAVA_ENVIO = 726_473_204            # a dos envios de coleta (D100): um envio por vez, sem parar as gravacoes do painel
 ESPERA_TRAVA = "30s"                 # lock_timeout de cada transacao (o busy_timeout do SQLite)
 MAX_CONEXOES = 4
 ESPERA_POOL = 30                     # segundos esperando uma conexao livre do pool
@@ -205,6 +207,7 @@ class ConexaoPostgres:
         self._chaves = chaves
         self._chave_trava = trava
         self._somente_leitura = False
+        self._sem_savepoint = False
         self._em_transacao = False
         self._trava = False
         self.row_factory = None                     # aceito e ignorado: as linhas ja funcionam como sqlite3.Row
@@ -233,11 +236,25 @@ class ConexaoPostgres:
         """Num savepoint: se a espera estoura ("database is locked"), a transacao continua usavel, como no sqlite3."""
         if not self._trava:
             try:
-                with self._conn.transaction():
+                if self._sem_savepoint:
                     self._conn.execute("SELECT pg_advisory_xact_lock(%s)", (self._chave_trava,))
+                else:
+                    with self._conn.transaction():
+                        self._conn.execute("SELECT pg_advisory_xact_lock(%s)", (self._chave_trava,))
             except psycopg.Error as erro:
                 raise _converter_erro(erro) from None
             self._trava = True
+
+    @contextmanager
+    def modo_envio(self):
+        """Para juntar um envio de coleta (tudo ou nada): a trava dos envios no lugar da trava das gravacoes, e nenhum
+        savepoint por comando (qualquer falha desfaz a transacao inteira; o savepoint so custaria idas ao banco)."""
+        antes = (self._chave_trava, self._sem_savepoint)
+        self._chave_trava, self._sem_savepoint = TRAVA_ENVIO, True
+        try:
+            yield self
+        finally:
+            self._chave_trava, self._sem_savepoint = antes
 
     def execute(self, sql, params=()):
         comando = re.sub(r"\s+", " ", sql).strip().rstrip(";").strip().upper()
@@ -288,6 +305,15 @@ class ConexaoPostgres:
             if not self._em_transacao or self._somente_leitura:  # sem gravacao a desfazer: sem savepoint (menos idas ao banco)
                 cur = self._conn.execute(texto, params)
                 return Cursor(cur)
+            if self._sem_savepoint:                 # modo_envio: tudo ou nada, a falha desfaz a transacao inteira
+                if muitos is not None:
+                    vazio = Cursor()
+                    vazio.rowcount = sum(max(self._conn.execute(texto, p).rowcount, 0) for p in muitos)
+                    return vazio
+                cur = self._conn.execute(texto, params)
+                linhas = cur.fetchall() if cur.description else []
+                ultimo = linhas[0][0] if retorno and cur.rowcount == 1 else None
+                return Cursor(cur, ultimo, linhas=[] if retorno else linhas)
             with self._conn.transaction():          # savepoint: o comando que falha e desfeito sozinho
                 if muitos is not None:              # um comando por linha (sem o modo pipeline, que o PgBouncer antigo estranha)
                     total = 0

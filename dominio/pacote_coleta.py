@@ -7,6 +7,10 @@ aqui; o que faltar ou sobrar e recusado, nunca adivinhado."""
 import math
 import re
 
+class ErroPacote(Exception):
+    """Pacote recusado, com a mensagem para quem enviou (nada foi gravado)."""
+
+
 VERSAO = 1
 MAX_TEXTO = 5_000_000            # caracteres por campo de texto (a maior resposta do classificador hoje fica muito abaixo)
 RE_RUN_ID = re.compile(r"[0-9]{8}_[0-9]{6}_[0-9a-f]{6}")

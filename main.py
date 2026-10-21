@@ -499,6 +499,8 @@ def abrir_painel(a, fab):
             raise SystemExit("O esquema PostgreSQL está desatualizado: rode python main.py pg-migrar (faltam: "
                              + ", ".join(pendentes) + ").")
         contexto.nome_banco = "PostgreSQL"
+        contexto.brutos_aqui = False                 # os arquivos brutos ficam no computador da coleta (D99)
+        contexto.aceita_envios = True                # so a nuvem recebe envios de coleta (D98): no SQLite a juntada seguraria o banco
     elif not fab.caminho_banco.exists() and a.demo:
         raise SystemExit("O banco de demonstração não existe. Rode antes: python main.py painel-demo")
     elif fab.caminho_banco.exists():
@@ -713,6 +715,28 @@ def _pg_migrar():
     print(("Migrações aplicadas: " + ", ".join(feitos)) if feitos else "Esquema PostgreSQL em dia: nenhuma migração pendente.")
 
 
+def enviar_execucoes(a, fab):
+    """Envia cada execucao indicada (so os dados da coleta, D99) para o painel na nuvem, na ordem dada; para no primeiro
+    erro (a seguinte pode depender dela). Reenviar e seguro: a nuvem so acrescenta e atualiza o que mudou (D100)."""
+    from adaptadores.envio_nuvem import ErroEnvio
+    from dominio.pacote_coleta import ErroPacote, conferir
+    envio = fab.envio_nuvem()
+    for run in dict.fromkeys(a.run):
+        try:
+            pacote = fab.repo.pacote_da_execucao(run)
+        except ErroPacote as e:
+            raise SystemExit(str(e))
+        erros = conferir(pacote)
+        if erros:
+            raise SystemExit(f"A execução {run} não passa na conferência local: " + " ".join(erros[:5]))
+        try:
+            resposta = envio.enviar(pacote)
+        except ErroEnvio as e:
+            raise SystemExit(f"Execução {run}: {e}")
+        soma = {k: sum(v[k] for v in resposta["tabelas"].values()) for k in ("novas", "atualizadas", "iguais")}
+        print(f"Execução {run} enviada: {soma['novas']} linhas novas, {soma['atualizadas']} atualizadas, {soma['iguais']} iguais.")
+
+
 # com DB_BACKEND=postgres (o painel na nuvem, D96) so estes comandos rodam; a coleta e o resto ficam no SQLite local
 COMANDOS_NO_POSTGRES = ("painel", "usuario-admin", "pg-migrar", "pg-demo")
 
@@ -829,6 +853,9 @@ def main():
     s.add_argument("--simulado", action="store_true")
     s.add_argument("--demo", action="store_true", help="contas do painel de demonstração no servidor (contas_demo.db)")
 
+    s = sub.add_parser("enviar", help="envia execucoes do banco local para o painel na nuvem (usa PAINEL_NUVEM_URL e PAINEL_TOKEN do .env)")
+    s.add_argument("--run", action="append", required=True, metavar="RUN_ID",
+                   help="execucao a enviar (repita para varias; vao na ordem dada; a dona de uma pagina usada por outra vai antes)")
     sub.add_parser("pg-migrar", help="aplica as migracoes do banco PostgreSQL do painel na nuvem (usa DATABASE_URL_DIRECT do ambiente)")
     sub.add_parser("pg-demo", help="carrega o banco de demonstracao no PostgreSQL vazio (usa DATABASE_URL_DIRECT; nunca sobrescreve)")
 
@@ -864,6 +891,8 @@ def main():
         print("Generated:", painel_demo.construir(S.DATA_DIR))
     elif a.cmd == "painel":
         abrir_painel(a, fab)
+    elif a.cmd == "enviar":
+        enviar_execucoes(a, fab)
     elif a.cmd == "painel-relatorio":
         gerar_relatorio(a, fab)
     elif a.cmd == "execucao-excluir":

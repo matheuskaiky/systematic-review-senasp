@@ -14,6 +14,7 @@ from dominio.servicos import (normalizar_url, dominio_de, eh_oficial, chave_dedu
 from dominio.entrada import separar_runs, juntar_runs
 from infra.sqlite_wal import ligar_wal
 from infra.util import agora
+from adaptadores import pacote_coleta
 from dominio.sugestoes import CAMPOS_ACHADO, CAMPOS_ARTIGO, chave_autor, ficha_da_decisao
 
 
@@ -201,6 +202,14 @@ class RepositorioSQLite:
         cols = ", ".join(c)
         marcas = ", ".join("?" for _ in c)
         return self.conn.execute(f"INSERT INTO {tabela} ({cols}) VALUES ({marcas})", tuple(c.values())).lastrowid
+
+    def pacote_da_execucao(self, run_id):
+        """O pacote (dados da coleta, sem brutos nem decisoes humanas) da execucao para enviar a nuvem (D99)."""
+        return pacote_coleta.montar(self.conn, run_id)
+
+    def juntar_pacote(self, pacote, usuario_id, agora):
+        """Junta na base o pacote de uma execucao enviada (D100); devolve as contagens por tabela."""
+        return pacote_coleta.juntar(self.conn, pacote, usuario_id, agora)
 
     def confirmar(self):
         self.conn.commit()

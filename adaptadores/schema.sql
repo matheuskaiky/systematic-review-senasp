@@ -46,10 +46,10 @@ CREATE TABLE IF NOT EXISTS saldos (
 CREATE TABLE IF NOT EXISTS chamadas (
     chamada_id         INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id             TEXT NOT NULL REFERENCES execucoes(run_id),
-    etapa              TEXT NOT NULL,               -- busca_academica | busca_web | download | classificacao
+    etapa              TEXT NOT NULL,               -- busca_academica | busca_web | busca_literatura | download | classificacao
     provedor           TEXT NOT NULL,
     operacao           TEXT,
-    alvo_tipo          TEXT,                        -- termo | consulta_web | url | item
+    alvo_tipo          TEXT,                        -- termo | consulta_web | consulta_literatura | url | item
     alvo_id            TEXT,
     uf                 TEXT,
     pagina             INTEGER,
@@ -1260,3 +1260,29 @@ CREATE INDEX IF NOT EXISTS ix_ocorrencias_run ON ocorrencias(run_id);
 CREATE INDEX IF NOT EXISTS ix_resultados_web_run ON resultados_web(run_id);
 CREATE INDEX IF NOT EXISTS ix_paginas_run ON paginas(run_id);
 CREATE INDEX IF NOT EXISTS ix_classificacoes_run ON classificacoes(run_id);
+
+-- ===== Busca de literatura cientifica e cinzenta na web (D103 a D106) =====
+-- Uma linha por URL normalizada achada pela busca de literatura (fora de `urls`, que e da Tarefa 1).
+CREATE TABLE IF NOT EXISTS referencias_web (
+    referencia_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    url_normalizada  TEXT NOT NULL UNIQUE,
+    url_original     TEXT NOT NULL,
+    dominio          TEXT NOT NULL,
+    primeira_vez_run TEXT NOT NULL,
+    primeira_vez_em  TEXT NOT NULL
+);
+-- Cada resultado de cada consulta, com o conjunto (A, B) e a consulta (LA1, ...) que trouxe a referencia.
+CREATE TABLE IF NOT EXISTS ocorrencias_web (
+    ocorrencia_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chamada_id    INTEGER NOT NULL REFERENCES chamadas(chamada_id),
+    run_id        TEXT NOT NULL,
+    conjunto      TEXT NOT NULL,
+    consulta_id   TEXT NOT NULL,
+    referencia_id INTEGER NOT NULL REFERENCES referencias_web(referencia_id),
+    posicao       INTEGER,
+    titulo        TEXT,
+    snippet       TEXT,
+    data_pub      TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_ocorrencias_web_run ON ocorrencias_web(run_id);
+CREATE INDEX IF NOT EXISTS ix_ocorrencias_web_referencia ON ocorrencias_web(referencia_id);

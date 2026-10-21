@@ -24,7 +24,7 @@ from dominio import auditoria_negativos as AN
 from dominio.rotulagem import FOLGA_PADRAO as FOLGA_PADRAO_ROTULAGEM
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia, dominio_de
 from dominio.triagem_escopo import atomo_do_modelo_de_consulta, estimar_custo
-from aplicacao import busca_academica, busca_web, download, classificacao, manual, exportacao, rotulagem, triagem_escopo, catalogo
+from aplicacao import busca_academica, busca_literatura, busca_web, download, classificacao, manual, exportacao, rotulagem, triagem_escopo, catalogo
 from aplicacao.planejamento import planejar_download, planejar_classificacao
 from infra.log import iniciar_log
 from infra.util import coletar_ambiente
@@ -36,6 +36,7 @@ ETAPAS = {
     "classificar": ["classificacao"],
     "pipeline-uf": ["busca_web", "download", "classificacao"],
     "tudo": ["academico", "busca_web", "download", "classificacao"],
+    "buscar-literatura": ["literatura"],
 }
 
 
@@ -221,6 +222,22 @@ def rodar(args, etapas):
         if anterior:
             raise SystemExit(f"Esta execução foi criada com --limite {anterior}. Ao retomar, repita --limite {anterior}: "
                              "sem ele a retomada não teria teto de chamadas.")
+    if args.retomar and "literatura" in etapas:
+        # a retomada nao amplia a busca (regra 11): mesmo comando e mesmos conjuntos, na mesma ordem
+        gravados = repo.argumentos_da_execucao(args.retomar)
+        if gravados is None:
+            raise SystemExit(f"Os argumentos gravados da execução {args.retomar} estão ilegíveis: "
+                             "não dá para conferir o --conjunto da retomada.")
+        if gravados.get("cmd") != "buscar-literatura":
+            raise SystemExit(f"A execução {args.retomar} não é uma execução de buscar-literatura neste banco.")
+        antes = gravados.get("conjunto")
+        if not (isinstance(antes, list) and antes and all(isinstance(c, str) for c in antes)):
+            raise SystemExit(f"Os argumentos gravados da execução {args.retomar} estão ilegíveis: "
+                             "não dá para conferir o --conjunto da retomada.")
+        antes = list(dict.fromkeys(antes))
+        if antes != list(dict.fromkeys(args.conjunto)):
+            raise SystemExit(f"Esta execução foi criada com --conjunto {' '.join(antes)}. Ao retomar, repita "
+                             f"--conjunto {' '.join(antes)}: ampliar a busca exige uma execução nova.")
     # C5: etapa que le o resultado de outra etapa que nao roda no mesmo comando exige --de
     precisa_de = (("download" in etapas and "busca_web" not in etapas)
                   or ("classificacao" in etapas and "download" not in etapas))
@@ -266,6 +283,10 @@ def rodar(args, etapas):
             busca_academica.executar(repo, fab.bruto, fab.academico, run_id, termos, filtros_acad,
                                      args.paginas or C.MAX_PAGINAS_ACADEMICO, fab.segredos, S.PAUSAS["busca_academica"])
             repo.registrar_saldo(run_id, fab.academico.nome, "fim", saldo())
+        if "literatura" in etapas:
+            conjuntos = [(k, C.CONJUNTOS_LITERATURA[k]) for k in dict.fromkeys(args.conjunto)]
+            busca_literatura.executar(repo, fab.bruto, fab.busca_web, run_id, conjuntos, C.FILTROS_LITERATURA_WEB,
+                                      fab.segredos, S.PAUSAS["busca_web"], args.limite)
         if "busca_web" in etapas:
             consultas = [c for c in gerar_consultas_web(C.MODELOS_WEB, tecnologias, ufs, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)
                          if not args.perfil or c.perfil == args.perfil]
@@ -750,6 +771,13 @@ def main():
     for nome in ETAPAS:
         s = sub.add_parser(nome)
         s.add_argument("--retomar", help="run_id of an interrupted run (same configuration)")
+        if nome == "buscar-literatura":
+            s.add_argument("--conjunto", nargs="+", required=True, choices=tuple(C.CONJUNTOS_LITERATURA),
+                           help="conjuntos de consultas da busca de literatura, na ordem dada (repetidos contam uma vez)")
+            s.add_argument("--simulado", action="store_true", help="fake adapters, no cost")
+            s.add_argument("--limite", type=_limite, help="no máximo N consultas (a execução inteira, retomadas incluídas)")
+            s.set_defaults(de=None, ufs=None, termos=None, paginas=None, perfil=None, idioma_resultados=None, auditoria=0)
+            continue
         multi = nome in ("baixar", "classificar")
         s.add_argument("--de", nargs="+" if multi else None,
                        help="run_id that holds the input data for this stage" + ("; aceita varios (a entrada e a uniao deles, "

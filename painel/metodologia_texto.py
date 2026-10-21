@@ -12,9 +12,9 @@ from painel import formatacao as fmt, rotulos
 
 MAX_RUNS_NO_TEXTO = 8
 MAX_UFS_NO_TEXTO = 27
-ETAPAS = {"busca_academica": "busca acadêmica", "busca_web": "busca web", "download": "download de páginas",
-          "classificacao": "classificação"}
-ETAPAS_COM_PRECO = ("busca_academica", "busca_web", "classificacao")   # download nao tem preco: nao conta como custo faltando
+ETAPAS = {"busca_academica": "busca acadêmica", "busca_web": "busca web", "busca_literatura": "busca de literatura na web",
+          "download": "download de páginas", "classificacao": "classificação"}
+ETAPAS_COM_PRECO = ("busca_academica", "busca_web", "busca_literatura", "classificacao")   # download nao tem preco: nao conta como custo faltando
 PROVA_LITERATURA = "/literatura/prisma"
 
 

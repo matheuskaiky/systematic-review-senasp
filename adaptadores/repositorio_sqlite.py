@@ -378,6 +378,30 @@ class RepositorioSQLite:
                           cidade=consulta.cidade or None)
         return novas
 
+    def salvar_referencias_web(self, chamada_id, run_id, conjunto, consulta_id, resultados):
+        """Resultados de uma consulta da busca de literatura: a referencia (uma por URL normalizada, a primeira URL achada
+        fica como original) e uma ocorrencia por resultado, na ordem da resposta. Devolve quantas referencias sao novas.
+        Uma so leitura para as URLs ja gravadas; a URL repetida na mesma resposta vira uma referencia e duas ocorrencias."""
+        normas = [normalizar_url(r.url) for r in resultados]
+        unicas = list(dict.fromkeys(normas))
+        ids = {}
+        if unicas:
+            ids = {l["url_normalizada"]: l["referencia_id"] for l in self.conn.execute(
+                f"SELECT referencia_id, url_normalizada FROM referencias_web WHERE url_normalizada IN ({','.join('?' for _ in unicas)})",
+                unicas)}
+        novas, quando = 0, agora()
+        for r, norm in zip(resultados, normas):
+            if norm not in ids:
+                ids[norm] = self._inserir("referencias_web", url_normalizada=norm, url_original=r.url,
+                                          dominio=dominio_de(norm), primeira_vez_run=run_id, primeira_vez_em=quando)
+                novas += 1
+        self.conn.executemany(
+            "INSERT INTO ocorrencias_web (chamada_id, run_id, conjunto, consulta_id, referencia_id, posicao, titulo, snippet, "
+            "data_pub) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [(chamada_id, run_id, conjunto, consulta_id, ids[norm], r.posicao, r.titulo, r.snippet, r.data)
+             for r, norm in zip(resultados, normas)])
+        return novas
+
     def candidatos_download(self, run_origens):
         """Candidatos a download de UMA ou MAIS execucoes de busca (`run_origens`: texto ou lista), sem repeticao por
         (url_id, uf). Do resultado mais recente (maior `requisitado_em` da chamada, empate pelo maior `resultado_id`) vem o titulo, o snippet e a cidade; a posicao e

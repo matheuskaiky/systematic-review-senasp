@@ -38,6 +38,8 @@ def montar(conn, run_id):
     """O pacote (dict pronto para JSON) da execucao `run_id` do banco local. ErroPacote se ela nao existe."""
     if conn.execute("SELECT 1 FROM execucoes WHERE run_id = ?", (run_id,)).fetchone() is None:
         raise ErroPacote(f"A execução {run_id} não existe neste banco.")
+    if conn.execute("SELECT 1 FROM chamadas WHERE run_id = ? AND etapa = 'busca_literatura' LIMIT 1", (run_id,)).fetchone():
+        raise ErroPacote(f"A execução {run_id} é da busca de literatura, que o envio para a nuvem ainda não leva.")
     tabelas = {t: _linhas(conn, _DA_EXECUCAO[t], (run_id,), P.COLUNAS[t]) for t, _, _, _ in P.DA_EXECUCAO}
     urls, artigos = set(), set()
     for t in ("resultados_web", "selecao_download", "paginas", "classificacoes"):

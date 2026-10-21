@@ -14,7 +14,7 @@ from adaptadores.postgres import traducao as T
 
 RAIZ = Path(__file__).resolve().parent.parent
 MIGRACOES = RAIZ / "adaptadores" / "postgres" / "migracoes"
-ARQUIVOS = ["V0001_compatibilidade.sql", "V0002_tabelas.sql", "V0003_soma_como_sqlite.sql", "V0004_tokens_api.sql", "V0005_envios.sql", "R_views.sql"]
+ARQUIVOS = ["V0001_compatibilidade.sql", "V0002_tabelas.sql", "V0003_soma_como_sqlite.sql", "V0004_tokens_api.sql", "V0005_envios.sql", "V0006_literatura_web.sql", "R_views.sql"]
 
 
 # ====================== sem PostgreSQL ======================

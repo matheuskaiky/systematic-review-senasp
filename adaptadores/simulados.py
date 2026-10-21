@@ -22,6 +22,13 @@ def _reg(provedor, op, **kw):
 class BuscaSimulada:
     nome = "simulado"
     def buscar(self, consulta, filtros):
+        if not consulta.uf:
+            # busca de literatura (sem UF): dois resultados proprios da consulta e um comum a todas (exercita a juncao)
+            res = [ResultadoWeb(f"https://exemplo.org/literatura/{consulta.id.lower()}/{n}", f"Referência simulada {consulta.id} {n}",
+                                "inteligência artificial na segurança pública", None, n) for n in (1, 2)]
+            res.append(ResultadoWeb("https://www.exemplo.org/literatura/comum?utm_source=x", "Referência simulada comum",
+                                    "inteligência artificial na segurança pública", None, 3))
+            return RespostaBusca(res, _reg(self.nome, "buscar", raw=b'{"simulado": true}'))
         res = [ResultadoWeb(f"https://exemplo.gov.br/{consulta.uf.lower()}/{n}?utm_source=x",
                             f"Reconhecimento facial {consulta.uf} {n}",
                             "câmeras com reconhecimento facial", None, n) for n in range(1, 4)]

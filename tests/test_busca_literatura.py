@@ -449,27 +449,8 @@ def test_com_o_serpapi_google_a_execucao_falha_sem_chamar(ambiente_cli, monkeypa
     assert db.execute("SELECT COUNT(*) FROM chamadas").fetchone() == (0,)
 
 
-# ---------- relatorio e envio ----------
+# ---------- relatorio ----------
 def test_metodologia_conhece_a_etapa_e_cobra_o_preco():
     from painel import metodologia_texto
     assert metodologia_texto.ETAPAS["busca_literatura"] == "busca de literatura na web"
     assert "busca_literatura" in metodologia_texto.ETAPAS_COM_PRECO
-
-
-def test_envio_para_a_nuvem_recusa_execucao_da_busca_de_literatura(ambiente_cli, monkeypatch, silencio):
-    from adaptadores import pacote_coleta
-    from dominio.pacote_coleta import ErroPacote
-    run_id = _primeira(ambiente_cli, monkeypatch, "--conjunto", "A", "--simulado", "--limite", "1")
-    with pytest.raises(ErroPacote) as e:
-        pacote_coleta.montar(_db(ambiente_cli), run_id)
-    assert str(e.value) == f"A execução {run_id} é da busca de literatura, que o envio para a nuvem ainda não leva."
-
-
-def test_envio_recusa_tambem_execucao_so_com_chamadas_que_falharam(ambiente_cli, monkeypatch, silencio):
-    from adaptadores import pacote_coleta
-    from dominio.pacote_coleta import ErroPacote
-    run_id = _primeira(ambiente_cli, monkeypatch, "--conjunto", "A", "--simulado", "--limite", "1")
-    db = _db(ambiente_cli)
-    db.execute("DELETE FROM ocorrencias_web"); db.execute("UPDATE chamadas SET sucesso=0, erro='HTTP 500'"); db.commit()
-    with pytest.raises(ErroPacote):
-        pacote_coleta.montar(db, run_id)

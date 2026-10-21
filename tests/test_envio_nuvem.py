@@ -200,8 +200,8 @@ def test_ultimo_uso_so_no_envio_aceito(nuvem):
 
 
 def test_pacote_invalido(nuvem):
-    r = _post(nuvem, b'{"versao": 2, "run_id": "x", "tabelas": {}, "externas": {"paginas": []}}')
-    assert r.status_code == 400 and _corpo_erro(r) == "Pacote recusado: Versão do pacote não suportada: 2 (esta nuvem aceita 1)."
+    r = _post(nuvem, b'{"versao": 1, "run_id": "x", "tabelas": {}, "externas": {"paginas": []}}')
+    assert r.status_code == 400 and _corpo_erro(r) == "Pacote recusado: Versão do pacote não suportada: 1 (esta nuvem aceita 2)."
 
 
 # ---------- envio que grava ----------
@@ -325,7 +325,7 @@ def test_cliente_envia_todas_as_execucoes_pelo_painel(nuvem):
     assert feito["metodo"] == "POST" and feito["url"] == "https://painel.exemplo/api/coletas" and feito["timeout"] == (10, 900)
     assert all(x["max_tentativas"] == 1 for x in registro)              # sem nova tentativa automatica
     assert feito["headers"] == {"Authorization": f"Bearer {nuvem.token}", "Content-Type": "application/json", "Content-Encoding": "gzip"}
-    assert json.loads(gzip.decompress(feito["corpo"]))["versao"] == 1
+    assert json.loads(gzip.decompress(feito["corpo"]))["versao"] == 2
     n_local = nuvem.local.conn.execute("SELECT COUNT(*) FROM chamadas").fetchone()[0]
     assert sqlite3.connect(nuvem.central).execute("SELECT COUNT(*) FROM chamadas").fetchone()[0] == n_local
 

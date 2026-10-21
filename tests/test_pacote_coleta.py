@@ -23,7 +23,7 @@ def linha(t, **valores):
 
 def pacote():
     """Um pacote pequeno e valido, com uma linha de cada tabela e os tres formatos de alvo_id que levam numeros."""
-    return {"versao": 1, "run_id": RUN, "externas": {"paginas": []}, "tabelas": {
+    return {"versao": 2, "run_id": RUN, "externas": {"paginas": []}, "tabelas": {
         "execucoes": [linha("execucoes", run_id=RUN, iniciado_em="2026-10-20T10:15:00+00:00", config_hash="h", config_json="{}",
                             status="concluida")],
         "execucoes_retomadas": [linha("execucoes_retomadas", retomada_id=3, run_id=RUN, retomado_em="2026-10-20T11:00:00+00:00")],
@@ -39,6 +39,8 @@ def pacote():
             linha("chamadas", chamada_id=13, run_id=RUN, etapa="busca_web", provedor="serpapi", alvo_id="M01-SP-x",
                   parametros_json="{}", chave_idempotencia="k13", requisitado_em="t", sucesso=1)],
         "ocorrencias": [linha("ocorrencias", ocorrencia_id=20, chamada_id=12, artigo_id=5, termo_id="T01", run_id=RUN, posicao=1)],
+        "ocorrencias_web": [linha("ocorrencias_web", ocorrencia_id=22, chamada_id=13, run_id=RUN, conjunto="A", consulta_id="LA1",
+                                  referencia_id=8, posicao=1, titulo="Uma referência")],
         "resultados_web": [linha("resultados_web", resultado_id=21, chamada_id=13, run_id=RUN, consulta_id="M01", uf="SP", url_id=7)],
         "selecao_download": [linha("selecao_download", run_id=RUN, url_id=7, uf="SP", selecionada=1, auditoria=0)],
         "paginas": [linha("paginas", pagina_id=30, run_id=RUN, url_id=7, chamada_id=10)],
@@ -49,6 +51,9 @@ def pacote():
                                  valido=1, criado_em="t")],
         "urls": [linha("urls", url_id=7, url_normalizada="https://ssp.sp.gov.br/a", url_original="https://www.ssp.sp.gov.br/a")],
         "artigos": [linha("artigos", artigo_id=5, chave_dedup="abc", titulo="Um artigo")],
+        "referencias_web": [linha("referencias_web", referencia_id=8, url_normalizada="https://exemplo.org/a",
+                                  url_original="https://www.exemplo.org/a", dominio="exemplo.org", primeira_vez_run=RUN,
+                                  primeira_vez_em="t")],
     }}
 
 
@@ -65,9 +70,10 @@ CASOS = [
     ("nao e objeto", None, ["O pacote precisa ser um objeto JSON com as chaves versao, run_id, tabelas e externas."]),
     ("chave a mais", lambda p: p.update(extra=1), ["O pacote precisa ser um objeto JSON com as chaves versao, run_id, tabelas e externas."]),
     ("sem externas", lambda p: p.pop("externas"), ["O pacote precisa ser um objeto JSON com as chaves versao, run_id, tabelas e externas."]),
-    ("versao 2", lambda p: p.update(versao=2), ["Versão do pacote não suportada: 2 (esta nuvem aceita 1)."]),
-    ("versao texto", lambda p: p.update(versao="1"), ["Versão do pacote não suportada: '1' (esta nuvem aceita 1)."]),
-    ("versao booleana", lambda p: p.update(versao=True), ["Versão do pacote não suportada: True (esta nuvem aceita 1)."]),
+    ("versao 1", lambda p: p.update(versao=1), ["Versão do pacote não suportada: 1 (esta nuvem aceita 2)."]),
+    ("versao 3", lambda p: p.update(versao=3), ["Versão do pacote não suportada: 3 (esta nuvem aceita 2)."]),
+    ("versao texto", lambda p: p.update(versao="2"), ["Versão do pacote não suportada: '2' (esta nuvem aceita 2)."]),
+    ("versao booleana", lambda p: p.update(versao=True), ["Versão do pacote não suportada: True (esta nuvem aceita 2)."]),
     ("run_id ruim", lambda p: p.update(run_id="20261020_1015_abc123"), ["run_id inválido: '20261020_1015_abc123'."]),
     ("run_id maiusculo", lambda p: p.update(run_id="20261020_101500_ABC123"), ["run_id inválido: '20261020_101500_ABC123'."]),
     ("tabelas lista", lambda p: p.update(tabelas=[]), ["tabelas precisa ser um objeto com uma lista de linhas por tabela."]),
@@ -158,6 +164,44 @@ CASOS = [
      ["saldos, linha 1: colunas faltando: valor.",
       "externas.paginas, linha 1: precisa de pagina_id (número inteiro positivo) e run_id de outra execução.",
       "chamadas: chamada_id 13 repetido.", "paginas, linha 1: chamada_id 77 não está no pacote (chamadas)."]),
+    # busca de literatura na web (versao 2 do pacote)
+    ("sem ocorrencias_web", lambda p: T(p).pop("ocorrencias_web"), ["Tabelas faltando no pacote: ocorrencias_web."]),
+    ("sem referencias_web", lambda p: T(p).pop("referencias_web"), ["Tabelas faltando no pacote: referencias_web."]),
+    ("referencia que falta", lambda p: T(p)["ocorrencias_web"][0].update(referencia_id=99),
+     ["ocorrencias_web, linha 1: referencia_id 99 não está no pacote (referencias_web)."]),
+    ("referencia_id zero", lambda p: T(p)["ocorrencias_web"][0].update(referencia_id=0),
+     ["ocorrencias_web, linha 1: referencia_id deve ser um número inteiro positivo."]),
+    ("conjunto numero", lambda p: T(p)["ocorrencias_web"][0].update(conjunto=1),
+     ["ocorrencias_web, linha 1: valor inválido em conjunto (tipo errado, fora do limite, NaN ou texto com NUL)."]),
+    ("conjunto null", lambda p: T(p)["ocorrencias_web"][0].update(conjunto=None),
+     ["ocorrencias_web, linha 1: não pode ficar vazio: conjunto."]),
+    ("ocorrencia de outra execucao", lambda p: T(p)["ocorrencias_web"][0].update(run_id=OUTRA),
+     ["ocorrencias_web, linha 1: run_id diferente do do pacote."]),
+    ("ocorrencia com coluna a mais", lambda p: T(p)["ocorrencias_web"][0].update(extra=1),
+     ["ocorrencias_web, linha 1: colunas desconhecidas: extra."]),
+    ("url_normalizada null", lambda p: T(p)["referencias_web"][0].update(url_normalizada=None),
+     ["referencias_web, linha 1: não pode ficar vazio: url_normalizada."]),
+    ("referencia com url repetida", lambda p: T(p)["referencias_web"].append(dict(T(p)["referencias_web"][0], referencia_id=9)),
+     ["referencias_web: url_normalizada 'https://exemplo.org/a' repetido."]),
+    ("ocorrencia sem chamada", lambda p: T(p)["ocorrencias_web"][0].update(chamada_id=None),
+     ["ocorrencias_web, linha 1: não pode ficar vazio: chamada_id."]),
+    ("ocorrencia com chamada que falta", lambda p: T(p)["ocorrencias_web"][0].update(chamada_id=99),
+     ["ocorrencias_web, linha 1: chamada_id 99 não está no pacote (chamadas)."]),
+    ("posicao texto", lambda p: T(p)["ocorrencias_web"][0].update(posicao="1"),
+     ["ocorrencias_web, linha 1: valor inválido em posicao (tipo errado, fora do limite, NaN ou texto com NUL)."]),
+    ("referencia sem url_original", lambda p: T(p)["referencias_web"][0].update(url_original=None),
+     ["referencias_web, linha 1: não pode ficar vazio: url_original."]),
+    ("referencia sem dominio", lambda p: T(p)["referencias_web"][0].update(dominio=None),
+     ["referencias_web, linha 1: não pode ficar vazio: dominio."]),
+    ("referencia sem primeira_vez_run", lambda p: T(p)["referencias_web"][0].update(primeira_vez_run=None),
+     ["referencias_web, linha 1: não pode ficar vazio: primeira_vez_run."]),
+    ("referencia sem primeira_vez_em", lambda p: T(p)["referencias_web"][0].update(primeira_vez_em=None),
+     ["referencias_web, linha 1: não pode ficar vazio: primeira_vez_em."]),
+    ("referencia_id invalido", lambda p: T(p)["referencias_web"][0].update(referencia_id="8"),
+     ["referencias_web, linha 1: referencia_id deve ser um número inteiro positivo.",
+      "ocorrencias_web, linha 1: referencia_id 8 não está no pacote (referencias_web)."]),
+    ("referencia_id repetido", lambda p: T(p)["referencias_web"].append(
+        dict(T(p)["referencias_web"][0], url_normalizada="https://x.org/b")), ["referencias_web: referencia_id 8 repetido."]),
 ]
 
 
@@ -260,7 +304,8 @@ def _canonico(consultar):
     urls = {i: n for i, n in consultar("SELECT url_id, url_normalizada FROM urls")}
     artigos = {i: n for i, n in consultar("SELECT artigo_id, chave_dedup FROM artigos")}
     run_da = {"classificacoes": {i: r for i, r in consultar("SELECT classificacao_id, run_id FROM classificacoes")}}
-    canon = {"urls": urls, "artigos": artigos}
+    referencias = {i: n for i, n in consultar("SELECT referencia_id, url_normalizada FROM referencias_web")}
+    canon = {"urls": urls, "artigos": artigos, "referencias_web": referencias}
     saida = {}
     for t, chave, colunas, refs in P.DA_EXECUCAO:
         linhas = [dict(zip(colunas, r)) for r in consultar(f"SELECT {', '.join(colunas)} FROM {t}")]
@@ -690,3 +735,178 @@ def test_paginas_externas_e_correspondencias_em_lote(tmp_path):
         assert central.conn.execute("SELECT COUNT(DISTINCT pagina_id) FROM classificacoes WHERE run_id = ?", (RUN,)).fetchone()[0] == 301
     finally:
         central.fechar()
+
+
+# ---------- busca de literatura na web (versao 2) ----------
+def _literatura_local(tmp_path):
+    """Banco local com duas execucoes da busca de literatura simulada (A e depois B): a URL comum e da primeira."""
+    import logging
+    from adaptadores.bruto_local import BrutoLocal
+    from adaptadores.simulados import BuscaSimulada
+    from aplicacao import busca_literatura
+    from config import consultas as C, settings as S
+    repo = RepositorioSQLite(tmp_path / "literatura_local.db")
+    snap = S.snapshot_config()
+    runs = []
+    logging.disable(logging.CRITICAL)
+    try:
+        for conjunto in ("A", "B"):
+            run = repo.iniciar_execucao("buscar-literatura", snap["hash"], snap["json"], "c")
+            busca_literatura.executar(repo, BrutoLocal(tmp_path / "raw"), BuscaSimulada(), run,
+                                      [(conjunto, C.CONJUNTOS_LITERATURA[conjunto])], C.FILTROS_LITERATURA_WEB, [], 0)
+            repo.finalizar_execucao(run, "concluida")
+            runs.append(run)
+    finally:
+        logging.disable(logging.NOTSET)
+    return repo, runs
+
+
+def test_pacote_leva_a_busca_de_literatura(tmp_path):
+    repo, (run_a, _) = _literatura_local(tmp_path)
+    try:
+        p = repo.pacote_da_execucao(run_a)
+    finally:
+        repo.fechar()
+    assert p["versao"] == 2 and P.conferir(p) == []
+    assert len(p["tabelas"]["ocorrencias_web"]) == 15 and len(p["tabelas"]["referencias_web"]) == 11
+    assert {l["referencia_id"] for l in p["tabelas"]["ocorrencias_web"]} == {l["referencia_id"] for l in p["tabelas"]["referencias_web"]}
+    assert [l["etapa"] for l in p["tabelas"]["chamadas"]] == ["busca_literatura"] * 5
+
+
+def test_juntar_busca_de_literatura_reaproveita_a_referencia_e_reenvio_nao_muda(central, tmp_path):
+    fabrica, consultar = central
+    local, runs = _literatura_local(tmp_path)
+    try:
+        pacotes = [local.pacote_da_execucao(r) for r in runs]
+    finally:
+        local.fechar()
+
+    def juntar(p):
+        repo = fabrica()
+        try:
+            return repo.juntar_pacote(p, 1, "2026-10-21T12:00:00+00:00")
+        finally:
+            repo.fechar()
+    r1 = juntar(pacotes[0])
+    assert r1["referencias_web"] == {"novas": 11, "atualizadas": 0, "iguais": 0}
+    assert r1["ocorrencias_web"] == {"novas": 15, "atualizadas": 0, "iguais": 0}
+    r2 = juntar(pacotes[1])                                      # a URL comum ja esta na nuvem: so 10 novas
+    assert r2["referencias_web"] == {"novas": 10, "atualizadas": 0, "iguais": 1}
+    assert r2["ocorrencias_web"]["novas"] == 15
+    de_novo = juntar(pacotes[0])
+    assert de_novo["referencias_web"] == {"novas": 0, "atualizadas": 0, "iguais": 11}
+    assert de_novo["ocorrencias_web"] == {"novas": 0, "atualizadas": 0, "iguais": 15}
+    assert consultar("SELECT COUNT(*) FROM referencias_web") == [(21,)]
+    assert consultar("SELECT COUNT(*) FROM ocorrencias_web") == [(30,)]
+    # cada ocorrencia aponta, na nuvem, para a referencia da mesma URL que tinha no local
+    esperado = sorted((o["consulta_id"], o["posicao"], r["url_normalizada"])
+                      for p in pacotes for o in p["tabelas"]["ocorrencias_web"]
+                      for r in p["tabelas"]["referencias_web"] if r["referencia_id"] == o["referencia_id"])
+    obtido = sorted(tuple(l) for l in consultar(
+        "SELECT o.consulta_id, o.posicao, r.url_normalizada FROM ocorrencias_web o JOIN referencias_web r "
+        "ON r.referencia_id = o.referencia_id"))
+    assert obtido == esperado
+    assert consultar("SELECT DISTINCT primeira_vez_run FROM referencias_web WHERE url_normalizada = "
+                     "'https://exemplo.org/literatura/comum'") == [(runs[0],)]
+
+
+def test_referencias_chegam_com_todos_os_campos(central, tmp_path):
+    fabrica, consultar = central
+    local, runs = _literatura_local(tmp_path)
+    try:
+        for r in runs:
+            _enviar(fabrica, local.pacote_da_execucao(r))
+        colunas = [c for c in P.COMPARTILHADAS["referencias_web"][2] if c != "referencia_id"]
+        no_local = sorted(tuple(l) for l in local.conn.execute(f"SELECT {', '.join(colunas)} FROM referencias_web").fetchall())
+    finally:
+        local.fechar()
+    assert sorted(tuple(l) for l in consultar(f"SELECT {', '.join(colunas)} FROM referencias_web")) == no_local
+
+
+def test_execucao_da_literatura_so_com_chamadas_que_falharam_vai_e_volta_vazia(central, tmp_path):
+    import logging
+    from adaptadores.bruto_local import BrutoLocal
+    from aplicacao import busca_literatura
+    from config import consultas as C, settings as S
+    from dominio.modelos import RegistroChamada, RespostaBusca
+
+    class Falha:
+        nome = "falsa"
+
+        def buscar(self, consulta, filtros):
+            return RespostaBusca([], RegistroChamada(provedor="falsa", operacao="buscar", parametros={}, requisitado_em="t",
+                                                     http_status=500, erro="HTTP 500", raw=b"{}"))
+    fabrica, consultar = central
+    local = RepositorioSQLite(tmp_path / "falhas.db")
+    snap = S.snapshot_config()
+    try:
+        run = local.iniciar_execucao("buscar-literatura", snap["hash"], snap["json"], "c")
+        logging.disable(logging.CRITICAL)
+        try:
+            busca_literatura.executar(local, BrutoLocal(tmp_path / "raw"), Falha(), run, [("A", C.CONJUNTOS_LITERATURA["A"])],
+                                      C.FILTROS_LITERATURA_WEB, [], 0)
+        finally:
+            logging.disable(logging.NOTSET)
+        local.finalizar_execucao(run, "concluida")
+        p = local.pacote_da_execucao(run)
+    finally:
+        local.fechar()
+    assert P.conferir(p) == []
+    assert (len(p["tabelas"]["ocorrencias_web"]), len(p["tabelas"]["referencias_web"]), len(p["tabelas"]["chamadas"])) == (0, 0, 5)
+    _enviar(fabrica, p)
+    assert consultar("SELECT COUNT(*), SUM(sucesso) FROM chamadas WHERE etapa = 'busca_literatura'") == [(5, 0)]
+
+
+def test_referencia_que_ja_esta_na_nuvem_nao_muda_com_outro_envio(central, tmp_path):
+    """Dois computadores acham a mesma URL normalizada com outra URL original: a linha da nuvem fica como chegou primeiro."""
+    fabrica, consultar = central
+    pacotes = []
+    for n, (pasta, original) in enumerate((("um", "https://www.exemplo.org/a?utm_source=x"), ("dois", "https://exemplo.org/a/"))):
+        repo = RepositorioSQLite(tmp_path / f"{pasta}.db")
+        try:
+            run = repo.iniciar_execucao("buscar-literatura", "h", "{}", "c")
+            from aplicacao.comum import registrar_chamada
+            from dominio.modelos import RegistroChamada, ResultadoWeb
+            reg = RegistroChamada(provedor="falsa", operacao="buscar", parametros={}, requisitado_em="t", http_status=200)
+            chamada, _ = registrar_chamada(repo, None, run, "busca_literatura", "consulta_literatura", "LA1", f"k{n}", reg, [])
+            repo.salvar_referencias_web(chamada, run, "A", "LA1", [ResultadoWeb(original, "t", "s", None, 1)])
+            repo.confirmar()
+            pacotes.append((run, repo.pacote_da_execucao(run)))
+        finally:
+            repo.fechar()
+    _enviar(fabrica, pacotes[0][1])
+    _enviar(fabrica, pacotes[1][1])
+    assert consultar("SELECT url_normalizada, url_original, primeira_vez_run FROM referencias_web") == [
+        ("https://exemplo.org/a", "https://www.exemplo.org/a?utm_source=x", pacotes[0][0])]
+    assert consultar("SELECT COUNT(*), COUNT(DISTINCT referencia_id) FROM ocorrencias_web") == [(2, 1)]
+
+
+def test_juntar_referencias_em_lotes_sem_leitura_por_linha(tmp_path):
+    """600 referencias e 600 ocorrencias: as leituras sao por lote; so a insercao de cada linha nova e uma por linha
+    (o numero novo de cada uma e preciso para o mapa)."""
+    p = pacote()
+    T(p)["referencias_web"] = [linha("referencias_web", referencia_id=i, url_normalizada=f"https://e.org/{i}", url_original=f"https://e.org/{i}",
+                                     dominio="e.org", primeira_vez_run=RUN, primeira_vez_em="t") for i in range(1, 601)]
+    T(p)["ocorrencias_web"] = [linha("ocorrencias_web", ocorrencia_id=1000 + i, chamada_id=13, run_id=RUN, conjunto="A", consulta_id="LA1",
+                                     referencia_id=i, posicao=i) for i in range(1, 601)]
+    assert P.conferir(p) == []
+    caminho = tmp_path / "central_lotes.db"
+    RepositorioSQLite(caminho).fechar()
+
+    def enviar_contando():
+        repo = RepositorioSQLite(caminho)
+        comandos = []
+        repo.conn.set_trace_callback(comandos.append)
+        try:
+            repo.juntar_pacote(copy.deepcopy(p), 1, "t")
+        finally:
+            repo.conn.set_trace_callback(None)
+            repo.fechar()
+        selects = [c for c in comandos if c.lstrip().upper().startswith("SELECT")]
+        return selects, [c for c in comandos if c.startswith("INSERT INTO referencias_web")], \
+            [c for c in comandos if c.startswith("INSERT INTO ocorrencias_web")]
+    selects, ins_ref, ins_oc = enviar_contando()
+    assert len(ins_ref) == 600 and len(ins_oc) == 600
+    assert len(selects) <= 40                                       # leituras por lote, nao por linha (sem lote: mais de 600)
+    selects, ins_ref, ins_oc = enviar_contando()                    # reenvio: nada novo
+    assert (len(ins_ref), len(ins_oc)) == (0, 0) and len(selects) <= 40

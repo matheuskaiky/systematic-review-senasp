@@ -11,7 +11,7 @@ class ErroPacote(Exception):
     """Pacote recusado, com a mensagem para quem enviou (nada foi gravado)."""
 
 
-VERSAO = 1
+VERSAO = 2                       # 2: leva a busca de literatura na web (referencias_web e ocorrencias_web)
 MAX_TEXTO = 5_000_000            # caracteres por campo de texto (a maior resposta do classificador hoje fica muito abaixo)
 RE_RUN_ID = re.compile(r"[0-9]{8}_[0-9]{6}_[0-9a-f]{6}")
 MAIOR_ID = 9223372036854775807
@@ -29,6 +29,8 @@ COMPARTILHADAS = {
     "artigos": ("artigo_id", "chave_dedup",
                 ("artigo_id", "chave_dedup", "titulo", "link", "autores_publicacao", "ano", "snippet", "citacoes",
                  "primeira_vez_run", "primeira_vez_em")),
+    "referencias_web": ("referencia_id", "url_normalizada",
+                        ("referencia_id", "url_normalizada", "url_original", "dominio", "primeira_vez_run", "primeira_vez_em")),
 }
 
 # tabelas da execucao, na ordem em que a nuvem as junta (pai antes do filho): (tabela, chave, colunas, referencias).
@@ -47,6 +49,9 @@ DA_EXECUCAO = (
                                 "extras_json"), {}),
     ("ocorrencias", "ocorrencia_id", ("ocorrencia_id", "chamada_id", "artigo_id", "termo_id", "run_id", "posicao",
                                       "citacoes_no_momento"), {"chamada_id": "chamadas", "artigo_id": "artigos"}),
+    ("ocorrencias_web", "ocorrencia_id", ("ocorrencia_id", "chamada_id", "run_id", "conjunto", "consulta_id", "referencia_id",
+                                          "posicao", "titulo", "snippet", "data_pub"),
+     {"chamada_id": "chamadas", "referencia_id": "referencias_web"}),
     ("resultados_web", "resultado_id", ("resultado_id", "chamada_id", "run_id", "consulta_id", "uf", "tecnologia", "perfil",
                                         "url_id", "posicao", "titulo", "snippet", "data_pub", "cidade"),
      {"chamada_id": "chamadas", "url_id": "urls"}),
@@ -86,6 +91,7 @@ TIPOS = {
     "chamadas": ("itttttttitttiiiitiiiiirtttt", ("run_id", "etapa", "provedor", "parametros_json", "chave_idempotencia",
                                                  "requisitado_em", "sucesso")),
     "ocorrencias": ("iiittii", ("chamada_id", "artigo_id", "termo_id", "run_id")),
+    "ocorrencias_web": ("iitttiittt", ("chamada_id", "run_id", "conjunto", "consulta_id", "referencia_id")),
     "resultados_web": ("iitttttiitttt", ("chamada_id", "run_id", "consulta_id", "uf", "url_id")),
     "selecao_download": ("tititi", ("run_id", "url_id", "uf", "selecionada", "auditoria")),
     "paginas": ("itiititiitititti", ("run_id", "url_id", "chamada_id")),
@@ -95,6 +101,7 @@ TIPOS = {
     "triagem_escopo": ("itititttttttttttttittt", ("run_id", "fonte", "item_id", "uf", "status", "valido", "criado_em")),
     "urls": ("itttitt", ("url_normalizada", "url_original")),
     "artigos": ("ittttititt", ("chave_dedup", "titulo")),
+    "referencias_web": ("ittttt", ("url_normalizada", "url_original", "dominio", "primeira_vez_run", "primeira_vez_em")),
 }
 
 

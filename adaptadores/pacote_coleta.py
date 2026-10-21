@@ -1,8 +1,8 @@
 """Monta, no banco local, o pacote de uma execucao e o junta no banco da nuvem (D85, D99, D100). O mesmo codigo roda
 sobre o SQLite e sobre o PostgreSQL (a conexao compativel traduz o SQL).
 
-Juntar: tudo numa transacao com a trava de escrita; a execucao pertence a quem a enviou primeiro; URLs e artigos sao
-achados pela chave natural (a linha da nuvem, se existe, nunca muda); as outras linhas sao achadas pela correspondencia
+Juntar: tudo numa transacao com a trava de escrita; a execucao pertence a quem a enviou primeiro; as tabelas
+compartilhadas (URLs, artigos e referencias da web) sao achadas pela chave natural (a linha da nuvem, se existe, nunca muda); as outras linhas sao achadas pela correspondencia
 (execucao, tabela, numero local) -> numero na nuvem: linha nova entra, linha que mudou tem so os campos da coleta
 atualizados, e nada e apagado. Os campos de decisao humana nunca sao escritos."""
 from contextlib import nullcontext
@@ -18,6 +18,7 @@ _DA_EXECUCAO = {
     "saldos": "SELECT {c} FROM saldos WHERE run_id = ? ORDER BY id",
     "chamadas": "SELECT {c} FROM chamadas WHERE run_id = ? ORDER BY chamada_id",
     "ocorrencias": "SELECT {c} FROM ocorrencias WHERE run_id = ? ORDER BY ocorrencia_id",
+    "ocorrencias_web": "SELECT {c} FROM ocorrencias_web WHERE run_id = ? ORDER BY ocorrencia_id",
     "resultados_web": "SELECT {c} FROM resultados_web WHERE run_id = ? ORDER BY resultado_id",
     "selecao_download": "SELECT {c} FROM selecao_download WHERE run_id = ? ORDER BY url_id, uf",
     "paginas": "SELECT {c} FROM paginas WHERE run_id = ? ORDER BY pagina_id",
@@ -38,8 +39,6 @@ def montar(conn, run_id):
     """O pacote (dict pronto para JSON) da execucao `run_id` do banco local. ErroPacote se ela nao existe."""
     if conn.execute("SELECT 1 FROM execucoes WHERE run_id = ?", (run_id,)).fetchone() is None:
         raise ErroPacote(f"A execução {run_id} não existe neste banco.")
-    if conn.execute("SELECT 1 FROM chamadas WHERE run_id = ? AND etapa = 'busca_literatura' LIMIT 1", (run_id,)).fetchone():
-        raise ErroPacote(f"A execução {run_id} é da busca de literatura, que o envio para a nuvem ainda não leva.")
     tabelas = {t: _linhas(conn, _DA_EXECUCAO[t], (run_id,), P.COLUNAS[t]) for t, _, _, _ in P.DA_EXECUCAO}
     urls, artigos = set(), set()
     for t in ("resultados_web", "selecao_download", "paginas", "classificacoes"):
@@ -54,7 +53,8 @@ def montar(conn, run_id):
             (urls if m["fonte"] == "web" else artigos).add(int(m["item"]))
         elif m:
             urls.add(int(m["url"]))
-    for t, ids in (("urls", urls), ("artigos", artigos)):
+    referencias = {l["referencia_id"] for l in tabelas["ocorrencias_web"]}
+    for t, ids in (("urls", urls), ("artigos", artigos), ("referencias_web", referencias)):
         chave, _, colunas = P.COMPARTILHADAS[t]
         tabelas[t] = []
         for lote in _lotes(sorted(ids)):             # um comando por lote, nunca um por linha
@@ -99,8 +99,8 @@ def _juntar(conn, run_id, tabelas, paginas_externas, usuario_id, agora):
     if dono is None and conn.execute("SELECT 1 FROM execucoes WHERE run_id = ?", (run_id,)).fetchone() is not None:
         raise ErroPacote(f"A execução {run_id} já existe neste banco sem registro de envio: não é juntada por envio.")
     relatorio = {t: {"novas": 0, "atualizadas": 0, "iguais": 0} for t in P.TABELAS}
-    mapa = {"urls": {}, "artigos": {}}
-    for t in ("urls", "artigos"):
+    mapa = {t: {} for t in P.COMPARTILHADAS}
+    for t in P.COMPARTILHADAS:
         chave, natural, colunas = P.COMPARTILHADAS[t]
         na_base = {}
         for lote in _lotes([l[natural] for l in tabelas[t]]):

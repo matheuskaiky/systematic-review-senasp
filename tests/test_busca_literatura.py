@@ -443,8 +443,8 @@ def test_com_o_serpapi_google_a_execucao_falha_sem_chamar(ambiente_cli, monkeypa
     monkeypatch.setitem(S.OPCOES["sqlite"], "caminho", ambiente_cli / "data" / "pesquisa.db")   # nunca o banco real
     monkeypatch.setitem(S.OPCOES["local"], "raiz", ambiente_cli / "data" / "raw")
     monkeypatch.setattr(busca_serpapi_google, "chamar", lambda *a, **k: pytest.fail("nao deveria chamar"))
-    _cli(monkeypatch, "--conjunto", "A", "--limite", "1")
-    db = sqlite3.connect(ambiente_cli / "data" / "pesquisa.db")
+    _cli(monkeypatch, "--conjunto", "A", "--limite", "1", "--banco", "vies")
+    db = sqlite3.connect(ambiente_cli / "data" / "vies" / "pesquisa.db")
     assert db.execute("SELECT comando, status FROM execucoes").fetchall() == [("buscar-literatura", "falhou")]
     assert db.execute("SELECT COUNT(*) FROM chamadas").fetchone() == (0,)
 

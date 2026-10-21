@@ -87,7 +87,7 @@
   --menu-ambar-tx: var(--ambar-300); --menu-ambar-solido: var(--ambar-500); --menu-rosa-fundo: var(--rosa-900);
   --menu-rosa-tx: var(--rosa-300); --menu-rosa-solido: var(--rosa-500);
   /* iguais nos dois temas (contexto do banco): valor direto */
-  --banner-real: #123a57; --banner-simulado: #5b4a00; --banner-demo: #53288a; --texto-banner: #ffffff;
+  --banner-real: #123a57; --banner-vies: #1f5133; --banner-simulado: #5b4a00; --banner-demo: #53288a; --texto-banner: #ffffff;
 
   /* ---- Tipografia, espaço, raios, movimento (não mudam com o tema). Inter e Source Serif 4 chegam por painel.js (arquivos em /static/fonts); a pilha de sistema é a reserva. ---- */
   --fonte-base: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
@@ -248,6 +248,7 @@ hr { border: 0; border-top: 1px solid var(--borda); margin: var(--esp-6) 0; }
 .banner { position: relative; z-index: 3; display: flex; align-items: center; gap: var(--esp-3); min-height: 2.5rem; padding: .3rem var(--esp-5); font-size: var(--fs-sm); letter-spacing: .01em; }
 .banner strong { display: inline-flex; align-items: center; gap: .5rem; font-weight: 650; letter-spacing: .025em; }
 .banner-real { background: var(--banner-real); color: var(--texto-banner); }
+.banner-vies { background: var(--banner-vies); color: var(--texto-banner); }
 .banner-simulado { background: var(--banner-simulado); color: var(--texto-banner); }
 .banner-demo { background: var(--banner-demo); color: var(--texto-banner); }
 .banner-detalhe { opacity: .88; font-family: var(--fonte-mono); font-size: var(--fs-xs); padding: .1rem .6rem; border-radius: var(--raio-pilula); background: rgba(255, 255, 255, .14); }

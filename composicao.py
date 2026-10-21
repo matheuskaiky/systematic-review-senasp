@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from dotenv import load_dotenv
@@ -18,6 +19,46 @@ def banco_do_ambiente():
     if backend not in ("sqlite", "postgres"):
         raise SystemExit("DB_BACKEND aceita só sqlite ou postgres.")
     return backend
+
+
+_banco_em_uso = []         # o banco escolhido no comando em curso (um so de cada vez)
+
+
+@contextmanager
+def banco_escolhido(banco, simulado=False, demo=False):
+    """Durante o comando, as pastas do banco escolhido (D111): no real, nada muda; num outro banco, os dados, os brutos,
+    as contas, as copias de seguranca, as saidas e os registros vao para data/<banco>, outputs/<banco> e logs/<banco>,
+    com os mesmos nomes de arquivo. Ao sair, tudo volta como estava (o mesmo processo pode rodar outro comando)."""
+    if banco not in S.BANCOS:
+        raise SystemExit(f"Banco desconhecido: {banco}. Use um destes: {', '.join(S.BANCOS)}.")
+    if _banco_em_uso:
+        raise SystemExit(f"O banco {_banco_em_uso[0]} já está escolhido neste comando: não dá para escolher outro dentro dele.")
+    if banco == "real":
+        _banco_em_uso.append(banco)
+        try:
+            yield
+        finally:
+            _banco_em_uso.clear()
+        return
+    if simulado or demo:
+        raise SystemExit(f"--banco {banco} não vale com --simulado nem com --demo.")
+    if banco_do_ambiente() == "postgres":
+        raise SystemExit(f"--banco {banco} só vale com o banco local (SQLite): o painel na nuvem tem um banco só.")
+    _banco_em_uso.append(banco)
+    antes = (S.DATA_DIR, S.OUT_DIR, S.LOG_DIR, dict(S.OPCOES["sqlite"]), dict(S.OPCOES["local"]), dict(S.OPCOES["excel"]))
+    dados, saidas = S.DATA_DIR / banco, S.OUT_DIR / banco
+    S.DATA_DIR, S.OUT_DIR, S.LOG_DIR = dados, saidas, S.LOG_DIR / banco
+    S.OPCOES["sqlite"]["caminho"] = dados / Path(antes[3]["caminho"]).name
+    S.OPCOES["local"]["raiz"] = dados / Path(antes[4]["raiz"]).name
+    S.OPCOES["excel"]["pasta"] = saidas
+    try:
+        yield
+    finally:
+        _banco_em_uso.clear()
+        S.DATA_DIR, S.OUT_DIR, S.LOG_DIR = antes[:3]
+        for nome, valor in zip(("sqlite", "local", "excel"), antes[3:]):
+            S.OPCOES[nome].clear()
+            S.OPCOES[nome].update(valor)
 
 
 class Fabrica:

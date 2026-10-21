@@ -100,7 +100,7 @@ def _planejar_auditoria(repo, semente):
 
 
 def planejar(repo, folga=R.FOLGA_PADRAO, semente=None, semente_auditoria=None, aleatoria=False, h4=False, meta_h4=0.05,
-             pasta="outputs/rotulagem"):
+             pasta="outputs/rotulagem", sufixo_banco=""):
     """Plano completo, sem gravar nada: {achados, triagem, auditoria, parametros}. Cada parte traz a trava (`dominio.prontidao`),
     quanto falta, quantas linhas pedir (já com a folga), o tamanho do conjunto de onde sai a seleção (`pool`) e as `linhas`.
     Trava já destravada: `pedir` = 0 e nenhuma linha. A auditoria usa a mesma semente e a mesma função de sorteio de
@@ -110,7 +110,8 @@ def planejar(repo, folga=R.FOLGA_PADRAO, semente=None, semente_auditoria=None, a
              "triagem": _planejar_triagem(repo, folga, semente, h4, meta_h4),
              "auditoria": _planejar_auditoria(repo, semente_auditoria or AN.SEMENTE_PADRAO),
              "parametros": {"folga": folga, "semente": semente, "semente_auditoria": semente_auditoria or AN.SEMENTE_PADRAO,
-                            "aleatoria": aleatoria, "h4": h4, "meta_h4": meta_h4, "pasta": str(pasta)}}
+                            "aleatoria": aleatoria, "h4": h4, "meta_h4": meta_h4, "pasta": str(pasta),
+                            "sufixo_banco": sufixo_banco}}
     return plano
 
 
@@ -180,7 +181,7 @@ def leiame_achados(plano, status_validos):
                "  verificado_por   seu nome",
                "  observacao       opcional",
                "A coluna estrato diz por que a linha foi escolhida e é ignorada na importação. Não altere achado_id nem verificado_em.", "",
-               "DEPOIS DE SALVAR", f"  python main.py achados-importar {plano['parametros']['pasta']}/{ARQ_ACHADOS}",
+               "DEPOIS DE SALVAR", f"  python main.py achados-importar {plano['parametros']['pasta']}/{ARQ_ACHADOS}{plano['parametros']['sufixo_banco']}",
                "  (sem --independente: --independente só grava no histórico e NÃO conta para a trava)"]
     return linhas
 
@@ -198,7 +199,7 @@ def leiame_triagem(plano, h4=False):
                 "a taxa de falsa exclusão vale para os excluídos. Decida pelo título e resumo, SEM olhar o motivo do modelo se puder.", "",
                 "COMO PREENCHER: decisao = incluir ou excluir (pendente = deixar para depois), motivo (obrigatório ao excluir), revisor = seu nome.",
                 "Achando um artigo que deveria ser incluído, a meta não é provada com este tamanho: gere mais.", "",
-                f"DEPOIS DE SALVAR: python main.py triagem-importar {plano['parametros']['pasta']}/{ARQ_TRIAGEM_H4}  (sem --independente)"]
+                f"DEPOIS DE SALVAR: python main.py triagem-importar {plano['parametros']['pasta']}/{ARQ_TRIAGEM_H4}{plano['parametros']['sufixo_banco']}  (sem --independente)"]
     return ["ROTULAGEM DA TRIAGEM DE ARTIGOS (destrava a análise bibliométrica, H5)", "",
             f"Linhas: {len(t['linhas'])} (faltam {t['faltam']} para o mínimo, mais a folga de {plano['parametros']['folga']:g}%).",
             f"Hoje: {t['n_incluir']} incluídos e {t['n_excluir']} excluídos por pessoa.", "",
@@ -210,13 +211,13 @@ def leiame_triagem(plano, h4=False):
             "  decisao   incluir ou excluir (pendente = deixar para depois; só incluir e excluir contam)",
             "  motivo    obrigatório ao excluir (entra nos motivos de exclusão do PRISMA)",
             "  revisor   seu nome", "",
-            "DEPOIS DE SALVAR", f"  python main.py triagem-importar {plano['parametros']['pasta']}/{ARQ_TRIAGEM}  (sem --independente)"]
+            "DEPOIS DE SALVAR", f"  python main.py triagem-importar {plano['parametros']['pasta']}/{ARQ_TRIAGEM}{plano['parametros']['sufixo_banco']}  (sem --independente)"]
 
 
 def leiame_pasta(plano):
     """Texto de `LEIA-ME.txt`: passo a passo com os comandos exatos e a estimativa de tempo."""
     a, t, au, par = plano["achados"], plano["triagem"], plano["auditoria"], plano["parametros"]
-    pasta = par["pasta"]
+    pasta, sb = par["pasta"], par["sufixo_banco"]
     h = t["h4"]
     arquivos = dict(arquivos_do_plano(plano))
     L = ["ROTULAGEM MÍNIMA: só o que falta para destravar as três análises", "",
@@ -233,29 +234,29 @@ def leiame_pasta(plano):
         passo += 1
         L += [f"{passo}. Achados ({arquivos[ARQ_ACHADOS]} linhas). Abra {ARQ_ACHADOS} (aba Achados; a aba LEIA-ME explica). Leia a evidência, abra a url e preencha",
               "   verificado = 1, status_final, verificado_por e, se quiser, observacao. Salve e rode:",
-              f"     python main.py achados-importar {pasta}/{ARQ_ACHADOS}",
+              f"     python main.py achados-importar {pasta}/{ARQ_ACHADOS}{sb}",
               "   Não use --independente (essa opção só grava no histórico e não conta para a trava).",
               f"   Atenção: a amostra é ENRIQUECIDA em achados com provável erro: não estime a precisão global com ela. Para a precisão global use --aleatoria."]
     if ARQ_TRIAGEM in arquivos:
         passo += 1
         L += [f"{passo}. Triagem de artigos ({arquivos[ARQ_TRIAGEM]} linhas). Abra {ARQ_TRIAGEM} (aba Triagem). Decida pelo título e resumo: decisao = incluir ou excluir",
               "   (motivo obrigatório ao excluir) e revisor. Salve e rode:",
-              f"     python main.py triagem-importar {pasta}/{ARQ_TRIAGEM}"]
+              f"     python main.py triagem-importar {pasta}/{ARQ_TRIAGEM}{sb}"]
     if ARQ_TRIAGEM_H4 in arquivos:
         passo += 1
         L += [f"{passo}. Falsa exclusão, H4 ({arquivos[ARQ_TRIAGEM_H4]} linhas, só artigos que o modelo excluiu; meta {100 * h['meta']:g}%: {h['minimo']} conferidos, zero falsas exclusões).",
-              f"   Preencha {ARQ_TRIAGEM_H4} como a triagem e rode: python main.py triagem-importar {pasta}/{ARQ_TRIAGEM_H4}"]
+              f"   Preencha {ARQ_TRIAGEM_H4} como a triagem e rode: python main.py triagem-importar {pasta}/{ARQ_TRIAGEM_H4}{sb}"]
     if ARQ_AUDITORIA in arquivos:
         passo += 1
         L += [f"{passo}. Auditoria dos negativos ({arquivos[ARQ_AUDITORIA]} páginas sem achado do modelo). Abra {ARQ_AUDITORIA}; para cada linha leia o texto em texto_path",
               "   (relativo à pasta data/raw) ou a página em url e preencha revisor, tinha_aplicacao (1 = havia uma aplicação de IA que o modelo não marcou; 0 = o modelo",
               "   acertou) e, se 1, tecnologia. Salve (CSV) e rode:",
-              f"     python main.py auditoria-negativos-importar {pasta}/{ARQ_AUDITORIA}",
+              f"     python main.py auditoria-negativos-importar {pasta}/{ARQ_AUDITORIA}{sb}",
               f"   O mínimo de {au['minimo']} páginas vale se NENHUMA aplicação perdida for encontrada; achando alguma, a meta de 5% exige uma amostra maior."]
     passo += 1
-    L += [f"{passo}. Conferir: abra o painel (python main.py painel) e veja o cartão Prontidão metodológica na página inicial e em Análises > Visão geral.",
+    L += [f"{passo}. Conferir: abra o painel (python main.py painel{sb}) e veja o cartão Prontidão metodológica na página inicial e em Análises > Visão geral.",
           "   Quando uma trava abrir, rode a análise: analises/.venv/bin/python analises/h2_logistica.py (H2) ou analises/h5_bibliometria.py (H5).",
-          "   Se ainda faltar (por exemplo, poucos descartados), rode de novo com outra pasta: python main.py rotulagem-modelo --saida <outra pasta>",
+          f"   Se ainda faltar (por exemplo, poucos descartados), rode de novo com outra pasta: python main.py rotulagem-modelo --saida <outra pasta>{sb}",
           "   (os itens já rotulados saem da seleção).", "",
           "O comando não grava nada no banco; só as importações gravam. Não apaga nem sobrescreve arquivos: se a pasta já tiver estes arquivos, ele recusa."]
     return L

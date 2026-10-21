@@ -344,7 +344,7 @@ def checar_painel(raw):
         c = cor(prop(".selo.neutro", "color"), *cam)
         if exige(c and fundo_selo, "AC", f".selo.neutro ({tema})"):
             exige(contraste(c, fundo_selo) >= 4.5, "AC", f"contraste .selo.neutro ({tema})")
-        for b in (".banner-real", ".banner-simulado", ".banner-demo"):
+        for b in (".banner-real", ".banner-vies", ".banner-simulado", ".banner-demo"):
             c, f = cor(prop(b, "color"), *cam), cor(prop(b, "background"), *cam)
             if exige(c and f, "AC", f"{b}: color/background ({tema})"):
                 exige(contraste(c, f) >= 4.5, "AC", f"contraste {b} ({tema}): {contraste(c, f):.2f}")

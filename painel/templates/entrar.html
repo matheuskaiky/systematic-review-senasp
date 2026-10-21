@@ -39,7 +39,7 @@
       <h1 id="t-entrar">Entrar</h1>
       <p class="sub">Use o login e a senha enviados pela coordenação da pesquisa.</p>
       {% if sem_admin %}
-      <div class="aviso" role="status"><strong>Nenhum administrador cadastrado.</strong> Crie um com: <code>python main.py usuario-admin --login &lt;login&gt; --nome &lt;nome&gt;{% if simulado %} --simulado{% endif %}</code></div>
+      <div class="aviso" role="status"><strong>Nenhum administrador cadastrado.</strong> Crie um com: <code>python main.py usuario-admin --login &lt;login&gt; --nome &lt;nome&gt;{% if simulado %} --simulado{% endif %}{% if ctx.banco == "vies" %} --banco vies{% endif %}</code></div>
       {% endif %}
       {% if aviso == "expirada" %}
       <div class="aviso" data-ic="clock" role="status"><strong>Sua sessão expirou.</strong> Entre de novo para continuar de onde parou.</div>

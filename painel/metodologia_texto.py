@@ -491,6 +491,9 @@ def _ressalvas(x):
     if x.banco in ("demo", "simulado"):
         add(("Estes dados são " + ("fictícios (demonstração)" if x.banco == "demo" else "simulados (teste, sem chamadas reais)")
              + ": o texto não descreve uma pesquisa real e não deve ser usado em publicação.", None))
+    if x.banco == "vies":
+        add(("Estes dados são do banco da busca de viés algorítmico na segurança pública, separado do banco da pesquisa: "
+             "os números abaixo não são os das secretarias estaduais nem os da busca de artigos.", None))
     if x.vazio:
         add(("Nada foi coletado ainda: o banco não tem execuções, artigos nem achados. Rode o pipeline (por exemplo, python main.py pipeline-uf --ufs PI --limite 5) e volte aqui.", None))
         add(("Nenhuma busca acadêmica, busca web ou classificação registrada; nenhuma verificação humana feita.", None))

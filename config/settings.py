@@ -119,13 +119,29 @@ def _plano(obj):
     return str(obj)
 
 
-def snapshot_config():
-    """Full snapshot of this run's configuration, with a hash."""
+# Bancos da pesquisa (D111): o de sempre e o da busca de vies algoritmico. Um banco que nao e o real fica todo em pastas
+# proprias (data/<banco>, outputs/<banco>, logs/<banco>), com os mesmos nomes de arquivo; a escolha e a opcao --banco.
+BANCOS = ("real", "vies")
+
+
+def termos_do_banco(banco="real"):
+    """Os termos academicos de cada banco: no real, os da Tarefa 2; no de vies, as consultas dos conjuntos A e B."""
+    from config import consultas as c
+    if banco not in BANCOS:
+        raise ValueError(f"banco desconhecido: {banco!r}")
+    if banco == "real":
+        return c.TERMOS + c.TERMOS_COMPOSTOS
+    return [t for ts in c.CONJUNTOS_LITERATURA.values() for t in ts]
+
+
+def snapshot_config(banco="real"):
+    """Full snapshot of this run's configuration, with a hash. No banco real o registro e o de sempre (mesmo hash); nos
+    outros, os termos sao os do banco e a chave `banco` diz qual."""
     from config import consultas as c, prompts as p, vocabulario as v
     conteudo = {
         "provedores": PROVEDORES,
         "opcoes": OPCOES,
-        "termos": c.TERMOS + c.TERMOS_COMPOSTOS, "filtros_academicos": c.FILTROS_ACADEMICOS,
+        "termos": termos_do_banco(banco), "filtros_academicos": c.FILTROS_ACADEMICOS,
         "max_paginas_academico": c.MAX_PAGINAS_ACADEMICO,
         "modelos_web": c.MODELOS_WEB, "perfis_busca_web": c.PERFIS_BUSCA_WEB,
         "conjuntos_literatura": c.CONJUNTOS_LITERATURA, "filtros_literatura_web": c.FILTROS_LITERATURA_WEB,
@@ -136,5 +152,7 @@ def snapshot_config():
         "prompt_usuario": p.USER_PROMPT, "classificacao": CLASSIFICACAO,
         "download": DOWNLOAD,
     }
+    if banco != "real":
+        conteudo["banco"] = banco
     texto = json.dumps(conteudo, sort_keys=True, ensure_ascii=False, default=_plano)
     return {"json": texto, "hash": hashlib.sha256(texto.encode()).hexdigest()[:12]}

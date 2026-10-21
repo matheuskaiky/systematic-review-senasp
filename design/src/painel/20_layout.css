@@ -2,6 +2,7 @@
 .banner { position: relative; z-index: 3; display: flex; align-items: center; gap: var(--esp-3); min-height: 2.5rem; padding: .3rem var(--esp-5); font-size: var(--fs-sm); letter-spacing: .01em; }
 .banner strong { display: inline-flex; align-items: center; gap: .5rem; font-weight: 650; letter-spacing: .025em; }
 .banner-real { background: var(--banner-real); color: var(--texto-banner); }
+.banner-vies { background: var(--banner-vies); color: var(--texto-banner); }
 .banner-simulado { background: var(--banner-simulado); color: var(--texto-banner); }
 .banner-demo { background: var(--banner-demo); color: var(--texto-banner); }
 .banner-detalhe { opacity: .88; font-family: var(--fonte-mono); font-size: var(--fs-xs); padding: .1rem .6rem; border-radius: var(--raio-pilula); background: rgba(255, 255, 255, .14); }

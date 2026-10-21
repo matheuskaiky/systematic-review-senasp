@@ -104,6 +104,8 @@ def _banner(d):
         return '<header class="banner banner-demo"><strong>DADOS FICTÍCIOS</strong> <span>Demonstração: nada neste relatório descreve uma pesquisa real.</span></header>'
     if d["banco"] == "simulado":
         return '<header class="banner banner-simulado"><strong>SIMULADO</strong> <span>Dados de teste, sem chamadas reais e sem valor de pesquisa.</span></header>'
+    if d["banco"] == "vies":
+        return '<header class="banner banner-vies"><strong>BANCO VIÉS ALGORÍTMICO</strong> <span>Busca de viés algorítmico na segurança pública, separada do banco da pesquisa.</span></header>'
     return ""
 
 

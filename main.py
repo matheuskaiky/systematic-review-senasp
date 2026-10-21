@@ -15,7 +15,7 @@ from config import consultas as C, prompts as P, vocabulario as V, triagem_escop
 from config.categorias_referencias import CATEGORIAS_REFERENCIAS
 from config.eixos_tematicos import EIXOS_TEMATICOS
 from config.modelos_exportacao import MODELOS_REFERENCIAS, MODELO_REFERENCIAS_PADRAO
-from composicao import Fabrica, banco_do_ambiente
+from composicao import Fabrica, banco_do_ambiente, banco_escolhido
 from dominio.esquemas import esquema_classificacao
 from dominio.modelos import ParametrosClassificacao
 from dominio.erros import CotaDiariaEsgotada
@@ -109,8 +109,9 @@ def estimar(args):
     tecnologias = _tecnologias_da_busca(args)
     ufs = {k: v for k, v in C.UFS.items() if not getattr(args, "ufs", None) or k in args.ufs}
     consultas = gerar_consultas_web(C.MODELOS_WEB, tecnologias, ufs, C.MUNICIPIOS, C.MODELOS_WEB_MUNICIPAIS)
-    print(f"Academic terms: {len(C.TERMOS)} | pages per term (max.): {C.MAX_PAGINAS_ACADEMICO}")
-    print(f"Academic search credits (worst case): {len(C.TERMOS) * C.MAX_PAGINAS_ACADEMICO}")
+    termos = _termos_padrao(getattr(args, "banco", "real"))
+    print(f"Academic terms: {len(termos)} | pages per term (max.): {C.MAX_PAGINAS_ACADEMICO}")
+    print(f"Academic search credits (worst case): {len(termos) * C.MAX_PAGINAS_ACADEMICO}")
     print(f"Web queries: {len(consultas)} | estimated cost: US$ {len(consultas) * S.PRECO_BUSCA_WEB_USD:.2f}")
     print(f"Pages to download (ceiling): {C.POLITICA_DOWNLOAD.max_urls_por_uf * len(ufs)}")
     print(f"Classifications (ceiling): {C.POLITICA_DOWNLOAD.max_urls_por_uf * len(ufs)} (cost depends on the model and text sizes)")
@@ -206,12 +207,14 @@ def _limite(texto):
 
 def rodar(args, etapas):
     tecnologias = _tecnologias_da_busca(args)       # valida antes de abrir o banco ou exigir chave
+    if "literatura" in etapas and getattr(args, "banco", "real") == "real" and not args.simulado:
+        raise SystemExit("buscar-literatura grava no banco vies: use --banco vies (ou --simulado para testar sem custo).")
     if args.limite and "academico" in etapas:
         raise SystemExit("--limite não vale para a busca acadêmica: limite a busca com --termos e --paginas.")
     if getattr(args, "listar", False) and args.retomar:
         raise SystemExit("--listar não vale com --retomar: a prévia não conhece as chamadas já feitas da execução.")
     fab = Fabrica(simulado=args.simulado)
-    repo, snap = fab.repo, S.snapshot_config()
+    repo, snap = fab.repo, S.snapshot_config(getattr(args, "banco", "real"))
     # C5: na retomada, sem --de, reaproveita o --de guardado na execucao original (uma ou varias execucoes)
     de = separar_runs(args.de) or separar_runs(repo.obter_run_origem(args.retomar) if args.retomar else None)
     if args.retomar and args.limite is None:
@@ -264,10 +267,10 @@ def rodar(args, etapas):
                                    ambiente_json=_ambiente(args))
     iniciar_log(run_id, S.LOG_DIR)
     if args.termos:
-        todos_termos = C.TERMOS + C.TERMOS_COMPOSTOS
+        todos_termos = S.termos_do_banco(getattr(args, "banco", "real"))
         termos = [t for t in todos_termos if t.id in args.termos]
     else:
-        termos = list(C.TERMOS)
+        termos = _termos_padrao(getattr(args, "banco", "real"))
     # where each stage reads from: from the run itself if the previous stage runs together; otherwise from --de
     origem_dl = run_id if "busca_web" in etapas else de
     origem_cl = run_id if "download" in etapas else de
@@ -306,10 +309,10 @@ def rodar(args, etapas):
     except KeyboardInterrupt:
         repo.desfazer()                             # o que ficou pendente (sem confirmar) nao entra no banco
         status = "interrompida"
-        logging.warning("Interrupted. Resume with: python main.py %s --retomar %s", args.cmd, run_id)
+        logging.warning("Interrupted. Resume with: python main.py %s --retomar %s", args.cmd + _sufixo_banco(args), run_id)
     except CotaDiariaEsgotada as e:
         status = "interrompida"
-        _avisar_cota_diaria(e, args.cmd, run_id)
+        _avisar_cota_diaria(e, args.cmd + _sufixo_banco(args), run_id)
     except SystemExit:
         # a fabrica encerra com SystemExit (ex.: falta de chave); a execucao nao pode constar como concluida
         repo.desfazer()
@@ -324,14 +327,26 @@ def rodar(args, etapas):
         logging.info("Run %s: %s", run_id, status)
 
 
-def _mapas_termos_triagem():
+def _termos_padrao(banco):
+    """Os termos academicos que rodam sem --termos: no banco real, os da Tarefa 2 sem os compostos (desligados por
+    padrao); no de vies, as consultas dos conjuntos A e B."""
+    return list(C.TERMOS) if banco == "real" else S.termos_do_banco(banco)
+
+
+def _sufixo_banco(a):
+    """O que acrescentar a um comando sugerido numa mensagem para ele rodar no mesmo banco (D111)."""
+    banco = getattr(a, "banco", "real")
+    return "" if banco == "real" else f" --banco {banco}"
+
+
+def _mapas_termos_triagem(banco="real"):
     """Textos dos termos de cada consulta, para a triagem de escopo (o banco guarda so os ids).
 
     Artigos: o texto de cada termo do Scholar e das buscas manuais (`config/consultas.py::TERMOS`).
     Resultados web: nao ha um "termo" unico; os termos sao os ATOMOS ALTERAVEIS da consulta: o rotulo da tecnologia
     (`config/vocabulario.py::TECNOLOGIAS`) e as palavras fixas do modelo de consulta (o template sem {tec}, {nome}, {uf} e
     {cidade}). UF, estado e cidade nao entram: nao sao escolhas de redacao da consulta."""
-    return {"artigo": {t.id: t.query for t in C.TERMOS + C.TERMOS_COMPOSTOS},
+    return {"artigo": {t.id: t.query for t in S.termos_do_banco(banco)},
             "web": {"tecnologias": dict(V.TECNOLOGIAS),
                     "modelos": {m.id: atomo_do_modelo_de_consulta(m.template)
                                 for m in list(C.MODELOS_WEB) + list(C.MODELOS_WEB_MUNICIPAIS)}}}
@@ -349,10 +364,10 @@ def _precos_triagem():
     return {"entrada": o["preco_entrada_por_m"], "saida": o["preco_saida_por_m"]}
 
 
-def _config_triagem_run(lote, cfg):
+def _config_triagem_run(lote, cfg, banco="real"):
     """Configuracao da execucao de `triar-escopo`: o snapshot geral (sem alterar `settings.snapshot_config`) mais a
     configuracao da triagem (versao do prompt, prompts, vocabularios, tamanho do lote) e um hash proprio."""
-    snap = S.snapshot_config()
+    snap = S.snapshot_config(banco)
     conteudo = json.loads(snap["json"])
     conteudo["triagem_escopo"] = {**cfg.como_dict(), "lote": lote, "max_tokens_saida": TE.MAX_TOKENS_SAIDA,
                                   "max_falhas_por_lote": TE.MAX_FALHAS_POR_LOTE}
@@ -406,7 +421,7 @@ def triar_escopo(a):
     fonte = "artigo" if a.fonte == "artigos" else "web"
     fab = Fabrica(simulado=a.simulado)
     repo, precos = fab.repo, _precos_triagem()
-    mapas = _mapas_termos_triagem()
+    mapas = _mapas_termos_triagem(getattr(a, "banco", "real"))
     itens, resumo = triagem_escopo.selecionar(repo, fonte, mapas, cfg, a.amostra, a.estratificar,
                                               a.semente, a.limite, a.refazer)
     if a.estimar or a.tudo:
@@ -422,7 +437,7 @@ def triar_escopo(a):
     teto = a.max_custo if a.max_custo is not None else TE.MAX_CUSTO_PADRAO_USD
     if precos is None:
         raise SystemExit("Preços do modelo não configurados em config/settings.py: o teto de custo não pode ser aplicado.")
-    h, config_json = _config_triagem_run(lote, cfg)
+    h, config_json = _config_triagem_run(lote, cfg, getattr(a, "banco", "real"))
     run_id = repo.iniciar_execucao(a.cmd + (" [simulado]" if a.simulado else ""), h, config_json, _commit_git(),
                                    a.retomar, run_origem=None, ambiente_json=_ambiente(a))
     iniciar_log(run_id, S.LOG_DIR)
@@ -443,7 +458,7 @@ def triar_escopo(a):
         logging.warning("Interrupted. Rode de novo o mesmo comando: os itens já triados são pulados.")
     except CotaDiariaEsgotada as e:
         status = "interrompida"
-        _avisar_cota_diaria(e, a.cmd, run_id)
+        _avisar_cota_diaria(e, a.cmd + _sufixo_banco(a), run_id)
     except SystemExit:
         repo.desfazer()
         status = "falhou"
@@ -495,7 +510,7 @@ def abrir_painel(a, fab):
     from adaptadores.repositorio_sqlite import RepositorioSQLite
     from adaptadores.contas_sqlite import ContasSQLite
     from painel.app import Contexto, criar_app
-    banco = "demo" if a.demo else "simulado" if a.simulado else "real"
+    banco = "demo" if a.demo else "simulado" if a.simulado else getattr(a, "banco", "real")
     if a.demo:        # a demonstração tem as suas soluções (fictícias, presentes nos dados dela); a lista real é do pesquisador e vale para o banco real e o simulado
         from painel_demo import SOLUCOES_CONHECIDAS_DEMO as SOLUCOES_CONHECIDAS
     else:
@@ -505,10 +520,12 @@ def abrir_painel(a, fab):
     contexto = Contexto(
         banco=banco, nome_banco=fab.caminho_banco.name, somente_leitura=a.somente_leitura,
         pasta_backup=S.DATA_DIR / "backups", ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
-        status_definicoes=dict(V.STATUS), termos={t.id: t.query for t in C.TERMOS + C.TERMOS_COMPOSTOS}, bases=tuple(C.BASES_MANUAIS),
+        status_definicoes=dict(V.STATUS), termos={t.id: t.query for t in S.termos_do_banco(getattr(a, "banco", "real"))}, bases=tuple(C.BASES_MANUAIS),
         solucoes_conhecidas=tuple(SOLUCOES_CONHECIDAS),
         comando_criar_banco="python main.py painel-demo" if a.demo else
-        "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else "python main.py pipeline-uf --ufs PI --limite 5",
+        "python main.py tudo --simulado --ufs PI CE --paginas 1" if a.simulado else
+        f"python main.py buscar-literatura --conjunto A --limite 5{_sufixo_banco(a)}" if getattr(a, "banco", "real") != "real" else
+        "python main.py pipeline-uf --ufs PI --limite 5",
         autenticacao=autenticacao, modelos_referencias=dict(MODELOS_REFERENCIAS),
         categorias_referencias=dict(CATEGORIAS_REFERENCIAS), eixos_tematicos=dict(EIXOS_TEMATICOS))
     if servidor:
@@ -592,10 +609,10 @@ def gerar_relatorio(a, fab):
         raise SystemExit("Use --simulado ou --demo, não os dois.")
     if not fab.caminho_banco.exists():
         raise SystemExit(f"O banco {fab.caminho_banco.name} ainda não existe: não há o que relatar. "
-                         + ("Rode antes: python main.py painel-demo" if a.demo else "Rode antes o pipeline (por exemplo, python main.py pipeline-uf --ufs PI --limite 5)."))
-    banco = "demo" if a.demo else "simulado" if a.simulado else "real"
+                         + ("Rode antes: python main.py painel-demo" if a.demo else f"Rode antes o pipeline (por exemplo, python main.py pipeline-uf --ufs PI --limite 5{_sufixo_banco(a)})."))
+    banco = "demo" if a.demo else "simulado" if a.simulado else getattr(a, "banco", "real")
     agora = datetime.now()
-    dados = relatorio.coletar_dados(fab.leitura_painel(), dict(C.UFS), {t.id: t.query for t in C.TERMOS + C.TERMOS_COMPOSTOS}, tuple(C.BASES_MANUAIS),
+    dados = relatorio.coletar_dados(fab.leitura_painel(), dict(C.UFS), {t.id: t.query for t in S.termos_do_banco(getattr(a, "banco", "real"))}, tuple(C.BASES_MANUAIS),
                                     banco, fab.caminho_banco.name, agora.isoformat(timespec="seconds"), a.incluir_nao_verificados)
     estaticos = Path(relatorio.__file__).parent / "static"
     css = "\n".join((estaticos / nome).read_text(encoding="utf-8") for nome in ("painel.css", "metodologia.css"))
@@ -625,7 +642,7 @@ def auditoria_negativos_modelo(a, fab):
     print(f"texto_path é relativo a {raiz_texto}.")
     print("Para cada linha: leia o texto em texto_path (ou a página em url) e preencha revisor, tinha_aplicacao (1 = havia uma "
           "aplicação de IA que o modelo não marcou; 0 = o modelo acertou) e, se 1, tecnologia. Depois: "
-          "python main.py auditoria-negativos-importar <arquivo>")
+          f"python main.py auditoria-negativos-importar <arquivo>{_sufixo_banco(a)}")
 
 
 def auditoria_negativos_importar(a, fab):
@@ -646,7 +663,8 @@ def rotulagem_modelo(a, fab):
         pasta_txt = pasta.relative_to(Path.cwd()).as_posix()
     except ValueError:
         pasta_txt = pasta.as_posix()
-    plano = rotulagem.planejar(fab.repo, a.folga, a.semente, a.semente, a.aleatoria, a.h4, a.meta_h4 / 100, pasta_txt)
+    plano = rotulagem.planejar(fab.repo, a.folga, a.semente, a.semente, a.aleatoria, a.h4, a.meta_h4 / 100, pasta_txt,
+                               _sufixo_banco(a))
     print(f"Rotulagem mínima (folga de {a.folga:g}%, semente {plano['parametros']['semente']!r}):")
     print("\n".join(rotulagem.resumo_texto(plano)))
     arquivos = rotulagem.arquivos_do_plano(plano)
@@ -655,7 +673,8 @@ def rotulagem_modelo(a, fab):
         return
     if a.listar:
         print("Arquivos que seriam gerados em " + pasta_txt + ": " + ", ".join(f"{n} ({k} linhas)" for n, k in arquivos))
-        print("Nada foi gravado (--listar). Para gerar: python main.py rotulagem-modelo" + (f" --saida {pasta_txt}" if a.saida else ""))
+        print("Nada foi gravado (--listar). Para gerar: python main.py rotulagem-modelo" + (f" --saida {pasta_txt}" if a.saida else "")
+              + _sufixo_banco(a))
         return
     alvos = [pasta / n for n, _ in arquivos] + [pasta / rotulagem.ARQ_LEIAME]
     existentes = [str(p) for p in alvos if p.exists()]
@@ -675,7 +694,7 @@ def rotulagem_modelo(a, fab):
     print("Próximos comandos (depois de preencher cada arquivo):")
     for nome, _ in arquivos:
         imp = {rotulagem.ARQ_ACHADOS: "achados-importar", rotulagem.ARQ_AUDITORIA: "auditoria-negativos-importar"}.get(nome, "triagem-importar")
-        print(f"  python main.py {imp} {pasta_txt}/{nome}")
+        print(f"  python main.py {imp} {pasta_txt}/{nome}{_sufixo_banco(a)}")
 
 
 def migrar_robots(a, fab):
@@ -689,7 +708,7 @@ def migrar_robots(a, fab):
     if c["outro_status"]:
         print(f"  outro status (ficam como estão): {c['outro_status']}")
     if not a.aplicar:
-        print(f"Nada foi alterado. Para gravar ({r['para_inacessivel']} chamadas), rode: python main.py migrar-robots --aplicar")
+        print(f"Nada foi alterado. Para gravar ({r['para_inacessivel']} chamadas), rode: python main.py migrar-robots --aplicar{_sufixo_banco(a)}")
     elif r["atualizadas"]:
         print(f"Cópia de segurança: {r['backup']}")
         print(f"Chamadas atualizadas: {r['atualizadas']} (os arquivos brutos e as outras tabelas não foram tocados).")
@@ -741,6 +760,9 @@ def enviar_execucoes(a, fab):
     erro (a seguinte pode depender dela). Reenviar e seguro: a nuvem so acrescenta e atualiza o que mudou (D100)."""
     from adaptadores.envio_nuvem import ErroEnvio
     from dominio.pacote_coleta import ErroPacote, conferir
+    banco = getattr(a, "banco", "real")
+    if banco != "real":
+        raise SystemExit(f"enviar não vale com --banco {banco}: a nuvem tem só o banco da pesquisa.")
     envio = fab.envio_nuvem()
     for run in dict.fromkeys(a.run):
         try:
@@ -887,6 +909,11 @@ def main():
     sub.add_parser("pg-migrar", help="aplica as migracoes do banco PostgreSQL do painel na nuvem (usa DATABASE_URL_DIRECT do ambiente)")
     sub.add_parser("pg-demo", help="carrega o banco de demonstracao no PostgreSQL vazio (usa DATABASE_URL_DIRECT; nunca sobrescreve)")
 
+    # --banco em todo comando que abre o banco da pesquisa (D111); os do PostgreSQL e o da demonstracao tem banco proprio
+    for nome, s in sub.choices.items():
+        if nome not in ("pg-migrar", "pg-demo", "painel-demo"):
+            s.add_argument("--banco", choices=S.BANCOS, default="real",
+                           help="banco da pesquisa: real (data/, o padrão) ou vies (data/vies/, a busca de viés algorítmico)")
     a = p.parse_args()
     if a.cmd not in COMANDOS_NO_POSTGRES and banco_do_ambiente() == "postgres":
         raise SystemExit(f"O comando {a.cmd} roda só no SQLite local: tire DB_BACKEND=postgres do ambiente.")
@@ -896,6 +923,12 @@ def main():
     if a.cmd == "pg-demo":
         _pg_demo()
         return
+    with banco_escolhido(getattr(a, "banco", "real"), getattr(a, "simulado", False), getattr(a, "demo", False)):
+        _executar_comando(a)
+
+
+def _executar_comando(a):
+    """O comando escolhido, ja com as pastas do banco (D111)."""
     fab = Fabrica(simulado=getattr(a, "simulado", False), demo=getattr(a, "demo", False))
     if a.cmd == "estimar":
         estimar(a)
@@ -911,7 +944,7 @@ def main():
     elif a.cmd == "manual-modelo":
         S.OUT_DIR.mkdir(parents=True, exist_ok=True)
         caminho = S.OUT_DIR / "buscas_manuais_modelo.csv"
-        pd.DataFrame(manual.gerar_modelo_manual(C.TERMOS, C.BASES_MANUAIS)).to_csv(
+        pd.DataFrame(manual.gerar_modelo_manual(_termos_padrao(getattr(a, "banco", "real")), C.BASES_MANUAIS)).to_csv(
             caminho, index=False, encoding="utf-8-sig")
         print("Generated:", caminho)
     elif a.cmd == "painel-demo":
@@ -944,12 +977,12 @@ def main():
         print("Generated:", caminho)
     elif a.cmd == "manual-artigos-importar":
         df = pd.read_csv(a.arquivo, encoding="utf-8-sig", dtype=str)
-        manual.validar_artigos_manuais(df, C.TERMOS, C.BASES_MANUAIS)
+        manual.validar_artigos_manuais(df, _termos_padrao(getattr(a, "banco", "real")), C.BASES_MANUAIS)
         ocorrencias, novos = fab.repo.importar_artigos_manuais(df)
         print(f"Ocorrências novas: {ocorrencias} | artigos novos: {novos} | linhas no arquivo: {len(df)}")
     elif a.cmd == "manual-importar":
         df = pd.read_csv(a.arquivo, encoding="utf-8-sig")        # C7: o modelo e gravado com BOM
-        manual.validar_manuais(df[df["n_resultados"].notna()], C.TERMOS, C.BASES_MANUAIS)
+        manual.validar_manuais(df[df["n_resultados"].notna()], _termos_padrao(getattr(a, "banco", "real")), C.BASES_MANUAIS)
         print("Rows imported:", fab.repo.importar_buscas_manuais(df))
     elif a.cmd == "triagem-importar":
         print("Rows imported:", fab.repo.importar_triagem(pd.read_excel(a.arquivo, sheet_name="Triagem"),

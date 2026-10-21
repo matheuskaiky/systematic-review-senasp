@@ -10,7 +10,7 @@
 </head>
 <body>
 <a class="pular" href="#conteudo">Ir para o conteúdo</a>
-{% set banco_rotulo = {"real": "BANCO REAL", "simulado": "SIMULADO", "demo": "DEMONSTRAÇÃO (dados fictícios)"} %}
+{% set banco_rotulo = {"real": "BANCO REAL", "vies": "BANCO VIÉS ALGORÍTMICO", "simulado": "SIMULADO", "demo": "DEMONSTRAÇÃO (dados fictícios)"} %}
 <header class="banner banner-{{ ctx.banco }}" role="banner">
   <strong>{{ banco_rotulo[ctx.banco] }}</strong>
   <span class="banner-detalhe">{% block detalhe_banco %}{{ ctx.nome_banco }}{% if ctx.somente_leitura %} · somente leitura{% endif %}{% endblock %}</span>

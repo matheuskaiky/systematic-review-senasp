@@ -120,7 +120,7 @@ FIXOS_IMPRESSAO = {"--fundo": "#ffffff", "--texto-suave": "#4a5462", "--borda": 
 
 # tokens que valem igual nos dois temas e não são reatribuídos (contexto do banco e tipografia)
 FIXOS = {
-    "--banner-real": "#123a57", "--banner-simulado": "#5b4a00", "--banner-demo": "#53288a", "--texto-banner": "#ffffff",
+    "--banner-real": "#123a57", "--banner-vies": "#1f5133", "--banner-simulado": "#5b4a00", "--banner-demo": "#53288a", "--texto-banner": "#ffffff",
 }
 
 # espelhos: nomes que o contrato exige (--ok, --alerta...) e que valem o mesmo que outro semântico. Cada um recebe o MESMO primitivo do original
@@ -215,7 +215,7 @@ PROPRIOS_45 = [
     ("--st-anunciado", "--st-anunciado-fundo"), ("--st-em_estudo", "--st-em_estudo-fundo"), ("--ok", "--fundo"),
     ("--exclusao", "--exclusao-fundo"), ("--exclusao", "--superficie"), ("--duvida", "--duvida-fundo-suave"),
     ("--inclusao-solido-texto", "--inclusao-solido"), ("--texto-botao", "--acento"),
-    ("--texto-banner", "--banner-real"), ("--texto-banner", "--banner-simulado"), ("--texto-banner", "--banner-demo"),
+    ("--texto-banner", "--banner-real"), ("--texto-banner", "--banner-vies"), ("--texto-banner", "--banner-simulado"), ("--texto-banner", "--banner-demo"),
     ("--texto-suave", "--superficie-subtil"), ("--texto", "--superficie-subtil"), ("--texto-mutado", "--superficie"),
     ("--texto-mutado", "--fundo"), ("--acento", "--superficie-subtil"),
     # sidebar

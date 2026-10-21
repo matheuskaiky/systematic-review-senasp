@@ -3,6 +3,22 @@ import json
 import logging
 from contextlib import contextmanager
 
+from dominio.servicos import url_valida
+
+
+def resultados_validos(resp, alvo_id):
+    """Os resultados de uma busca com URL que pode ser gravada, na ordem da resposta. Cada link invalido vai para o log
+    (ele continua na resposta bruta) e a contagem vai para os extras da chamada (sobrevive a retomada)."""
+    validos = []
+    for r in resp.resultados:
+        if url_valida(r.url):
+            validos.append(r)
+        else:
+            logging.warning("[%s] link invalido descartado: %r", alvo_id, r.url[:2000] if isinstance(r.url, str) else r.url)
+    if len(validos) < len(resp.resultados):
+        resp.chamada.extras["urls_invalidas"] = len(resp.resultados) - len(validos)
+    return validos
+
 
 def _limpar(texto, segredos):
     for s in segredos:

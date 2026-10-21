@@ -3,8 +3,8 @@ tecnologia; cada resultado guarda o conjunto e a consulta que o trouxe."""
 import logging
 import time
 from dominio.modelos import ConsultaWeb
-from dominio.servicos import chave_filtros_busca, hash_chave, url_valida
-from aplicacao.comum import item_gravado, registrar_falha_apos_chamada
+from dominio.servicos import chave_filtros_busca, hash_chave
+from aplicacao.comum import item_gravado, registrar_falha_apos_chamada, resultados_validos
 
 
 def executar(repo, bruto, busca, run_id, conjuntos, filtros, segredos, pausa, limite=None):
@@ -20,17 +20,9 @@ def executar(repo, bruto, busca, run_id, conjuntos, filtros, segredos, pausa, li
                 return
             c = ConsultaWeb(t.id, t.query, t.idioma, "", "", t.id, "literatura")
             resp = busca.buscar(c, filtros)
-            chamadas.add(chave)
             try:
-                validos = []
-                for r in resp.resultados:
-                    if url_valida(r.url):
-                        validos.append(r)
-                    else:
-                        logging.warning("[%s] link invalido descartado: %r", t.id,
-                                        r.url[:2000] if isinstance(r.url, str) else r.url)
-                if len(validos) < len(resp.resultados):
-                    resp.chamada.extras["urls_invalidas"] = len(resp.resultados) - len(validos)
+                chamadas.add(chave)
+                validos = resultados_validos(resp, t.id)
             except BaseException as e:
                 # a chamada paga ja respondeu: fica registrada como falha (conta no --limite) e a excecao original segue
                 registrar_falha_apos_chamada(repo, bruto, run_id, "busca_literatura", "consulta_literatura", t.id, chave,

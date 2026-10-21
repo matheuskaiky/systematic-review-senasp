@@ -115,7 +115,7 @@ class Cursor:
 # uma: todas dependem da chave do agrupamento (execucoes pelo run_id; v_termos pelo termo). Achadas varrendo todas as
 # paginas do painel; uma consulta nova com coluna solta falha no teste de paridade das paginas.
 GROUP_BY_EXTRA_SQL = {
-    "GROUP BY te.run_id ORDER BY MAX(te.id) DESC": ("e.iniciado_em", "e.status", "e.no_relatorio"),
+    "GROUP BY te.run_id ORDER BY MAX(te.criado_em) DESC, MAX(te.id) DESC": ("e.iniciado_em", "e.status", "e.no_relatorio"),
     "GROUP BY c.alvo_id ORDER BY c.alvo_id": ("t.query", "t.idioma"),
 }
 _SQLITE_MASTER = ("(SELECT table_name AS name, CASE table_type WHEN 'VIEW' THEN 'view' ELSE 'table' END AS type, "

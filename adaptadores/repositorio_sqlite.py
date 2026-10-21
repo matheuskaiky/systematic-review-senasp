@@ -53,9 +53,11 @@ SQL_CATALOGO = """
             FROM triagem_escopo
             WHERE fonte = 'artigo' AND uf = '' AND valido = 1
               AND id IN (
-                  SELECT MAX(id) FROM triagem_escopo
-                  WHERE fonte = 'artigo' AND uf = '' AND valido = 1
-                  GROUP BY item_id
+                  SELECT id FROM (
+                      SELECT id, ROW_NUMBER() OVER (PARTITION BY item_id ORDER BY criado_em DESC, id DESC) AS pos
+                      FROM triagem_escopo
+                      WHERE fonte = 'artigo' AND uf = '' AND valido = 1
+                  ) ult WHERE pos = 1
               )
         ),
         art_consultas AS (
@@ -369,7 +371,7 @@ class RepositorioSQLite:
 
     def candidatos_download(self, run_origens):
         """Candidatos a download de UMA ou MAIS execucoes de busca (`run_origens`: texto ou lista), sem repeticao por
-        (url_id, uf). Do resultado mais recente (maior `resultado_id`) vem o titulo, o snippet e a cidade; a posicao e
+        (url_id, uf). Do resultado mais recente (maior `requisitado_em` da chamada, empate pelo maior `resultado_id`) vem o titulo, o snippet e a cidade; a posicao e
         a menor de todas e `n_ocorrencias` soma as ocorrencias de todas as execucoes. Ordem deterministica: (uf, url_id)."""
         runs = separar_runs(run_origens)
         if not runs:
@@ -378,7 +380,8 @@ class RepositorioSQLite:
             SELECT r.resultado_id, r.url_id, u.url_original AS url, r.uf, u.dominio, u.fonte_oficial,
                    r.titulo, r.snippet, r.posicao, r.cidade
             FROM resultados_web r JOIN urls u ON u.url_id=r.url_id
-            WHERE r.run_id IN ({",".join("?" for _ in runs)}) ORDER BY r.resultado_id""", runs).fetchall()
+            WHERE r.run_id IN ({",".join("?" for _ in runs)})
+            ORDER BY (SELECT c.requisitado_em FROM chamadas c WHERE c.chamada_id = r.chamada_id), r.resultado_id""", runs).fetchall()
         por_par = {}
         for l in linhas:
             chave = (l["url_id"], l["uf"])
@@ -405,8 +408,8 @@ class RepositorioSQLite:
         tentadas nao aparecem. `excluir_run` ignora as tentativas dessa execucao."""
         saida = {}
         for l in self.conn.execute("""
-                SELECT url_id, resultado, motivo FROM v_resultado_download
-                WHERE chamada_id IS NOT NULL AND run_id <> ? ORDER BY chamada_id""", (excluir_run or "",)):
+                SELECT v.url_id, v.resultado, v.motivo FROM v_resultado_download v JOIN chamadas c ON c.chamada_id = v.chamada_id
+                WHERE v.chamada_id IS NOT NULL AND v.run_id <> ? ORDER BY c.requisitado_em, v.chamada_id""", (excluir_run or "",)):
             saida[l["url_id"]] = (l["resultado"], l["motivo"])
         return saida
 
@@ -450,17 +453,22 @@ class RepositorioSQLite:
         marcas = ",".join("?" for _ in runs)
         linhas = self.conn.execute(f"""
             SELECT s.url_id, s.uf, u.url_original AS url,
-                   (SELECT titulo  FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf ORDER BY r.resultado_id DESC LIMIT 1) AS titulo,
-                   (SELECT snippet FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf ORDER BY r.resultado_id DESC LIMIT 1) AS snippet,
+                   (SELECT titulo  FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf
+                    ORDER BY (SELECT c.requisitado_em FROM chamadas c WHERE c.chamada_id = r.chamada_id) DESC, r.resultado_id DESC LIMIT 1) AS titulo,
+                   (SELECT snippet FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf
+                    ORDER BY (SELECT c.requisitado_em FROM chamadas c WHERE c.chamada_id = r.chamada_id) DESC, r.resultado_id DESC LIMIT 1) AS snippet,
                    p.pagina_id, CASE WHEN p.extracao_ok=1 THEN p.texto_path END AS texto_path,
                    (SELECT cidade FROM resultados_web r WHERE r.url_id=s.url_id AND r.uf=s.uf
-                    AND r.cidade IS NOT NULL ORDER BY r.resultado_id DESC LIMIT 1) AS cidade
+                    AND r.cidade IS NOT NULL ORDER BY (SELECT c.requisitado_em FROM chamadas c WHERE c.chamada_id = r.chamada_id) DESC, r.resultado_id DESC LIMIT 1) AS cidade
             FROM (SELECT DISTINCT url_id, uf FROM selecao_download
                   WHERE run_id IN ({marcas}) AND (selecionada=1 OR auditoria=1)) s
             JOIN urls u ON u.url_id=s.url_id
             LEFT JOIN paginas p ON p.pagina_id=COALESCE(
-                (SELECT MAX(pagina_id) FROM paginas WHERE url_id=s.url_id AND run_id IN ({marcas}) AND extracao_ok=1),
-                (SELECT MAX(pagina_id) FROM paginas WHERE url_id=s.url_id AND run_id IN ({marcas})))
+                (SELECT q.pagina_id FROM paginas q JOIN chamadas c ON c.chamada_id = q.chamada_id
+                 WHERE q.url_id=s.url_id AND q.run_id IN ({marcas}) AND q.extracao_ok=1
+                 ORDER BY c.requisitado_em DESC, q.pagina_id DESC LIMIT 1),
+                (SELECT q.pagina_id FROM paginas q JOIN chamadas c ON c.chamada_id = q.chamada_id
+                 WHERE q.url_id=s.url_id AND q.run_id IN ({marcas}) ORDER BY c.requisitado_em DESC, q.pagina_id DESC LIMIT 1))
             ORDER BY s.uf, s.url_id""", runs * 3).fetchall()
         return [ItemClassificacao(l["url_id"], l["uf"], l["url"], l["titulo"], l["snippet"],
                                   l["pagina_id"], l["texto_path"], l["cidade"] or "") for l in linhas]
@@ -510,7 +518,8 @@ class RepositorioSQLite:
 
     def _itens_artigo(self):
         termos, origens = {}, {}
-        for l in self.conn.execute("SELECT artigo_id, termo_id FROM r_ocorrencias ORDER BY ocorrencia_id"):
+        for l in self.conn.execute("SELECT o.artigo_id, o.termo_id FROM r_ocorrencias o "
+                                   "ORDER BY (SELECT c.requisitado_em FROM chamadas c WHERE c.chamada_id = o.chamada_id), o.ocorrencia_id"):
             termos.setdefault(l["artigo_id"], []).append(l["termo_id"])
         com_scholar = set(termos)
         for l in self.conn.execute("SELECT artigo_id, termo_id, base FROM ocorrencias_manuais ORDER BY id"):
@@ -543,15 +552,15 @@ class RepositorioSQLite:
         grupos = {}
         for l in self.conn.execute(
                 """SELECT r.resultado_id, r.url_id, r.uf, r.tecnologia, r.consulta_id, r.titulo, r.snippet, r.cidade,
-                          u.url_original, u.dominio, c.provedor
+                          u.url_original, u.dominio, c.provedor, c.requisitado_em
                    FROM r_resultados_web r JOIN urls u ON u.url_id = r.url_id
-                   LEFT JOIN chamadas c ON c.chamada_id = r.chamada_id ORDER BY r.resultado_id"""):
+                   LEFT JOIN chamadas c ON c.chamada_id = r.chamada_id ORDER BY c.requisitado_em, r.resultado_id"""):
             g = grupos.setdefault((l["url_id"], l["uf"]), {"linhas": []})
             g["linhas"].append(l)
         saida = []
         for (url_id, uf), g in sorted(grupos.items()):
             linhas = g["linhas"]
-            melhor = max(linhas, key=lambda l: (len(l["snippet"] or ""), l["resultado_id"]))
+            melhor = max(linhas, key=lambda l: (len(l["snippet"] or ""), l["requisitado_em"] or "", l["resultado_id"]))
             d = decisao.get((url_id, uf), {"selecionado": None, "motivo": None})
             tecnologias = list(dict.fromkeys(l["tecnologia"] for l in linhas if l["tecnologia"]))
             saida.append({"item_id": url_id, "fonte": "web", "uf": uf, "provedor": linhas[-1]["provedor"],
@@ -622,7 +631,7 @@ class RepositorioSQLite:
             "Resumo_UF_bruto": "SELECT * FROM v_resumo_uf",
             "Secretarias": "SELECT * FROM v_secretarias_confirmadas",
             "Municipios": "SELECT * FROM v_resumo_municipio",
-            "Chamadas": "SELECT * FROM chamadas ORDER BY chamada_id",
+            "Chamadas": "SELECT * FROM chamadas ORDER BY requisitado_em, chamada_id",
             "Metricas_termo": "SELECT * FROM v_metricas_por_termo",
             "Artigos": "SELECT * FROM artigos ORDER BY COALESCE(citacoes,0) DESC, artigo_id",
             "Artigos_ano": "SELECT * FROM v_artigos_por_ano",
@@ -632,7 +641,7 @@ class RepositorioSQLite:
                                  (SELECT e.status || CASE WHEN e.categoria_motivo IS NOT NULL
                                                           THEN ': ' || e.categoria_motivo ELSE '' END
                                   FROM triagem_escopo e WHERE e.fonte='artigo' AND e.item_id=a.artigo_id AND e.uf=''
-                                  ORDER BY e.id DESC LIMIT 1) AS triagem_llm,
+                                  ORDER BY e.criado_em DESC, e.id DESC LIMIT 1) AS triagem_llm,
                                  COALESCE(t.decisao,'pendente') AS decisao, t.motivo,
                                  t.confirmado_em_base, t.link_confirmado, t.revisor, t.revisado_em,
                                  t.decisao_texto_completo, t.motivo_texto_completo
@@ -647,8 +656,9 @@ class RepositorioSQLite:
                                         e.tipo_documento, e.valido, e.problemas, e.termos_consulta, e.provedor,
                                         e.prompt_versao, e.run_id, e.chamada_id, e.criado_em
                                  FROM triagem_escopo e
-                                 WHERE e.id = (SELECT MAX(x.id) FROM triagem_escopo x
-                                               WHERE x.fonte=e.fonte AND x.item_id=e.item_id AND x.uf=e.uf)
+                                 WHERE e.id = (SELECT x.id FROM triagem_escopo x
+                                               WHERE x.fonte=e.fonte AND x.item_id=e.item_id AND x.uf=e.uf
+                                               ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)
                                  ORDER BY e.fonte, e.item_id, e.uf""",
             "Buscas_manuais": "SELECT * FROM buscas_manuais ORDER BY base, termo_id",
             "Manuais_resumo": "SELECT * FROM v_manuais_resumo",
@@ -657,7 +667,8 @@ class RepositorioSQLite:
             "Termos_pares": "SELECT * FROM v_pares_termos",
             "Termos_idioma": "SELECT * FROM v_ganho_por_idioma",
             "Termos_pagina": "SELECT * FROM v_rendimento_por_pagina",
-            "Curva_descoberta": "SELECT * FROM v_curva_descoberta ORDER BY chamada_id",
+            "Curva_descoberta": ("SELECT v.* FROM v_curva_descoberta v JOIN chamadas c ON c.chamada_id = v.chamada_id "
+                                 "ORDER BY c.requisitado_em, v.chamada_id"),
             "PRISMA": "SELECT fase, metrica, valor FROM v_prisma ORDER BY ordem",
             "Motivos_exclusao": "SELECT * FROM v_motivos_exclusao",
             "Registro_buscas": "SELECT * FROM v_registro_buscas",
@@ -1251,8 +1262,9 @@ class RepositorioSQLite:
                       t.revisado_em, t.decisao_texto_completo, t.motivo_texto_completo
                FROM r_artigos a
                LEFT JOIN triagem t ON t.artigo_id = a.artigo_id
-               LEFT JOIN triagem_escopo e ON e.id = (SELECT MAX(x.id) FROM triagem_escopo x
-                                                     WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '')
+               LEFT JOIN triagem_escopo e ON e.id = (SELECT x.id FROM triagem_escopo x
+                                                     WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = ''
+                                                     ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)
                ORDER BY a.artigo_id""")]
 
     def linhas_catalogo(self):

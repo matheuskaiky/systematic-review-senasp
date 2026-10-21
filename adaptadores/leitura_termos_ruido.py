@@ -4,14 +4,15 @@ chamada externa. Os calculos ficam em `dominio/analise_termos.py` (e em `dominio
 e se monta a entrada.
 
 Tudo e SUGESTAO PARA AVALIACAO DO PESQUISADOR: nada e aplicado. `elegivel` e opiniao do modelo sobre o escopo (tabela
-`triagem_escopo`, veredito atual = maior id por (fonte, item_id, uf)), nao achado confirmado."""
+`triagem_escopo`, veredito atual = maior (criado_em, id) por (fonte, item_id, uf)), nao achado confirmado."""
 import json
 
 from dominio import analise_termos as at
 from dominio import refinamento_busca as refino
 
-_TE_ATUAL = ("SELECT te.* FROM triagem_escopo te WHERE te.fonte = ? AND te.id IN "
-             "(SELECT MAX(id) FROM triagem_escopo WHERE fonte = ? GROUP BY item_id, uf)")
+_TE_ATUAL = ("SELECT te.* FROM triagem_escopo te WHERE te.fonte = ? AND te.id = "
+             "(SELECT x.id FROM triagem_escopo x WHERE x.fonte = ? AND x.item_id = te.item_id AND x.uf = te.uf "
+             "ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)")
 _COLUNAS_REFINO = ("item_id, uf, status, valido, termos_consulta, categoria_motivo, termo_gerador, sinal_negativo, "
                    "dominio_tematico, escopo_geografico")
 LIMITE_PADRAO_CANDIDATAS = 20          # candidatas por termo devolvidas na simulacao
@@ -159,8 +160,9 @@ class LeituraTermosRuido:
             SELECT d.termo_id, a.artigo_id AS item_id, a.titulo, a.snippet AS resumo, te.status, te.valido
             FROM (SELECT DISTINCT artigo_id, termo_id FROM r_ocorrencias{' WHERE termo_id = ?' if termo_id else ''}) d
             JOIN artigos a ON a.artigo_id = d.artigo_id
-            JOIN triagem_escopo te ON te.id = (SELECT MAX(x.id) FROM triagem_escopo x
-                                               WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '')
+            JOIN triagem_escopo te ON te.id = (SELECT x.id FROM triagem_escopo x
+                                               WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = ''
+                                               ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)
             ORDER BY d.termo_id, a.artigo_id""", args)
         if not pares:
             return vazio

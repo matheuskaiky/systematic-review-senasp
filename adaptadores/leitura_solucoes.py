@@ -47,13 +47,15 @@ class LeituraSolucoes:
             JOIN (SELECT url_id, uf FROM selecao_download UNION SELECT url_id, uf FROM resultados_web) x ON x.url_id = p.url_id
             LEFT JOIN execucoes e ON e.run_id = p.run_id
             WHERE p.extracao_ok = 1 AND p.texto_path IS NOT NULL AND p.texto_path <> ''
-              AND p.pagina_id = (SELECT MAX(q.pagina_id) FROM paginas q
-                                 WHERE q.url_id = p.url_id AND q.extracao_ok = 1 AND q.texto_path IS NOT NULL AND q.texto_path <> ''){filtro}
+              AND p.pagina_id = (SELECT q.pagina_id FROM paginas q JOIN chamadas c ON c.chamada_id = q.chamada_id
+                                 WHERE q.url_id = p.url_id AND q.extracao_ok = 1 AND q.texto_path IS NOT NULL AND q.texto_path <> ''
+                                 ORDER BY c.requisitado_em DESC, q.pagina_id DESC LIMIT 1){filtro}
             ORDER BY x.uf, p.url_id""", args)
 
     @_defensivo(dict)
     def achados_das_urls(self, pares):
-        """{(url_id, uf): [achado]} para varios pares de uma vez. Cada achado: achado_id, tecnologia, status_reportado, confianca, run_id e,
+        """{(url_id, uf): [achado]} para varios pares de uma vez, do mais antigo ao mais novo (`requisitado_em` da chamada da
+        classificacao, empate pelo `achado_id`). Cada achado: achado_id, tecnologia, status_reportado, confianca, run_id e,
         se o banco tem a coluna, nome_solucao."""
         pares = {(int(u), str(f)) for u, f in pares}
         por_url = {}
@@ -67,7 +69,8 @@ class LeituraSolucoes:
             for l in self._consulta(f"""
                 SELECT k.url_id, a.uf, a.achado_id, a.tecnologia, a.status_reportado, a.confianca, k.run_id{extra}
                 FROM achados a JOIN classificacoes k ON k.classificacao_id = a.classificacao_id
-                WHERE k.url_id IN ({','.join('?' * len(lote))}) ORDER BY a.achado_id""", lote):
+                WHERE k.url_id IN ({','.join('?' * len(lote))})
+                ORDER BY (SELECT c.requisitado_em FROM chamadas c WHERE c.chamada_id = k.chamada_id), a.achado_id""", lote):
                 if l["uf"] in por_url[l["url_id"]]:
                     saida[(l["url_id"], l["uf"])].append({c: v for c, v in l.items() if c not in ("url_id", "uf")})
         return saida

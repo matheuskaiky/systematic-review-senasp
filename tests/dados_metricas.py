@@ -10,7 +10,9 @@ Verificacao humana: gov/1 confirmado em_uso | gov/2 descartado | gov/3 confirmad
 """
 from adaptadores.bruto_local import BrutoLocal
 from adaptadores.repositorio_sqlite import RepositorioSQLite
+import itertools
 import json
+from datetime import datetime, timedelta, timezone
 
 from adaptadores.simulados import (BuscaSimulada, ExtratorSimulado, FetcherSimulado, ClassificadorSimulado,
                                    _reg)
@@ -44,12 +46,20 @@ def _artigo(n):
     return ArtigoAcademico(f"Artigo A{n}", None, "Autor - Revista, 2023", 2023, "resumo", n, n)
 
 
+_RELOGIO = itertools.count()
+
+
+def _proximo_instante():
+    """Horario de cada chamada na ordem em que e feita (um segundo depois da anterior), como num coletor real."""
+    return (datetime(2026, 10, 14, 10, 0, tzinfo=timezone.utc) + timedelta(seconds=next(_RELOGIO))).isoformat()
+
+
 def _chamada_academica(repo, run_id, termo_id, pagina, numeros, total, hl="pt"):
     reg = RegistroChamada(
         provedor="serpapi_scholar", operacao="buscar_pagina",
         parametros={"engine": "google_scholar", "q": TERMOS_ACADEMICOS[termo_id], "hl": hl, "num": 20,
                     "start": (pagina - 1) * 20, "as_ylo": 2019},
-        requisitado_em=f"2026-10-14T10:0{pagina}:00+00:00", http_status=200, latencia_ms=100 * pagina)
+        requisitado_em=_proximo_instante(), http_status=200, latencia_ms=100 * pagina)
     cid = repo.salvar_chamada(run_id=run_id, etapa="busca_academica", alvo_tipo="termo", alvo_id=termo_id,
                               chave=f"{termo_id}-{pagina}", registro=reg, raw_path="x.json", raw_sha256="y" * 64,
                               pagina=pagina)

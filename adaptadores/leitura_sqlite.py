@@ -191,7 +191,7 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         itens = self._consulta(
             f"""SELECT chamada_id, run_id, etapa, provedor, operacao, alvo_tipo, alvo_id, uf, sucesso, http_status, tentativas,
                        latencia_ms, custo_usd, tokens_entrada, tokens_saida, erro, requisitado_em
-                FROM chamadas{onde} ORDER BY chamada_id DESC LIMIT ? OFFSET ?""", args + [por_pagina, (pagina - 1) * por_pagina])
+                FROM chamadas{onde} ORDER BY requisitado_em DESC, chamada_id DESC LIMIT ? OFFSET ?""", args + [por_pagina, (pagina - 1) * por_pagina])
         return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": itens}
 
     def chamada(self, chamada_id):
@@ -475,8 +475,9 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             WHERE a.achado_id=?""", (achado_id,))
         if a is None:
             return None
-        origem = self._um("""SELECT titulo, snippet FROM resultados_web WHERE url_id=? AND uf=?
-                             ORDER BY resultado_id DESC LIMIT 1""", (a["url_id"], a["uf"])) or {}
+        origem = self._um("""SELECT r.titulo, r.snippet FROM resultados_web r JOIN chamadas c ON c.chamada_id = r.chamada_id
+                             WHERE r.url_id=? AND r.uf=? ORDER BY c.requisitado_em DESC, r.resultado_id DESC LIMIT 1""",
+                          (a["url_id"], a["uf"])) or {}
         a["titulo"], a["snippet"] = origem.get("titulo"), origem.get("snippet")
         a.setdefault("nome_solucao", None)
         # classificacao vigente do par (url, uf): se nao e a deste achado, ele foi substituido por uma classificacao mais recente

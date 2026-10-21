@@ -116,9 +116,10 @@ def ocorrencias(con):
 
 
 def triagem_escopo_atual(con, fonte=None, somente_validos=True):
-    """Veredito atual da triagem de escopo: a linha de maior `id` por (fonte, item_id, uf); com `somente_validos`,
+    """Veredito atual da triagem de escopo: a linha de maior `criado_em` (empate pelo maior `id`) por (fonte, item_id, uf); com `somente_validos`,
     só as de valido = 1 (convenção do projeto, a mesma de v_prisma). `fonte`: 'artigo', 'web' ou None (todas)."""
-    sql = ("SELECT * FROM triagem_escopo WHERE id IN (SELECT MAX(id) FROM triagem_escopo GROUP BY fonte, item_id, uf)")
+    sql = ("SELECT * FROM triagem_escopo WHERE id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER "
+           "(PARTITION BY fonte, item_id, uf ORDER BY criado_em DESC, id DESC) AS pos FROM triagem_escopo) ult WHERE pos = 1)")
     args = []
     if somente_validos:
         sql += " AND valido = 1"
@@ -139,4 +140,5 @@ def chamadas(con):
 
 
 def curva_descoberta(con):
-    return tabela(con, "SELECT * FROM v_curva_descoberta ORDER BY chamada_id")
+    return tabela(con, "SELECT v.* FROM v_curva_descoberta v JOIN chamadas c ON c.chamada_id = v.chamada_id "
+                       "ORDER BY c.requisitado_em, v.chamada_id")

@@ -15,9 +15,10 @@ from collections import Counter
 from dominio import cobertura_termos as cob
 from dominio import estatistica as est
 
-# Veredito atual (a linha de maior id) de cada item da fonte `?`; um único argumento (mesma regra de leitura_analises).
-_VEREDITO_ATUAL = ("SELECT te.* FROM triagem_escopo te WHERE te.fonte = ? AND te.id IN "
-                   "(SELECT MAX(id) FROM triagem_escopo WHERE fonte = ? GROUP BY item_id, uf)")
+# Veredito atual (a linha de maior criado_em, empate pelo maior id) de cada item da fonte `?`; um único argumento (mesma regra de leitura_analises).
+_VEREDITO_ATUAL = ("SELECT te.* FROM triagem_escopo te WHERE te.fonte = ? AND te.id = "
+                   "(SELECT x.id FROM triagem_escopo x WHERE x.fonte = ? AND x.item_id = te.item_id AND x.uf = te.uf "
+                   "ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)")
 
 
 def _modelo_da_consulta(consulta_id):

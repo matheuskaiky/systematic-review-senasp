@@ -357,12 +357,13 @@ SELECT a.* FROM achados a JOIN r_classificacoes_historico k ON k.classificacao_i
 -- CLASSIFICACAO VIGENTE: uma por par (url_id, uf) entre as execucoes do relatorio. Vale, nesta ordem:
 --   (a) a que tem achado verificado por humano (a mais recente delas): decisao humana nunca e substituida sozinha;
 --   (b) senao, a de JSON valido;  (c) senao, a de texto da pagina sobre a de so snippet (snippet novo nao troca texto completo antigo);
---   (d) senao, a mais recente (maior classificacao_id).
+--   (d) senao, a mais recente (maior requisitado_em da chamada; empate pelo maior classificacao_id).
 -- Nada e apagado: o historico fica nas tabelas e em r_classificacoes_historico; so a contagem muda. Contagens de paginas e achados leem esta view.
 DROP VIEW IF EXISTS r_classificacoes;
 CREATE VIEW r_classificacoes AS
 WITH base AS (
     SELECT k.classificacao_id, k.url_id, k.uf, COALESCE(k.json_valido, 0) AS valido,
+           (SELECT c.requisitado_em FROM chamadas c WHERE c.chamada_id = k.chamada_id) AS requisitado_em,
            CASE WHEN k.origem_texto = 'pagina' THEN 1 ELSE 0 END AS pagina,
            CASE WHEN v.classificacao_id IS NULL THEN 0 ELSE 1 END AS humano
     FROM r_classificacoes_historico k
@@ -372,7 +373,7 @@ ranque AS (
            ROW_NUMBER() OVER (PARTITION BY url_id, uf ORDER BY humano DESC,
                               CASE WHEN humano = 1 THEN 0 ELSE valido END DESC,
                               CASE WHEN humano = 1 THEN 0 ELSE pagina END DESC,
-                              classificacao_id DESC) AS posicao
+                              requisitado_em DESC, classificacao_id DESC) AS posicao
     FROM base)
 SELECT k.* FROM classificacoes k JOIN ranque r ON r.classificacao_id = k.classificacao_id WHERE r.posicao = 1;
 DROP VIEW IF EXISTS r_achados;
@@ -615,18 +616,18 @@ JOIN r_chamadas c ON c.chamada_id = o.chamada_id
 LEFT JOIN triagem tr ON tr.artigo_id = o.artigo_id
 GROUP BY c.pagina ORDER BY c.pagina;
 
--- Curva de descoberta na ordem das chamadas (depende da ordem; mostra o esgotamento de novidades).
+-- Curva de descoberta na ordem das chamadas (requisitado_em, empate por chamada_id; depende da ordem; mostra o esgotamento de novidades).
 DROP VIEW IF EXISTS v_curva_descoberta;
 CREATE VIEW v_curva_descoberta AS
 SELECT c.chamada_id, c.alvo_id AS termo_id, c.pagina, c.n_retornados, c.n_novos,
        ROUND(100.0 * c.n_novos / NULLIF(c.n_retornados, 0), 1) AS pct_novos,
-       SUM(c.n_novos) OVER (ORDER BY c.chamada_id) AS novos_acumulado
+       SUM(c.n_novos) OVER (ORDER BY c.requisitado_em, c.chamada_id) AS novos_acumulado
 FROM r_chamadas c WHERE c.etapa = 'busca_academica' AND c.sucesso = 1;
 
 -- Numeros do fluxo PRISMA (identificacao, triagem por titulo e resumo, elegibilidade por texto completo, inclusao).
 -- Se houver mais de uma execucao de busca academica, os registros somam todas.
 -- `removidos_escopo` = artigos do relatorio que a triagem de escopo do modelo excluiu (veredito atual valido: a linha de maior
--- `id` por artigo, com valido = 1 e status = 'excluido') E sobre os quais nenhuma pessoa decidiu incluir/excluir. Decisao humana
+-- (`criado_em`, `id`) por artigo, com valido = 1 e status = 'excluido') E sobre os quais nenhuma pessoa decidiu incluir/excluir. Decisao humana
 -- sempre vence: artigo excluido pelo modelo e triado por uma pessoa continua no fluxo humano. E a mesma regra de `llm_oculto`
 -- da lista de artigos. O PRISMA 2020 pede os registros removidos por ferramenta de automacao antes da triagem.
 DROP VIEW IF EXISTS v_prisma;
@@ -634,7 +635,8 @@ CREATE VIEW v_prisma AS
 WITH removidos_escopo AS (
     SELECT COUNT(*) AS n FROM r_artigos a
     WHERE EXISTS (SELECT 1 FROM triagem_escopo te
-                  WHERE te.id = (SELECT MAX(x.id) FROM triagem_escopo x WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '')
+                  WHERE te.id = (SELECT x.id FROM triagem_escopo x WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = ''
+                                ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)
                     AND te.valido = 1 AND te.status = 'excluido')
       AND COALESCE((SELECT t.decisao FROM triagem t WHERE t.artigo_id = a.artigo_id), 'pendente') NOT IN ('incluir', 'excluir'))
 SELECT 1 AS ordem, 'identificacao' AS fase, 'execucoes de busca academica' AS metrica,
@@ -899,7 +901,7 @@ SELECT s.run_id AS run_selecao, s.url_id, s.uf, s.auditoria, u.dominio, u.fonte_
             WHEN EXISTS (SELECT 1 FROM classificacoes k WHERE k.url_id = s.url_id AND k.uf = s.uf) THEN 'json_invalido: ver Classif_invalidas'
             WHEN EXISTS (SELECT 1 FROM chamadas c WHERE c.etapa = 'classificacao' AND c.alvo_id = s.url_id || ':' || s.uf AND c.sucesso = 0)
                  THEN COALESCE((SELECT substr(c.erro, 1, 80) FROM chamadas c WHERE c.etapa = 'classificacao'
-                                AND c.alvo_id = s.url_id || ':' || s.uf AND c.sucesso = 0 ORDER BY c.chamada_id DESC LIMIT 1), 'falha_chamada')
+                                AND c.alvo_id = s.url_id || ':' || s.uf AND c.sucesso = 0 ORDER BY c.requisitado_em DESC, c.chamada_id DESC LIMIT 1), 'falha_chamada')
             WHEN NOT EXISTS (SELECT 1 FROM paginas p WHERE p.run_id = s.run_id AND p.url_id = s.url_id AND p.extracao_ok = 1)
                  AND NOT EXISTS (SELECT 1 FROM resultados_web r WHERE r.url_id = s.url_id AND r.uf = s.uf
                                  AND (COALESCE(r.titulo, '') <> '' OR COALESCE(r.snippet, '') <> '')) THEN 'sem_texto_utilizavel'

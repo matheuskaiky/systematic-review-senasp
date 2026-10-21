@@ -2,7 +2,7 @@
 self._consulta(sql, args) e self._um(sql, args). So le; nunca grava. Toda leitura e defensiva: em um banco antigo, sem a
 tabela, devolve resultados vazios em vez de falhar.
 
-O veredito ATUAL de um item e a linha de maior `id` para (fonte, item_id, uf). Por padrao vale a ultima linha de cada item,
+O veredito ATUAL de um item e a linha de maior `criado_em` (empate pelo maior `id`) para (fonte, item_id, uf). Por padrao vale a ultima linha de cada item,
 venha de que execucao vier; com `run` so contam as linhas daquela execucao.
 
 Para `fonte = 'web'`, `item_id` e o `url_id` (a pagina e o titulo/resumo vem do resultado de busca mais recente da UF)."""
@@ -31,7 +31,8 @@ class LeituraTriagemEscopo:
         """Condicao SQL (sobre `te`) das linhas que valem: a mais recente por item, ou todas as da execucao `run`."""
         if run:
             return "te.fonte = ? AND te.run_id = ?", [fonte, run]
-        return ("te.fonte = ? AND te.id IN (SELECT MAX(id) FROM triagem_escopo WHERE fonte = ? GROUP BY item_id, uf)", [fonte, fonte])
+        return ("te.fonte = ? AND te.id = (SELECT x.id FROM triagem_escopo x WHERE x.fonte = ? AND x.item_id = te.item_id "
+                "AND x.uf = te.uf ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)", [fonte, fonte])
 
     # ---------- execucoes ----------
     def execucoes_triagem_escopo(self):
@@ -45,15 +46,16 @@ class LeituraTriagemEscopo:
                    (SELECT SUM(c.custo_usd) FROM chamadas c WHERE c.chamada_id IN
                       (SELECT DISTINCT x.chamada_id FROM triagem_escopo x WHERE x.run_id = te.run_id)) AS custo_usd
             FROM triagem_escopo te LEFT JOIN execucoes e ON e.run_id = te.run_id
-            GROUP BY te.run_id ORDER BY MAX(te.id) DESC""")
+            GROUP BY te.run_id ORDER BY MAX(te.criado_em) DESC, MAX(te.id) DESC""")
 
     def fontes_com_triagem_escopo(self):
         if not self.tem_triagem_escopo():
             return {}
         # itens distintos (o veredito atual de cada um), nao as linhas gravadas: pilotos e repeticoes inflariam a conta
         return {l["fonte"]: l["n"] for l in self._consulta(
-            "SELECT te.fonte, COUNT(*) AS n FROM triagem_escopo te WHERE te.id IN "
-            "(SELECT MAX(id) FROM triagem_escopo GROUP BY fonte, item_id, uf) GROUP BY te.fonte")}
+            "SELECT te.fonte, COUNT(*) AS n FROM triagem_escopo te WHERE te.id = "
+            "(SELECT x.id FROM triagem_escopo x WHERE x.fonte = te.fonte AND x.item_id = te.item_id AND x.uf = te.uf "
+            "ORDER BY x.criado_em DESC, x.id DESC LIMIT 1) GROUP BY te.fonte")}
 
     # ---------- vereditos ----------
     def veredictos(self, fonte, run=None):
@@ -61,7 +63,7 @@ class LeituraTriagemEscopo:
         if fonte not in FONTES or not self.tem_triagem_escopo():
             return []
         onde, args = self._onde_atual(fonte, run)
-        return self._consulta(f"SELECT {_LISTA} FROM triagem_escopo te WHERE {onde} ORDER BY te.id", args)
+        return self._consulta(f"SELECT {_LISTA} FROM triagem_escopo te WHERE {onde} ORDER BY te.criado_em, te.id", args)
 
     def resumo_triagem_escopo(self, fonte, run=None):
         """Contagens do que esta valendo: por status, motivo, escopo geografico e area tematica (so linhas validas), as
@@ -105,7 +107,9 @@ class LeituraTriagemEscopo:
                        EXISTS (SELECT 1 FROM achados a JOIN classificacoes k ON k.classificacao_id = a.classificacao_id
                                WHERE k.url_id = r.url_id AND k.uf = r.uf AND a.verificado = 1
                                  AND COALESCE(a.status_final, '') <> 'descartado') AS incluido_humano
-                FROM resultados_web r WHERE r.resultado_id IN (SELECT MAX(resultado_id) FROM resultados_web GROUP BY url_id, uf)
+                FROM resultados_web r WHERE r.resultado_id =
+                  (SELECT y.resultado_id FROM resultados_web y JOIN chamadas c ON c.chamada_id = y.chamada_id
+                   WHERE y.url_id = r.url_id AND y.uf = r.uf ORDER BY c.requisitado_em DESC, y.resultado_id DESC LIMIT 1)
                 ORDER BY r.url_id, r.uf""")
         return []
 
@@ -135,12 +139,12 @@ class LeituraTriagemEscopo:
 
     def itens_triagem_escopo(self, fonte, filtros, pagina=1, por_pagina=50, run=None):
         """Pagina da lista de itens com veredito, ja com o texto do item. O mais ruidoso primeiro (excluido, quarentena,
-        elegivel) e, dentro do status, a ordem de gravacao. `ocultos` = quantos excluidos pelo modelo o filtro padrao escondeu."""
+        elegivel) e, dentro do status, a ordem de gravacao (criado_em, depois id). `ocultos` = quantos excluidos pelo modelo o filtro padrao escondeu."""
         por_pagina = min(max(int(por_pagina), 1), MAX_POR_PAGINA)
         pagina = max(int(pagina), 1)
         linhas, ocultos = self._filtrar(self.veredictos(fonte, run), filtros)
         ordem = {"excluido": 0, "quarentena": 1, "elegivel": 2}
-        linhas.sort(key=lambda l: (ordem.get(l["status"], 3), l["id"]))
+        linhas.sort(key=lambda l: (ordem.get(l["status"], 3), l["criado_em"], l["id"]))
         inicio = (pagina - 1) * por_pagina
         fatia = linhas[inicio:inicio + por_pagina]
         dados = self._dados_dos_itens(fonte, fatia)
@@ -165,8 +169,9 @@ class LeituraTriagemEscopo:
                 for r in self._consulta(f"""
                     SELECT r.url_id, r.uf, r.titulo, r.snippet, r.tecnologia, u.url_original AS url
                     FROM resultados_web r JOIN urls u ON u.url_id = r.url_id
-                    WHERE r.url_id IN ({marcas}) AND r.resultado_id IN
-                      (SELECT MAX(resultado_id) FROM resultados_web WHERE url_id IN ({marcas}) GROUP BY url_id, uf)""", ids + ids)}
+                    WHERE r.url_id IN ({marcas}) AND r.resultado_id =
+                      (SELECT y.resultado_id FROM resultados_web y JOIN chamadas c ON c.chamada_id = y.chamada_id
+                       WHERE y.url_id = r.url_id AND y.uf = r.uf ORDER BY c.requisitado_em DESC, y.resultado_id DESC LIMIT 1)""", ids)}
 
     def itens_por_chaves(self, fonte, chaves):
         """Titulo e link de itens `(item_id, uf)`, para listar o dano colateral com ligacao ao item."""
@@ -192,7 +197,7 @@ class LeituraTriagemEscopo:
         if not self.tem_triagem_escopo():
             return None
         return self._um(f"""SELECT {_LISTA} FROM triagem_escopo te WHERE te.fonte = 'artigo' AND te.item_id = ? AND te.uf = ''
-                            ORDER BY te.id DESC LIMIT 1""", (artigo_id,))
+                            ORDER BY te.criado_em DESC, te.id DESC LIMIT 1""", (artigo_id,))
 
     # ---------- artigos na lista e na fila: o que esta oculto pelo modelo ----------
     def juncao_triagem_escopo_artigos(self):
@@ -201,8 +206,8 @@ class LeituraTriagemEscopo:
         if not self.tem_triagem_escopo():
             return "", ("NULL AS llm_status, NULL AS llm_categoria, NULL AS llm_valido, NULL AS llm_justificativa, NULL AS llm_escopo, 0 AS llm_oculto")
         return (
-            "LEFT JOIN triagem_escopo te ON te.id = (SELECT MAX(x.id) FROM triagem_escopo x "
-            "WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '')",
+            "LEFT JOIN triagem_escopo te ON te.id = (SELECT x.id FROM triagem_escopo x "
+            "WHERE x.fonte = 'artigo' AND x.item_id = a.artigo_id AND x.uf = '' ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)",
             "te.status AS llm_status, te.categoria_motivo AS llm_categoria, te.valido AS llm_valido, "
             "te.justificativa AS llm_justificativa, "
             "CASE WHEN te.valido = 1 THEN te.escopo_geografico END AS llm_escopo, "

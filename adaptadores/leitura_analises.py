@@ -48,9 +48,10 @@ LEITURAS_ROBOTS_PERSISTENTE = 3
 TENTATIVAS_ROBOTS_PERSISTENTE = 2
 CLASSES_NAO_VERIFICAVEIS = ("proibido_pelo_site", "nao_verificavel_robots", "falha_definitiva_404", "outras_falhas")
 
-# Veredito atual (a linha de maior id) de cada item da fonte `?` em triagem_escopo; sempre com um unico argumento.
-_TE_ATUAL = ("SELECT te.* FROM triagem_escopo te WHERE te.fonte = ? AND te.id IN "
-             "(SELECT MAX(id) FROM triagem_escopo WHERE fonte = ? GROUP BY item_id, uf)")
+# Veredito atual (a linha de maior criado_em, empate pelo maior id) de cada item da fonte `?` em triagem_escopo; sempre com um unico argumento.
+_TE_ATUAL = ("SELECT te.* FROM triagem_escopo te WHERE te.fonte = ? AND te.id = "
+             "(SELECT x.id FROM triagem_escopo x WHERE x.fonte = ? AND x.item_id = te.item_id AND x.uf = te.uf "
+             "ORDER BY x.criado_em DESC, x.id DESC LIMIT 1)")
 
 
 def _pct(parte, total):
@@ -551,7 +552,8 @@ class LeituraAnalises:
         academica, quantos artigos eram novos e o acumulado. Devolve {n_chamadas, n_novos_total, pct_novos_ultimas_5 (media
         dos ultimos 5 `pct_novos` conhecidos, ou None), curva: [{ordem, chamada_id, termo_id, pagina, n_retornados, n_novos,
         novos_acumulado, pct_novos}]}."""
-        linhas = self._ler("SELECT chamada_id, termo_id, pagina, n_retornados, n_novos, pct_novos, novos_acumulado FROM v_curva_descoberta ORDER BY chamada_id")
+        linhas = self._ler("SELECT v.chamada_id, v.termo_id, v.pagina, v.n_retornados, v.n_novos, v.pct_novos, v.novos_acumulado "
+                           "FROM v_curva_descoberta v JOIN chamadas c ON c.chamada_id = v.chamada_id ORDER BY c.requisitado_em, v.chamada_id")
         curva, acum = [], 0
         for i, l in enumerate(linhas, 1):
             acum = l["novos_acumulado"] if l["novos_acumulado"] is not None else acum + _i(l["n_novos"])
@@ -573,7 +575,7 @@ class LeituraAnalises:
         linhas = self._ler("""
             SELECT k.n_chars_enviados AS chars, c.tokens_entrada AS tokens, k.classificador
             FROM r_classificacoes_historico k JOIN r_chamadas c ON c.chamada_id = k.chamada_id
-            WHERE c.etapa = 'classificacao' AND k.n_chars_enviados > 0 AND c.tokens_entrada > 0 ORDER BY k.classificacao_id""")
+            WHERE c.etapa = 'classificacao' AND k.n_chars_enviados > 0 AND c.tokens_entrada > 0 ORDER BY c.requisitado_em, k.classificacao_id""")
         razoes = [l["chars"] / l["tokens"] for l in linhas]
         reg = None
         n = len(linhas)
@@ -607,7 +609,8 @@ class LeituraAnalises:
         # historico: a hipotese e sobre o comportamento do modelo por tamanho de texto, em cada chamada feita
         linhas = self._ler(f"""SELECT n_chars_enviados AS chars, COALESCE(texto_truncado, 0) AS truncado, json_valido,
                                       COALESCE(n_achados, 0) AS n_achados
-                               FROM r_classificacoes_historico {onde} ORDER BY classificacao_id""", args)
+                               FROM r_classificacoes_historico k {onde}
+                               ORDER BY (SELECT c.requisitado_em FROM chamadas c WHERE c.chamada_id = k.chamada_id), k.classificacao_id""", args)
         acum = {}
         for nome, _, _ in FAIXAS_TEXTO:
             acum[nome] = {"n": 0, "inval": 0, "trunc": 0, "ach": 0, "ach_ok": 0, "chars_ok": 0, "n_ok": 0}
@@ -679,8 +682,9 @@ class LeituraAnalises:
                 n_chamadas[l["etapa"]] += l["ok"]
         te = {}
         if self._tem_triagem_escopo():
-            for l in self._ler("""SELECT fonte, provedor, COUNT(*) AS n FROM triagem_escopo WHERE id IN
-                                  (SELECT MAX(id) FROM triagem_escopo GROUP BY fonte, item_id, uf) GROUP BY fonte, provedor"""):
+            for l in self._ler("""SELECT fonte, provedor, COUNT(*) AS n FROM triagem_escopo te WHERE te.id =
+                                  (SELECT x.id FROM triagem_escopo x WHERE x.fonte = te.fonte AND x.item_id = te.item_id
+                                   AND x.uf = te.uf ORDER BY x.criado_em DESC, x.id DESC LIMIT 1) GROUP BY fonte, provedor"""):
                 te[l["fonte"]] = te.get(l["fonte"], 0) + l["n"]
                 if l["provedor"] and l["provedor"] not in provedores["triagem_escopo"]:
                     provedores["triagem_escopo"].append(l["provedor"])
@@ -824,7 +828,7 @@ class LeituraAnalises:
             SELECT url_id, sucesso, erro, http_status, extras FROM (
                 SELECT CAST(c.alvo_id AS INTEGER) AS url_id, c.sucesso, c.erro, c.http_status,
                        CASE WHEN c.erro LIKE 'robots_inacessivel%' THEN c.extras_json END AS extras,
-                       ROW_NUMBER() OVER (PARTITION BY c.alvo_id ORDER BY c.chamada_id DESC) AS pos
+                       ROW_NUMBER() OVER (PARTITION BY c.alvo_id ORDER BY c.requisitado_em DESC, c.chamada_id DESC) AS pos
                 FROM chamadas c JOIN execucoes e ON e.run_id = c.run_id
                 WHERE c.etapa = 'download' AND e.no_relatorio = 1) WHERE pos = 1""")
         if not ultimas:

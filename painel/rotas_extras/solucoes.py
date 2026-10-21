@@ -71,13 +71,13 @@ def _so_http(url):
 
 def _agrupar(achados):
     """Uma pagina classificada em varias execucoes repete o mesmo trio tecnologia-status-nome da solucao: junta os iguais, com o achado
-    mais novo para o link e `n` = quantos achados o grupo reune. Solucoes com nomes diferentes na mesma pagina ficam em grupos separados."""
+    mais novo para o link (o ultimo da lista, que vem do mais antigo ao mais novo) e `n` = quantos achados o grupo reune. Solucoes com nomes diferentes na mesma pagina ficam em grupos separados."""
     grupos = {}
     for a in achados:
         nome = (a.get("nome_solucao") or "").strip()
         g = grupos.setdefault((a["tecnologia"], a["status_reportado"], nome), {**a, "n": 0})
         g["n"] += 1
-        g["achado_id"] = max(g["achado_id"], a["achado_id"])
+        g["achado_id"] = a["achado_id"]
     return list(grupos.values())
 
 

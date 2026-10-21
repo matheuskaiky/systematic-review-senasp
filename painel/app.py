@@ -22,6 +22,7 @@ from fastapi.templating import Jinja2Templates
 from aplicacao import catalogo as catalogo_uc, exportacao, revisao, sugestoes as sugestoes_uc
 from dominio.sugestoes import CAMPOS_ACHADO, chave_autor, ficha_da_decisao
 from dominio import autenticacao, relevancia as relev
+from dominio.erros import BancoIndisponivel
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import analises_blocos, formatacao as fmt, mapa_ufs, navegacao, rotulos
 from painel.entidades import Entidades, explicacao_da_entidade, link_entidade
@@ -485,6 +486,32 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         if not leitura.existe():
             return sem_banco(request)
         return pagina(request, "execucoes.html", itens=leitura.execucoes())
+
+    uma_planilha_por_vez = threading.Lock()          # a planilha completa cabe na memoria uma vez; duas ao mesmo tempo, talvez nao
+
+    @app.get("/execucoes/resultado.xlsx")
+    def resultado_xlsx(request: Request):
+        """A planilha completa de resultados (as mesmas abas do comando `exportar`), lida do banco do painel."""
+        if not {"ver_chamadas", "ver_nomes_revisores"} <= _perms(request):     # leva as chamadas e os nomes de quem decidiu
+            return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
+        if not leitura.existe():
+            return sem_banco(request)
+        if not uma_planilha_por_vez.acquire(blocking=False):
+            return erro(request, 503, "Planilha em preparo",
+                        "Outra planilha completa está sendo gerada agora. Tente de novo em alguns segundos.")
+        try:
+            abas = exportacao.montar_tabelas_painel(leitura, contexto.ufs)
+            conteudo = exportacao.planilha_xlsx(abas)
+        except BancoIndisponivel:                     # banco ocupado ou fora do ar (SQLite ou PostgreSQL)
+            return erro(request, 503, "Banco indisponível",
+                        "O banco não respondeu a tempo para gerar a planilha completa. Tente de novo em alguns segundos.")
+        finally:
+            uma_planilha_por_vez.release()
+        prefixo = "" if contexto.banco == "real" else f"{contexto.banco}_"      # C6: simulado e demo nao passam por reais
+        nome = f"{prefixo}resultado_{datetime.now():%Y%m%d_%H%M}.xlsx"
+        return Response(conteudo,
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f'attachment; filename="{nome}"', "Cache-Control": "no-store"})
 
     @app.get("/execucoes/comparar", response_class=HTMLResponse)
     def comparar(request: Request, a: str = "", b: str = ""):

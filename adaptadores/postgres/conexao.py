@@ -226,10 +226,12 @@ class ConexaoPostgres:
         except psycopg.Error as erro:
             raise _converter_erro(erro) from None
 
-    def _iniciar(self, somente_leitura=False):
+    def _iniciar(self, somente_leitura=False, instantaneo=False):
         if self._em_transacao:
             raise sqlite3.OperationalError("cannot start a transaction within a transaction")
-        self._bruto(("BEGIN READ ONLY" if somente_leitura else "BEGIN") + f"; SET LOCAL lock_timeout = '{ESPERA_TRAVA}'")
+        inicio = ("BEGIN ISOLATION LEVEL REPEATABLE READ, READ ONLY" if instantaneo
+                  else "BEGIN READ ONLY" if somente_leitura else "BEGIN")
+        self._bruto(inicio + f"; SET LOCAL lock_timeout = '{ESPERA_TRAVA}'")
         self._em_transacao, self._trava, self._somente_leitura = True, False, somente_leitura
 
     def _travar(self):
@@ -336,10 +338,11 @@ class ConexaoPostgres:
             raise sqlite3.OperationalError(str(erro)) from None
         return self._executar(texto, None, (), muitos=[tuple(p) for p in linhas])
 
-    def somente_leitura(self):
-        """Abre a transacao como somente leitura (o mode=ro do SQLite): uma gravacao por engano falha."""
+    def somente_leitura(self, instantaneo=False):
+        """Abre a transacao como somente leitura (o mode=ro do SQLite): uma gravacao por engano falha. Com `instantaneo`,
+        todas as consultas da transacao veem o mesmo estado do banco (REPEATABLE READ), como uma leitura no SQLite."""
         if not self._em_transacao:
-            self._iniciar(somente_leitura=True)
+            self._iniciar(somente_leitura=True, instantaneo=instantaneo)
 
     def commit(self):
         if not self._em_transacao:

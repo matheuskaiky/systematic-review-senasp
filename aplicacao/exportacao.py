@@ -10,7 +10,17 @@ from dominio.catalogo import SIGNIFICADO_COLUNAS, STATUS_LEITURA_PADRAO, validar
 
 
 def montar_tabelas(repo, ufs):
-    tabelas = repo.tabelas_para_exportacao()
+    return _com_resumo_uf(repo.tabelas_para_exportacao(), ufs)
+
+
+def montar_tabelas_painel(leitura, ufs):
+    """As mesmas abas de `montar_tabelas`, lidas pelo painel (SQLite ou PostgreSQL) para o download pelo navegador."""
+    brutas = leitura.tabelas_para_exportacao()
+    return _com_resumo_uf({aba: pd.DataFrame.from_records(linhas, columns=colunas, coerce_float=True)
+                           for aba, (colunas, linhas) in brutas.items()}, ufs)
+
+
+def _com_resumo_uf(tabelas, ufs):
     resumo = tabelas.pop("Resumo_UF_bruto")
     todas = pd.DataFrame({"uf": list(ufs), "nome": list(ufs.values())})
     tabelas["Resumo_UF"] = todas.merge(resumo, on="uf", how="left").fillna(0)   # includes states with no findings

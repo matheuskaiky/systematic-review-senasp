@@ -21,3 +21,7 @@ class CotaDiariaEsgotada(Exception):
 def _hms(segundos):
     s = int(segundos)
     return f"{s // 3600}h{(s % 3600) // 60:02d}min"
+
+
+class BancoIndisponivel(Exception):
+    """A leitura do banco da pesquisa nao respondeu a tempo (ocupado ou fora do ar): quem pediu pode tentar de novo."""

@@ -4,6 +4,9 @@
 <h1>Execuções</h1>
 <p class="sub">Tudo o que o pipeline rodou, da mais recente para a mais antiga. Uma execução fora do relatório continua guardada, mas não entra nas somas.</p>
 <p><a href="/execucoes/comparar">Comparar duas execuções</a></p>
+{% if itens and "ver_nomes_revisores" in perms %}
+<p><a class="botao" href="/execucoes/resultado.xlsx">Baixar a planilha completa</a> <small>as mesmas abas do comando <code>python main.py exportar</code>: execuções, funil, custos, achados, artigos, triagem, métricas e históricos</small></p>
+{% endif %}
 {% if not itens %}
 <p class="vazio">Nenhuma execução registrada. Rode <code>python main.py pipeline-uf --ufs PI --limite 5</code>.</p>
 {% else %}

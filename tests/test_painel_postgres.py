@@ -205,3 +205,51 @@ def test_painel_no_banco_vazio_igual_ao_sqlite_vazio(pg_url, tmp_path):
         assert sq_cli.get(catalogo).status_code == pg_cli.get(catalogo).status_code == 200
     finally:
         pool.close()
+
+
+
+def test_planilha_completa_do_postgres_igual_a_do_sqlite(paineis):
+    """Mesmas abas, cabecalhos e linhas; a ordem das linhas so vale onde a consulta tem ORDER BY (as views sem ORDER BY
+    saem na ordem de cada banco)."""
+    sq, pg, _, _, _ = paineis
+
+    def abas(cli):
+        r = cli.get("/execucoes/resultado.xlsx")
+        assert r.status_code == 200
+        wb = openpyxl.load_workbook(io.BytesIO(r.content), read_only=True)
+        return {n: [tuple(x) for x in wb[n].iter_rows(values_only=True)] for n in wb.sheetnames}
+    a, b = abas(sq), abas(pg)
+    assert list(a) == list(b) and len(a) == 62
+
+    def linhas(x):           # os testes anteriores deste modulo decidem nos dois bancos em segundos diferentes
+        return sorted(re.sub(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?\+00:00", "HORA", repr(r)) for r in x)
+    for n in a:
+        assert a[n][0] == b[n][0], n
+        assert linhas(a[n][1:]) == linhas(b[n][1:]), n
+    assert len(a["Achados"]) > 1 and len(a["Chamadas"]) > 1
+
+
+def test_planilha_completa_com_o_postgres_fora_do_ar(paineis, monkeypatch):
+    from adaptadores import leitura_postgres
+    from dominio.erros import BancoIndisponivel
+
+    def fora(*a, **k):
+        raise sqlite3.OperationalError("banco PostgreSQL indisponível")
+    monkeypatch.setattr(leitura_postgres, "ConexaoPostgres", fora)
+    _, _, _, _, pool = paineis
+    with pytest.raises(BancoIndisponivel):
+        LeituraPainelPostgres(pool, chaves_do_banco(pool)).tabelas_para_exportacao()
+
+
+def test_planilha_completa_le_o_postgres_num_so_instantaneo(paineis, monkeypatch):
+    from adaptadores import leitura_postgres
+    _, _, _, _, pool = paineis
+    visto = {}
+
+    def espiao(conn):
+        visto["iso"] = conn.execute("SHOW transaction_isolation").fetchone()[0]
+        visto["ro"] = conn.execute("SHOW transaction_read_only").fetchone()[0]
+        return {}
+    monkeypatch.setattr(leitura_postgres, "ler_tabelas", espiao)
+    LeituraPainelPostgres(pool, chaves_do_banco(pool)).tabelas_para_exportacao()
+    assert visto == {"iso": "repeatable read", "ro": "on"}

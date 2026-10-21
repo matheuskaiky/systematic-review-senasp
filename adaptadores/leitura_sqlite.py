@@ -21,8 +21,10 @@ from adaptadores.leitura_solucoes import LeituraSolucoes
 from adaptadores.leitura_termos_cobertura import LeituraTermosCobertura
 from adaptadores.leitura_termos_ruido import LeituraTermosRuido
 from adaptadores.leitura_triagem_escopo import LeituraTriagemEscopo
+from adaptadores.consultas_exportacao import ler_tabelas
 from adaptadores.repositorio_sqlite import SQL_CATALOGO
 from dominio.entrada import separar_runs
+from dominio.erros import BancoIndisponivel
 from dominio.relevancia import NIVEIS, pontuar_relevancia
 from dominio.sugestoes import CAMPOS_ACHADO, CAMPOS_ARTIGO, ficha_da_decisao
 
@@ -43,6 +45,20 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             return [dict(l) for l in conn.execute(sql, args).fetchall()]
         finally:
             conn.close()
+
+    def tabelas_para_exportacao(self):
+        """{aba: (colunas, linhas)} da planilha completa (as consultas do comando `exportar`), numa so transacao de leitura:
+        todas as abas veem o mesmo estado do banco."""
+        try:
+            conn = sqlite3.connect(f"file:{self._caminho.as_posix()}?mode=ro", uri=True)
+            try:
+                conn.execute("PRAGMA busy_timeout = 5000")
+                conn.execute("BEGIN")
+                return ler_tabelas(conn)
+            finally:
+                conn.close()
+        except sqlite3.OperationalError:
+            raise BancoIndisponivel() from None
 
     def estado_decisao(self, alvo_tipo, alvo_id):
         """Ficha da decisao de hoje de um achado ou artigo (a mesma que a gravacao confere); None se o item nao existe."""

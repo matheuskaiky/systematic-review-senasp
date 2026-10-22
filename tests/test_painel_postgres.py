@@ -253,3 +253,16 @@ def test_planilha_completa_le_o_postgres_num_so_instantaneo(paineis, monkeypatch
     monkeypatch.setattr(leitura_postgres, "ler_tabelas", espiao)
     LeituraPainelPostgres(pool, chaves_do_banco(pool)).tabelas_para_exportacao()
     assert visto == {"iso": "repeatable read", "ro": "on"}
+
+
+def test_casos_estaduais_do_postgres_iguais_aos_do_sqlite(paineis):
+    """A planilha de casos estaduais que a nuvem entrega (onde a verificação acontece) é a mesma do SQLite."""
+    sq, pg, _, _, _ = paineis
+
+    def abas(cli):
+        r = cli.get("/achados/casos.xlsx")
+        assert r.status_code == 200
+        wb = openpyxl.load_workbook(io.BytesIO(r.content), read_only=True)
+        return {n: [tuple(x) for x in wb[n].iter_rows(values_only=True)] for n in wb.sheetnames}
+    a, b = abas(sq), abas(pg)
+    assert list(a) == ["Casos Estaduais", "Resumo Casos"] and a == b and len(a["Casos Estaduais"]) > 1

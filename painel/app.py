@@ -839,6 +839,20 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             return ids[(i + 1) % len(ids)] if len(ids) > 1 else None
         return ids[0]
 
+    @app.get("/achados/casos.xlsx")
+    def casos_xlsx(request: Request):
+        """Os achados no modelo de planilha "Casos Estaduais" (D112), o mesmo arquivo de `python main.py exportar-casos`."""
+        if "verificar_achados" not in _perms(request):     # alem do middleware: a planilha leva as observacoes da verificacao
+            return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
+        if not leitura.existe():
+            return sem_banco(request)
+        conteudo = exportacao.planilha_casos_estaduais(leitura.linhas_casos_estaduais(), contexto.ufs, rotulos.TECNOLOGIAS,
+                                                       rotulos.STATUS)
+        prefixo = "" if contexto.banco == "real" else f"{contexto.banco}_"      # C6
+        nome = f"{prefixo}casos_estaduais_{datetime.now():%Y%m%d_%H%M}.xlsx"
+        return Response(conteudo, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f'attachment; filename="{nome}"', "Cache-Control": "no-store"})
+
     @app.get("/achados/{achado_id}", response_class=HTMLResponse)
     def achado(request: Request, achado_id: int, completo: int = 0, ok: int = 0):
         ok = ok if 0 <= ok <= MAX_PAGINA * 1000 else 0

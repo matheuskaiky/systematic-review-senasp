@@ -10,6 +10,11 @@ _RASTREIO = ("fbclid", "gclid", "mc_cid", "mc_eid")   # tracking parameters
 _CERCA = "`" * 3                                      # markdown code fence
 
 
+def chave_sem_acento(texto):
+    """Texto sem acento e sem diferenca de maiuscula, para ordenar e procurar (Análise junto de analise)."""
+    return unicodedata.normalize("NFKD", texto or "").encode("ascii", "ignore").decode().casefold()
+
+
 def hash_chave(*partes):
     return hashlib.sha1("|".join(str(p) for p in partes).encode("utf-8")).hexdigest()
 

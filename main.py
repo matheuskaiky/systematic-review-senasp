@@ -21,6 +21,7 @@ from dominio.modelos import ParametrosClassificacao
 from dominio.erros import CotaDiariaEsgotada
 from dominio.entrada import separar_runs, descricao_motivos_falha_download
 from dominio import auditoria_negativos as AN
+from dominio import casos_estaduais
 from dominio.rotulagem import FOLGA_PADRAO as FOLGA_PADRAO_ROTULAGEM
 from dominio.servicos import gerar_consultas_web, palavras_chave_tecnologia, dominio_de
 from dominio.triagem_escopo import atomo_do_modelo_de_consulta, estimar_custo
@@ -893,6 +894,9 @@ def main():
     s.add_argument("--modelo", choices=list(MODELOS_REFERENCIAS.keys()), default=MODELO_REFERENCIAS_PADRAO, help="modelo de planilha (config/modelos_exportacao.py)")
     s.add_argument("--saida", help="caminho do .xlsx (padrao: outputs/<arquivo do modelo>)")
     s.add_argument("--simulado", action="store_true")
+    s = sub.add_parser("exportar-casos", help="exporta os achados no modelo de planilha de casos estaduais (D112)")
+    s.add_argument("--saida", help="caminho do .xlsx (padrao: outputs/casos_estaduais_<data>.xlsx)")
+    s.add_argument("--simulado", action="store_true")
     s = sub.add_parser("leitura-importar", help="importa categoria, eixo, prioridade, status de leitura e notas preenchidos no catalogo")
     s.add_argument("arquivo")
     s.add_argument("--modelo", choices=list(MODELOS_REFERENCIAS.keys()), default=MODELO_REFERENCIAS_PADRAO, help="modelo de planilha (config/modelos_exportacao.py)")
@@ -1002,6 +1006,15 @@ def _executar_comando(a):
         caminho.parent.mkdir(parents=True, exist_ok=True)
         caminho.write_bytes(exportacao.planilha_xlsx(abas))           # o mesmo arquivo do download pelo painel
         print(f"Catalogo ({modelo.nome}): {len(cat)} referencias -> {caminho}")
+    elif a.cmd == "exportar-casos":
+        from painel import rotulos
+        linhas = fab.leitura_painel().linhas_casos_estaduais()
+        prefixo = "simulado_" if a.simulado else ""       # C6
+        caminho = Path(a.saida) if a.saida else S.OUT_DIR / f"{prefixo}casos_estaduais_{datetime.now():%Y%m%d_%H%M}.xlsx"
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        caminho.write_bytes(exportacao.planilha_casos_estaduais(linhas, dict(C.UFS), rotulos.TECNOLOGIAS, rotulos.STATUS))
+        n = len(casos_estaduais.casos(linhas, dict(C.UFS), rotulos.TECNOLOGIAS, rotulos.STATUS))     # as linhas da aba de casos
+        print(f"Casos estaduais: {n} achados -> {caminho}")
     elif a.cmd == "leitura-importar":
         modelo = MODELOS_REFERENCIAS[a.modelo]
         try:

@@ -23,10 +23,25 @@ from adaptadores.leitura_termos_ruido import LeituraTermosRuido
 from adaptadores.leitura_triagem_escopo import LeituraTriagemEscopo
 from adaptadores.consultas_exportacao import ler_tabelas
 from adaptadores.repositorio_sqlite import SQL_CATALOGO
+
 from dominio.entrada import separar_runs
 from dominio.erros import BancoIndisponivel
 from dominio.relevancia import NIVEIS, pontuar_relevancia
 from dominio.sugestoes import CAMPOS_ACHADO, CAMPOS_ARTIGO, ficha_da_decisao
+
+
+_ULTIMO_RESULTADO = ("SELECT r.{c} FROM resultados_web r JOIN chamadas c ON c.chamada_id = r.chamada_id "
+                     "WHERE r.url_id = k.url_id AND r.uf = k.uf ORDER BY c.requisitado_em DESC, r.resultado_id DESC LIMIT 1")
+SQL_CASOS_ESTADUAIS = f"""
+    SELECT a.achado_id, a.uf, k.cidade, a.tecnologia, a.status_reportado, a.status_final, a.verificado, a.fornecedor,
+           a.nome_solucao, a.observacao, u.url_original AS url, f.dominio_efetivo AS dominio,
+           f.fonte_oficial_efetiva AS fonte_oficial,
+           ({_ULTIMO_RESULTADO.format(c="titulo")}) AS titulo, ({_ULTIMO_RESULTADO.format(c="data_pub")}) AS data_pub
+    FROM r_achados a
+    JOIN r_classificacoes k ON k.classificacao_id = a.classificacao_id
+    JOIN urls u ON u.url_id = k.url_id
+    JOIN v_fonte_da_classificacao f ON f.classificacao_id = k.classificacao_id
+    ORDER BY a.uf, a.achado_id"""
 
 
 class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTriagemEscopo, LeituraAnalises, LeituraTermosCobertura,
@@ -371,6 +386,11 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
                          FROM (SELECT decisao FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0)""")
         d["ocultos_llm"] = self._um(f"SELECT COALESCE(SUM(llm_oculto), 0) AS n FROM ({self._BASE_ARTIGOS})")["n"]
         return d
+
+    def linhas_casos_estaduais(self):
+        """Os achados das execucoes do relatorio, com a pagina (titulo e data do resultado mais recente da mesma URL e UF,
+        D101) e a fonte efetiva, para a planilha no modelo "Casos Estaduais" (D112)."""
+        return self._consulta(SQL_CASOS_ESTADUAIS)
 
     def linhas_catalogo(self):
         """Linhas do catalogo de referencias, a mesma consulta do comando exportar-referencias."""

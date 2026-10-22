@@ -4,6 +4,7 @@ import re
 import pandas as pd
 
 from aplicacao import rotulagem as RT
+from dominio import casos_estaduais as CE
 from dominio import auditoria_negativos as AN
 from dominio.planilha import celula_segura
 from dominio.catalogo import SIGNIFICADO_COLUNAS, STATUS_LEITURA_PADRAO, validar_leitura
@@ -82,14 +83,45 @@ def planilhas_referencias(catalogo, modelo, categorias, eixos):
     return abas
 
 
-def planilha_xlsx(abas):
+_ESTILO_CABECALHO = "background-color: #4472C4; color: #FFFFFF; font-weight: bold; vertical-align: top"
+
+
+def _letra_da_coluna(n):
+    """1 -> A, 26 -> Z, 27 -> AA (o nome da coluna no Excel)."""
+    letras = ""
+    while n:
+        n, resto = divmod(n - 1, 26)
+        letras = chr(65 + resto) + letras
+    return letras
+
+
+def planilha_xlsx(abas, larguras=None):
     """As abas (nome -> DataFrame) num arquivo .xlsx em memoria, na ordem recebida, com as celulas de texto pela regra C3
-    (download pelo painel e comando exportar-referencias: o mesmo arquivo)."""
+    (download pelo painel e comando exportar-referencias: o mesmo arquivo). `larguras` (aba -> larguras das colunas, na
+    ordem) formata a aba como os modelos de planilha: o cabecalho em azul com letra branca em negrito, as larguras, a
+    primeira linha congelada e o filtro automatico."""
     saida = BytesIO()
     with pd.ExcelWriter(saida) as w:
         for nome_aba, df in abas.items():
-            df.map(celula_segura).to_excel(w, sheet_name=nome_aba, index=False)
+            if larguras and nome_aba in larguras:      # cabecalho como nos modelos: fundo azul, letra branca em negrito
+                df.map(celula_segura).style.map_index(lambda _: _ESTILO_CABECALHO, axis=1).to_excel(w, sheet_name=nome_aba, index=False)
+            else:
+                df.map(celula_segura).to_excel(w, sheet_name=nome_aba, index=False)
+            if larguras and nome_aba in larguras:
+                folha = w.sheets[nome_aba]
+                for i, largura in enumerate(larguras[nome_aba], start=1):
+                    folha.column_dimensions[_letra_da_coluna(i)].width = largura
+                folha.freeze_panes = "A2"
+                folha.auto_filter.ref = f"A1:{_letra_da_coluna(len(df.columns))}{len(df) + 1}"
     return saida.getvalue()
+
+
+def planilha_casos_estaduais(linhas, ufs, tecnologias, status):
+    """O arquivo no modelo "Casos Estaduais" (D112): a aba dos casos e a do resumo por UF, formatadas como o modelo."""
+    abas = OrderedDict()
+    abas[CE.ABA_CASOS] = pd.DataFrame(CE.casos(linhas, ufs, tecnologias, status), columns=list(CE.COLUNAS))
+    abas[CE.ABA_RESUMO] = pd.DataFrame(CE.resumo(linhas, ufs, tecnologias), columns=list(CE.COLUNAS_RESUMO))
+    return planilha_xlsx(abas, {CE.ABA_CASOS: CE.LARGURAS, CE.ABA_RESUMO: CE.LARGURAS_RESUMO})
 
 
 def _celula_para_texto(v):

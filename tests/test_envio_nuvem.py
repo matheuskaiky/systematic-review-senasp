@@ -531,7 +531,11 @@ def test_api_inteira_sobre_postgres(pg_url, copiar_demo, tmp_path):
         de_novo = cli.post("/api/coletas", content=corpo, headers=h).json()
         assert all(v["novas"] == 0 and v["atualizadas"] == 0 for v in de_novo["tabelas"].values())
         assert contas.token_do_usuario(uid)["ultimo_uso"] is not None
-        outro = _runs(local)[1]
+        # uma execucao com chamadas (o erro e forcado no mapeamento das chamadas) cujas dependencias ja foram enviadas: a
+        # ordem por run_id nao serve, porque execucoes da demonstracao criadas no mesmo segundo se ordenam pelo sufixo aleatorio
+        ordem = _runs(local)
+        outro = next(r for r in ordem[1:] if local.pacote_da_execucao(r)["tabelas"].get("chamadas")
+                     and {e["run_id"] for e in local.pacote_da_execucao(r)["externas"]["paginas"]} <= {ordem[0]})
         from adaptadores import pacote_coleta as J
         original = J._alvo_central
 

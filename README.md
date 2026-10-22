@@ -15,6 +15,9 @@ Pipeline em Python desenvolvido para apoiar a **revisão sistemática e o mapeam
 | **1. Secretarias Estaduais** | Quais UFs usam, testam, contratam ou estudam IA (reconhecimento facial, leitura de placas, videomonitoramento inteligente, análise preditiva, atendimento virtual, outras)? | Realiza buscas web parametrizadas por UF e tecnologia, efetua download respeitando `robots.txt`, extrai texto, classifica com LLM **exigindo citação textual literal**, audita a evidência no texto bruto e direciona achados para verificação humana. |
 | **2. Literatura Científica** | O que a literatura acadêmica relata sobre aplicações de IA na segurança pública no Brasil? | Coleta dados no Google Scholar (via SerpApi), integra buscas manuais nas bases IEEE, ACM, Scopus e SBC OpenLib, deduplica registros e gerencia triagem em dupla cega sob o protocolo PRISMA. |
 
+> [!NOTE]
+> **Busca de viés algorítmico:** um banco separado (`--banco vies`, em `data/vies/`, `outputs/vies/` e `logs/vies/`, com login próprio) reúne a busca de literatura científica e cinzenta sobre viés algorítmico: consultas na web em português (`buscar-literatura`) e no Google Scholar, triagem por LLM com tipo de fonte, país, tópicos e eixo temático, e análises próprias no painel. Sem a opção, todos os comandos continuam usando o banco da pesquisa principal.
+
 ---
 
 ### Princípios Metodológicos
@@ -51,6 +54,11 @@ flowchart TD
         B3 --> B4[Fila de Triagem de Escopo PRISMA]
     end
 
+    subgraph FRENTE_3["Busca de Viés Algorítmico (banco separado)"]
+        V1[Consultas na Web e no Scholar] --> V2[Triagem via LLM: Tipo de Fonte, País, Tópicos e Eixo]
+        V2 --> V3[(Banco vies)]
+    end
+
     subgraph NUCLEO["Reprodutibilidade & Validação"]
         A6 & A7 & B4 --> C1[(Banco SQLite Local)]
         C1 --> D1[Painel Web Local / Fila de Revisão]
@@ -62,6 +70,7 @@ flowchart TD
 
     style FRENTE_1 fill:#f8f9fa,stroke:#495057,stroke-width:1px
     style FRENTE_2 fill:#f8f9fa,stroke:#495057,stroke-width:1px
+    style FRENTE_3 fill:#f8f9fa,stroke:#495057,stroke-width:1px
     style NUCLEO fill:#e7f5ff,stroke:#1971c2,stroke-width:1.5px
 
 ```
@@ -156,17 +165,25 @@ python main.py manual-importar <planilha>                 # Importa contagens de
 python main.py manual-artigos-importar <arquivo>          # Importa artigos deduplicando contra o Scholar
 python main.py triar-escopo --fonte artigos --amostra 20  # Triagem preliminar de escopo via LLM
 
+# --- Busca de Viés Algorítmico (banco vies) ---
+python main.py buscar-literatura --conjunto A --limite 5 --banco vies     # Consultas na web (português, Brasil)
+python main.py academico --banco vies                                     # Busca no Google Scholar no banco vies
+python main.py triar-escopo --fonte referencias --amostra 20 --banco vies # Triagem das referências da web
+python main.py triar-escopo --fonte artigos --amostra 20 --banco vies     # Triagem dos artigos do Scholar
+
 # --- Gestão de Revisão Humana e Resultados ---
 python main.py exportar                                   # Gera pasta outputs/ com a planilha consolidada
 python main.py achados-importar <planilha.xlsx>           # Importa conferência humana dos achados
 python main.py triagem-importar <planilha.xlsx>           # Importa triagem humana da literatura (PRISMA)
+python main.py exportar-casos                             # Planilha "Casos Estaduais" com os achados confirmados
+python main.py exportar-referencias                       # Catálogo de referências em planilha
 
 ```
 
 ### Comandos Administrativos e Utilitários
 
 * `python main.py rotulagem-modelo`: Prepara linhas pendentes para destravar análises de concordância (H2, H5).
-* `python main.py usuario-admin`: Cria ou redefine o acesso de um administrador do painel web.
+* `python main.py usuario-admin`: Cria ou redefine o acesso de um administrador do painel web (com `--banco vies`, no login próprio do banco vies).
 * `python main.py execucao-excluir <run_id> --motivo "piloto"`: Oculta uma rodada piloto das views agregadas sem deletar dados.
 * `python main.py execucao-incluir <run_id>`: Restaura a execução para as visualizações agregadas.
 
@@ -177,6 +194,7 @@ python main.py triagem-importar <planilha.xlsx>           # Importa triagem huma
 * `--so-nao-classificadas`: Em `classificar`, avalia apenas páginas sem classificação com a mesma versão de prompt.
 * `--auditoria N`: Sorteia uma amostra reprodutível de N links descartados pelo pré-filtro para auditar falsos negativos.
 * `--retomar <run_id>`: Retoma uma execução interrompida exatamente de onde parou.
+* `--banco vies`: Em qualquer comando que abre o banco, usa o banco separado da busca de viés algorítmico.
 
 ---
 
@@ -191,6 +209,8 @@ python main.py painel --demo            # Abre em http://127.0.0.1:8000 (faixa r
 
 # Executar painel conectado à base real de pesquisa (apenas conexões locais)
 python main.py painel                   # Abre em http://127.0.0.1:8000 (faixa azul)
+python main.py painel --banco vies      # Banco da busca de viés algorítmico (faixa verde)
+python main.py painel --somente-leitura # Nenhuma decisão pode ser gravada
 
 # Gerar relatório HTML estático (somente achados confirmados por humanos)
 python main.py painel-relatorio
@@ -202,83 +222,22 @@ python main.py painel-relatorio
 * **Revisão Ágil com Teclado:** Na fila de revisão, navegue rapidamente com atalhos: `1` a `6` para atribuir status, `d` para descartar, `n` para pular, `u` para desfazer e `e` para focar na evidência literal no texto original.
 * **Segurança e Concorrência:** Cria backups automáticos em `data/backups/` antes de sessões críticas e rejeita edições concorrentes de um mesmo registro.
 * **Módulo Administrativo:** Gestão de revisores e logs de auditoria de decisões.
+* **Análises:** Página em abas com os números do banco, cada título dizendo a conclusão e a memória de cálculo ao lado; no banco vies, abas próprias (ferramentas de busca, tipos de fonte, eixos e tópicos, tempo e lugar, consultas e conjuntos, sites da web) e uma legenda no fim da página.
+* **Referências:** Tela com as referências da busca de viés algorítmico, página de cada referência da web com a triagem do LLM e download no formato do modelo ampliado.
+* **Planilha Casos Estaduais:** Download, na tela de Achados, dos achados confirmados no formato do modelo "Casos Estaduais".
 
 ---
 
-## Implantação do Painel na Nuvem (Oracle Cloud)
+## Painel Local e na Nuvem
 
-Só o painel vai para o servidor: a coleta, a triagem e as chaves de API continuam na máquina de quem pesquisa. A primeira implantação usa o banco de demonstração, sempre com login. O painel roda atrás do Caddy, que emite e renova o certificado HTTPS do domínio.
+O painel roda por padrão no computador de quem pesquisa, sobre o banco SQLite local. O mesmo código também serve uma cópia do painel na nuvem, sobre PostgreSQL (`DB_BACKEND=postgres`): só o painel vai para a nuvem, enquanto a coleta, a classificação, a triagem e as chaves de API continuam no computador local. As tabelas e views do PostgreSQL são criadas por migrações versionadas (`python main.py pg-migrar`), e o painel se recusa a subir com o esquema desatualizado.
 
-**Na Oracle Cloud (uma vez):**
+**Enviar a coleta para a nuvem:** `python main.py enviar --run <run_id>` (repita `--run` para várias) manda só os dados da coleta daquela execução, sem os arquivos brutos e sem decisões humanas, usando o endereço do painel e o token pessoal da página Minha conta (`PAINEL_NUVEM_URL` e `PAINEL_TOKEN` no `.env`). Reenviar a mesma execução só acrescenta e atualiza o que mudou.
 
-1. Crie uma instância Ubuntu 22.04 ou 24.04 (por exemplo, *VM.Standard.A1.Flex*) com IPv4 público.
-2. Libere as portas 80 e 443 na *Security List* da rede (regras de entrada TCP, origem `0.0.0.0/0`) e no firewall da própria VM:
+> [!NOTE]
+> Os passos de implantação na nuvem ficam na documentação interna do projeto, fora deste repositório.
 
-```bash
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
-sudo netfilter-persistent save
-```
-
-3. No registrador do domínio, crie um registro `A` apontando o nome do painel (por exemplo, `revisao`) para o IP público da VM.
-
-**Na VM:**
-
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
-sudo usermod -aG docker $USER            # saia e entre de novo na sessão
-git clone <URL_DO_REPOSITORIO> painel && cd painel
-cp .env.example .env                     # preencha só DOMAIN_NAME (as chaves de API ficam vazias no servidor)
-docker compose up -d --build
-docker compose exec app python main.py usuario-admin --login <login> --nome "<nome>" --demo
-```
-
-Se o repositório for privado, clone com uma chave de implantação (*deploy key*, só leitura) do GitHub cadastrada na VM.
-
-O painel fica em `https://<DOMAIN_NAME>`. O banco, as decisões e as contas ficam no volume `dados` do Docker e sobrevivem a reinícios e atualizações (`git pull && docker compose up -d --build`). Para recomeçar a demonstração do zero: `docker compose exec app python main.py painel-demo && docker compose restart app`.
-
-**Cópias de segurança:** `scripts/backup_db.sh` copia os bancos com o painel no ar (API de backup do SQLite) para `./backups` e apaga as cópias com mais de 14 dias. Para rodar todo dia às 3h, acrescente ao `crontab -e` da VM: `0 3 * * * cd ~/painel && bash scripts/backup_db.sh >> backups/backup.log 2>&1`. Guarde também cópias fora da VM.
-
-**Concorrência:** o SQLite roda em modo WAL (quem lê não espera quem grava; um escritor por vez) com um único processo do servidor.
-
-## Implantação do Painel no Google Cloud Run (PostgreSQL no Neon)
-
-Só o painel vai para a nuvem: a coleta, a classificação e as chaves de API continuam no computador do pesquisador, sobre o SQLite local (o padrão de todos os comandos). Na nuvem, as decisões e as contas ficam num PostgreSQL do Neon; o Cloud Run não guarda arquivos. O banco da nuvem começa vazio: nenhum comando copia para lá o banco com dados reais.
-
-**Antes:** um projeto no Google Cloud com faturamento ativo, o `gcloud` instalado e logado (`gcloud auth login`), o Docker local, e um projeto no Neon com PostgreSQL 16 ou 17 (de preferência na região São Paulo, `aws-sa-east-1`). O banco do Neon já vem com a ordenação `C.UTF-8`, a que o painel exige. Do Neon saem duas URLs: a do pool (com `-pooler` no host), usada pelo painel, e a direta (sem `-pooler`), usada só para migrar. As duas são segredos: nunca vão para arquivo versionado nem para o histórico do terminal (os comandos abaixo as leem do teclado com `read -rs`).
-
-1. Variáveis do terminal e serviços do Google Cloud:
-   ```bash
-   export PROJETO=<id-do-projeto> REGIAO=southamerica-east1
-   export NUMERO=$(gcloud projects describe "$PROJETO" --format='value(projectNumber)')
-   gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com --project "$PROJETO"
-   gcloud artifacts repositories create painel --repository-format=docker --location="$REGIAO" --project "$PROJETO"
-   ```
-2. A URL do pool como segredo, lido pelo Cloud Run:
-   ```bash
-   read -rs URL && printf '%s' "$URL" | gcloud secrets create painel-database-url --data-file=- --project "$PROJETO"; unset URL
-   gcloud secrets add-iam-policy-binding painel-database-url --project "$PROJETO" \
-     --member="serviceAccount:${NUMERO}-compute@developer.gserviceaccount.com" --role=roles/secretmanager.secretAccessor
-   ```
-3. Tabelas e views no Neon (do computador local, com a URL direta) e o primeiro administrador (com a URL do pool):
-   ```bash
-   read -rs DATABASE_URL_DIRECT && export DATABASE_URL_DIRECT && python main.py pg-migrar; unset DATABASE_URL_DIRECT
-   read -rs DATABASE_URL && export DATABASE_URL && DB_BACKEND=postgres python main.py usuario-admin --login <login> --nome "<nome>"; unset DATABASE_URL
-   ```
-4. Imagem e implantação (uma instância, que dorme sem uso):
-   ```bash
-   gcloud auth configure-docker "$REGIAO-docker.pkg.dev"
-   export IMAGEM="$REGIAO-docker.pkg.dev/$PROJETO/painel/painel:$(git rev-parse --short HEAD)"
-   docker build -f Dockerfile.cloudrun -t "$IMAGEM" . && docker push "$IMAGEM"
-   gcloud run deploy painel --image "$IMAGEM" --region "$REGIAO" --project "$PROJETO" --allow-unauthenticated --timeout=900 --memory=1Gi \
-     --max-instances=1 --min-instances=0 --update-secrets=DATABASE_URL=painel-database-url:latest \
-     --set-env-vars=PAINEL_HOSTS=painel-${NUMERO}.${REGIAO}.run.app
-   ```
-   O painel fica em `https://painel-<número do projeto>.southamerica-east1.run.app`, sempre com login. `--allow-unauthenticated` só deixa a página abrir na internet; o acesso continua exigindo usuário e senha do painel.
-
-**Enviar a coleta do computador para a nuvem:** quem tem a permissão de enviar coletas gera o token na página Minha conta do painel e o põe no `.env` local, com o endereço do painel (`PAINEL_NUVEM_URL=https://painel-<número>.southamerica-east1.run.app` e `PAINEL_TOKEN=<token>`). Depois, `python main.py enviar --run <run_id>` (repita `--run` para várias) manda só os dados da coleta daquela execução, sem os arquivos brutos e sem decisões humanas; reenviar a mesma execução só acrescenta e atualiza o que mudou. Uma execução que usa páginas baixadas noutra (`--de`) precisa que aquela seja enviada antes; a mensagem diz qual. O pacote tem uma versão (hoje a 2, que leva também a busca de literatura): ao atualizar o programa, atualize primeiro a nuvem e depois o computador local; enquanto as versões forem diferentes, a nuvem recusa o envio e diz as duas versões.
-
-**Atualizar:** quando o código trouxer migração nova, rode antes o `pg-migrar` do passo 3 (o painel se recusa a subir com o esquema desatualizado e diz o que falta); depois repita o passo 4. **Voltar atrás:** `gcloud run services update-traffic painel --to-revisions=<revisão anterior>=100 --region "$REGIAO" --project "$PROJETO"` (as revisões aparecem em `gcloud run revisions list --service painel --region "$REGIAO" --project "$PROJETO"`). **Demonstração:** num banco do Neon vazio e migrado, `read -rs DATABASE_URL_DIRECT && export DATABASE_URL_DIRECT && python main.py pg-demo; unset DATABASE_URL_DIRECT` carrega os dados fictícios do `painel-demo`.
+---
 
 ## Análises Estatísticas Avançadas (`analises/`)
 

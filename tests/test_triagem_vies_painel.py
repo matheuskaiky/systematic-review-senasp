@@ -123,7 +123,7 @@ def test_tela_e_download_mostram_as_colunas_da_triagem(banco, tmp_path):
     assert "Policiamento preditivo" not in html                       # a triagem do artigo falhou na conferência
     assert EIXO not in html and "trata de viés" not in html             # eixo e justificativa ficam fora da tela
     wb = openpyxl.load_workbook(io.BytesIO(cli.get("/literatura/referencias.xlsx").content))
-    linhas = {l[0].value: [c.value for c in l] for l in wb["Referências"].iter_rows(min_row=2)}
+    linhas = {l[0].value: [c.value for c in l] for l in wb["Referências ampliadas"].iter_rows(min_row=2)}
     assert linhas[f"W-{ref}"][4:7] == ["Relatório técnico / literatura cinzenta", "Brasil / SP", "Reconhecimento facial; viés racial"]
 
 

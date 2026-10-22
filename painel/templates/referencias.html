@@ -7,10 +7,11 @@
 <form class="filtros" method="get" action="/literatura/referencias">
   <label>Conjunto <select name="conjunto"><option value="">todos</option>{% for c in ctx.conjunto_da_consulta.values()|unique|sort %}<option value="{{ c }}"{% if filtros.conjunto == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
   <label>Fonte <select name="fonte"><option value="">todas</option>{% for f in ("Web", "Scholar") %}<option value="{{ f }}"{% if filtros.fonte == f %} selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
-  <label class="larga">Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="título, autor ou endereço" aria-keyshortcuts="/" data-atalho-busca></label>
-  <button class="botao" type="submit">Filtrar</button>{% if filtros %} <a href="/literatura/referencias">Limpar</a>{% endif %}
+  <label>Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="título ou autor" aria-keyshortcuts="/" data-atalho-busca></label>
+  <button class="botao" type="submit">Filtrar</button>
+  <a class="botao secundario" href="/literatura/referencias.xlsx{% if base %}?{{ base }}{% endif %}" title="As linhas desta lista, com estes filtros, no formato do modelo de referências">Baixar</a>{% if filtros %} <a href="/literatura/referencias">Limpar</a>{% endif %}
 </form>
-<p><strong>{{ fmt.numero(total) }}</strong> referência(s). <a class="botao" href="/literatura/referencias.xlsx{% if base %}?{{ base }}{% endif %}">Baixar no modelo de referências</a> <small>as mesmas linhas, sem a coluna Execução, com a aba do esquema de exploração</small></p>
+<p><strong>{{ fmt.numero(total) }}</strong> referência(s).</p>
 {% if not total %}
 <p class="vazio">Nenhuma referência{% if filtros %} com estes filtros. <a href="/literatura/referencias">Limpar filtros</a>{% else %} ainda{% endif %}.</p>
 {% else %}

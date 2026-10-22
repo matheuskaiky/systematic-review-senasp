@@ -7,14 +7,13 @@ from dominio.servicos import chave_sem_acento
 
 COLUNAS = ("ID", "Autor/Instituição", "Ano", "Título", "Tipo de fonte", "País/escopo", "Tópicos e palavras-chave", "URL",
            "Prioridade de leitura", "Status de leitura", "Notas")
-LARGURAS = (12, 48, 12, 55, 48, 16, 55, 55, 23, 19, 12)
+LARGURAS = (12, 56, 12, 60, 59, 19, 60, 60, 23, 19, 12)          # as do modelo ampliado
 COLUNAS_EXTRAS = ("Fonte da busca", "Conjunto")
 COLUNA_EXECUCAO = "Execução"          # so na tela: as execucoes que acharam a referencia (o arquivo baixado nao leva)
 COLUNAS_TELA = COLUNAS + (COLUNA_EXECUCAO,) + COLUNAS_EXTRAS      # na tela, logo ao lado das 11 colunas do modelo
-LARGURAS_EXTRAS = (16, 12)
 COLUNAS_ESQUEMA = ("Eixo", "Perguntas de exploração")
-LARGURAS_ESQUEMA = (21, 55)
-ABA_REFERENCIAS, ABA_ESQUEMA = "Referências", "Esquema de exploração"
+LARGURAS_ESQUEMA = (35, 60)
+ABA_REFERENCIAS, ABA_ESQUEMA = "Referências ampliadas", "Esquema de exploração"     # os nomes das abas do modelo ampliado
 STATUS_NAO_INICIADO = "Não iniciado"     # como na planilha de referências do modelo (com acento)
 FONTE_WEB, FONTE_SCHOLAR = "Web", "Scholar"         # sem o nome do provedor: trocar de provedor nao muda a tela
 

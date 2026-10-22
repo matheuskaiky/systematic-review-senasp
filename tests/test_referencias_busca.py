@@ -318,7 +318,7 @@ def test_download_tem_as_linhas_da_tela_na_mesma_ordem(banco, tmp_path):
     cli = _cli(banco, tmp_path)
     tela = re.findall(r">([WA]-\d+)</", cli.get("/literatura/referencias").text)
     wb = openpyxl.load_workbook(io.BytesIO(cli.get("/literatura/referencias.xlsx").content))
-    assert [l[0].value for l in wb["Referências"].iter_rows(min_row=2)] == tela and len(tela) == 5 and any(i.startswith("A-") for i in tela)
+    assert [l[0].value for l in wb["Referências ampliadas"].iter_rows(min_row=2)] == tela and len(tela) == 5 and any(i.startswith("A-") for i in tela)
 
 
 def test_nome_do_arquivo_no_banco_real_nao_tem_prefixo(banco, tmp_path):
@@ -361,12 +361,21 @@ def test_download_tem_as_mesmas_linhas_e_o_esquema(banco, tmp_path):
     r = _cli(banco, tmp_path).get("/literatura/referencias.xlsx?conjunto=B")
     assert r.status_code == 200 and re.fullmatch(r'attachment; filename="vies_referencias_\d{8}_\d{4}\.xlsx"', r.headers["content-disposition"])
     wb = openpyxl.load_workbook(io.BytesIO(r.content))
-    assert wb.sheetnames == ["Referências", "Esquema de exploração"]
-    ref, esq = wb["Referências"], wb["Esquema de exploração"]
-    assert [c.value for c in ref[1]] == list(RB.COLUNAS + RB.COLUNAS_EXTRAS) and ref.max_row == 4     # sem a coluna Execução
-    assert [ref.column_dimensions[l].width for l in "ABCDEFGHIJKLM"] == [12, 48, 12, 55, 48, 16, 55, 55, 23, 19, 12, 16, 12]
+    # o formato do modelo ampliado (ia_seguranca_publica_vies_algoritmico_investigacao_criminal_ampliado.xlsx)
+    assert wb.sheetnames == ["Referências ampliadas", "Esquema de exploração"]
+    ref, esq = wb["Referências ampliadas"], wb["Esquema de exploração"]
+    assert [c.value for c in ref[1]] == list(RB.COLUNAS) and ref.max_row == 4 and ref.max_column == 11   # sem Execução, Fonte, Conjunto
+    assert [ref.column_dimensions[l].width for l in "ABCDEFGHIJK"] == [12, 56, 12, 60, 59, 19, 60, 60, 23, 19, 12]
     assert [[c.value for c in l] for l in esq.iter_rows(min_row=2)] == [list(x) for x in EIXOS_EXPLORACAO.items()]
-    assert [esq.column_dimensions[l].width for l in "AB"] == [21, 55] and (ref.freeze_panes, esq.freeze_panes) == ("A2", "A2")
+    assert [esq.column_dimensions[l].width for l in "AB"] == [35, 60] and (ref.freeze_panes, esq.freeze_panes) == ("A2", "A2")
+    assert (ref.auto_filter.ref, esq.auto_filter.ref) == ("A1:K4", "A1:B7")
+    for c in list(ref[1]) + list(esq[1]):            # cabeçalho: negrito, centralizado no topo, borda fina, sem fundo
+        b = c.border
+        assert (c.font.b, c.alignment.horizontal, c.alignment.vertical, c.fill.fill_type) == (True, "center", "top", None)
+        assert (b.left.style, b.right.style, b.top.style, b.bottom.style) == ("thin",) * 4
+    for linha in ref.iter_rows(min_row=2):
+        assert linha[2].value is None or isinstance(linha[2].value, str)       # o ano é texto, como no modelo
+        assert linha[9].value == "Não iniciado" and not linha[0].font.b
 
 
 def test_eixos_do_esquema_sao_os_seis_literais():
@@ -374,3 +383,10 @@ def test_eixos_do_esquema_sao_os_seis_literais():
                                       "Forense digital e deepfakes", "Direitos e governança", "Brasil e América Latina"]
     assert EIXOS_EXPLORACAO["Brasil e América Latina"] == ("Mapear pesquisas por UF, contratos e políticas; comparar dados de "
                                                           "implementação, resultados e impactos distributivos.")
+
+
+def test_botao_baixar_curto_no_cartao_dos_filtros(banco, tmp_path):
+    html = _cli(banco, tmp_path).get("/literatura/referencias?conjunto=B").text
+    form = re.search(r'<form class="filtros".*?</form>', html, re.S).group(0)
+    assert '<a class="botao secundario" href="/literatura/referencias.xlsx?conjunto=B"' in form and ">Baixar</a>" in form
+    assert "Baixar no modelo de referências" not in html and "<strong>3</strong> referência(s).</p>" in html

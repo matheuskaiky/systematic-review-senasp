@@ -84,6 +84,8 @@ def planilhas_referencias(catalogo, modelo, categorias, eixos):
 
 
 _ESTILO_CABECALHO = "background-color: #4472C4; color: #FFFFFF; font-weight: bold; vertical-align: top"
+# cabecalho do modelo ampliado de referencias: negrito, centralizado no topo, borda fina, sem fundo
+ESTILO_CABECALHO_REFERENCIAS = "font-weight: bold; text-align: center; vertical-align: top; border-style: solid; border-width: 1px"
 
 
 def _letra_da_coluna(n):
@@ -95,16 +97,16 @@ def _letra_da_coluna(n):
     return letras
 
 
-def planilha_xlsx(abas, larguras=None):
+def planilha_xlsx(abas, larguras=None, estilo_cabecalho=_ESTILO_CABECALHO):
     """As abas (nome -> DataFrame) num arquivo .xlsx em memoria, na ordem recebida, com as celulas de texto pela regra C3
     (download pelo painel e comando exportar-referencias: o mesmo arquivo). `larguras` (aba -> larguras das colunas, na
-    ordem) formata a aba como os modelos de planilha: o cabecalho em azul com letra branca em negrito, as larguras, a
-    primeira linha congelada e o filtro automatico."""
+    ordem) formata a aba como os modelos de planilha: o cabecalho (`estilo_cabecalho`, em CSS; por padrao azul com letra
+    branca em negrito), as larguras, a primeira linha congelada e o filtro automatico."""
     saida = BytesIO()
     with pd.ExcelWriter(saida) as w:
         for nome_aba, df in abas.items():
-            if larguras and nome_aba in larguras:      # cabecalho como nos modelos: fundo azul, letra branca em negrito
-                df.map(celula_segura).style.map_index(lambda _: _ESTILO_CABECALHO, axis=1).to_excel(w, sheet_name=nome_aba, index=False)
+            if larguras and nome_aba in larguras:      # cabecalho como no modelo de planilha
+                df.map(celula_segura).style.map_index(lambda _: estilo_cabecalho, axis=1).to_excel(w, sheet_name=nome_aba, index=False)
             else:
                 df.map(celula_segura).to_excel(w, sheet_name=nome_aba, index=False)
             if larguras and nome_aba in larguras:
@@ -117,12 +119,15 @@ def planilha_xlsx(abas, larguras=None):
 
 
 def planilha_referencias_busca(linhas, eixos):
-    """O arquivo no modelo de referencias (D103): a aba "Referências" (as 11 colunas, a fonte da busca e o conjunto) e a
-    aba "Esquema de exploração" com os eixos e as perguntas, formatadas como o modelo."""
+    """O arquivo no formato do modelo ampliado de referencias: a aba "Referências ampliadas" (as 11 colunas do modelo, o
+    ano como texto) e a aba "Esquema de exploração" com os eixos e as perguntas, com o cabecalho, as larguras, a primeira
+    linha congelada e o filtro do modelo."""
     abas = OrderedDict()
-    abas[RB.ABA_REFERENCIAS] = pd.DataFrame(linhas, columns=list(RB.COLUNAS + RB.COLUNAS_EXTRAS))
+    abas[RB.ABA_REFERENCIAS] = pd.DataFrame([{**l, "Ano": None if l["Ano"] is None else str(l["Ano"])} for l in linhas],
+                                            columns=list(RB.COLUNAS))
     abas[RB.ABA_ESQUEMA] = pd.DataFrame(list(eixos.items()), columns=list(RB.COLUNAS_ESQUEMA))
-    return planilha_xlsx(abas, {RB.ABA_REFERENCIAS: RB.LARGURAS + RB.LARGURAS_EXTRAS, RB.ABA_ESQUEMA: RB.LARGURAS_ESQUEMA})
+    return planilha_xlsx(abas, {RB.ABA_REFERENCIAS: RB.LARGURAS, RB.ABA_ESQUEMA: RB.LARGURAS_ESQUEMA},
+                         ESTILO_CABECALHO_REFERENCIAS)
 
 
 def planilha_casos_estaduais(linhas, ufs, tecnologias, status):

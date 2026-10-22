@@ -215,7 +215,8 @@ def test_colunas_do_pacote_sao_as_da_base_menos_as_decisoes_humanas(tmp_path):
     con = sqlite3.connect(tmp_path / "x.db")
     for t in P.TABELAS:
         base = [r[1] for r in con.execute(f"PRAGMA table_info({t})")]
-        assert list(P.COLUNAS[t]) == [c for c in base if c not in P.CAMPOS_HUMANOS.get(t, ())], t
+        fora = P.CAMPOS_HUMANOS.get(t, ()) + P.CAMPOS_SO_DO_VIES.get(t, ())
+        assert list(P.COLUNAS[t]) == [c for c in base if c not in fora], t
 
 
 # ---------- montar no banco local ----------

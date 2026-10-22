@@ -58,6 +58,13 @@ class ConfigTriagem:
     saida_por_item: dict = field(default_factory=lambda: {"baixo": 90, "medio": 120, "alto": 160})
     raciocinio_por_chamada: dict = field(default_factory=lambda: {"baixo": 100, "medio": 300, "alto": 600})
     curta: bool = False
+    # triagem da busca de vies (banco `vies`): relevancia, tipo de fonte, pais/escopo, topicos e eixo
+    vies: bool = False
+    relevancias: tuple = ()
+    tipos_fonte: tuple = ()
+    sufixos_tipo_fonte: dict = field(default_factory=dict)
+    eixos: tuple = ()
+    sem_eixo: str = ""
 
     def como_dict(self):
         """Tudo que define a triagem, para gravar no config_json da execucao."""
@@ -97,7 +104,7 @@ def montar_termos(item, mapas):
     `mapas`: {"artigo": {termo_id: texto}, "web": {"tecnologias": {chave: rotulo}, "modelos": {modelo_id: atomo}}}.
     Artigo: o texto de cada termo (Scholar ou busca manual). Web: os 'atomos' alteraveis da consulta, isto e, o rotulo de
     cada tecnologia que achou a URL e as palavras fixas de cada modelo de consulta (nao UF, estado ou cidade)."""
-    if item["fonte"] == "artigo":
+    if item["fonte"] in ("artigo", "referencia"):       # a referencia da web e achada pelas consultas dos conjuntos
         m = mapas.get("artigo", {})
         textos = [m.get(t, t) for t in item.get("termos_ids", [])]
     else:
@@ -126,7 +133,20 @@ def montar_esquema(config, ids=None):
     id_prop = {"type": "string", "description": "the item id, copied unchanged"}
     if ids:
         id_prop["enum"] = [str(i) for i in ids]
-    if config.curta:
+    if config.vies:
+        objeto = {
+            "type": "object",
+            "properties": {"id": id_prop,
+                           "relevancia": {"type": "string", "enum": list(config.relevancias)},
+                           "confianca": {"type": "string", "enum": list(config.confianca)},
+                           "tipo_fonte": {"type": "string", "enum": list(config.tipos_fonte)},
+                           "pais_escopo": {"type": "string", "description": "country or scope, in Portuguese, at most 40 characters"},
+                           "topicos": {"type": "array", "items": {"type": "string"},
+                                       "description": "1 to 5 short topics in Portuguese"},
+                           "eixo": {"type": "string", "enum": list(config.eixos) + [config.sem_eixo]},
+                           "justificativa": {"type": "string", "description": "at most 25 words, in Brazilian Portuguese"}},
+            "required": ["id", "relevancia", "confianca", "tipo_fonte", "pais_escopo", "topicos", "eixo", "justificativa"]}
+    elif config.curta:
         objeto = {
             "type": "object",
             "properties": {"id": id_prop,
@@ -162,6 +182,10 @@ def linha_do_item(item, config):
     if config.curta:
         return {"id": chave_item(item), "titulo": item.get("titulo") or "", "resumo": resumo_enviado(item, config),
                 "ano": item.get("ano")}
+    if config.vies:
+        return {"id": chave_item(item), "query_terms": list(item.get("termos", [])), "titulo": item.get("titulo") or "",
+                "resumo": resumo_enviado(item, config), "autores_publicacao": item.get("autores_publicacao") or "",
+                "ano": item.get("ano"), "url": item.get("link") or "", "host": item.get("host") or ""}
     base = {"id": chave_item(item), "fonte": rotulo_fonte(item.get("provedor")), "query_terms": list(item.get("termos", [])),
             "titulo": item.get("titulo") or "", "resumo": resumo_enviado(item, config)}
     if item["fonte"] == "artigo":
@@ -219,7 +243,8 @@ def _linha_base(item):
             "provedor": item.get("provedor"), "termos_consulta": list(item.get("termos", [])),
             "status": QUARENTENA, "status_bruto": None, "confianca": None, "categoria_motivo": None,
             "justificativa": None, "termo_gerador": None, "sinal_negativo": None, "dominio_tematico": None,
-            "escopo_geografico": None, "tipo_documento": None, "valido": False, "problemas": []}
+            "escopo_geografico": None, "tipo_documento": None, "tipo_fonte": None, "pais_escopo": None, "topicos": None,
+            "eixo": None, "valido": False, "problemas": []}
 
 
 def _conferir(item, obj, config):
@@ -351,6 +376,84 @@ def _conferir_curta(item, obj, config):
     return linha
 
 
+MAX_CHARS_PAIS_ESCOPO = 40
+MAX_TOPICOS = 5
+MAX_CHARS_TOPICO = 80
+
+
+MAX_CHARS_JUSTIFICATIVA = 300
+
+
+def _texto(v):
+    """Texto da resposta em NFC (a mesma letra acentuada sempre igual), com espacos e quebras de linha juntados em um
+    espaco; None se nao for texto."""
+    return " ".join(unicodedata.normalize("NFC", v).split()) if isinstance(v, str) else None
+
+
+def _conferir_vies(item, obj, config):
+    """Triagem da busca de vies: a relevancia vira o status (alta e media: elegivel; baixa: quarentena; fora_do_escopo:
+    excluido, so com confianca alta). O tipo de fonte ganha o sufixo do codigo; os topicos viram texto separado por '; '
+    (1 a 5, sem repeticao, cada um com ate MAX_CHARS_TOPICO caracteres); eixo "sem eixo" fica nulo. Um campo fora do
+    vocabulario ou do tamanho fica nulo e marca a linha como invalida."""
+    linha = _linha_base(item)
+    problemas = linha["problemas"]
+    rel = _texto(obj.get("relevancia"))
+    rel = rel.lower() if rel else rel
+    linha["status_bruto"] = rel or None
+    if rel in ("alta", "media"):
+        status = ELEGIVEL
+    elif rel == "baixa":
+        status = QUARENTENA
+    elif rel == "fora_do_escopo":
+        status = EXCLUIDO
+    else:
+        status = QUARENTENA
+        problemas.append("relevancia_invalida")
+    conf = _texto(obj.get("confianca"))
+    conf = conf.lower() if conf else conf
+    if conf in config.confianca:
+        linha["confianca"] = conf
+    else:
+        problemas.append("confianca_invalida")
+    if status == EXCLUIDO and linha["confianca"] != CONFIANCA_ALTA:
+        status = QUARENTENA                  # como no t2: excluir exige confianca alta
+    linha["status"] = status
+    tipo = _texto(obj.get("tipo_fonte"))
+    if tipo in config.tipos_fonte:
+        linha["tipo_fonte"] = tipo + config.sufixos_tipo_fonte.get(tipo, "")
+    else:
+        problemas.append("tipo_fonte_invalido")
+    pais = _texto(obj.get("pais_escopo"))
+    if pais and len(pais) <= MAX_CHARS_PAIS_ESCOPO:
+        linha["pais_escopo"] = pais
+    else:
+        problemas.append("pais_escopo_invalido")
+    brutos = obj.get("topicos")
+    topicos, vistos = [], set()
+    if isinstance(brutos, list) and all(isinstance(x, str) for x in brutos):
+        for x in brutos:
+            x = _texto(x)
+            if x and x.casefold() not in vistos:
+                vistos.add(x.casefold())
+                topicos.append(x)
+    if 1 <= len(topicos) <= MAX_TOPICOS and all(len(x) <= MAX_CHARS_TOPICO and ";" not in x for x in topicos):
+        linha["topicos"] = "; ".join(topicos)
+    else:
+        problemas.append("topicos_invalidos")
+    eixo = _texto(obj.get("eixo"))
+    if eixo in config.eixos:
+        linha["eixo"] = eixo
+    elif eixo != config.sem_eixo:
+        problemas.append("eixo_invalido")
+    just = obj.get("justificativa")
+    if just is None or (isinstance(just, str) and len(_texto(just)) <= MAX_CHARS_JUSTIFICATIVA):
+        linha["justificativa"] = _texto(just) or None
+    else:
+        problemas.append("justificativa_invalida")
+    linha["valido"] = not problemas
+    return linha
+
+
 def validar_resposta(itens, resposta_json, config):
     """Confere a resposta de UM lote. Devolve `(linhas, extras)`: uma linha por item de entrada, na ordem da entrada
     (itens que o modelo nao devolveu viram linhas invalidas em quarentena, nunca somem) e `extras`
@@ -379,7 +482,8 @@ def validar_resposta(itens, resposta_json, config):
             linha["problemas"].append("resposta_json_invalida" if objs is None else "id_ausente_na_resposta")
             extras["ids_ausentes"].append(chave)
         else:
-            linha = (_conferir_curta if config.curta else _conferir)(item, por_id[chave], config)
+            conferir = _conferir_vies if config.vies else _conferir_curta if config.curta else _conferir
+            linha = conferir(item, por_id[chave], config)
             if chave in extras["ids_duplicados"]:
                 linha["problemas"].append("id_duplicado_na_resposta")
                 linha["valido"] = False
@@ -392,6 +496,8 @@ def _tokens_item(item, config):
     chars = len(item.get("titulo") or "") + len(resumo_enviado(item, config))
     if not config.curta:
         chars += len(item.get("autores_publicacao") or "") + sum(len(t) for t in item.get("termos", []))
+    if config.vies:
+        chars += len(item.get("link") or "") + len(item.get("host") or "")
     return math.ceil(chars / config.caracteres_por_token) + config.tokens_metadados_por_item
 
 
@@ -434,7 +540,8 @@ def _h(semente, chave):
 
 
 def _estratos(item, fonte):
-    """(estrato principal, estrato secundario) de um item, para espalhar a amostra."""
+    """(estrato principal, estrato secundario) de um item, para espalhar a amostra. A referencia da busca de vies nao tem
+    estratos: o comando recusa --estratificar com --fonte referencias."""
     if fonte == "artigo":
         nivel = pontuar_relevancia(item.get("titulo"), item.get("resumo"), item.get("autores_publicacao"),
                                    item.get("link"))["nivel"]

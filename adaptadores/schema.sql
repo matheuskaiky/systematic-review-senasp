@@ -295,7 +295,7 @@ CREATE TABLE IF NOT EXISTS triagem_escopo (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id             TEXT NOT NULL REFERENCES execucoes(run_id),
     chamada_id         INTEGER REFERENCES chamadas(chamada_id),     -- a chamada (lote) que respondeu
-    fonte              TEXT NOT NULL,                                -- artigo | web
+    fonte              TEXT NOT NULL,                                -- artigo | web | referencia (busca de vies)
     item_id            INTEGER NOT NULL,
     uf                 TEXT NOT NULL DEFAULT '',
     provedor           TEXT,                                         -- serpapi_scholar, perplexity_search, serpapi_google
@@ -314,6 +314,10 @@ CREATE TABLE IF NOT EXISTS triagem_escopo (
     problemas          TEXT,                                         -- JSON: o que falhou
     prompt_versao      TEXT,
     criado_em          TEXT NOT NULL,
+    tipo_fonte         TEXT,                                         -- triagem da busca de vies: tipo com o sufixo (D110)
+    pais_escopo        TEXT,                                         -- triagem da busca de vies: pais ou escopo, por extenso
+    topicos            TEXT,                                         -- triagem da busca de vies: topicos separados por "; "
+    eixo               TEXT,                                         -- triagem da busca de vies: um dos 6 eixos de exploracao
     UNIQUE (run_id, fonte, item_id, uf)
 );
 CREATE INDEX IF NOT EXISTS ix_triagem_escopo_item ON triagem_escopo(fonte, item_id, uf);

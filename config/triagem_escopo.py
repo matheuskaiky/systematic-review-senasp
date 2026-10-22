@@ -185,3 +185,111 @@ CONFIG_CURTA = ConfigTriagem(
 
 # a categoria que a regra de seguranca trata a parte esta no dominio; o marcador "sem categoria" tambem
 assert SEM_CATEGORIA not in CATEGORIAS_MOTIVO
+
+# ----- triagem da busca de vies algoritmico (banco `vies`, D111): o escopo combinado para esta busca -----
+# Os artigos do Scholar e as referencias da web achados pelos conjuntos A e B. A saida preenche as colunas "Tipo de
+# fonte", "Pais/escopo" e "Topicos e palavras-chave" do modelo de referencias; relevancia, eixo e justificativa vao alem
+# do modelo e aparecem so na pagina de cada resultado.
+PROMPT_TRIAGEM_VIES_VERSAO = "v1"
+RELEVANCIAS_VIES = ("alta", "media", "baixa", "fora_do_escopo")
+# Os 43 tipos-base aprovados (D110), em ordem alfabetica; o sufixo e posto pelo codigo, nunca pelo modelo
+TIPOS_FONTE = (
+    "Artigo científico", "Artigo jurídico", "Artigo técnico", "Capítulo de livro", "Dissertação",
+    "Documento de especialista", "Documento de trabalho", "Documento internacional", "Documento regulatório",
+    "Documento técnico", "Dossiê", "Estudo de caso", "Estudo empírico", "Jornalismo investigativo", "Livro",
+    "Manifesto técnico", "Manual técnico", "Norma", "Norma técnica", "Nota de pesquisa", "Notícia oficial",
+    "Periódico institucional", "Petição", "Policy brief", "Policy paper", "Projeto", "Projeto de pesquisa", "Regulação",
+    "Relatório", "Relatório governamental", "Relatório institucional", "Relatório técnico", "Reportagem", "Resolução",
+    "Revisão bibliométrica", "Revisão de escopo", "Revisão narrativa", "Revisão sistemática", "TCC",
+    "Trabalho acadêmico", "Verbete", "Working paper", "Solução tecnológica / produto",
+)
+TIPOS_FONTE_PRIMARIA = ("Norma", "Norma técnica", "Regulação", "Resolução", "Documento regulatório")
+TIPOS_LITERATURA_CIENTIFICA = (
+    "Artigo científico", "Artigo jurídico", "Capítulo de livro", "Dissertação", "Livro", "Revisão bibliométrica",
+    "Revisão de escopo", "Revisão narrativa", "Revisão sistemática", "TCC", "Trabalho acadêmico",
+)
+SUFIXOS_TIPO_FONTE = {t: ("" if t in TIPOS_LITERATURA_CIENTIFICA else
+                          " / fonte primária" if t in TIPOS_FONTE_PRIMARIA else " / literatura cinzenta")
+                      for t in TIPOS_FONTE}
+SEM_EIXO = "Nenhum"
+LOTE_PADRAO_VIES = 10
+LOTE_MAXIMO_VIES = 25                # 25 itens x ~220 tokens de saida, mais o raciocinio, cabem em MAX_TOKENS_SAIDA
+TOKENS_FIXOS_POR_CHAMADA_VIES = 2000  # o prompt (~1.300 tokens) e o esquema (~550)
+SNIPPET_MAX_CHARS_VIES = 1200
+MAX_CUSTO_PADRAO_VIES_USD = 0.50
+SAIDA_POR_ITEM_VIES = {"baixo": 120, "medio": 160, "alto": 220}
+ORIGEM_ARTIGO_VIES = "scholarly articles found by Google Scholar searches in Portuguese"
+ORIGEM_REFERENCIA_VIES = "web pages found by web searches in Portuguese"
+
+_SISTEMA_VIES = """You screen search results for a literature review on artificial intelligence (AI) in public security,
+with emphasis on ALGORITHMIC BIAS, CRIMINAL INVESTIGATION, DISCRIMINATION and ETHICS.
+Write all free text in Brazilian Portuguese (pt-BR). Use the enum values exactly as listed.
+
+SCOPE (agreed for this research):
+- The searches combined: artificial intelligence + public security + algorithmic bias + criminal investigation; and
+  artificial intelligence + public security + algorithmic bias + discrimination + ethics. Searches were in Portuguese.
+- Include traditional scientific literature AND grey literature (websites, technical documents, reports, documents not
+  published in scientific databases), technological solutions, products, empirical studies, regulation and anything
+  related to the subject. Items from any country and any year may be useful.
+- Out of scope: items unrelated to AI or automated decision systems, or unrelated to public security, policing,
+  criminal investigation, forensics, criminal justice or the rights affected by them.
+
+"relevancia":
+- "alta": directly about AI or algorithms in public security, policing, criminal investigation, forensics or criminal
+  justice AND about bias, discrimination, ethics, rights or governance; or an empirical study, technological solution or
+  product in that area.
+- "media": AI in public security without the bias or ethics angle; or bias and ethics of AI in another area that
+  transfers clearly to public security.
+- "baixa": only tangentially related.
+- "fora_do_escopo": unrelated. Use it ONLY when you are certain; then "confianca" must be "alta".
+When in doubt, prefer the higher level.
+
+"confianca": how sure you are of "relevancia": alta, media or baixa.
+
+"tipo_fonte": exactly one of: {tipos}.
+Choose the closest type from what the title, snippet, authors and URL show (a news site: "Reportagem"; a government
+news page: "Notícia oficial"; a vendor page: "Solução tecnológica / produto"; a law: "Regulação" or "Norma").
+
+"pais_escopo": the country or scope of the item, short, in Portuguese, as in "Brasil", "Brasil / SP", "EUA",
+"Reino Unido", "União Europeia", "América Latina", "Internacional" or "Global". At most 40 characters. If the item does
+not show it, answer "Indeterminado" (never guess "Brasil" only because the search was in Portuguese).
+
+"topicos": 1 to 5 short topics, in Portuguese, each at most 6 words, as a spreadsheet would list them: the first one
+capitalized, the others in lower case, acronyms kept (IA, LGPD, COMPAS). For example ["Reconhecimento facial",
+"viés interseccional", "avaliação"]. Details of the source type (for example "conferência", "ensaio controlado") go
+here, not in "tipo_fonte". Never query codes, never the whole title.
+
+"eixo": the ONE exploration axis that fits best, or "{sem_eixo}": {eixos}.
+
+"justificativa": at most 25 words, objective, saying why the item has this relevance.
+
+INPUT: one item per line, as JSON, with "id", "query_terms" (the searches that found it), "titulo", "resumo" (the
+search snippet), "autores_publicacao" (authors, venue and year, for articles), "ano" (null if unknown), "url" and "host".
+Return exactly one object per item, echoing its "id" unchanged. Never skip an item and never repeat an id. Judge only
+what the item shows. Do not invent facts."""
+
+
+def sistema_vies(eixos):
+    """O prompt de sistema da triagem de vies com os 6 eixos do esquema de exploracao (nome: perguntas)."""
+    return (_SISTEMA_VIES.replace("{tipos}", "; ".join(TIPOS_FONTE)).replace("{sem_eixo}", SEM_EIXO)
+            .replace("{eixos}", " ".join(f'"{e}" ({q})' for e, q in eixos.items())))
+
+
+def config_vies(eixos):
+    """A configuracao da triagem do banco `vies`. `eixos`: os 6 eixos do esquema de exploracao (config.eixos_tematicos)."""
+    return ConfigTriagem(
+        versao=PROMPT_TRIAGEM_VIES_VERSAO,
+        sistema_artigo=sistema_vies(eixos), sistema_web=sistema_vies(eixos),
+        usuario_template=USUARIO_TEMPLATE, origem_artigo=ORIGEM_ARTIGO_VIES, origem_web=ORIGEM_REFERENCIA_VIES,
+        status=STATUS, confianca=CONFIANCA, categorias_motivo=CATEGORIAS_MOTIVO,
+        dominios_tematicos=DOMINIOS_TEMATICOS, escopos_geograficos=ESCOPOS_GEOGRAFICOS, tipos_documento=TIPOS_DOCUMENTO,
+        lote_padrao=LOTE_PADRAO_VIES, lote_maximo=LOTE_MAXIMO_VIES, janela_contexto_tokens=JANELA_CONTEXTO_TOKENS,
+        ano_minimo=0, snippet_max_chars=SNIPPET_MAX_CHARS_VIES, max_custo_padrao_usd=MAX_CUSTO_PADRAO_VIES_USD,
+        caracteres_por_token=CARACTERES_POR_TOKEN, tokens_metadados_por_item=TOKENS_METADADOS_POR_ITEM,
+        tokens_fixos_por_chamada=TOKENS_FIXOS_POR_CHAMADA_VIES,
+        saida_por_item=dict(SAIDA_POR_ITEM_VIES), raciocinio_por_chamada=dict(RACIOCINIO_POR_CHAMADA),
+        vies=True, relevancias=RELEVANCIAS_VIES, tipos_fonte=TIPOS_FONTE, sufixos_tipo_fonte=dict(SUFIXOS_TIPO_FONTE),
+        eixos=tuple(eixos), sem_eixo=SEM_EIXO)
+
+
+assert len(TIPOS_FONTE) == len(set(TIPOS_FONTE)) == 43

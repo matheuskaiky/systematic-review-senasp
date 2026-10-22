@@ -11,6 +11,7 @@ import pandas as pd
 from dominio.modelos import CandidatoDownload, ItemClassificacao
 from dominio.servicos import (normalizar_url, dominio_de, eh_oficial, chave_dedup_titulo, palavras_chave_tecnologia,
                               evidencia_cita_termo, evidencia_cita_lgpd, normalizar_status_final)
+from dominio.casos_estaduais import ano_da_data
 from dominio.entrada import separar_runs, juntar_runs
 from infra.sqlite_wal import ligar_wal
 from infra.util import agora
@@ -45,6 +46,7 @@ _COLUNAS_NOVAS = {
                          "independente": "INTEGER NOT NULL DEFAULT 0"},
     "resultados_web": {"cidade": "TEXT"},
     "classificacoes": {"cidade": "TEXT"},
+    "triagem_escopo": {"tipo_fonte": "TEXT", "pais_escopo": "TEXT", "topicos": "TEXT", "eixo": "TEXT"},
 }
 
 
@@ -548,7 +550,9 @@ class RepositorioSQLite:
             return self._itens_artigo()
         if fonte == "web":
             return self._itens_web()
-        raise ValueError(f"fonte deve ser 'artigo' ou 'web', nao {fonte!r}")
+        if fonte == "referencia":
+            return self._itens_referencia()
+        raise ValueError(f"fonte deve ser 'artigo', 'web' ou 'referencia', nao {fonte!r}")
 
     def _itens_artigo(self):
         termos, origens = {}, {}
@@ -573,6 +577,28 @@ class RepositorioSQLite:
                           "autores_publicacao": a["autores_publicacao"] or "", "ano": a["ano"], "link": link, "host": host,
                           "termos_ids": list(dict.fromkeys(termos.get(i, []))),
                           "origens_manuais": list(dict.fromkeys(origens.get(i, [])))})
+        return saida
+
+    def _itens_referencia(self):
+        """Uma por referencia da busca de literatura na web achada por execucoes do relatorio: titulo, trecho e data da
+        ocorrencia mais recente (a mesma regra da tela Referencias, D101) e as consultas que a acharam, na ordem em que
+        apareceram. Referencia sem ocorrencia no relatorio fica de fora (nao ha texto para o modelo julgar)."""
+        por_ref = {}
+        for o in self.conn.execute(
+                "SELECT o.referencia_id, o.consulta_id, o.titulo, o.snippet, o.data_pub FROM ocorrencias_web o "
+                "JOIN r_chamadas c ON c.chamada_id = o.chamada_id ORDER BY c.requisitado_em, o.ocorrencia_id"):
+            d = por_ref.setdefault(o["referencia_id"], {"termos_ids": []})
+            d["termos_ids"].append(o["consulta_id"])
+            d.update(titulo=o["titulo"], resumo=o["snippet"] or "", data_pub=o["data_pub"])      # a mais recente vence
+        saida = []
+        for r in self.conn.execute("SELECT referencia_id, url_original, dominio FROM referencias_web ORDER BY referencia_id"):
+            d = por_ref.get(r["referencia_id"])
+            if d is None:
+                continue
+            saida.append({"item_id": r["referencia_id"], "fonte": "referencia", "uf": "", "provedor": None,
+                          "titulo": d["titulo"], "resumo": d["resumo"], "autores_publicacao": "",
+                          "ano": ano_da_data(d["data_pub"]), "link": r["url_original"], "host": r["dominio"],
+                          "termos_ids": list(dict.fromkeys(d["termos_ids"]))})
         return saida
 
     def _itens_web(self):
@@ -612,8 +638,9 @@ class RepositorioSQLite:
             self.conn.execute(
                 """INSERT INTO triagem_escopo (run_id, chamada_id, fonte, item_id, uf, provedor, termos_consulta, status,
                        status_bruto, confianca, categoria_motivo, justificativa, termo_gerador, sinal_negativo,
-                       dominio_tematico, escopo_geografico, tipo_documento, valido, problemas, prompt_versao, criado_em)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                       dominio_tematico, escopo_geografico, tipo_documento, valido, problemas, prompt_versao, criado_em,
+                       tipo_fonte, pais_escopo, topicos, eixo)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(run_id, fonte, item_id, uf) DO UPDATE SET
                        chamada_id=excluded.chamada_id, provedor=excluded.provedor, termos_consulta=excluded.termos_consulta,
                        status=excluded.status, status_bruto=excluded.status_bruto, confianca=excluded.confianca,
@@ -621,12 +648,14 @@ class RepositorioSQLite:
                        termo_gerador=excluded.termo_gerador, sinal_negativo=excluded.sinal_negativo,
                        dominio_tematico=excluded.dominio_tematico, escopo_geografico=excluded.escopo_geografico,
                        tipo_documento=excluded.tipo_documento, valido=excluded.valido, problemas=excluded.problemas,
-                       prompt_versao=excluded.prompt_versao, criado_em=excluded.criado_em""",
+                       prompt_versao=excluded.prompt_versao, criado_em=excluded.criado_em, tipo_fonte=excluded.tipo_fonte,
+                       pais_escopo=excluded.pais_escopo, topicos=excluded.topicos, eixo=excluded.eixo""",
                 (run_id, chamada_id, l["fonte"], l["item_id"], l["uf"] or "", l.get("provedor"),
                  json.dumps(l.get("termos_consulta") or [], ensure_ascii=False), l["status"], l.get("status_bruto"),
                  l.get("confianca"), l.get("categoria_motivo"), l.get("justificativa"), l.get("termo_gerador"),
                  l.get("sinal_negativo"), l.get("dominio_tematico"), l.get("escopo_geografico"), l.get("tipo_documento"),
-                 int(bool(l["valido"])), json.dumps(l.get("problemas") or [], ensure_ascii=False), prompt_versao, agora()))
+                 int(bool(l["valido"])), json.dumps(l.get("problemas") or [], ensure_ascii=False), prompt_versao, agora(),
+                 l.get("tipo_fonte"), l.get("pais_escopo"), l.get("topicos"), l.get("eixo")))
         return len(linhas)
 
     def triagem_escopo_ja_feita(self, run_id, fonte, item_id, uf=""):

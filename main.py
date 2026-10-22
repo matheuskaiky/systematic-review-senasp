@@ -407,7 +407,19 @@ def _imprimir_estimativa(a, fonte, itens, resumo, lote, precos, cfg):
 def triar_escopo(a):
     """Triagem de escopo por LLM (so lê o banco e grava `triagem_escopo`). Regra de busca amostral do projeto (regra 11): sem --amostra ou
     --limite o comando recusa, salvo --tudo explicito. --estimar nao chama nada e nao pede chave."""
-    cfg = TE.CONFIG_CURTA if a.curta else TE.CONFIG
+    banco = getattr(a, "banco", "real")
+    if banco == "vies":                    # a busca de vies tem a triagem propria, no escopo combinado para ela
+        if a.curta:
+            raise SystemExit("--curta não vale com --banco vies.")
+        if a.fonte == "web":
+            raise SystemExit("Com --banco vies, a triagem é de --fonte artigos ou --fonte referencias.")
+        if a.estratificar and a.fonte == "referencias":
+            raise SystemExit("--estratificar não vale com --fonte referencias (as referências não têm estratos).")
+        cfg = TE.config_vies(EIXOS_EXPLORACAO)
+    elif a.fonte == "referencias":
+        raise SystemExit("--fonte referencias vale só com --banco vies.")
+    else:
+        cfg = TE.CONFIG_CURTA if a.curta else TE.CONFIG
     if a.curta and a.fonte != "artigos":
         raise SystemExit("--curta vale só para --fonte artigos.")
     lote = cfg.lote_padrao if a.lote is None else a.lote
@@ -419,7 +431,7 @@ def triar_escopo(a):
             "de busca, deve rodar só sobre uma amostra pequena. Informe --amostra N (com --estratificar para espalhar "
             "por termo e relevância) ou --limite N. Veja o custo antes, sem chamada, com --estimar. Para triar todos os "
             "itens, passe --tudo de forma explícita (o custo estimado será mostrado antes).")
-    fonte = "artigo" if a.fonte == "artigos" else "web"
+    fonte = {"artigos": "artigo", "web": "web", "referencias": "referencia"}[a.fonte]
     fab = Fabrica(simulado=a.simulado)
     repo, precos = fab.repo, _precos_triagem()
     mapas = _mapas_termos_triagem(getattr(a, "banco", "real"))
@@ -435,7 +447,7 @@ def triar_escopo(a):
         else:
             print("Nada a triar: todos os itens da seleção já têm triagem com este prompt (use --refazer para repetir).")
         return
-    teto = a.max_custo if a.max_custo is not None else TE.MAX_CUSTO_PADRAO_USD
+    teto = a.max_custo if a.max_custo is not None else cfg.max_custo_padrao_usd
     if precos is None:
         raise SystemExit("Preços do modelo não configurados em config/settings.py: o teto de custo não pode ser aplicado.")
     h, config_json = _config_triagem_run(lote, cfg, getattr(a, "banco", "real"))
@@ -834,13 +846,14 @@ def main():
                            help="pula os pares (url_id, UF) que ja tem classificacao valida com o mesmo prompt_versao e o mesmo "
                                 "classificador em alguma execucao do relatorio (uma nova versao do prompt reclassifica)")
     s = sub.add_parser("triar-escopo", help="pergunta ao modelo de linguagem, em lotes, se cada resultado coletado esta no escopo (so por amostra)")
-    s.add_argument("--fonte", required=True, choices=("artigos", "web"))
+    s.add_argument("--fonte", required=True, choices=("artigos", "web", "referencias"),
+                   help="artigos ou web; com --banco vies, artigos ou referencias (as referencias da busca de literatura na web)")
     s.add_argument("--amostra", type=int, help="tamanho da amostra deterministica (regra 11: use amostras pequenas)")
     s.add_argument("--estratificar", action="store_true", help="espalha a amostra por relevancia e termo (artigos) ou UF e download (web)")
     s.add_argument("--semente", default="triagem-escopo", help="semente da amostra (a mesma semente repete a mesma amostra)")
-    s.add_argument("--lote", type=int, help=f"itens por chamada (padrao {TE.LOTE_PADRAO}, maximo {TE.LOTE_MAXIMO}; com --curta, padrao {TE.LOTE_PADRAO_CURTA}, maximo {TE.LOTE_MAXIMO_CURTA})")
+    s.add_argument("--lote", type=int, help=f"itens por chamada (padrao {TE.LOTE_PADRAO}, maximo {TE.LOTE_MAXIMO}; com --curta, padrao {TE.LOTE_PADRAO_CURTA}, maximo {TE.LOTE_MAXIMO_CURTA}; com --banco vies, padrao {TE.LOTE_PADRAO_VIES}, maximo {TE.LOTE_MAXIMO_VIES})")
     s.add_argument("--limite", type=_limite, help="maximo de itens a enviar nesta execucao")
-    s.add_argument("--max-custo", type=float, help=f"teto de custo da execucao em US$ (padrao {TE.MAX_CUSTO_PADRAO_USD})")
+    s.add_argument("--max-custo", type=float, help=f"teto de custo da execucao em US$ (padrao {TE.MAX_CUSTO_PADRAO_USD}; com --banco vies, {TE.MAX_CUSTO_PADRAO_VIES_USD})")
     s.add_argument("--refazer", action="store_true", help="triar de novo itens que ja tem triagem com este prompt")
     s.add_argument("--estimar", action="store_true", help="mostra itens, chamadas e custo, sem nenhuma chamada e sem chave")
     s.add_argument("--tudo", action="store_true", help="permite rodar sem --amostra nem --limite (mostra a estimativa antes)")

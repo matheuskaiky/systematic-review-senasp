@@ -32,11 +32,14 @@ CONSULTAS_EXPORTACAO = {
     # opiniao do modelo (a ultima por item), sem esconder nada: `excluido` e `quarentena` aparecem junto com os demais
     "Triagem_escopo": """SELECT e.fonte, e.item_id, e.uf,
                                 CASE e.fonte WHEN 'artigo' THEN (SELECT a.titulo FROM artigos a WHERE a.artigo_id=e.item_id)
+                                             WHEN 'referencia' THEN (SELECT r.url_original FROM referencias_web r
+                                                                     WHERE r.referencia_id=e.item_id)
                                              ELSE (SELECT u.url_original FROM urls u WHERE u.url_id=e.item_id) END AS item,
                                 e.status, e.status_bruto, e.confianca, e.categoria_motivo, e.justificativa,
                                 e.termo_gerador, e.sinal_negativo, e.dominio_tematico, e.escopo_geografico,
                                 e.tipo_documento, e.valido, e.problemas, e.termos_consulta, e.provedor,
-                                e.prompt_versao, e.run_id, e.chamada_id, e.criado_em
+                                e.prompt_versao, e.run_id, e.chamada_id, e.criado_em, e.tipo_fonte, e.pais_escopo,
+                                e.topicos, e.eixo
                          FROM triagem_escopo e
                          WHERE e.id = (SELECT x.id FROM triagem_escopo x
                                        WHERE x.fonte=e.fonte AND x.item_id=e.item_id AND x.uf=e.uf

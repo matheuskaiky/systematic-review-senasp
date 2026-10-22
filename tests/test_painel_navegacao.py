@@ -15,7 +15,7 @@ from test_painel_acessibilidade import _blocos, _declaracoes, _ids, _sem_comenta
 from painel import navegacao  # noqa: E402
 
 ESTATICOS = Path(__file__).resolve().parent.parent / "painel" / "static"
-GRUPOS = {"Revisão sistemática": ["/", "/literatura/prisma", "/estados", "/achados", "/revisao/achados", "/literatura/artigos", "/literatura", "/literatura/triagem"],
+GRUPOS = {"Revisão sistemática": ["/", "/literatura/prisma", "/estados", "/achados", "/revisao/achados", "/literatura/artigos", "/literatura/referencias", "/literatura", "/literatura/triagem"],
           "Análises e qualidade": ["/analises", "/triagem-escopo", "/classificadores", "/execucoes/comparar", "/solucoes"],
           "Auditoria e operação": ["/buscar-texto", "/execucoes", "/chamadas", "/metodologia", "/sobre"]}
 TODOS_OS_LINKS = [h for hs in GRUPOS.values() for h in hs]
@@ -47,7 +47,7 @@ def test_os_tres_grupos_e_todos_os_links_aparecem_uma_vez_cada(cliente):
     for nome, _, links in menu:
         assert [h for h, _, _ in links] == GRUPOS[nome], nome
     todos = [h for _, _, links in menu for h, _, _ in links]
-    assert sorted(todos) == sorted(TODOS_OS_LINKS) and len(todos) == len(set(todos)) == 18
+    assert sorted(todos) == sorted(TODOS_OS_LINKS) and len(todos) == len(set(todos)) == 19
 
 
 def test_a_marca_continua_levando_a_visao_geral(cliente):
@@ -126,7 +126,7 @@ def test_grupos_sao_details_nativos_que_funcionam_sem_javascript(cliente):
     nav = re.search(r'<nav class="menu"[^>]*>(.*?)</nav>', html, re.S).group(1)
     assert nav.count("<details") == 3 and nav.count("<summary>") == 3
     assert 'aria-expanded' not in nav and "hidden" not in nav and "onclick" not in nav
-    assert nav.count("<li><a href=") == 18
+    assert nav.count("<li><a href=") == 19
     for nome in GRUPOS:
         assert f'aria-label="{nome}"' in nav                  # cada lista tem nome acessivel
     assert '<nav class="menu" aria-label="Principal">' in html

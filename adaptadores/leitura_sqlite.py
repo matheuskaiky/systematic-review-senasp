@@ -43,6 +43,25 @@ SQL_CASOS_ESTADUAIS = f"""
     JOIN v_fonte_da_classificacao f ON f.classificacao_id = k.classificacao_id
     ORDER BY a.uf, a.achado_id"""
 
+_OCORRENCIA_RECENTE = ("SELECT o.{c} FROM ocorrencias_web o JOIN chamadas c ON c.chamada_id = o.chamada_id "
+                       "WHERE o.referencia_id = r.referencia_id ORDER BY c.requisitado_em DESC, o.ocorrencia_id DESC LIMIT 1")
+SQL_REFERENCIAS_WEB = f"""
+    SELECT r.referencia_id, r.dominio, r.url_original,
+           ({_OCORRENCIA_RECENTE.format(c="titulo")}) AS titulo, ({_OCORRENCIA_RECENTE.format(c="data_pub")}) AS data_pub,
+           (SELECT GROUP_CONCAT(DISTINCT o.consulta_id) FROM ocorrencias_web o WHERE o.referencia_id = r.referencia_id) AS consultas,
+           (SELECT GROUP_CONCAT(DISTINCT o.conjunto) FROM ocorrencias_web o WHERE o.referencia_id = r.referencia_id) AS conjuntos,
+           (SELECT GROUP_CONCAT(DISTINCT o.run_id) FROM ocorrencias_web o WHERE o.referencia_id = r.referencia_id) AS execucoes
+    FROM referencias_web r ORDER BY r.referencia_id"""
+
+# uma passada so por ocorrencias (sem subconsulta por artigo: ocorrencias nao tem indice por artigo_id)
+SQL_ARTIGOS_DAS_CONSULTAS = """
+    SELECT a.artigo_id, a.autores_publicacao, a.ano, a.titulo, a.link, GROUP_CONCAT(DISTINCT o.termo_id) AS consultas,
+           GROUP_CONCAT(DISTINCT o.run_id) AS execucoes
+    FROM artigos a JOIN ocorrencias o ON o.artigo_id = a.artigo_id
+    WHERE o.termo_id IN ({marcas})
+    GROUP BY a.artigo_id, a.autores_publicacao, a.ano, a.titulo, a.link
+    ORDER BY a.artigo_id"""
+
 
 class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTriagemEscopo, LeituraAnalises, LeituraTermosCobertura,
                           LeituraTermosRuido, LeituraSolucoes):
@@ -386,6 +405,18 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
                          FROM (SELECT decisao FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0)""")
         d["ocultos_llm"] = self._um(f"SELECT COALESCE(SUM(llm_oculto), 0) AS n FROM ({self._BASE_ARTIGOS})")["n"]
         return d
+
+    def linhas_referencias_web(self):
+        """As referencias da busca de literatura na web, com titulo e data da ocorrencia mais recente (D101) e as
+        consultas e conjuntos que as acharam."""
+        return self._consulta(SQL_REFERENCIAS_WEB)
+
+    def linhas_artigos_das_consultas(self, consultas):
+        """Os artigos que alguma das `consultas` (ids de termo) achou, com as consultas que os acharam."""
+        if not consultas:
+            return []
+        marcas = ", ".join("?" for _ in consultas)
+        return self._consulta(SQL_ARTIGOS_DAS_CONSULTAS.format(marcas=marcas), tuple(consultas))
 
     def linhas_casos_estaduais(self):
         """Os achados das execucoes do relatorio, com a pagina (titulo e data do resultado mais recente da mesma URL e UF,

@@ -351,6 +351,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .menu-lista a[href='/achados'] { --mi: "\e00b"; --mi-f: "\e00c"; --mt-fundo: var(--menu-petroleo-fundo); --mt-tx: var(--menu-petroleo-tx); --mt-solido: var(--menu-petroleo-solido); }
 .menu-lista a[href='/revisao/achados'] { --mi: "\e00e"; --mi-f: "\e00f"; --mt-fundo: var(--menu-petroleo-fundo); --mt-tx: var(--menu-petroleo-tx); --mt-solido: var(--menu-petroleo-solido); }
 .menu-lista a[href='/literatura/artigos'] { --mi: "\e011"; --mi-f: "\e012"; --mt-fundo: var(--menu-rosa-fundo); --mt-tx: var(--menu-rosa-tx); --mt-solido: var(--menu-rosa-solido); }
+.menu-lista a[href='/literatura/referencias'] { --mi: "\e1b2"; --mi-f: "\e1b3"; --mt-fundo: var(--menu-rosa-fundo); --mt-tx: var(--menu-rosa-tx); --mt-solido: var(--menu-rosa-solido); }
 .menu-lista a[href='/literatura'] { --mi: "\e014"; --mi-f: "\e015"; --mt-fundo: var(--menu-rosa-fundo); --mt-tx: var(--menu-rosa-tx); --mt-solido: var(--menu-rosa-solido); }
 .menu-lista a[href='/literatura/triagem'] { --mi: "\e017"; --mi-f: "\e018"; --mt-fundo: var(--menu-rosa-fundo); --mt-tx: var(--menu-rosa-tx); --mt-solido: var(--menu-rosa-solido); }
 .menu-lista a[href='/analises'] { --mi: "\e01a"; --mi-f: "\e01b"; --mt-fundo: var(--menu-violeta-fundo); --mt-tx: var(--menu-violeta-tx); --mt-solido: var(--menu-violeta-solido); }
@@ -385,6 +386,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .layout:has(.menu-lista a[href='/revisao/achados'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/buscar-texto'][aria-current="page"]) { --tom-tx: var(--tom-petroleo-tx); --tom-fundo: var(--tom-petroleo-fundo); --tom-borda: var(--tom-petroleo-borda); --tom-solido: var(--tom-petroleo-solido); --tom-solido-tx: var(--tom-petroleo-solido-tx); }
 .layout:has(.menu-lista a[href='/literatura/artigos'][aria-current="page"]),
+.layout:has(.menu-lista a[href='/literatura/referencias'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/literatura'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/literatura/triagem'][aria-current="page"]) { --tom-tx: var(--tom-rosa-tx); --tom-fundo: var(--tom-rosa-fundo); --tom-borda: var(--tom-rosa-borda); --tom-solido: var(--tom-rosa-solido); --tom-solido-tx: var(--tom-rosa-solido-tx); }
 .layout:has(.menu-lista a[href='/analises'][aria-current="page"]),
@@ -401,6 +403,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .layout:has(.menu-lista a[href='/achados'][aria-current="page"]) { --pg-ic: "\e00b"; --pg-ic-f: "\e00c"; --pg-ic-d: "\e00d"; }
 .layout:has(.menu-lista a[href='/revisao/achados'][aria-current="page"]) { --pg-ic: "\e00e"; --pg-ic-f: "\e00f"; --pg-ic-d: "\e010"; }
 .layout:has(.menu-lista a[href='/literatura/artigos'][aria-current="page"]) { --pg-ic: "\e011"; --pg-ic-f: "\e012"; --pg-ic-d: "\e013"; }
+.layout:has(.menu-lista a[href='/literatura/referencias'][aria-current="page"]) { --pg-ic: "\e1b2"; --pg-ic-f: "\e1b3"; --pg-ic-d: "\e1b4"; }
 .layout:has(.menu-lista a[href='/literatura'][aria-current="page"]) { --pg-ic: "\e014"; --pg-ic-f: "\e015"; --pg-ic-d: "\e016"; }
 .layout:has(.menu-lista a[href='/literatura/triagem'][aria-current="page"]) { --pg-ic: "\e017"; --pg-ic-f: "\e018"; --pg-ic-d: "\e019"; }
 .layout:has(.menu-lista a[href='/analises'][aria-current="page"]) { --pg-ic: "\e01a"; --pg-ic-f: "\e01b"; --pg-ic-d: "\e01c"; }

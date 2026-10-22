@@ -167,7 +167,7 @@ def test_catalogo_baixado_do_postgres_igual_ao_do_sqlite(paineis):
 
 ROTAS_SEM_ID = ["/", "/estados", "/estados/SP", "/achados", "/achados?uf=SP&verificacao=pendente", "/achados?q=reconhecimento",
                 "/execucoes", "/chamadas", "/literatura", "/literatura/artigos", "/literatura/artigos?q=estudo",
-                "/literatura/prisma", "/sobre", "/analises", "/triagem-escopo", "/classificadores", "/solucoes", "/metodologia",
+                "/literatura/prisma", "/literatura/referencias", "/literatura/referencias?fonte=Scholar", "/sobre", "/analises", "/triagem-escopo", "/classificadores", "/solucoes", "/metodologia",
                 "/buscar-texto?q=reconhecimento", "/revisao/achados", "/literatura/triagem", "/admin/usuarios", "/admin/grupos",
                 "/admin/auditoria", "/estatisticas-usuarios"] + [f"/analises?secao={s}" for s in SECOES]
 

@@ -13,7 +13,7 @@ import pandas as pd
 import config.settings as S
 from config import consultas as C, prompts as P, vocabulario as V, triagem_escopo as TE
 from config.categorias_referencias import CATEGORIAS_REFERENCIAS
-from config.eixos_tematicos import EIXOS_TEMATICOS
+from config.eixos_tematicos import EIXOS_EXPLORACAO, EIXOS_TEMATICOS
 from config.modelos_exportacao import MODELOS_REFERENCIAS, MODELO_REFERENCIAS_PADRAO
 from composicao import Fabrica, banco_do_ambiente, banco_escolhido
 from dominio.esquemas import esquema_classificacao
@@ -528,7 +528,9 @@ def abrir_painel(a, fab):
         f"python main.py buscar-literatura --conjunto A --limite 5{_sufixo_banco(a)}" if getattr(a, "banco", "real") != "real" else
         "python main.py pipeline-uf --ufs PI --limite 5",
         autenticacao=autenticacao, modelos_referencias=dict(MODELOS_REFERENCIAS),
-        categorias_referencias=dict(CATEGORIAS_REFERENCIAS), eixos_tematicos=dict(EIXOS_TEMATICOS))
+        categorias_referencias=dict(CATEGORIAS_REFERENCIAS), eixos_tematicos=dict(EIXOS_TEMATICOS),
+        conjunto_da_consulta={t.id: nome for nome, ts in C.CONJUNTOS_LITERATURA.items() for t in ts},
+        eixos_exploracao=dict(EIXOS_EXPLORACAO))
     if servidor:
         contexto.hosts_permitidos = dominios + ("127.0.0.1", "localhost")   # o dominio publico e o acesso de dentro da VM
     if fab.postgres:

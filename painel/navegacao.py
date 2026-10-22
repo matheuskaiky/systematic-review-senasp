@@ -14,6 +14,7 @@ _GRUPOS = (
         ("/achados", "Achados", "/achados", ()),
         ("/revisao/achados", "Revisar achados", "/revisao", ()),
         ("/literatura/artigos", "Artigos", "/literatura/artigos", ()),
+        ("/literatura/referencias", "Referências", "/literatura/referencias", ()),
         ("/literatura", "Visão da literatura", None, ()),
         ("/literatura/triagem", "Triar artigos", "/literatura/triagem", ()),
     )),

@@ -29,7 +29,7 @@ ICONES = json.loads((RAIZ / "build" / "icones.json").read_text(encoding="utf-8")
 MENU = [
     ("/", "squares-four", "cobalto"), ("/literatura/prisma", "flow-arrow", "cobalto"), ("/estados", "map-trifold", "petroleo"),
     ("/achados", "binoculars", "petroleo"), ("/revisao/achados", "seal-check", "petroleo"), ("/literatura/artigos", "article", "rosa"),
-    ("/literatura", "books", "rosa"), ("/literatura/triagem", "funnel", "rosa"),
+    ("/literatura/referencias", "bookmarks", "rosa"), ("/literatura", "books", "rosa"), ("/literatura/triagem", "funnel", "rosa"),
     ("/analises", "chart-line-up", "violeta"), ("/triagem-escopo", "robot", "violeta"), ("/classificadores", "tag", "violeta"),
     ("/execucoes/comparar", "git-diff", "violeta"), ("/solucoes", "lightbulb", "ambar"),
     ("/buscar-texto", "magnifying-glass", "petroleo"), ("/execucoes", "play-circle", "ambar"), ("/chamadas", "plugs-connected", "ambar"),

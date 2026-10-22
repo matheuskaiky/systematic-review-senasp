@@ -4,7 +4,7 @@ import re
 import pandas as pd
 
 from aplicacao import rotulagem as RT
-from dominio import casos_estaduais as CE
+from dominio import casos_estaduais as CE, referencias_busca as RB
 from dominio import auditoria_negativos as AN
 from dominio.planilha import celula_segura
 from dominio.catalogo import SIGNIFICADO_COLUNAS, STATUS_LEITURA_PADRAO, validar_leitura
@@ -114,6 +114,15 @@ def planilha_xlsx(abas, larguras=None):
                 folha.freeze_panes = "A2"
                 folha.auto_filter.ref = f"A1:{_letra_da_coluna(len(df.columns))}{len(df) + 1}"
     return saida.getvalue()
+
+
+def planilha_referencias_busca(linhas, eixos):
+    """O arquivo no modelo de referencias (D103): a aba "Referências" (as 11 colunas, a fonte da busca e o conjunto) e a
+    aba "Esquema de exploração" com os eixos e as perguntas, formatadas como o modelo."""
+    abas = OrderedDict()
+    abas[RB.ABA_REFERENCIAS] = pd.DataFrame(linhas, columns=list(RB.COLUNAS + RB.COLUNAS_EXTRAS))
+    abas[RB.ABA_ESQUEMA] = pd.DataFrame(list(eixos.items()), columns=list(RB.COLUNAS_ESQUEMA))
+    return planilha_xlsx(abas, {RB.ABA_REFERENCIAS: RB.LARGURAS + RB.LARGURAS_EXTRAS, RB.ABA_ESQUEMA: RB.LARGURAS_ESQUEMA})
 
 
 def planilha_casos_estaduais(linhas, ufs, tecnologias, status):

@@ -21,7 +21,7 @@ from fastapi.templating import Jinja2Templates
 
 from aplicacao import catalogo as catalogo_uc, exportacao, revisao, sugestoes as sugestoes_uc
 from dominio.sugestoes import CAMPOS_ACHADO, chave_autor, ficha_da_decisao
-from dominio import autenticacao, relevancia as relev
+from dominio import autenticacao, referencias_busca, relevancia as relev
 from dominio.erros import BancoIndisponivel
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import analises_blocos, formatacao as fmt, mapa_ufs, navegacao, rotulos
@@ -105,6 +105,8 @@ class Contexto:
     modelos_referencias: dict = field(default_factory=dict)      # nome -> ModeloPlanilhaReferencias (config/modelos_exportacao.py)
     categorias_referencias: dict = field(default_factory=dict)   # config/categorias_referencias.py
     eixos_tematicos: dict = field(default_factory=dict)          # config/eixos_tematicos.py
+    conjunto_da_consulta: dict = field(default_factory=dict)     # id da consulta da busca de vies -> conjunto (A, B)
+    eixos_exploracao: dict = field(default_factory=dict)         # esquema de exploracao da busca de vies (D102)
     brutos_aqui: bool = True                                     # False na nuvem: os arquivos brutos ficam no computador da coleta (D99)
     aceita_envios: bool = False                                  # True so no painel da nuvem (PostgreSQL): POST /api/coletas (D98)
 
@@ -547,6 +549,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         etapas = [(r, v) for r, v in etapas if v]
         funil = barras_horizontais(etapas, f"Funil da execução {run_id}", "Quantidade em cada etapa desta execução", fmt.numero)
         return pagina(request, "execucao.html", e=e, funil=funil, metricas=_arredondar(_json(e["metricas_json"])),
+                      abrir_configuracao=request.query_params.get("configuracao") == "1",
                       cfg=mascarar_segredos(_json(e["config_json"])), ambiente=mascarar_segredos(_json(e["ambiente_json"])),
                       custo_total=sum((c["custo_usd"] or 0) for c in e["custos"]))
 
@@ -646,6 +649,46 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         return Response(exportacao.planilha_xlsx(abas),
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         headers={"Content-Disposition": f'attachment; filename="{escolhido.arquivo}"', "Cache-Control": "no-store"})
+
+    def _referencias_da_busca(request):
+        """As linhas da tela Referencias com os filtros da URL; None quando um filtro nao e um dos valores aceitos."""
+        q = request.query_params
+        conjunto, fonte, texto = q.get("conjunto", ""), q.get("fonte", ""), q.get("q", "").strip()
+        if conjunto not in ("",) + tuple(sorted(set(contexto.conjunto_da_consulta.values()))) or \
+                fonte not in ("", referencias_busca.FONTE_WEB, referencias_busca.FONTE_SCHOLAR):
+            return None, None
+        todas = referencias_busca.referencias(leitura.linhas_referencias_web(),
+                                              leitura.linhas_artigos_das_consultas(list(contexto.conjunto_da_consulta)),
+                                              contexto.conjunto_da_consulta)
+        filtros = {k: v for k, v in (("conjunto", conjunto), ("fonte", fonte), ("q", texto)) if v}
+        return referencias_busca.filtrar(todas, conjunto, fonte, texto), filtros
+
+    @app.get("/literatura/referencias", response_class=HTMLResponse)
+    def referencias(request: Request):
+        """As referencias da busca de vies algoritmico nas colunas do modelo de referencias (D103)."""
+        if not leitura.existe():
+            return sem_banco(request)
+        linhas, filtros = _referencias_da_busca(request)
+        n = _inteiro(request.query_params.get("p"), 1)
+        if linhas is None or n is None:
+            return erro(request, 404, "Filtro inválido", "Um dos filtros da página não é um valor aceito.")
+        paginas = max((len(linhas) + 49) // 50, 1)
+        return pagina(request, "referencias.html", linhas=linhas[(n - 1) * 50:n * 50], total=len(linhas), n=n, paginas=paginas,
+                      filtros=filtros, base=urlencode(filtros), colunas=referencias_busca.COLUNAS_TELA)
+
+    @app.get("/literatura/referencias.xlsx")
+    def referencias_xlsx(request: Request):
+        """As mesmas linhas da tela (com os filtros dela) no modelo de referencias, com o esquema de exploracao."""
+        if not leitura.existe():
+            return sem_banco(request)
+        linhas, _ = _referencias_da_busca(request)
+        if linhas is None:
+            return erro(request, 404, "Filtro inválido", "Um dos filtros da página não é um valor aceito.")
+        prefixo = "" if contexto.banco == "real" else f"{contexto.banco}_"      # C6
+        nome = f"{prefixo}referencias_{datetime.now():%Y%m%d_%H%M}.xlsx"
+        return Response(exportacao.planilha_referencias_busca(linhas, contexto.eixos_exploracao),
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f'attachment; filename="{nome}"', "Cache-Control": "no-store"})
 
     @app.get("/literatura/artigos", response_class=HTMLResponse)
     def artigos(request: Request):

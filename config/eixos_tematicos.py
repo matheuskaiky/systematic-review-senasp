@@ -12,3 +12,14 @@ EIXOS_TEMATICOS = {
     "Etica e principios": "UNESCO 2023, OECD 2021, ISO/IEC 2023, TJDFT 2025, CFESS 2025, Europol 2025",
     "Discriminacao algoritmica": "Racismo algoritmico, vies racial, genero, classe, 90,5 percent negros Brasil, 10 percent falsos positivos RJ, 23 conduzidas indevidas SP",
 }
+
+# Esquema de exploracao da busca de vies algoritmico (D102): os 6 eixos e as perguntas-guia enviados pelo pesquisador em
+# 21/10/2026, copiados literalmente. Sao o esquema da aba "Esquema de exploração" da planilha de referencias dessa busca.
+EIXOS_EXPLORACAO = {
+    "Policiamento preditivo e equidade": "Eficácia vs. equidade; unidades geográficas ou pessoas; ciclos de retroalimentação; critérios e métricas de fairness.",
+    "Biometria e vigilância": "Taxas de erro por subgrupo; qualidade de imagem; base de referência; protocolo de uso; revisões humanas.",
+    "Investigação e inteligência": "NLP, análise de vínculos, redes criminais, geoprofiling, triagem de evidência digital e risco de viés de automação.",
+    "Forense digital e deepfakes": "Validade fora de benchmark; reprodutibilidade; taxas de erro; documentação; admissibilidade e contraditório.",
+    "Direitos e governança": "Avaliações de impacto, auditorias externas, transparência contratual, registros de decisão e rotas de contestação.",
+    "Brasil e América Latina": "Mapear pesquisas por UF, contratos e políticas; comparar dados de implementação, resultados e impactos distributivos.",
+}

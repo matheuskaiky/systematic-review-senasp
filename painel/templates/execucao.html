@@ -44,14 +44,19 @@
   <p class="sub"><strong>Como ler:</strong> <em>Consumo</em> = saldo do provedor no início menos o saldo no fim; <em>Chamadas ok</em> = chamadas bem-sucedidas registradas entre os dois; <em>Diferença</em> = consumo menos chamadas ok. Zero quer dizer que o provedor cobrou exatamente o que o sistema registrou. Uma diferença <strong>negativa</strong> (menos créditos cobrados que chamadas ok) pode vir de uma busca que o provedor não cobrou (por exemplo, resposta em cache) ou de um saldo final lido antes de refletir a última busca. Uma diferença <strong>positiva</strong> indica créditos gastos fora desta execução (testes à mão, outro uso da conta) ou chamadas não registradas. O sistema guarda só o número do saldo, não a resposta da conta, por isso a causa de uma diferença pequena não pode ser separada depois. Passada interrompida: fim, consumo e diferença ficam em branco (—).</p></section>{% endif %}
 {% if metricas %}<section class="cartao"><h2 data-ic="gear-six">Resumo da execução</h2>{{ arv.tabela(metricas) }}</section>{% endif %}
 
-<details class="cartao" id="configuracao"><summary class="titulo-recolhivel">Configuração desta execução <small>(clique para abrir)</small></summary>
+<details class="cartao" id="configuracao"{% if abrir_configuracao %} open{% endif %}><summary class="titulo-recolhivel">Configuração desta execução <small>(clique para abrir)</small></summary>
   <p class="sub">Hash <code>{{ e.config_hash }}</code>. Valores sob chaves de segredo aparecem como <code>***</code>.</p>
   {% if cfg %}
+  {% if cfg.banco %}<p>Banco: <strong>{{ cfg.banco }}</strong></p>{% endif %}
   <h3>Provedores</h3>{{ arv.tabela(cfg.provedores) }}
   <h3>Opções de cada adaptador</h3>{{ arv.no(cfg.opcoes, 0) }}
   <h3>Termos acadêmicos ({{ cfg.termos|length }})</h3>
   <div class="tabela-rolavel"><table><thead><tr><th>Id</th><th>Termo</th><th>Idioma</th><th>Grupo</th></tr></thead><tbody>
     {% for t in cfg.termos %}<tr><td>{{ t.id }}</td><td>{{ t.query }}</td><td>{{ t.idioma }}</td><td>{{ t.grupo }}</td></tr>{% endfor %}</tbody></table></div>
+  {% if cfg.conjuntos_literatura %}<h3>Consultas da busca de literatura (por conjunto)</h3>
+  <div class="tabela-rolavel"><table><thead><tr><th>Conjunto</th><th>Id</th><th>Consulta</th><th>Idioma</th></tr></thead><tbody>
+    {% for conjunto, ts in cfg.conjuntos_literatura.items() %}{% for t in ts %}<tr><td>{{ conjunto }}</td><td>{{ t.id }}</td><td>{{ t.query }}</td><td>{{ t.idioma }}</td></tr>{% endfor %}{% endfor %}</tbody></table></div>{% endif %}
+  {% if cfg.filtros_literatura_web %}<h3>Filtros da busca de literatura na web</h3>{{ arv.tabela(cfg.filtros_literatura_web) }}{% endif %}
   <h3>Consultas web</h3>{{ arv.no(cfg.modelos_web, 0) }}
   {% if cfg.modelos_web_municipais %}<h3>Consultas municipais</h3>{{ arv.no(cfg.modelos_web_municipais, 0) }}{{ arv.tabela(cfg.municipios) }}{% endif %}
   <h3>Perfis de busca</h3>{{ arv.no(cfg.perfis_busca_web, 0) }}

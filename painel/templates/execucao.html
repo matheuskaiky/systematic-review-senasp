@@ -44,7 +44,7 @@
   <p class="sub"><strong>Como ler:</strong> <em>Consumo</em> = saldo do provedor no início menos o saldo no fim; <em>Chamadas ok</em> = chamadas bem-sucedidas registradas entre os dois; <em>Diferença</em> = consumo menos chamadas ok. Zero quer dizer que o provedor cobrou exatamente o que o sistema registrou. Uma diferença <strong>negativa</strong> (menos créditos cobrados que chamadas ok) pode vir de uma busca que o provedor não cobrou (por exemplo, resposta em cache) ou de um saldo final lido antes de refletir a última busca. Uma diferença <strong>positiva</strong> indica créditos gastos fora desta execução (testes à mão, outro uso da conta) ou chamadas não registradas. O sistema guarda só o número do saldo, não a resposta da conta, por isso a causa de uma diferença pequena não pode ser separada depois. Passada interrompida: fim, consumo e diferença ficam em branco (—).</p></section>{% endif %}
 {% if metricas %}<section class="cartao"><h2 data-ic="gear-six">Resumo da execução</h2>{{ arv.tabela(metricas) }}</section>{% endif %}
 
-<details class="cartao" id="configuracao"{% if abrir_configuracao %} open{% endif %}><summary class="titulo-recolhivel">Configuração desta execução <small>(clique para abrir)</small></summary>
+<details class="cartao" id="configuracao"{% if abrir_configuracao %} open{% endif %}><summary class="titulo-recolhivel">Configuração desta execução <small>(clique para abrir ou fechar)</small></summary>
   <p class="sub">Hash <code>{{ e.config_hash }}</code>. Valores sob chaves de segredo aparecem como <code>***</code>.</p>
   {% if cfg %}
   {% if cfg.banco %}<p>Banco: <strong>{{ cfg.banco }}</strong></p>{% endif %}

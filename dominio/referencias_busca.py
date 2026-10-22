@@ -47,9 +47,24 @@ def linha_artigo(l, conjunto_da_consulta):
                  FONTE_SCHOLAR, conjuntos, l["execucoes"])
 
 
-def referencias(linhas_web, linhas_artigos, conjunto_da_consulta):
-    """Todas as linhas, do ano mais recente para o mais antigo (sem ano no fim), empate pelo ID."""
-    todas = [linha_web(l) for l in linhas_web] + [linha_artigo(l, conjunto_da_consulta) for l in linhas_artigos]
+COLUNAS_DA_TRIAGEM = {"Tipo de fonte": "tipo_fonte", "País/escopo": "pais_escopo", "Tópicos e palavras-chave": "topicos"}
+
+
+def com_triagem(linha, triagem):
+    """A linha com "Tipo de fonte", "País/escopo" e "Tópicos e palavras-chave" da triagem da busca de viés, quando a
+    triagem mais recente do item passou nas conferências (`valido`); senão, a linha como está (colunas vazias)."""
+    if not triagem or not triagem.get("valido"):
+        return linha
+    return {**linha, **{coluna: triagem.get(campo) or "" for coluna, campo in COLUNAS_DA_TRIAGEM.items()}}
+
+
+def referencias(linhas_web, linhas_artigos, conjunto_da_consulta, triagens=None):
+    """Todas as linhas, do ano mais recente para o mais antigo (sem ano no fim), empate pelo ID. `triagens`:
+    {(fonte, item_id): linha da triagem}, com fonte "referencia" ou "artigo"."""
+    triagens = triagens or {}
+    todas = ([com_triagem(linha_web(l), triagens.get(("referencia", l["referencia_id"]))) for l in linhas_web]
+             + [com_triagem(linha_artigo(l, conjunto_da_consulta), triagens.get(("artigo", l["artigo_id"])))
+                for l in linhas_artigos])
     todas.sort(key=lambda r: (r["Ano"] is None, -(r["Ano"] or 0), r["ID"][0], int(r["ID"][2:])))
     return todas
 

@@ -219,7 +219,7 @@ def test_paginacao_de_50(tmp_path):
     p2 = cli.get("/literatura/referencias?p=2").text
     assert p2.count("<tr>") == 11 and "Página 2 de 2" in p2
     # sem ano, empate pelo número: a página 2 tem as referências 51 a 60, nessa ordem
-    assert re.findall(r"<td>(W-\d+)</td>", p2) == [f"W-{i}" for i in range(51, 61)]
+    assert re.findall(r'<a href="/literatura/referencias/web/\d+">(W-\d+)</a>', p2) == [f"W-{i}" for i in range(51, 61)]
     p3 = cli.get("/literatura/referencias?p=3")                      # além da última: como nas outras listas, vazia
     assert p3.status_code == 200 and p3.text.count("<tr>") == 1 and "Página 3 de 2" in p3.text
     filtrada = cli.get("/literatura/referencias?fonte=Web&q=t").text
@@ -228,14 +228,15 @@ def test_paginacao_de_50(tmp_path):
 
 
 def test_referencias_clicaveis(banco, tmp_path):
-    """O ID do artigo abre a página dele no painel; o título abre a fonte; a referência da web não tem página própria."""
+    """O ID abre a página do item no painel (artigo ou referência da web); o título abre a fonte."""
     html = _cli(banco, tmp_path).get("/literatura/referencias").text
     artigo = re.search(r'<td><a href="/literatura/artigos/(\d+)">A-(\d+)</a></td>', html)
     assert artigo and artigo.group(1) == artigo.group(2)
     assert _cli(banco, tmp_path).get(f"/literatura/artigos/{artigo.group(1)}").status_code == 200
     assert '<td><a href="https://s.org/LB1" rel="noopener noreferrer" target="_blank">Artigo LB1</a></td>' in html
     assert '<td><a href="https://comum.org/x" rel="noopener noreferrer" target="_blank">comum por LB1</a></td>' in html
-    assert re.search(r"<td>W-\d+</td>", html) and not re.search(r'href="[^"]*">W-', html)
+    web = re.search(r'<td><a href="/literatura/referencias/web/(\d+)">W-(\d+)</a></td>', html)     # a página da referência
+    assert web and web.group(1) == web.group(2)
 
 
 def test_leitura_traz_as_execucoes(banco):

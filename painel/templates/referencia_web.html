@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% import "_triagem_vies.html" as tv with context %}
+{% set recente = r.ocorrencias[0] if r.ocorrencias else none %}
+{% block titulo %}Referência W-{{ r.referencia_id }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/triagem_escopo.css">{% endblock %}
+{% block conteudo %}
+<p class="trilha"><a href="/literatura">Literatura</a> › <a href="/literatura/referencias">referências</a> › W-{{ r.referencia_id }}</p>
+<h1>{{ recente.titulo if recente and recente.titulo else r.dominio }}</h1>
+<p class="sub">Referência da busca web de viés algorítmico. O trecho, a triagem do modelo e as consultas que a acharam estão abaixo; a tela Referências mostra só as colunas do modelo de referências.</p>
+<section class="cartao"><h2 data-ic="link">Endereço</h2>
+  <dl class="ficha">
+    <dt>URL</dt><dd>{% if r.url_original|url_segura != "#" %}<a href="{{ r.url_original|url_segura }}" rel="noopener noreferrer" target="_blank">{{ r.url_original }}</a>{% else %}{{ r.url_original }} <small>(endereço não é http/https)</small>{% endif %}</dd>
+    <dt>Domínio</dt><dd>{{ r.dominio }}</dd>
+    <dt>Primeira vez</dt><dd>{{ r.primeira_vez_em }} · execução <code>{{ r.primeira_vez_run }}</code></dd>
+  </dl>
+</section>
+{% if recente and recente.snippet %}<section class="cartao"><h2 data-ic="quotes">Trecho mais recente</h2>
+  <p>{{ recente.snippet }}</p>
+  <p><small>da busca de {{ (recente.requisitado_em or "")[:10] }}{% if recente.data_pub %} · data do resultado: {{ recente.data_pub }}{% endif %}</small></p>
+</section>{% endif %}
+<article class="cartao cartao-llm" id="triagem-llm"><h2 data-ic="robot" data-tom="violeta">Triagem do modelo</h2>
+  {% if llm %}{{ tv.ficha(llm) }}{% else %}<p class="nao-avaliado">Esta referência ainda não foi avaliada pelo modelo.</p>{% endif %}
+</article>
+<section class="cartao"><h2 data-ic="magnifying-glass">Consultas que acharam esta referência</h2>
+  {% if r.ocorrencias %}<div class="tabela-rolavel"><table>
+    <thead><tr><th>Conjunto</th><th>Consulta</th><th class="num">Posição</th><th>Data do resultado</th><th>Execução</th></tr></thead>
+    <tbody>{% for o in r.ocorrencias %}<tr>
+      <td>{{ o.conjunto }}</td>
+      <td>{% if o.consulta_id in ctx.consultas_literatura %}{{ ctx.consultas_literatura[o.consulta_id] }} <small><code>{{ o.consulta_id }}</code></small>{% else %}<code>{{ o.consulta_id }}</code>{% endif %}</td>
+      <td class="num">{{ o.posicao if o.posicao is not none else "" }}</td>
+      <td>{{ o.data_pub or "" }}</td>
+      <td>{% if "ver_chamadas" in perms %}<a href="/execucoes/{{ o.run_id|urlencode }}?configuracao=1#configuracao"><code>{{ o.run_id }}</code></a>{% else %}<code>{{ o.run_id }}</code>{% endif %}</td>
+    </tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="vazio">Nenhuma ocorrência registrada.</p>{% endif %}
+</section>
+{% endblock %}

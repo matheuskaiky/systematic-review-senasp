@@ -12,7 +12,9 @@ from types import SimpleNamespace
 from pathlib import Path
 from urllib.parse import quote, unquote, urlencode, urlsplit
 
-from fastapi import FastAPI, Form, Request
+from typing import Annotated
+
+from fastapi import FastAPI, Form, Path as ParametroDeCaminho, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -75,6 +77,20 @@ def tema_do_cookie(request):
     return valor if valor in TEMAS_VALIDOS else None
 
 
+# numero de linha no banco no caminho do endereco: fora de 1..2^63-1 o SQLite nao aceita o valor (OverflowError, erro 500);
+# a validacao do FastAPI responde "Endereco invalido" (404) antes de qualquer consulta
+IdDoBanco = Annotated[int, ParametroDeCaminho(ge=1, le=9223372036854775807)]
+
+
+def _lista_json(texto):
+    """'["a", "b"]' -> 'a, b' (os problemas da triagem gravados em JSON); outro texto volta como esta."""
+    try:
+        v = json.loads(texto) if isinstance(texto, str) else texto
+    except ValueError:
+        return texto
+    return ", ".join(str(x) for x in v) if isinstance(v, list) else texto
+
+
 def _inteiro(valor, padrao, minimo=1, maximo=MAX_PAGINA):
     """Parametro numerico da URL: vazio usa o padrao; texto ou fora da faixa devolve None (a rota responde 404)."""
     if valor in (None, ""):
@@ -107,6 +123,8 @@ class Contexto:
     eixos_tematicos: dict = field(default_factory=dict)          # config/eixos_tematicos.py
     conjunto_da_consulta: dict = field(default_factory=dict)     # id da consulta da busca de vies -> conjunto (A, B)
     eixos_exploracao: dict = field(default_factory=dict)         # esquema de exploracao da busca de vies (D102)
+    versao_triagem_vies: str = ""                                # versao do prompt da triagem da busca de vies (D116)
+    consultas_literatura: dict = field(default_factory=dict)     # id -> texto das consultas dos conjuntos (so para exibir)
     brutos_aqui: bool = True                                     # False na nuvem: os arquivos brutos ficam no computador da coleta (D99)
     aceita_envios: bool = False                                  # True so no painel da nuvem (PostgreSQL): POST /api/coletas (D98)
 
@@ -136,6 +154,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     app = FastAPI(title="Painel de resultados", docs_url=None, redoc_url=None, openapi_url=None)
     modelos = Jinja2Templates(directory=str(AQUI / "templates"))
     modelos.env.filters["url_segura"] = lambda u: u if str(u or "").lower().startswith(("http://", "https://")) else "#"
+    modelos.env.filters["lista_json"] = _lista_json
     modelos.env.globals.update(fmt=fmt, rotulos=rotulos, ctx=contexto, quote=quote, urlencode=urlencode, menu_grupos=navegacao.grupos,
                                link_entidade=link_entidade, dica_entidade=explicacao_da_entidade)
     entidades = Entidades(leitura, contexto)            # nomes de solucao unificados em entidades (RC23), com cache por conjunto de nomes
@@ -593,7 +612,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         return out
 
     @app.get("/chamadas/{chamada_id}", response_class=HTMLResponse)
-    def chamada(request: Request, chamada_id: int):
+    def chamada(request: Request, chamada_id: IdDoBanco):
         if not leitura.existe():
             return sem_banco(request)
         c = leitura.chamada(chamada_id)
@@ -603,7 +622,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                       extras=mascarar_segredos(_json(c["extras_json"])), bruto=_bruto(c))
 
     @app.get("/chamadas/{chamada_id}/bruto")
-    def chamada_bruto(request: Request, chamada_id: int):
+    def chamada_bruto(request: Request, chamada_id: IdDoBanco):
         c = leitura.chamada(chamada_id) if leitura.existe() else None
         if c is None or not c.get("raw_path"):
             return erro(request, 404, "Arquivo não encontrado", "Esta chamada não tem resposta bruta guardada.")
@@ -659,7 +678,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             return None, None
         todas = referencias_busca.referencias(leitura.linhas_referencias_web(),
                                               leitura.linhas_artigos_das_consultas(list(contexto.conjunto_da_consulta)),
-                                              contexto.conjunto_da_consulta)
+                                              contexto.conjunto_da_consulta, leitura.triagens_vies(contexto.versao_triagem_vies))
         filtros = {k: v for k, v in (("conjunto", conjunto), ("fonte", fonte), ("q", texto)) if v}
         return referencias_busca.filtrar(todas, conjunto, fonte, texto), filtros
 
@@ -689,6 +708,16 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         return Response(exportacao.planilha_referencias_busca(linhas, contexto.eixos_exploracao),
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         headers={"Content-Disposition": f'attachment; filename="{nome}"', "Cache-Control": "no-store"})
+
+    @app.get("/literatura/referencias/web/{referencia_id}", response_class=HTMLResponse)
+    def referencia_web(request: Request, referencia_id: IdDoBanco):
+        """Uma referencia da busca de literatura na web: as consultas que a acharam, por extenso, e a triagem do modelo."""
+        if not leitura.existe():
+            return sem_banco(request)
+        r = leitura.referencia_web(referencia_id)
+        if r is None:
+            return erro(request, 404, "Referência não encontrada", f"Não existe a referência W-{referencia_id}.")
+        return pagina(request, "referencia_web.html", r=r, llm=leitura.veredito_referencia(referencia_id))
 
     @app.get("/literatura/artigos", response_class=HTMLResponse)
     def artigos(request: Request):
@@ -733,7 +762,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 "base_sugestoes": ("/achados/%d" % alvo_id) if alvo_tipo == "achado" else ("/literatura/artigos/%d" % alvo_id)}
 
     @app.get("/literatura/artigos/{artigo_id}", response_class=HTMLResponse)
-    def artigo(request: Request, artigo_id: int, ok: int = 0):
+    def artigo(request: Request, artigo_id: IdDoBanco, ok: int = 0):
         if not leitura.existe():
             return sem_banco(request)
         a = leitura.artigo(artigo_id)
@@ -763,7 +792,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         return pagina(request, "triagem_vazia.html", tri=leitura.contagem_triagem(), filtros=filtros)
 
     @app.post("/literatura/artigos/{artigo_id}/triar")
-    def triar(request: Request, artigo_id: int, decisao: str = Form(""), revisor: str = Form(""), motivo: str = Form(""),
+    def triar(request: Request, artigo_id: IdDoBanco, decisao: str = Form(""), revisor: str = Form(""), motivo: str = Form(""),
               base: str = Form(""), link: str = Form(""), etapa: str = Form("titulo_resumo"), versao: str = Form(None),
               csrf: str = Form("")):
         bloqueio = checar_escrita(request, csrf)
@@ -897,7 +926,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                         headers={"Content-Disposition": f'attachment; filename="{nome}"', "Cache-Control": "no-store"})
 
     @app.get("/achados/{achado_id}", response_class=HTMLResponse)
-    def achado(request: Request, achado_id: int, completo: int = 0, ok: int = 0):
+    def achado(request: Request, achado_id: IdDoBanco, completo: int = 0, ok: int = 0):
         ok = ok if 0 <= ok <= MAX_PAGINA * 1000 else 0
         if not leitura.existe():
             return sem_banco(request)
@@ -974,7 +1003,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         return "mudou depois" in texto or "alterado depois" in texto
 
     @app.post("/achados/{achado_id}/verificar")
-    def verificar(request: Request, achado_id: int, status_final: str = Form(""), revisor: str = Form(""),
+    def verificar(request: Request, achado_id: IdDoBanco, status_final: str = Form(""), revisor: str = Form(""),
                   observacao: str = Form(""), versao: str = Form(None), csrf: str = Form("")):
         bloqueio = checar_escrita(request, csrf)
         if bloqueio:
@@ -1064,25 +1093,25 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         return RedirectResponse(_destino_item(request, alvo_tipo, base), status_code=303)
 
     @app.post("/achados/{achado_id}/sugerir")
-    def sugerir_achado(request: Request, achado_id: int, valor: str = Form(""), motivo: str = Form(""), estado: str = Form(""),
+    def sugerir_achado(request: Request, achado_id: IdDoBanco, valor: str = Form(""), motivo: str = Form(""), estado: str = Form(""),
                        csrf: str = Form("")):
         return _sugerir(request, "achado", achado_id, valor, motivo, estado, csrf)
 
     @app.post("/literatura/artigos/{artigo_id}/sugerir")
-    def sugerir_artigo(request: Request, artigo_id: int, valor: str = Form(""), motivo: str = Form(""), estado: str = Form(""),
+    def sugerir_artigo(request: Request, artigo_id: IdDoBanco, valor: str = Form(""), motivo: str = Form(""), estado: str = Form(""),
                        csrf: str = Form("")):
         return _sugerir(request, "artigo", artigo_id, valor, motivo, estado, csrf)
 
     @app.post("/achados/{achado_id}/sugestoes/{sugestao_id}/{acao}")
-    def resolver_achado(request: Request, achado_id: int, sugestao_id: int, acao: str, csrf: str = Form("")):
+    def resolver_achado(request: Request, achado_id: IdDoBanco, sugestao_id: IdDoBanco, acao: str, csrf: str = Form("")):
         return _resolver(request, "achado", achado_id, sugestao_id, acao, csrf)
 
     @app.post("/literatura/artigos/{artigo_id}/sugestoes/{sugestao_id}/{acao}")
-    def resolver_artigo(request: Request, artigo_id: int, sugestao_id: int, acao: str, csrf: str = Form("")):
+    def resolver_artigo(request: Request, artigo_id: IdDoBanco, sugestao_id: IdDoBanco, acao: str, csrf: str = Form("")):
         return _resolver(request, "artigo", artigo_id, sugestao_id, acao, csrf)
 
     @app.post("/achados/{achado_id}/desfazer")
-    def desfazer(request: Request, achado_id: int, csrf: str = Form("")):
+    def desfazer(request: Request, achado_id: IdDoBanco, csrf: str = Form("")):
         bloqueio = checar_escrita(request, csrf)
         if bloqueio:
             return bloqueio
@@ -1103,7 +1132,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         return RedirectResponse("/achados/%d?%s" % (achado_id, _query_fila(request)), status_code=303)
 
     @app.post("/achados/{achado_id}/revogar")
-    def revogar(request: Request, achado_id: int, revisor: str = Form(""), motivo: str = Form(""),
+    def revogar(request: Request, achado_id: IdDoBanco, revisor: str = Form(""), motivo: str = Form(""),
                 versao: str = Form(None), csrf: str = Form("")):
         bloqueio = checar_escrita(request, csrf)
         if bloqueio:

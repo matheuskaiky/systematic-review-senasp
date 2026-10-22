@@ -1,0 +1,15 @@
+{# A triagem da busca de viés (D116), na página do artigo e na da referência da web. `t`: a linha mais recente da triagem. #}
+{% import "_selos.html" as s %}
+{% macro ficha(t) -%}
+<p class="selos">{{ s.llm(t.status, none, t.valido) }}{% if t.confianca %} <span class="selo neutro">Confiança {{ rotulos.rotulo(rotulos.CONFIANCA, t.confianca)|lower }}</span>{% endif %}</p>
+<dl class="ficha">
+  <dt>Relevância</dt><dd>{{ rotulos.rotulo(rotulos.RELEVANCIA_VIES, t.status_bruto) if t.status_bruto else "—" }}</dd>
+  <dt>Tipo de fonte</dt><dd>{{ t.tipo_fonte or "—" }}</dd>
+  <dt>País/escopo</dt><dd>{{ t.pais_escopo or "—" }}</dd>
+  <dt>Tópicos e palavras-chave</dt><dd>{{ t.topicos or "—" }}</dd>
+  <dt>Eixo de exploração</dt><dd>{{ t.eixo or "nenhum" }}</dd>
+  <dt>Justificativa</dt><dd>{{ t.justificativa or "não informada" }}</dd>
+  {% if not t.valido %}<dt>Conferência</dt><dd>falhou: {{ t.problemas|lista_json }}</dd>{% endif %}
+  <dt>Execução</dt><dd>{% if "ver_chamadas" in perms %}<a href="/execucoes/{{ t.run_id|urlencode }}?configuracao=1#configuracao"><code>{{ t.run_id }}</code></a>{% else %}<code>{{ t.run_id }}</code>{% endif %} · prompt {{ t.prompt_versao }}</dd>
+</dl>
+{%- endmacro %}

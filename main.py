@@ -542,7 +542,8 @@ def abrir_painel(a, fab):
         autenticacao=autenticacao, modelos_referencias=dict(MODELOS_REFERENCIAS),
         categorias_referencias=dict(CATEGORIAS_REFERENCIAS), eixos_tematicos=dict(EIXOS_TEMATICOS),
         conjunto_da_consulta={t.id: nome for nome, ts in C.CONJUNTOS_LITERATURA.items() for t in ts},
-        eixos_exploracao=dict(EIXOS_EXPLORACAO))
+        eixos_exploracao=dict(EIXOS_EXPLORACAO), versao_triagem_vies=TE.PROMPT_TRIAGEM_VIES_VERSAO,
+        consultas_literatura={t.id: t.query for ts in C.CONJUNTOS_LITERATURA.values() for t in ts})
     if servidor:
         contexto.hosts_permitidos = dominios + ("127.0.0.1", "localhost")   # o dominio publico e o acesso de dentro da VM
     if fab.postgres:

@@ -193,11 +193,30 @@ class LeituraTriagemEscopo:
 
     # ---------- um artigo ----------
     def veredito_artigo(self, artigo_id):
-        """O veredito atual de um artigo (ultima linha, de qualquer execucao), ou None."""
+        """O veredito atual de um artigo (ultima linha, de qualquer execucao), ou None. Traz todas as colunas da linha: num
+        banco atualizado, tambem as da triagem da busca de vies (tipo de fonte, pais/escopo, topicos, eixo)."""
+        return self._veredito_atual("artigo", artigo_id)
+
+    def veredito_referencia(self, referencia_id):
+        """O veredito atual de uma referencia da busca de literatura na web (ultima linha, de qualquer execucao), ou None."""
+        return self._veredito_atual("referencia", referencia_id)
+
+    def _veredito_atual(self, fonte, item_id):
         if not self.tem_triagem_escopo():
             return None
-        return self._um(f"""SELECT {_LISTA} FROM triagem_escopo te WHERE te.fonte = 'artigo' AND te.item_id = ? AND te.uf = ''
-                            ORDER BY te.criado_em DESC, te.id DESC LIMIT 1""", (artigo_id,))
+        return self._um("""SELECT te.* FROM triagem_escopo te WHERE te.fonte = ? AND te.item_id = ? AND te.uf = ''
+                           ORDER BY te.criado_em DESC, te.id DESC LIMIT 1""", (fonte, item_id))
+
+    def triagens_vies(self, versao):
+        """{(fonte, item_id): linha} com a triagem mais recente de cada artigo e referencia feita com o prompt `versao` (o
+        da busca de vies), numa passada so. Usa `te.*`: num banco ainda sem as colunas novas, as linhas vem sem elas."""
+        if not versao or not self.tem_triagem_escopo():
+            return {}
+        linhas = self._consulta("""SELECT * FROM (
+                SELECT te.*, ROW_NUMBER() OVER (PARTITION BY te.fonte, te.item_id ORDER BY te.criado_em DESC, te.id DESC) AS pos
+                FROM triagem_escopo te WHERE te.fonte IN ('artigo', 'referencia') AND te.uf = '' AND te.prompt_versao = ?) x
+            WHERE x.pos = 1""", (versao,))
+        return {(l["fonte"], l["item_id"]): l for l in linhas}
 
     # ---------- artigos na lista e na fila: o que esta oculto pelo modelo ----------
     def juncao_triagem_escopo_artigos(self):

@@ -12,6 +12,8 @@ STATUS = {
     "em_estudo": "Em estudo", "apenas_citado": "Apenas citado", "descartado": "Descartado (achado incorreto)",
 }
 CONFIANCA = {"alta": "Alta", "media": "Média", "baixa": "Baixa"}
+# relevancia da triagem da busca de vies (gravada em triagem_escopo.status_bruto, D116)
+RELEVANCIA_VIES = {"alta": "Alta", "media": "Média", "baixa": "Baixa", "fora_do_escopo": "Fora do escopo"}
 ORIGEM_TEXTO = {"pagina": "Texto completo", "snippet": "Somente snippet"}
 # O que "Somente snippet" quer dizer, para quem vê o selo (o modelo não leu a página)
 EXPLICACAO_SNIPPET = ("O modelo não leu a página: recebeu só o título e o resumo do resultado de busca. A confiança fica limitada a "

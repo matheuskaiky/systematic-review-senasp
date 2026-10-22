@@ -406,6 +406,19 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         d["ocultos_llm"] = self._um(f"SELECT COALESCE(SUM(llm_oculto), 0) AS n FROM ({self._BASE_ARTIGOS})")["n"]
         return d
 
+    def referencia_web(self, referencia_id):
+        """Uma referencia da busca de literatura na web, com as ocorrencias (da mais recente para a mais antiga), ou None."""
+        r = self._um("SELECT referencia_id, url_original, url_normalizada, dominio, primeira_vez_run, primeira_vez_em "
+                     "FROM referencias_web WHERE referencia_id = ?", (referencia_id,))
+        if r is None:
+            return None
+        r = dict(r)
+        r["ocorrencias"] = self._consulta(
+            "SELECT o.run_id, o.conjunto, o.consulta_id, o.posicao, o.titulo, o.snippet, o.data_pub, c.requisitado_em "
+            "FROM ocorrencias_web o JOIN chamadas c ON c.chamada_id = o.chamada_id WHERE o.referencia_id = ? "
+            "ORDER BY c.requisitado_em DESC, o.ocorrencia_id DESC", (referencia_id,))
+        return r
+
     def linhas_referencias_web(self):
         """As referencias da busca de literatura na web, com titulo e data da ocorrencia mais recente (D101) e as
         consultas e conjuntos que as acharam."""

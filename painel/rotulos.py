@@ -12,6 +12,26 @@ STATUS = {
     "em_estudo": "Em estudo", "apenas_citado": "Apenas citado", "descartado": "Descartado (achado incorreto)",
 }
 CONFIANCA = {"alta": "Alta", "media": "Média", "baixa": "Baixa"}
+# etapas que fazem chamadas externas (chamadas.etapa)
+ETAPAS = {"busca_academica": "busca acadêmica", "busca_web": "busca web", "busca_literatura": "busca de literatura na web",
+          "download": "download de páginas", "classificacao": "classificação", "triagem_escopo": "triagem de escopo"}
+# o que e cada ferramenta (chamadas.provedor, como o banco gravou), para a legenda das analises; provedor sem rotulo aparece
+# com o proprio nome, e os modelos de linguagem pelo prefixo antes de ":"
+FERRAMENTAS = {"perplexity_search": "API de busca na web do Perplexity", "serpapi_scholar": "Google Scholar, pela SerpApi",
+               "serpapi_google": "busca do Google, pela SerpApi", "requests": "download direto das páginas, sem serviço pago"}
+FAMILIAS_DE_MODELO = {"gemini": "modelo de linguagem Gemini", "openai_compat": "modelo de linguagem compatível com a API da OpenAI"}
+
+
+def rotulo_ferramenta(provedor):
+    """'gemini:gemini-3.5-flash-lite' -> 'modelo de linguagem Gemini (gemini-3.5-flash-lite)'; desconhecido: o proprio nome."""
+    if provedor in FERRAMENTAS:
+        return FERRAMENTAS[provedor]
+    familia, _, modelo = (provedor or "").partition(":")
+    if familia in FAMILIAS_DE_MODELO:
+        return f"{FAMILIAS_DE_MODELO[familia]} ({modelo})" if modelo else FAMILIAS_DE_MODELO[familia]
+    return provedor or "—"
+
+
 # relevancia da triagem da busca de vies (gravada em triagem_escopo.status_bruto, D116)
 RELEVANCIA_VIES = {"alta": "Alta", "media": "Média", "baixa": "Baixa", "fora_do_escopo": "Fora do escopo"}
 ORIGEM_TEXTO = {"pagina": "Texto completo", "snippet": "Somente snippet"}

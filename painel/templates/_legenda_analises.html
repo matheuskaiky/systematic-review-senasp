@@ -1,0 +1,37 @@
+{# Legenda do fim da pagina /analises: o que significa cada codigo e cada ferramenta que aparece nos graficos e tabelas. #}
+{% set etapas_da_ferramenta = {} %}
+{% for l in ferramentas or [] %}{% set _ = etapas_da_ferramenta.setdefault(l.ferramenta, []).append(rotulos.ETAPAS.get(l.etapa, l.etapa)) %}{% endfor %}
+<section class="an-bloco" id="legenda" aria-labelledby="t-legenda">
+  <h2 id="t-legenda">Legenda</h2>
+  <p class="an-subtitulo">O que significam os códigos e as ferramentas citados nesta página.</p>
+  {% if etapas_da_ferramenta %}<h3>Ferramentas</h3>
+  <dl class="an-pares">{% for f, etapas in etapas_da_ferramenta.items() %}<dt><code>{{ f }}</code></dt><dd>{{ rotulos.rotulo_ferramenta(f) }}; usada em: {{ etapas|join(", ") }}.</dd>{% endfor %}</dl>{% endif %}
+  {% if ctx.banco == "vies" %}
+  <h3>Consultas e conjuntos</h3>
+  <div class="tabela-rolavel"><table>
+    <thead><tr><th scope="col">Código</th><th scope="col">Conjunto</th><th scope="col">Consulta</th></tr></thead>
+    <tbody>{% for cid, nome in ctx.conjunto_da_consulta.items() %}<tr><td><code>{{ cid }}</code></td><td>{{ nome }}</td><td>{{ ctx.consultas_literatura.get(cid, "") }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <h3>Outros códigos e termos</h3>
+  <dl class="an-pares">
+    <dt>W-n e A-n</dt><dd>Referência da web nº n e artigo do Scholar nº n, como na tela Referências.</dd>
+    <dt>Web e Scholar</dt><dd>A fonte da busca: a busca na web e o Google Scholar (as ferramentas estão acima).</dd>
+    <dt>Relevância</dt><dd>Da triagem do modelo: <strong>alta</strong>, IA na segurança pública ou na investigação criminal com viés, discriminação, ética, direitos ou governança; <strong>média</strong>, IA na segurança pública sem esse recorte, ou viés e ética da IA em outra área que se transfere; <strong>baixa</strong>, só tangencial; <strong>fora do escopo</strong>, sem relação.</dd>
+    <dt>Elegível</dt><dd>Relevância alta ou média.</dd>
+    <dt>No escopo</dt><dd>Relevância alta, média ou baixa (sai só o que ficou fora do escopo).</dd>
+    <dt>Obra distinta</dt><dd>A referência da web que é a mesma obra de um artigo do Scholar (mesma URL ou mesmo título normalizado) conta uma vez.</dd>
+    <dt>Grupos de literatura</dt><dd>Pelo sufixo do tipo de fonte: "/ literatura cinzenta", "/ fonte primária" (normas e regulação) ou nenhum (literatura científica).</dd>
+    <dt>Créditos</dt><dd>Unidade de cobrança do provedor da busca no Scholar: o saldo no início menos o do fim de cada execução.</dd>
+  </dl>
+  {% else %}
+  {% if ctx.termos %}<details class="an-memoria"><summary>Códigos dos termos de busca ({{ ctx.termos|length }})</summary>
+  <div class="tabela-rolavel"><table>
+    <thead><tr><th scope="col">Código</th><th scope="col">Termo</th></tr></thead>
+    <tbody>{% for tid, q in ctx.termos.items() %}<tr><td><code>{{ tid }}</code></td><td>{{ q }}</td></tr>{% endfor %}</tbody>
+  </table></div></details>{% endif %}
+  <dl class="an-pares">
+    <dt>UF</dt><dd>Sigla da unidade da federação.</dd>
+    <dt>Créditos</dt><dd>Unidade de cobrança do provedor da busca no Scholar: o saldo no início menos o do fim de cada execução.</dd>
+  </dl>
+  {% endif %}
+</section>

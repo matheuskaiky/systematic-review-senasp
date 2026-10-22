@@ -6,12 +6,23 @@
 {% block extra_head %}<link rel="stylesheet" href="/static/analises.css">{% endblock %}
 {% block conteudo %}
 <h1>Análises</h1>
-<p class="sub">Os números do plano de análise de dados, traduzidos em gráficos. Cada título diz a conclusão; a gaveta <em>Memória de cálculo</em> traz os números exatos para quem precisa citá-los. Clique em uma barra ou quadrado para ver os registros que a formam.</p>
+{% if ctx.banco == "vies" %}<p class="sub">A busca de viés algorítmico em números: quem trouxe cada item, quanto é pertinente, de que tipo, sobre quais eixos e tópicos, de quando e de onde. Os números descrevem o corpus recuperado por estas buscas (em português, nestas fontes), não a literatura em geral. Cada título diz a conclusão; a gaveta <em>Memória de cálculo</em> traz os números exatos.</p>
+{% else %}<p class="sub">Os números do plano de análise de dados, traduzidos em gráficos. Cada título diz a conclusão; a gaveta <em>Memória de cálculo</em> traz os números exatos para quem precisa citá-los. Clique em uma barra ou quadrado para ver os registros que a formam.</p>{% endif %}
 
 <nav class="an-abas" aria-label="Seções das análises">
   {% for chave, nome in abas %}<a href="/analises?secao={{ chave }}"{% if chave == secao %} aria-current="page"{% endif %}>{{ nome }}</a>{% endfor %}
 </nav>
 
+{% if secao == "panorama" and resumo_vies %}
+<section class="an-cartoes" aria-label="Resumo da busca de viés algorítmico">
+  <div class="cartao"><strong>{{ fmt.numero(resumo_vies.n_obras) }}</strong><span>obras distintas</span></div>
+  <div class="cartao"><strong>{{ fmt.numero(resumo_vies.n_web) }}</strong><span>referências da web</span></div>
+  <div class="cartao"><strong>{{ fmt.numero(resumo_vies.n_scholar) }}</strong><span>artigos do Scholar</span></div>
+  <div class="cartao"><strong>{{ fmt.numero(resumo_vies.n_triados) }}</strong><span>com triagem válida do modelo</span></div>
+  <div class="cartao"><strong>{{ fmt.numero(resumo_vies.n_alta) }}</strong><span>com relevância alta</span></div>
+  <div class="cartao"><strong>{{ fmt.numero(resumo_vies.n_fora) }}</strong><span>fora do escopo</span></div>
+</section>
+{% endif %}
 {% if secao == "visao" and resumo %}
 <section class="an-cartoes" aria-label="Resumo do banco">
   <div class="cartao"><strong>{{ fmt.numero(resumo.n_achados) }}</strong><span>achados classificados</span></div>
@@ -51,7 +62,8 @@
   {% endif %}
 </section>
 {% endfor %}
-{{ guia_leitura(
+{% include "_legenda_analises.html" %}
+{% if ctx.banco != "vies" %}{{ guia_leitura(
   "Como interpretar esta página e suas métricas",
   [
     {"titulo": "Glossário rápido", "tipo": "glossario", "itens": [
@@ -70,4 +82,5 @@
   id="guia-analises",
   resumo="Traduz os termos técnicos desta página. Os cálculos e as referências estão no fim.",
   fontes="<cite>Cohen (1960)</cite>, Educational and Psychological Measurement 20(1); <cite>Landis &amp; Koch (1977)</cite>, Biometrics 33(1), faixas de interpretação; <cite>RFC 9309</cite> (2022), Robots Exclusion Protocol.") }}
+{% endif %}
 {% endblock %}

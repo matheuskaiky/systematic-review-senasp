@@ -1,0 +1,309 @@
+"""Blocos da pagina /analises no banco `vies` (busca de vies algoritmico, D111 e D116): composicao do corpus e rendimento
+das consultas, dos conjuntos e das ferramentas. Funcoes puras: recebem os resultados de `dominio.analises_vies` e devolvem
+blocos no formato dos outros (`painel.analises_blocos._bloco`). Todo titulo que afirma algo so afirma quando os numeros
+sustentam; senao, o titulo e neutro."""
+from dominio import analises_vies as AV
+from painel import formatacao as fmt, graficos, graficos_analises as g, rotulos
+from painel.analises_blocos import _bloco, _href, _pct
+
+ABAS_VIES = (
+    ("panorama", "Panorama"), ("ferramentas", "Ferramentas de busca"), ("tipos", "Tipos de fonte"),
+    ("temas", "Eixos e tópicos"), ("tempo", "Tempo e lugar"), ("consultas", "Consultas e conjuntos"), ("web", "Sites da web"),
+)
+AVISO_MODELO = "Relevância, tipo de fonte, eixo, tópicos e país vêm da triagem do modelo, ainda sem conferência humana."
+BASE_OBRAS = "cada obra uma vez (a referência da web que repete um artigo do Scholar sai), só as que ficaram no escopo"
+MARGEM_ROTULOS = 285          # rotulos longos (eixos, tipos de fonte com sufixo) cabem inteiros
+MAX_ROTULO = 44               # rotulo livre (topico, pais, site) mais longo que isso e cortado; o inteiro fica na dica
+LIMIAR_SOBREPOSICAO = 0.2     # "se complementam" so quando menos de 20% dos itens aparecem nas duas partes
+REPOSITORIOS_DE_COPIAS = ("scribd.com", "passeidireto.com")
+
+
+def _rel(chave):
+    return rotulos.RELEVANCIA_VIES.get(chave, chave)
+
+
+def _itens_pl(n):
+    return f"{fmt.numero(n)} {'item' if n == 1 else 'itens'}"
+
+
+def _barras(linhas, titulo, descricao):
+    return graficos.barras_horizontais(linhas, titulo, descricao, fmt.numero, MARGEM_ROTULOS, MAX_ROTULO)
+
+
+# ---------------------------------------------------------------- panorama
+def bloco_relevancia(itens):
+    """A parte elegivel (relevancia alta ou media) em cada fonte, com a relevancia completa na memoria de calculo."""
+    por_fonte = AV.relevancia_por_fonte(itens)
+    linhas = []
+    for fonte, c in por_fonte.items():
+        triados = sum(v for k, v in c.items() if k != AV.SEM_TRIAGEM)
+        linhas.append({"rotulo": fonte, "total": triados, "parte": c["alta"] + c["media"],
+                       "href": _href("/literatura/referencias", fonte=fonte)})
+    if not any(l["total"] for l in linhas):
+        return _bloco("vies-relevancia", "Sem triagem da busca de viés algorítmico",
+                      aviso="Rode `triar-escopo --banco vies --fonte referencias` e `--fonte artigos`.")
+    partes = [f"{_pct(l['parte'], l['total'])} {'das referências da web' if l['rotulo'] == AV.FONTE_WEB else 'dos artigos do Scholar'}"
+              for l in linhas if l["total"]]
+    titulo = "Elegíveis (relevância alta ou média): " + " e ".join(partes)
+    graf = g.barras_proporcao(linhas, titulo, "Parte dos itens de cada fonte com relevância alta ou média",
+                              rotulo_parte="Alta ou média", rotulo_resto="Baixa ou fora do escopo")
+    tabela = {"cabecalho": ["Fonte"] + [_rel(r) for r in AV.RELEVANCIAS] + ["Sem triagem válida"],
+              "linhas": [[f] + [fmt.numero(c[r]) for r in AV.RELEVANCIAS + (AV.SEM_TRIAGEM,)] for f, c in por_fonte.items()]}
+    fora = sum(c["fora_do_escopo"] for c in por_fonte.values())
+    return _bloco("vies-relevancia", titulo, graf, "por fonte: cada item da sua fonte, com triagem válida",
+                  [f"{_itens_pl(fora)} ficaram fora do escopo; eles saem das análises de conteúdo desta página.",
+                   "A comparação entre as fontes não é de qualidade pura: a referência da web foi julgada pelo título e pelo "
+                   "trecho da busca, e o artigo do Scholar pelo título, pelo resumo e pelos autores."],
+                  aviso=AVISO_MODELO, tabela=tabela)
+
+
+def bloco_sobreposicao(r):
+    """Quantas obras aparecem nas duas fontes (mesma URL ou mesmo titulo)."""
+    if not r["n_itens"]:
+        return _bloco("vies-sobreposicao", "Ainda não há itens da busca de viés algorítmico neste banco")
+    ambas = r["n_em_ambas_fontes"]
+    titulo = (f"{fmt.numero(r['n_obras'])} obras distintas: {fmt.numero(ambas)} "
+              f"{'aparece' if ambas == 1 else 'aparecem'} nas duas fontes")
+    itens = [("Só na web", r["n_web"] - ambas), ("Só no Scholar", r["n_scholar"] - ambas), ("Nas duas fontes", ambas)]
+    graf = graficos.barras_horizontais(itens, titulo, "Obras distintas por fonte", fmt.numero)
+    texto = []
+    if r["n_obras"] and ambas / r["n_obras"] < LIMIAR_SOBREPOSICAO:
+        texto.append("As duas fontes se complementam: poucas obras aparecem nas duas.")
+    return _bloco("vies-sobreposicao", titulo, graf, "mesma obra: URL normalizada igual ou título normalizado igual (D104)",
+                  texto + (["Antes de citar a sobreposição, confira à mão os pares achados só pelo título: títulos "
+                            "comuns podem juntar obras diferentes."] if r["n_ambas_so_por_titulo"] else []),
+                  pares=[("Itens (web + Scholar)", fmt.numero(r["n_itens"])), ("Obras distintas", fmt.numero(r["n_obras"])),
+                         ("Nas duas fontes", fmt.numero(ambas)), ("… pela URL", fmt.numero(r["n_ambas_por_url"])),
+                         ("… só pelo título", fmt.numero(r["n_ambas_so_por_titulo"]))])
+
+
+# ---------------------------------------------------------------- ferramentas
+def bloco_ferramentas_relevancia(linhas):
+    """Cada ferramenta de busca: a parte elegivel dos itens que trouxe e o custo por item elegivel."""
+    if not linhas:
+        return _bloco("vies-ferramentas", "Nenhuma busca registrada nas execuções do relatório")
+    prop = [{"rotulo": f"{l['fonte']} · {l['ferramenta']}", "total": l["itens"] or 0, "parte": l["elegiveis"]} for l in linhas]
+    melhor = max(linhas, key=lambda l: ((l["elegiveis"] / l["itens"]) if l["itens"] else -1, l["ferramenta"]))
+    titulo = (f"{melhor['ferramenta']} trouxe a maior parte elegível: {fmt.numero(melhor['elegiveis'])} de "
+              f"{_itens_pl(melhor['itens'] or 0)}") if len(linhas) > 1 else (
+              f"{melhor['ferramenta']}: {fmt.numero(melhor['elegiveis'])} de {_itens_pl(melhor['itens'] or 0)} elegíveis")
+    graf = g.barras_proporcao(prop, titulo, "Parte dos itens de cada ferramenta com relevância alta ou média",
+                              rotulo_parte="Alta ou média", rotulo_resto="Baixa ou fora do escopo")
+
+    def custo(l):
+        if l["custo_por_elegivel"]:
+            return fmt.moeda_usd(l["custo_por_elegivel"])
+        if l["creditos_por_elegivel"]:
+            return f"{l['creditos_por_elegivel']:.2f} crédito".replace(".", ",")
+        return "—"
+    tabela = {"cabecalho": ["Ferramenta", "Fonte", "Itens", "Alta", "Elegíveis", "Fora do escopo", "Custo por item elegível"],
+              "linhas": [[l["ferramenta"], l["fonte"], fmt.numero(l["itens"] or 0), fmt.numero(l["alta"]), fmt.numero(l["elegiveis"]),
+                          fmt.numero(l["fora"]), custo(l)] for l in linhas]}
+    fontes = [l["fonte"] for l in linhas]
+    repetidas = sorted({f for f in fontes if fontes.count(f) > 1})
+    texto = [f"A fonte {', '.join(repetidas)} tem mais de uma ferramenta: os resultados não são atribuídos a cada uma, os "
+             "itens se repetem em cada linha e a comparação entre elas não é causal."] if repetidas else []
+    return _bloco("vies-ferramentas", titulo, graf, "por fonte: os itens únicos de cada ferramenta, com triagem válida",
+                  texto, aviso=AVISO_MODELO, tabela=tabela)
+
+
+# ---------------------------------------------------------------- tipos
+def bloco_grupos(itens):
+    """Literatura cientifica, cinzenta e fonte primaria em cada fonte (por fonte)."""
+    c = AV.tipos_por_grupo_e_fonte(itens)
+    if not sum(c.values()):
+        return _bloco("vies-grupos", "Sem tipos de fonte para mostrar", aviso="Rode `triar-escopo --banco vies`.")
+    cinza = {f: c.get((AV.GRUPO_CINZENTA, f), 0) for f in (AV.FONTE_WEB, AV.FONTE_SCHOLAR)}
+    total_cinza = sum(cinza.values())
+    if total_cinza and max(cinza.values()) * 2 > total_cinza:
+        fonte = max(cinza, key=lambda f: (cinza[f], f))
+        titulo = f"A literatura cinzenta vem mais {'da web' if fonte == AV.FONTE_WEB else 'do Scholar'}: {fmt.numero(cinza[fonte])} de {_itens_pl(total_cinza)}"
+    elif total_cinza:
+        titulo = f"A literatura cinzenta se divide entre as fontes ({_itens_pl(total_cinza)})"
+    else:
+        titulo = "Nenhum item de literatura cinzenta no escopo"
+    graf = g.mapa_de_calor_assimetrico(list(AV.GRUPOS), [AV.FONTE_WEB, AV.FONTE_SCHOLAR],
+                                       {(gr, f): c.get((gr, f), 0) for gr in AV.GRUPOS for f in (AV.FONTE_WEB, AV.FONTE_SCHOLAR)},
+                                       titulo, descricao="Itens no escopo por grupo de literatura e fonte da busca")
+    return _bloco("vies-grupos", titulo, graf, f"por fonte: {_itens_pl(sum(c.values()))} no escopo com tipo de fonte",
+                  ["O grupo vem do sufixo do tipo de fonte (D110): \"/ literatura cinzenta\", \"/ fonte primária\" ou nenhum."],
+                  aviso=AVISO_MODELO)
+
+
+def bloco_relevancia_por_grupo(itens):
+    """A relevancia em cada grupo de literatura (obras, todas as relevancias)."""
+    c = AV.relevancia_por_grupo(itens)
+    grupos = [gr for gr in AV.GRUPOS if any(c.get((gr, r)) for r in AV.RELEVANCIAS)]
+    if not grupos:
+        return _bloco("vies-relevancia-grupo", "Sem tipos de fonte para cruzar com a relevância")
+    titulo = "Relevância em cada grupo de literatura"
+    graf = g.mapa_de_calor_assimetrico(grupos, [{"chave": r, "rotulo": _rel(r)} for r in AV.RELEVANCIAS],
+                                       {(gr, r): c.get((gr, r), 0) for gr in grupos for r in AV.RELEVANCIAS}, titulo,
+                                       descricao="Obras por grupo de literatura e relevância")
+    return _bloco("vies-relevancia-grupo", titulo, graf, "cada obra uma vez, com triagem válida (inclui as fora do escopo)")
+
+
+def bloco_tipos(itens):
+    """Os tipos de fonte mais frequentes (obras no escopo)."""
+    linhas = AV.tipos(itens)
+    if not linhas:
+        return _bloco("vies-tipos", "Sem tipos de fonte para mostrar")
+    empatados = [t for t, n in linhas if n == linhas[0][1]]
+    titulo = (f"O tipo mais comum é {linhas[0][0]} ({_itens_pl(linhas[0][1])})" if len(empatados) == 1
+              else f"Os tipos mais comuns, empatados, são {', '.join(empatados)} ({_itens_pl(linhas[0][1])} cada)")
+    graf = _barras(linhas[:15], titulo, "Obras no escopo por tipo de fonte (15 mais frequentes)")
+    return _bloco("vies-tipos", titulo, graf, f"{BASE_OBRAS}; {fmt.numero(len(linhas))} tipos diferentes",
+                  tabela={"cabecalho": ["Tipo de fonte", "Obras"], "linhas": [[t, fmt.numero(n)] for t, n in linhas]})
+
+
+# ---------------------------------------------------------------- temas
+def bloco_eixos(itens, todos):
+    """Os eixos de exploracao, inclusive os sem nenhuma obra (lacunas)."""
+    linhas = AV.eixos(itens, todos)
+    com_eixo = [x for x in linhas if x[0] != AV.SEM_EIXO]
+    if not any(n for _, n in linhas):
+        return _bloco("vies-eixos", "Sem eixos para mostrar", aviso="Rode `triar-escopo --banco vies`.")
+    if len(com_eixo) > 1 and com_eixo[0][1] != com_eixo[-1][1]:
+        titulo = (f"O eixo mais coberto é {com_eixo[0][0]} ({_itens_pl(com_eixo[0][1])}); "
+                  f"o menos coberto, {com_eixo[-1][0]} ({_itens_pl(com_eixo[-1][1])})")
+    else:
+        titulo = "Obras no escopo por eixo de exploração"
+    graf = _barras(linhas, titulo, "Obras no escopo por eixo de exploração")
+    vazios = [e for e, n in com_eixo if n == 0]
+    texto = ["Um eixo pouco coberto pode ser uma lacuna da literatura ou das consultas: vale uma consulta dirigida."]
+    if vazios:
+        texto.insert(0, f"Sem nenhuma obra: {', '.join(vazios)}.")
+    return _bloco("vies-eixos", titulo, graf, BASE_OBRAS, texto, aviso=AVISO_MODELO)
+
+
+def bloco_eixo_relevancia(itens):
+    """Eixo cruzado com relevancia (obras no escopo)."""
+    c = AV.eixo_por_relevancia(itens)
+    eixos = sorted({e for e, _ in c}, key=lambda e: (e == AV.SEM_EIXO, -sum(v for (x, _), v in c.items() if x == e), e))
+    rels = ("alta", "media", "baixa")
+    if not eixos:
+        return _bloco("vies-eixo-relevancia", "Sem eixos para cruzar com a relevância")
+    titulo = "Relevância das obras em cada eixo"
+    graf = g.mapa_de_calor_assimetrico(eixos, [{"chave": r, "rotulo": _rel(r)} for r in rels],
+                                       {(e, r): c.get((e, r), 0) for e in eixos for r in rels}, titulo,
+                                       descricao="Obras no escopo por eixo e relevância")
+    return _bloco("vies-eixo-relevancia", titulo, graf, BASE_OBRAS)
+
+
+def bloco_topicos(itens, textos_das_consultas):
+    """Os topicos mais citados que nao sao as palavras das consultas; os que sao ficam na memoria de calculo."""
+    proprios, da_busca = AV.topicos(itens, textos_das_consultas, 20)
+    if not proprios and not da_busca:
+        return _bloco("vies-topicos", "Sem tópicos para mostrar")
+    if len(proprios) > 1:
+        titulo = f"Além das palavras da busca, os tópicos mais citados são {proprios[0][0]} e {proprios[1][0]}"
+    elif proprios:
+        titulo = f"Além das palavras da busca, o tópico mais citado é {proprios[0][0]}"
+    else:
+        titulo = "Os tópicos só repetem as palavras da busca"
+    graf = _barras(proprios, titulo, "Obras no escopo que citam cada tópico (20 mais citados, sem as palavras da busca)") if proprios else None
+    linhas = [[t, fmt.numero(n), "não"] for t, n in proprios] + [[t, fmt.numero(n), "sim"] for t, n in da_busca]
+    return _bloco("vies-topicos", titulo, graf, f"{BASE_OBRAS}; cada tópico conta uma vez por obra",
+                  [f"Os tópicos que repetem as palavras das consultas ({', '.join(t for t, _ in da_busca[:6])}) estão na memória "
+                   "de cálculo." if da_busca else "",
+                   "Variantes de singular e plural contam juntas (por exemplo, vieses algorítmicos com viés algorítmico)."],
+                  link={"href": "/literatura/referencias", "rotulo": "Ver os tópicos de cada item na tela Referências"},
+                  tabela={"cabecalho": ["Tópico", "Obras", "Palavra da busca"], "linhas": linhas})
+
+
+# ---------------------------------------------------------------- tempo e lugar
+def bloco_anos(itens, ano_corrente):
+    """Ano de publicacao dos artigos do Scholar; a data da pagina das referencias da web fica a parte (nao e publicacao)."""
+    anos = AV.anos_scholar(itens)
+    if not anos:
+        return _bloco("vies-anos", "Sem artigos do Scholar com ano conhecido")
+    com_ano = sum(n for _, n in anos)
+    ultimos = sum(n for a, n in anos if a >= ano_corrente - 1)
+    if ultimos * 2 > com_ano:
+        titulo = (f"A maior parte dos artigos é recente: {fmt.numero(ultimos)} de {fmt.numero(com_ano)} com ano são de "
+                  f"{ano_corrente - 1} ou {ano_corrente}")
+    else:
+        titulo = "Artigos do Scholar por ano de publicação"
+    graf = graficos.colunas([(str(a), n) for a, n in anos], titulo, "Artigos do Scholar no escopo por ano de publicação", "Ano", "Artigos")
+    d = AV.por_ano(itens)
+    linhas = [[str(a), fmt.numero(v[AV.FONTE_SCHOLAR]), fmt.numero(v[AV.FONTE_WEB])] for a, v in d.items()]
+    return _bloco("vies-anos", titulo, graf, f"artigos do Scholar no escopo com ano conhecido ({fmt.numero(com_ano)})",
+                  [f"{ano_corrente} ainda está em curso. Parte da concentração recente vem do interesse pelo tema; parte, da "
+                   "preferência das buscas por resultados novos.",
+                   "Na memória de cálculo, a coluna da web traz o ano da data da página (a data do resultado da busca), que "
+                   "não é o ano de publicação."],
+                  tabela={"cabecalho": ["Ano", "Scholar (publicação)", "Web (data da página)"], "linhas": linhas})
+
+
+def bloco_paises(itens):
+    """Pais ou escopo das obras; o Brasil conta quando qualquer parte e Brasil; 'Indeterminado' fica fora do denominador."""
+    linhas = AV.paises(itens)
+    if not linhas:
+        return _bloco("vies-paises", "Sem país ou escopo para mostrar")
+    no_brasil, com_lugar = AV.brasil(itens)
+    titulo = (f"{_pct(no_brasil, com_lugar)} das obras com lugar definido tratam do Brasil "
+              f"({fmt.numero(no_brasil)} de {fmt.numero(com_lugar)})") if com_lugar else "Nenhuma obra com lugar definido"
+    graf = _barras(linhas, titulo, "Obras no escopo por país ou escopo (12 mais frequentes)")
+    return _bloco("vies-paises", titulo, graf, BASE_OBRAS,
+                  ["\"Brasil / UF\" e \"Brasil / União Europeia\" contam como Brasil; \"Indeterminado\" não entra no denominador.",
+                   "As buscas foram em português, o que puxa a amostra para o Brasil e para Portugal."])
+
+
+# ---------------------------------------------------------------- consultas e conjuntos
+def bloco_consultas(itens, ids_por_conjunto, textos):
+    """A parte elegivel dos itens que cada consulta achou; a de menor parte e a candidata a ajuste."""
+    linhas = AV.consultas(itens, ids_por_conjunto)
+    validas = [l for l in linhas if l["triados"]]
+    if not validas:
+        return _bloco("vies-consultas", "Sem itens com triagem achados pelas consultas")
+    prop = [{"rotulo": f"{l['consulta']} · {textos.get(l['consulta'], '')}", "total": l["triados"], "parte": l["elegiveis"]}
+            for l in linhas]
+    menor = min(l["elegiveis"] / l["triados"] for l in validas)
+    piores = [l for l in validas if l["elegiveis"] / l["triados"] == menor]
+    if len(piores) == len(validas):
+        titulo = "Todas as consultas têm a mesma parte elegível"
+    elif len(piores) == 1:
+        p = piores[0]
+        titulo = (f"A consulta com menor parte elegível é {p['consulta']}: {fmt.numero(p['elegiveis'])} de "
+                  f"{_itens_pl(p['triados'])}, {fmt.numero(p['fora'])} fora do escopo")
+    else:
+        titulo = f"As consultas com menor parte elegível, empatadas, são {', '.join(p['consulta'] for p in piores)}"
+    graf = g.barras_proporcao(prop, titulo, "Parte dos itens achados por cada consulta com relevância alta ou média",
+                              rotulo_parte="Alta ou média", rotulo_resto="Baixa ou fora do escopo")
+    tabela = {"cabecalho": ["Consulta", "Conjunto", "Web", "Scholar", "Só ela achou", "Alta", "Elegíveis", "Fora do escopo"],
+              "linhas": [[f"{l['consulta']} · {textos.get(l['consulta'], '')}", l["conjunto"], fmt.numero(l["web"]),
+                          fmt.numero(l["scholar"]), fmt.numero(l["exclusivos"]), fmt.numero(l["alta"]), fmt.numero(l["elegiveis"]),
+                          fmt.numero(l["fora"])] for l in linhas]}
+    texto = ["Uma consulta com pouca parte elegível é candidata a ajuste antes de ampliar a busca."] if len(piores) < len(validas) else []
+    return _bloco("vies-consultas", titulo, graf, "por fonte; um item conta em cada consulta que o achou", texto,
+                  aviso=AVISO_MODELO, tabela=tabela)
+
+
+def bloco_conjuntos(itens):
+    """Quanto os conjuntos A e B se sobrepoem em cada fonte."""
+    c = AV.conjuntos(itens)
+    cols = ("Só A", "Só B", "A e B")
+    total = sum(sum(v.values()) for v in c.values())
+    if not total:
+        return _bloco("vies-conjuntos", "Sem itens dos conjuntos para comparar")
+    ambos = sum(v["A e B"] for v in c.values())
+    titulo = (f"Os conjuntos A e B se complementam: {fmt.numero(ambos)} de {_itens_pl(total)} aparecem nos dois"
+              if ambos / total < LIMIAR_SOBREPOSICAO else f"{fmt.numero(ambos)} de {_itens_pl(total)} aparecem nos dois conjuntos")
+    graf = g.mapa_de_calor_assimetrico([AV.FONTE_WEB, AV.FONTE_SCHOLAR], list(cols),
+                                       {(f, k): c[f][k] for f in c for k in cols}, titulo,
+                                       descricao="Itens por fonte e conjunto de consultas que os achou")
+    return _bloco("vies-conjuntos", titulo, graf, "por fonte: cada item da sua fonte (a mesma obra nas duas fontes conta em cada uma)")
+
+
+# ---------------------------------------------------------------- sites da web
+def bloco_dominios(itens):
+    """Os sites (dominio registravel) que mais aparecem nas referencias da web no escopo."""
+    linhas, n_dominios = AV.dominios(itens)
+    if not linhas:
+        return _bloco("vies-dominios", "Sem referências da web no escopo")
+    titulo = f"As referências da web vêm de {fmt.numero(n_dominios)} sites; o mais frequente é {linhas[0][0]}"
+    graf = _barras(linhas, titulo, "Referências da web no escopo por site (15 mais frequentes)")
+    copias = [d for d, _ in linhas if d in REPOSITORIOS_DE_COPIAS]
+    texto = [f"Repositórios de cópias ({', '.join(copias)}) guardam documentos de terceiros: vale buscar a publicação original."] if copias else []
+    return _bloco("vies-dominios", titulo, graf, "por fonte: referências da web no escopo; sites agrupados pelo domínio registrável",
+                  texto, tabela={"cabecalho": ["Site", "Referências"], "linhas": [[d, fmt.numero(n)] for d, n in linhas]})

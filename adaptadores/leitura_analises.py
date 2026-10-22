@@ -101,6 +101,40 @@ class LeituraAnalises:
         return bool(self._ler("SELECT 1 AS x FROM sqlite_master WHERE type='table' AND name='triagem_escopo'"))
 
     # ---------- 1. maturidade UF x tecnologia ----------
+    def analise_ferramentas(self):
+        """Por etapa e provedor (execucoes do relatorio): as chamadas, as com sucesso, o custo e os tokens registrados; os
+        resultados brutos e os itens unicos de cada busca (busca web por UF: resultados e URLs; Scholar: ocorrencias e
+        artigos; busca de literatura na web: ocorrencias e referencias); e os creditos consumidos por provedor (saldo no
+        inicio menos no fim de cada execucao que registrou os dois). Banco sem as tabelas: o que faltar fica vazio."""
+        saida = {"chamadas": [], "resultados": {}, "itens": {}, "creditos": {}}
+        try:
+            saida["chamadas"] = [dict(l) for l in self._consulta(
+                "SELECT etapa, provedor, COUNT(*) AS chamadas, SUM(CASE WHEN sucesso = 1 THEN 1 ELSE 0 END) AS ok, "
+                "SUM(COALESCE(custo_usd, 0)) AS custo_usd, SUM(COALESCE(tokens_entrada, 0)) AS tokens_entrada, "
+                "SUM(COALESCE(tokens_saida, 0)) AS tokens_saida FROM r_chamadas GROUP BY etapa, provedor ORDER BY etapa, provedor")]
+        except sqlite3.OperationalError:
+            return saida
+        buscas = {"busca_web": "SELECT COUNT(*) AS n, COUNT(DISTINCT url_id) AS u FROM r_resultados_web",
+                  "busca_academica": "SELECT COUNT(*) AS n, COUNT(DISTINCT o.artigo_id) AS u FROM r_ocorrencias o "
+                                     "JOIN r_chamadas c ON c.chamada_id = o.chamada_id WHERE c.etapa = 'busca_academica'",
+                  "busca_literatura": "SELECT COUNT(*) AS n, COUNT(DISTINCT o.referencia_id) AS u FROM ocorrencias_web o "
+                                      "JOIN r_chamadas c ON c.chamada_id = o.chamada_id"}
+        for etapa, sql in buscas.items():
+            try:
+                l = self._um(sql)
+            except sqlite3.OperationalError:          # banco antigo, sem a tabela desta busca
+                continue
+            saida["resultados"][etapa], saida["itens"][etapa] = (l["n"] or 0), (l["u"] or 0)
+        try:
+            saida["creditos"] = {l["provedor"]: l["consumo"] for l in self._consulta(
+                "SELECT i.provedor, SUM(i.valor - f.valor) AS consumo FROM saldos i "
+                "JOIN saldos f ON f.run_id = i.run_id AND f.provedor = i.provedor AND f.momento = 'fim' "
+                "JOIN execucoes e ON e.run_id = i.run_id AND e.no_relatorio = 1 "
+                "WHERE i.momento = 'inicio' GROUP BY i.provedor ORDER BY i.provedor")}
+        except sqlite3.OperationalError:
+            pass
+        return saida
+
     def analise_maturidade_uf_tecnologia(self, somente_confirmados=False):
         """Estagio mais avancado por (uf, tecnologia), contagem por status e tabela regiao x tecnologia (qui-quadrado).
 

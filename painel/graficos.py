@@ -3,6 +3,7 @@ import hashlib
 from html import escape
 
 from painel import mapa_ufs
+from painel.graficos_analises import _cortar
 
 
 def _uid(*partes):
@@ -10,12 +11,14 @@ def _uid(*partes):
     return hashlib.sha1(repr(partes).encode("utf-8")).hexdigest()[:8]
 
 
-def barras_horizontais(itens, titulo, descricao, formatar=str):
-    """itens = [(rotulo, valor)]. Barra proporcional ao maior valor; o texto acompanha cada barra."""
+def barras_horizontais(itens, titulo, descricao, formatar=str, margem_esq=175, max_rotulo=None):
+    """itens = [(rotulo, valor)]. Barra proporcional ao maior valor; o texto acompanha cada barra. `margem_esq`: espaco dos
+    rotulos (aumente para rotulos longos, que de outro modo saem cortados a esquerda); `max_rotulo`: rotulo mais longo que
+    isso aparece cortado com reticencias (o inteiro fica na dica da barra)."""
     if not itens:
         return ""
     maximo = max((v or 0) for _, v in itens) or 1
-    altura_linha, margem_esq, largura = 30, 175, 620
+    altura_linha, largura = 30, 620
     h = altura_linha * len(itens) + 8
     u = _uid("barras", titulo, descricao, itens)
     partes = [f'<svg class="grafico" viewBox="0 0 {largura} {h}" role="img" aria-labelledby="gt-{u} gd-{u}">',
@@ -23,7 +26,8 @@ def barras_horizontais(itens, titulo, descricao, formatar=str):
     for i, (rot, valor) in enumerate(itens):
         y = 4 + i * altura_linha
         w = max((valor or 0) / maximo * (largura - margem_esq - 70), 2 if valor else 0)
-        partes.append(f'<text class="gr-rotulo" x="{margem_esq - 10}" y="{y + 19}" text-anchor="end">{escape(str(rot))}</text>'
+        visivel = _cortar(rot, max_rotulo) if max_rotulo else str(rot)
+        partes.append(f'<text class="gr-rotulo" x="{margem_esq - 10}" y="{y + 19}" text-anchor="end">{escape(visivel)}</text>'
                       f'<rect class="gr-barra" x="{margem_esq}" y="{y + 3}" width="{w:.1f}" height="21" rx="3">'
                       f'<title>{escape(str(rot))}: {escape(formatar(valor))}</title></rect>'
                       f'<text class="gr-valor" x="{margem_esq + w + 8:.1f}" y="{y + 19}">{escape(formatar(valor))}</text>')

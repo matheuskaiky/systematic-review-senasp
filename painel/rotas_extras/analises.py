@@ -6,7 +6,11 @@ abrir rapido mesmo com o banco em /mnt/c. So le o banco; nenhum numero daqui e g
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from painel import analises_blocos as b, analises_blocos_cobertura as bc, analises_blocos_ruido as br
+from datetime import datetime
+
+from dominio import analises_ferramentas as AF, analises_vies as AV
+from painel import analises_blocos as b, analises_blocos_cobertura as bc, analises_blocos_ferramentas as bf
+from painel import analises_blocos_ruido as br, analises_blocos_vies as bv
 
 ABAS = (
     ("visao", "Visão geral"), ("adocao", "Adoção por UF"), ("busca", "Eficiência da busca"),
@@ -36,8 +40,9 @@ def anonimizar_revisores(d):
     return d_novo
 
 
-def montar(leitura, secao, ver_nomes=True):
-    """Devolve (blocos, resumo). `resumo` so e lido nas abas que precisam dele (e a leitura mais cara)."""
+def montar(leitura, secao, ver_nomes=True, ferramentas=None):
+    """Devolve (blocos, resumo). `resumo` so e lido nas abas que precisam dele (e a leitura mais cara). `ferramentas`: as
+    linhas de `dominio.analises_ferramentas.linhas`, se quem chama ja as leu."""
     resumo = leitura.analise_resumo() if secao in ("visao", "auditoria") else None
     if secao == "visao":
         funil = leitura.analise_funil_por_provedor()
@@ -47,7 +52,9 @@ def montar(leitura, secao, ver_nomes=True):
         return [b.bloco_maturidade(m), b.bloco_regiao_tecnologia(m), b.bloco_lgpd(leitura.analise_lgpd_por_tecnologia()),
                 b.bloco_fornecedores(leitura.analise_fornecedores())], resumo
     if secao == "busca":
-        return [b.bloco_funil(leitura.analise_funil_por_provedor()),
+        ferramentas = ferramentas if ferramentas is not None else AF.linhas(leitura.analise_ferramentas())
+        return [bf.bloco_ferramentas_busca(ferramentas), bf.bloco_custos(ferramentas),
+                b.bloco_funil(leitura.analise_funil_por_provedor()),
                 b.bloco_posicao_web(leitura.analise_retorno_por_posicao("web")),
                 b.bloco_posicao_scholar(leitura.analise_retorno_por_posicao("scholar")),
                 b.bloco_saturacao(leitura.analise_saturacao())], resumo
@@ -75,6 +82,29 @@ def montar(leitura, secao, ver_nomes=True):
             b.bloco_tamanho(leitura.analise_tamanho_texto_achados())], resumo
 
 
+def montar_vies(leitura, contexto, secao, ferramentas):
+    """Os blocos do banco `vies` (busca de vies algoritmico) e os numeros do panorama: so as analises do tipo de informacao
+    desta busca (fonte, relevancia, ferramentas, tipo de fonte, eixo, topicos, ano, pais, consultas, conjuntos e sites)."""
+    conjunto = contexto.conjunto_da_consulta
+    itens = AV.itens(leitura.linhas_referencias_web(), leitura.linhas_artigos_das_consultas(list(conjunto)), conjunto,
+                     leitura.triagens_vies(contexto.versao_triagem_vies))
+    ids_por_conjunto = {}
+    for cid, nome in conjunto.items():
+        ids_por_conjunto.setdefault(nome, []).append(cid)
+    textos = contexto.consultas_literatura
+    resumo = AV.resumo(itens)
+    blocos = {"panorama": lambda: [bv.bloco_relevancia(itens), bv.bloco_sobreposicao(resumo)],
+              "ferramentas": lambda: [bv.bloco_ferramentas_relevancia(AV.relevancia_por_ferramenta(ferramentas, itens)),
+                                      bf.bloco_ferramentas_busca(ferramentas), bf.bloco_custos(ferramentas)],
+              "tipos": lambda: [bv.bloco_grupos(itens), bv.bloco_relevancia_por_grupo(itens), bv.bloco_tipos(itens)],
+              "temas": lambda: [bv.bloco_eixos(itens, tuple(contexto.eixos_exploracao)), bv.bloco_eixo_relevancia(itens),
+                                bv.bloco_topicos(itens, list(textos.values()))],
+              "tempo": lambda: [bv.bloco_anos(itens, datetime.now().year), bv.bloco_paises(itens)],
+              "consultas": lambda: [bv.bloco_consultas(itens, ids_por_conjunto, textos), bv.bloco_conjuntos(itens)],
+              "web": lambda: [bv.bloco_dominios(itens)]}[secao]()
+    return blocos, (resumo if secao == "panorama" else None)
+
+
 def registrar(c):
     app, leitura = c.app, c.leitura
 
@@ -82,9 +112,16 @@ def registrar(c):
     def analises(request: Request):
         if not leitura.existe():
             return c.sem_banco(request)
-        secao = (request.query_params.get("secao") or "visao").strip().lower()
-        if secao not in CHAVES:
+        vies = c.contexto.banco == "vies"            # o banco da busca de vies tem as analises dela, nao as da Tarefa 1
+        abas = bv.ABAS_VIES if vies else ABAS
+        secao = (request.query_params.get("secao") or abas[0][0]).strip().lower()
+        if secao not in {chave for chave, _ in abas}:
             return c.erro(request, 404, "Aba inválida", "Escolha uma das abas da página de análises.")
+        ferramentas = AF.linhas(leitura.analise_ferramentas())      # tambem para a legenda do fim da pagina
+        if vies:
+            blocos, resumo_vies = montar_vies(leitura, c.contexto, secao, ferramentas)
+            return c.pagina(request, "analises.html", secao=secao, abas=abas, blocos=blocos, resumo=None, resumo_vies=resumo_vies,
+                            ferramentas=ferramentas)
         ver_nomes = getattr(request.state, "ver_nomes", True)
-        blocos, resumo = montar(leitura, secao, ver_nomes=ver_nomes)
-        return c.pagina(request, "analises.html", secao=secao, abas=ABAS, blocos=blocos, resumo=resumo)
+        blocos, resumo = montar(leitura, secao, ver_nomes=ver_nomes, ferramentas=ferramentas)
+        return c.pagina(request, "analises.html", secao=secao, abas=abas, blocos=blocos, resumo=resumo, ferramentas=ferramentas)

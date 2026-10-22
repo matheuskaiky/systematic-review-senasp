@@ -35,7 +35,8 @@
             {{ s.triagem(a.decisao) }}{% if a.decisao == "incluir" %} {{ s.triagem(a.decisao_texto_completo, "texto completo") }}{% endif %}
             {% if n_ocorr > 1 %}<span class="selo alerta">Achado {{ n_ocorr }}× (prioridade)</span>{% endif %}
           </p>
-          <p class="pergunta-guia">Este artigo serve ao escopo da pesquisa: inteligência artificial na segurança pública brasileira?</p>
+          {% if ctx.banco == "vies" %}<p class="pergunta-guia">Este item serve ao estudo de viés algorítmico na inteligência artificial aplicada à segurança pública e à investigação criminal?</p>
+          {% else %}<p class="pergunta-guia">Este artigo serve ao escopo da pesquisa: inteligência artificial na segurança pública brasileira?</p>{% endif %}
 
           <div class="evidencia-cabecalho"><h2>Resumo (como veio da fonte)</h2></div>
           <div class="texto-pagina cockpit-abstract-body" tabindex="0">{% if a.snippet and a.snippet|trim %}{{ a.snippet }}{% else %}<span class="resumo-vazio">A fonte não trouxe trecho nem resumo para este artigo. Decida pelo título.</span>{% endif %}</div>
@@ -62,6 +63,17 @@
       <details class="cartao escopo-guia" open>
         <summary>Critérios de escopo</summary>
         <div class="escopo-corpo">
+          {% if ctx.banco == "vies" %}{# o escopo da busca de vies algoritmico (D116), so neste banco #}
+          <ul class="escopo-lista escopo-incluir" aria-label="Entra se todos forem atendidos">
+            <li><span class="escopo-marca" aria-hidden="true">✔</span><span><strong>Entra</strong> se trata de IA ou de sistemas automatizados de decisão</span></li>
+            <li><span class="escopo-marca" aria-hidden="true">✔</span><span>na segurança pública, no policiamento, na investigação criminal, na perícia ou na justiça criminal (ou nos direitos afetados por eles),</span></li>
+            <li><span class="escopo-marca" aria-hidden="true">✔</span><span>de preferência com viés algorítmico, discriminação, ética, direitos ou governança.</span></li>
+            <li><span class="escopo-marca" aria-hidden="true">✔</span><span>Vale literatura científica e cinzenta (relatórios, documentos técnicos, soluções e produtos, estudos empíricos, normas), de qualquer país e ano.</span></li>
+          </ul>
+          <ul class="escopo-lista escopo-excluir" aria-label="Sai se">
+            <li><span class="escopo-marca" aria-hidden="true">✕</span><span><strong>Sai</strong> se não trata de IA ou não trata de segurança pública e dos direitos afetados por ela.</span></li>
+          </ul>
+          {% else %}
           <ul class="escopo-lista escopo-incluir" aria-label="Entra se todos forem atendidos">
             <li><span class="escopo-marca" aria-hidden="true">✔</span><span><strong>Entra</strong> se trata de segurança pública (policiamento, perícia, justiça criminal, defesa social),</span></li>
             <li><span class="escopo-marca" aria-hidden="true">✔</span><span>de IA ou análise automatizada de dados,</span></li>
@@ -70,7 +82,7 @@
           </ul>
           <ul class="escopo-lista escopo-excluir" aria-label="Sai se">
             <li><span class="escopo-marca" aria-hidden="true">✕</span><span><strong>Sai</strong> se falta qualquer um (o motivo vai ao PRISMA).</span></li>
-          </ul>
+          </ul>{% endif %}
         </div>
       </details>
 

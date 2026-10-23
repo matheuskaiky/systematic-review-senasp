@@ -122,6 +122,8 @@ def _plano(obj):
 # Bancos da pesquisa (D111): o de sempre e o da busca de vies algoritmico. Um banco que nao e o real fica todo em pastas
 # proprias (data/<banco>, outputs/<banco>, logs/<banco>), com os mesmos nomes de arquivo; a escolha e a opcao --banco.
 BANCOS = ("real", "vies")
+# esquema do PostgreSQL de cada banco: um banco só na nuvem, um esquema por banco; as contas ficam sempre no public
+ESQUEMAS_POSTGRES = {"real": "public", "vies": "vies"}
 
 
 def termos_do_banco(banco="real"):

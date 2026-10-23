@@ -15,6 +15,8 @@ from pathlib import Path
 
 import psycopg
 
+from adaptadores import migrador_postgres
+
 
 class ErroImportacao(Exception):
     pass
@@ -60,8 +62,14 @@ def ordem_de_copia(tabelas, pais):
     return ordem
 
 
-def importar(origem_pesquisa, url, origem_contas=None):
-    """Importa e devolve {tabela: (linhas na origem, linhas no destino)}. `url`: conexao direta do PostgreSQL."""
+def importar(origem_pesquisa, url, origem_contas=None, esquema="public"):
+    """Importa e devolve {tabela: (linhas na origem, linhas no destino)}. `url`: conexao direta do PostgreSQL; `esquema`:
+    onde gravar (fora do public, a sessao so enxerga esse esquema)."""
+    try:
+        migrador_postgres.conferir_esquema(esquema)
+        migrador_postgres.conferir_url(url)      # nunca a URL do pool: o esquema escolhido ficaria na conexao compartilhada
+    except migrador_postgres.ErroMigracao as erro:
+        raise ErroImportacao(str(erro)) from None
     with tempfile.TemporaryDirectory() as pasta:
         Path(pasta, "p").mkdir()
         snapshots = [_snapshot(origem_pesquisa, Path(pasta) / "p")]
@@ -70,13 +78,13 @@ def importar(origem_pesquisa, url, origem_contas=None):
             snapshots.append(_snapshot(origem_contas, Path(pasta) / "c"))
         conexoes = [sqlite3.connect(s) for s in snapshots]
         try:
-            return _importar(conexoes, url)
+            return _importar(conexoes, url, esquema)
         finally:
             for c in conexoes:
                 c.close()
 
 
-def _importar(conexoes, url):
+def _importar(conexoes, url, esquema):
     de_onde, tabelas = {}, []
     for con in conexoes:
         for t in _tabelas_sqlite(con):
@@ -92,12 +100,18 @@ def _importar(conexoes, url):
         pg = psycopg.connect(url, connect_timeout=10)
     except psycopg.Error:
         raise ErroImportacao("Não foi possível conectar ao PostgreSQL (confira a URL, a senha e se o banco está no ar).") from None
+    if esquema != "public":
+        try:
+            pg.execute(f'SET search_path TO "{esquema}"')
+        except psycopg.Error:
+            pg.close()
+            raise ErroImportacao("Não foi possível conectar ao PostgreSQL (confira a URL, a senha e se o banco está no ar).") from None
     tabela_atual = None
     try:
         with pg:
             destino = {}
             for t, c in pg.execute("SELECT table_name, column_name FROM information_schema.columns "
-                                   "WHERE table_schema = 'public' ORDER BY table_name, ordinal_position"):
+                                   "WHERE table_schema = current_schema() ORDER BY table_name, ordinal_position"):
                 destino.setdefault(t, []).append(c)
             if "versao_esquema" not in destino:
                 raise ErroImportacao("O PostgreSQL ainda não tem o esquema: rode antes python main.py pg-migrar.")
@@ -105,7 +119,7 @@ def _importar(conexoes, url):
             for filho, pai in pg.execute(
                     "SELECT tc.table_name, ccu.table_name FROM information_schema.table_constraints tc "
                     "JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name "
-                    "AND ccu.table_schema = tc.table_schema WHERE tc.table_schema = 'public' AND tc.constraint_type = 'FOREIGN KEY'"):
+                    "AND ccu.table_schema = tc.table_schema WHERE tc.table_schema = current_schema() AND tc.constraint_type = 'FOREIGN KEY'"):
                 pais.setdefault(filho, set()).add(pai)
             colunas = {}
             for t in tabelas:
@@ -136,7 +150,7 @@ def _importar(conexoes, url):
             if diferentes:
                 raise ErroImportacao("Contagens diferentes depois da cópia: " + ", ".join(f"{t} {a}≠{b}" for t, (a, b) in diferentes.items()))
             for t, col in pg.execute("SELECT table_name, column_name FROM information_schema.columns "
-                                     "WHERE table_schema = 'public' AND is_identity = 'YES'").fetchall():
+                                     "WHERE table_schema = current_schema() AND is_identity = 'YES'").fetchall():
                 pg.execute(f"SELECT setval(pg_get_serial_sequence('\"{t}\"', '{col}'), "
                            f'COALESCE((SELECT MAX("{col}") FROM "{t}"), 0) + 1, false)')
             return {t: final[t] for t in tabelas}

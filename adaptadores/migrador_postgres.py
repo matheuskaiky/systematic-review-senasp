@@ -6,6 +6,7 @@ Dois tipos de arquivo em adaptadores/postgres/migracoes/:
 - `R_<nome>.sql`: repetiveis (as views, derivadas do schema.sql), reaplicados quando o texto muda; nao apagam dado.
 Cada arquivo roda numa transacao propria; uma trava consultiva impede duas aplicacoes ao mesmo tempo."""
 import hashlib
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 import psycopg
@@ -28,6 +29,18 @@ def _arquivos(pasta):
 def _hash(p):
     """Hash do texto com quebras de linha normalizadas (um checkout com CRLF nao parece migracao alterada)."""
     return hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+PUBLICO = "public"                       # o esquema do banco real e das contas (as do vies tambem: contas compartilhadas)
+ESQUEMA_INVALIDO = "Esquema do PostgreSQL inválido."
+
+
+def conferir_esquema(esquema):
+    """Nome de esquema que pode ir sem risco num SET search_path: minusculas, digitos e sublinhado, sem comecar por digito
+    nem por pg_ (reservado do PostgreSQL)."""
+    if not isinstance(esquema, str) or not re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", esquema) or esquema.startswith("pg_"):
+        raise ErroMigracao(ESQUEMA_INVALIDO)
+    return esquema
 
 
 LOCAIS = ("localhost", "127.0.0.1", "::1")
@@ -63,11 +76,20 @@ def conferir_url(url):
         raise ErroMigracao("Conexão remota sem TLS: acrescente sslmode=require à URL do PostgreSQL.")
 
 
-def _conectar(url, **kw):
+def _conectar(url, esquema=PUBLICO, **kw):
+    """Conexao direta; fora do public, a sessao inteira so enxerga o esquema do banco (search_path)."""
+    conn = None
     try:
-        return psycopg.connect(url, connect_timeout=10, **kw)
+        conn = psycopg.connect(url, connect_timeout=10, **kw)
+        if esquema != PUBLICO:
+            conn.execute(f'SET search_path TO "{esquema}"')
+            if not conn.autocommit:
+                conn.commit()
     except psycopg.Error:
+        if conn is not None:
+            conn.close()
         raise ErroMigracao("Não foi possível conectar ao PostgreSQL (confira a URL, a senha e se o banco está no ar).") from None
+    return conn
 
 
 def _ordem_dos_versionados(versionados, feitos):
@@ -128,11 +150,12 @@ def pendentes_na_conexao(conn, pasta=PASTA):
     return [p.name for p in versionados if feitos.get(p.name) != _hash(p)] + [p.name for p in repetiveis if feitos.get(p.name) != _hash(p)]
 
 
-def pendentes(url, pasta=PASTA):
-    """Arquivos que `aplicar` aplicaria agora (sem aplicar nada). Lista vazia = esquema em dia."""
+def pendentes(url, pasta=PASTA, esquema=PUBLICO):
+    """Arquivos que `aplicar` aplicaria agora no `esquema` (sem aplicar nada). Lista vazia = esquema em dia."""
     conferir_url(url)
+    conferir_esquema(esquema)
     versionados, repetiveis = _arquivos(pasta)
-    with _conectar(url) as conn:
+    with _conectar(url, esquema) as conn:
         _conferir_servidor(conn)
         existe = conn.execute("SELECT to_regclass('versao_esquema') IS NOT NULL").fetchone()[0]
         feitos = dict(conn.execute("SELECT arquivo, sha256 FROM versao_esquema").fetchall()) if existe else {}
@@ -144,15 +167,19 @@ def pendentes(url, pasta=PASTA):
             + [p.name for p in repetiveis if feitos.get(p.name) != _hash(p)])
 
 
-def aplicar(url, pasta=PASTA):
-    """Aplica o que falta, em ordem (versionados, depois repetiveis). Devolve a lista de arquivos aplicados."""
+def aplicar(url, pasta=PASTA, esquema=PUBLICO):
+    """Aplica o que falta no `esquema`, em ordem (versionados, depois repetiveis); fora do public, cria o esquema antes.
+    Cada esquema tem o seu registro `versao_esquema`. Devolve a lista de arquivos aplicados."""
     conferir_url(url)
+    conferir_esquema(esquema)
     versionados, repetiveis = _arquivos(pasta)
     aplicados = []
     with _conectar(url, autocommit=True) as trava:
         trava.execute("SELECT pg_advisory_lock(%s)", (TRAVA,))
         try:
-            with _conectar(url) as conn:
+            if esquema != PUBLICO:
+                trava.execute(f'CREATE SCHEMA IF NOT EXISTS "{esquema}"')
+            with _conectar(url, esquema) as conn:
                 _conferir_servidor(conn)
                 feitos = _registro(conn)
                 conn.commit()

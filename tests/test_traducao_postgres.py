@@ -68,7 +68,7 @@ TRADUCOES = [
     ("SELECT * FROM grupos", "SELECT * FROM grupos", None),
     ("SELECT name FROM sqlite_master WHERE type = 'table'",
      "SELECT name FROM (SELECT table_name AS name, CASE table_type WHEN 'VIEW' THEN 'view' ELSE 'table' END AS type, "
-     "NULL::text AS sql FROM information_schema.tables WHERE table_schema = 'public') sqlite_master WHERE type = 'table'", None),
+     "NULL::text AS sql FROM information_schema.tables WHERE table_schema = current_schema()) sqlite_master WHERE type = 'table'", None),
     ("SELECT substr(a, 1, 3), SUM(b), 100.0 * c, COALESCE(a = b, 0), group_concat(x, ', ') FROM t;",
      "SELECT compat_substr(a, 1, 3), compat_soma(b), 100.0::double precision * c, COALESCE((a = b)::int, 0), "
      "group_concat(x, ', ' ORDER BY x NULLS FIRST) FROM t", None),
@@ -158,9 +158,9 @@ def test_banco_do_ambiente_desconhecido(monkeypatch):
 
 
 @pytest.mark.parametrize("ambiente,simulado,mensagem", [
-    ({"DB_BACKEND": "postgres"}, False, "Com DB_BACKEND=postgres, defina DATABASE_URL (no Neon, a URL com -pooler)."),
+    ({"DB_BACKEND": "postgres"}, False, "Com DB_BACKEND=postgres, defina DATABASE_URL (no Neon, a URL com -pooler; com --banco vies, a URL direta)."),
     ({"DB_BACKEND": "postgres", "DATABASE_URL": "   "}, False,
-     "Com DB_BACKEND=postgres, defina DATABASE_URL (no Neon, a URL com -pooler)."),
+     "Com DB_BACKEND=postgres, defina DATABASE_URL (no Neon, a URL com -pooler; com --banco vies, a URL direta)."),
     ({"DB_BACKEND": "postgres", "DATABASE_URL": "postgresql://u:p@localhost/b"}, True,
      "--simulado usa só o SQLite: tire DB_BACKEND=postgres do ambiente."),
     ({"DB_BACKEND": "postgres", "DATABASE_URL": "postgresql://u:p@db.exemplo.org/b"}, False, SEM_TLS),

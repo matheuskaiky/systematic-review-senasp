@@ -107,14 +107,15 @@ def test_combinacoes_recusadas(args, mensagem, ambiente):
     assert str(e.value) == mensagem and _caminhos() == antes
 
 
-def test_vies_recusado_no_postgres(ambiente, monkeypatch):
+def test_vies_vale_no_postgres_e_o_banco_em_uso_volta_ao_real(ambiente, monkeypatch):
+    from composicao import banco_em_uso
     monkeypatch.setenv("DB_BACKEND", "postgres")
-    with pytest.raises(SystemExit) as e:
-        with banco_escolhido("vies"):
-            pass
-    assert str(e.value) == "--banco vies só vale com o banco local (SQLite): o painel na nuvem tem um banco só."
-    with banco_escolhido("real"):                                  # o real continua valendo no PostgreSQL
-        pass
+    assert banco_em_uso() == "real"
+    with banco_escolhido("vies"):                                  # no PostgreSQL, o vies e um esquema proprio
+        assert banco_em_uso() == "vies"
+    assert banco_em_uso() == "real"
+    with banco_escolhido("real"):
+        assert banco_em_uso() == "real"
 
 
 # ---------- registro da configuração e termos ----------
@@ -149,7 +150,7 @@ def test_comandos_sugeridos_levam_o_banco(ns, sufixo):
 
 
 # ---------- linha de comando ----------
-SEM_BANCO = {"pg-migrar", "pg-demo", "painel-demo"}
+SEM_BANCO = {"pg-demo", "painel-demo"}
 
 
 def _subcomandos(monkeypatch):
@@ -176,7 +177,8 @@ def test_todo_comando_que_abre_o_banco_aceita_banco_e_o_padrao_e_o_real(monkeypa
 
 
 @pytest.mark.parametrize("args", [("exportar", "--banco", "outro"), ("painel-demo", "--banco", "vies"),
-                                  ("pg-migrar", "--banco", "vies"), ("pg-demo", "--banco", "vies")])
+                                  ("pg-demo", "--banco", "vies"), ("pg-migrar", "--banco", "outro"),
+                                  ("pg-importar", "--banco", "outro")])
 def test_banco_invalido_ou_em_comando_sem_banco_e_recusado(args, ambiente, monkeypatch, capsys):
     with pytest.raises(SystemExit) as e:
         _cli(monkeypatch, *args)

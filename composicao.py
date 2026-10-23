@@ -24,6 +24,11 @@ def banco_do_ambiente():
 _banco_em_uso = []         # o banco escolhido no comando em curso (um so de cada vez)
 
 
+def banco_em_uso():
+    """O banco escolhido pelo comando em andamento (`banco_escolhido`); fora de um comando, o real."""
+    return _banco_em_uso[0] if _banco_em_uso else "real"
+
+
 @contextmanager
 def banco_escolhido(banco, simulado=False, demo=False):
     """Durante o comando, as pastas do banco escolhido (D111): no real, nada muda; num outro banco, os dados, os brutos,
@@ -42,8 +47,6 @@ def banco_escolhido(banco, simulado=False, demo=False):
         return
     if simulado or demo:
         raise SystemExit(f"--banco {banco} não vale com --simulado nem com --demo.")
-    if banco_do_ambiente() == "postgres":
-        raise SystemExit(f"--banco {banco} só vale com o banco local (SQLite): o painel na nuvem tem um banco só.")
     _banco_em_uso.append(banco)
     antes = (S.DATA_DIR, S.OUT_DIR, S.LOG_DIR, dict(S.OPCOES["sqlite"]), dict(S.OPCOES["local"]), dict(S.OPCOES["excel"]))
     dados, saidas = S.DATA_DIR / banco, S.OUT_DIR / banco
@@ -151,10 +154,28 @@ class Fabrica:
             raise SystemExit("--simulado usa só o SQLite: tire DB_BACKEND=postgres do ambiente.")
         url = os.environ.get("DATABASE_URL", "").strip()
         if not url:
-            raise SystemExit("Com DB_BACKEND=postgres, defina DATABASE_URL (no Neon, a URL com -pooler).")
-        from adaptadores.postgres.conexao import chaves_do_banco, criar_pool
+            raise SystemExit("Com DB_BACKEND=postgres, defina DATABASE_URL (no Neon, a URL com -pooler; com --banco vies, a URL direta).")
+        return self._pool_postgres(url, S.ESQUEMAS_POSTGRES[banco_em_uso()])
+
+    @cached_property
+    def postgres_contas(self):
+        """(pool, chaves) das contas: sempre no esquema public (as contas sao as mesmas nos dois bancos); com o banco real,
+        o mesmo pool da pesquisa."""
+        if not self.postgres:
+            return None
+        if S.ESQUEMAS_POSTGRES[banco_em_uso()] == "public":
+            return self.postgres
         try:
-            pool = criar_pool(url)
+            return self._pool_postgres(os.environ.get("DATABASE_URL", "").strip(), "public", maximo=2)
+        except SystemExit:
+            self.postgres[0].close()             # nao deixa aberto o pool da pesquisa
+            raise
+
+    @staticmethod
+    def _pool_postgres(url, esquema, maximo=None):
+        from adaptadores.postgres.conexao import MAX_CONEXOES, chaves_do_banco, criar_pool
+        try:
+            pool = criar_pool(url, maximo or MAX_CONEXOES, esquema)
         except ValueError as e:
             raise SystemExit(str(e))
         except Exception:
@@ -165,10 +186,11 @@ class Fabrica:
             pool.close()
             raise SystemExit("Não foi possível conectar ao PostgreSQL (confira a DATABASE_URL, a senha e se o banco está no ar).")
 
-    def esquema_postgres_pendente(self):
-        """Migracoes que faltam no PostgreSQL (lista vazia = em dia). So com DB_BACKEND=postgres."""
+    def esquema_postgres_pendente(self, contas=False):
+        """Migracoes que faltam no esquema do banco (ou, com `contas`, no das contas); lista vazia = em dia. So com
+        DB_BACKEND=postgres."""
         from adaptadores import migrador_postgres
-        pool, _ = self.postgres
+        pool, _ = self.postgres_contas if contas else self.postgres
         with pool.connection() as conn:
             pend = migrador_postgres.pendentes_na_conexao(conn)
             conn.rollback()
@@ -191,7 +213,7 @@ class Fabrica:
         """Contas do painel: no PostgreSQL com DB_BACKEND=postgres; senao, o arquivo SQLite indicado."""
         if self.postgres:
             from adaptadores.contas_postgres import ContasPostgres
-            return ContasPostgres(*self.postgres)
+            return ContasPostgres(*self.postgres_contas)
         return ContasSQLite(caminho_sqlite)
 
     # lazy creation: only requires a key for the adapters the command actually uses

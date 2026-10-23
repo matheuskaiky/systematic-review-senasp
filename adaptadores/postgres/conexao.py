@@ -33,6 +33,8 @@ ESPERA_POOL = 30                     # segundos esperando uma conexao livre do p
 INDISPONIVEL = "banco PostgreSQL indisponível"
 TLS = "Conexão remota sem TLS: acrescente sslmode=require à DATABASE_URL."
 URL_INVALIDA = "A DATABASE_URL é inválida (confira o formato postgresql://usuario:senha@host/banco)."
+POOLER_ESQUEMA = ("Fora do esquema public, use a conexão direta (sem -pooler): o pool do Neon não guarda o esquema "
+                  "escolhido entre as transações.")
 
 
 class _NumericoComoSQLite(Loader):
@@ -47,19 +49,34 @@ def _configurar(conn):
     conn.adapters.register_loader("numeric", _NumericoComoSQLite)
 
 
-def criar_pool(url, maximo=MAX_CONEXOES):
+def _configurar_no_esquema(esquema):
+    """Cada conexao nova do pool so enxerga o esquema do banco (a conexao e autocommit: o SET vale para a sessao)."""
+    def configurar(conn):
+        _configurar(conn)
+        conn.execute(f'SET search_path TO "{esquema}"')
+    return configurar
+
+
+def criar_pool(url, maximo=MAX_CONEXOES, esquema=migrador_postgres.PUBLICO):
     """Pool pequeno por instancia (o Neon ja tem o PgBouncer na URL -pooler). A URL passa pela mesma conferencia da
     migracao (o leitor de URL do psycopg: host, hostaddr, sslmode efetivos), mas aqui a URL do pool e a esperada.
     ValueError com mensagem fixa (nunca repete a URL): URL invalida ou host remoto sem TLS."""
     try:
-        _, sem_tls = migrador_postgres.analisar_url(url)
+        migrador_postgres.conferir_esquema(esquema)
+    except migrador_postgres.ErroMigracao as erro:
+        raise ValueError(str(erro)) from None
+    try:
+        hosts, sem_tls = migrador_postgres.analisar_url(url)
     except migrador_postgres.ErroMigracao:
         raise ValueError(URL_INVALIDA) from None
     if sem_tls:
         raise ValueError(TLS)
+    if esquema != migrador_postgres.PUBLICO and any("-pooler" in h for h in hosts):
+        raise ValueError(POOLER_ESQUEMA)
     # prepare_threshold=None: o pool transacional do Neon (PgBouncer) nao guarda prepared statements entre transacoes.
     # check: a conexao e testada ao sair do pool (o Neon derruba as ociosas quando o banco dorme).
-    return ConnectionPool(url, min_size=0, max_size=maximo, open=True, configure=_configurar, timeout=ESPERA_POOL,
+    configurar = _configurar if esquema == migrador_postgres.PUBLICO else _configurar_no_esquema(esquema)
+    return ConnectionPool(url, min_size=0, max_size=maximo, open=True, configure=configurar, timeout=ESPERA_POOL,
                           check=ConnectionPool.check_connection,
                           kwargs={"autocommit": True, "connect_timeout": 10, "prepare_threshold": None})
 
@@ -121,7 +138,7 @@ GROUP_BY_EXTRA_SQL = {
     "GROUP BY c.alvo_id ORDER BY c.alvo_id": ("t.query", "t.idioma"),
 }
 _SQLITE_MASTER = ("(SELECT table_name AS name, CASE table_type WHEN 'VIEW' THEN 'view' ELSE 'table' END AS type, "
-                  "NULL::text AS sql FROM information_schema.tables WHERE table_schema = 'public') sqlite_master")
+                  "NULL::text AS sql FROM information_schema.tables WHERE table_schema = current_schema()) sqlite_master")
 COLUNAS_SO_DO_POSTGRES = ("ordem_gravacao",)     # nao existem no SQLite: SELECT * nao as devolve
 
 
@@ -263,7 +280,7 @@ class ConexaoPostgres:
         m = re.fullmatch(r"PRAGMA TABLE_INFO\( ?([A-Z_0-9]+) ?\)", comando)
         if m:                                       # as colunas de uma tabela ou view, na ordem, como no SQLite
             return Cursor(self._bruto("SELECT ordinal_position - 1 AS cid, column_name AS name, data_type AS type "
-                                      "FROM information_schema.columns WHERE table_schema = 'public' AND table_name = %s "
+                                      "FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = %s "
                                       "AND column_name <> ALL(%s) ORDER BY ordinal_position",
                                       (m.group(1).lower(), list(COLUNAS_SO_DO_POSTGRES))))
         if comando.startswith("PRAGMA"):
@@ -383,11 +400,11 @@ def chaves_do_banco(pool):
     processo."""
     with pool.connection() as c:
         colunas = c.execute("SELECT table_name, column_name, is_identity = 'YES' FROM information_schema.columns "
-                            "WHERE table_schema = 'public' ORDER BY table_name, ordinal_position").fetchall()
+                            "WHERE table_schema = current_schema() ORDER BY table_name, ordinal_position").fetchall()
         chaves = c.execute(
             "SELECT tc.table_name, kcu.column_name FROM information_schema.table_constraints tc "
             "JOIN information_schema.key_column_usage kcu ON kcu.constraint_name = tc.constraint_name "
-            "AND kcu.table_schema = tc.table_schema WHERE tc.table_schema = 'public' AND tc.constraint_type = 'PRIMARY KEY' "
+            "AND kcu.table_schema = tc.table_schema WHERE tc.table_schema = current_schema() AND tc.constraint_type = 'PRIMARY KEY' "
             "ORDER BY tc.table_name, kcu.ordinal_position").fetchall()
     cols, ident, pk = {}, {}, {}
     for t, col, e_ident in colunas:

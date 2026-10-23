@@ -550,11 +550,16 @@ def abrir_painel(a, fab):
         # PostgreSQL (painel na nuvem): o painel nunca migra; so confere que as migracoes estao todas aplicadas
         pendentes = fab.esquema_postgres_pendente()
         if pendentes:
-            raise SystemExit("O esquema PostgreSQL está desatualizado: rode python main.py pg-migrar (faltam: "
+            raise SystemExit(f"O esquema PostgreSQL está desatualizado: rode python main.py pg-migrar{_sufixo_banco(a)} (faltam: "
+                             + ", ".join(pendentes) + ").")
+        pendentes = fab.esquema_postgres_pendente(contas=True) if getattr(a, "banco", "real") != "real" else []
+        if pendentes:
+            raise SystemExit("O esquema PostgreSQL das contas está desatualizado: rode python main.py pg-migrar (faltam: "
                              + ", ".join(pendentes) + ").")
         contexto.nome_banco = "PostgreSQL"
         contexto.brutos_aqui = False                 # os arquivos brutos ficam no computador da coleta (D99)
-        contexto.aceita_envios = True                # so a nuvem recebe envios de coleta (D98): no SQLite a juntada seguraria o banco
+        # so a nuvem recebe envios de coleta (D98): no SQLite a juntada seguraria o banco; e so o banco real (o enviar recusa o vies)
+        contexto.aceita_envios = getattr(a, "banco", "real") == "real"
     elif not fab.caminho_banco.exists() and a.demo:
         raise SystemExit("O banco de demonstração não existe. Rode antes: python main.py painel-demo")
     elif fab.caminho_banco.exists():
@@ -760,12 +765,38 @@ def _pg_demo():
     print(f"Importação conferida: {sum(n for n, _ in relatorio.values())} linhas em {len(relatorio)} tabelas.")
 
 
-def _pg_migrar():
-    """Aplica as migracoes do PostgreSQL com a conexao direta (no Neon, a URL sem -pooler). Nunca roda ao subir o painel."""
+def _pg_importar(banco):
+    """Copia o banco local do `vies` para o seu esquema no PostgreSQL, ja migrado e vazio (uma vez; nunca apaga nem
+    sobrescreve). O banco real nao tem copia: ele chega a nuvem pelo enviar (D97)."""
+    from adaptadores import migrador_postgres
+    from adaptadores.postgres import importador
+    if banco == "real":
+        raise SystemExit("pg-importar só vale com --banco vies: o banco real chega à nuvem pelo enviar (D97).")
+    url = _pg_url_direta()
+    esquema = S.ESQUEMAS_POSTGRES[banco]
+    with banco_escolhido(banco):
+        origem = Path(S.OPCOES["sqlite"]["caminho"])
+    if not origem.is_file():
+        raise SystemExit(f"O banco local {origem} não existe.")
+    try:
+        migrador_postgres.conferir_url(url)
+        if migrador_postgres.pendentes(url, esquema=esquema):
+            raise SystemExit(f"O esquema PostgreSQL do banco {banco} está desatualizado: rode antes python main.py pg-migrar --banco {banco}.")
+        relatorio = importador.importar(origem, url, esquema=esquema)
+    except (migrador_postgres.ErroMigracao, importador.ErroImportacao) as erro:
+        raise SystemExit(str(erro))
+    for tabela, (n, _) in relatorio.items():
+        print(f"{tabela}: {n}")
+    print(f"Importação conferida: {sum(n for n, _ in relatorio.values())} linhas em {len(relatorio)} tabelas (esquema {esquema}).")
+
+
+def _pg_migrar(banco="real"):
+    """Aplica as migracoes do PostgreSQL com a conexao direta (no Neon, a URL sem -pooler), no esquema do banco. Nunca
+    roda ao subir o painel."""
     from adaptadores import migrador_postgres
     url = _pg_url_direta()
     try:
-        feitos = migrador_postgres.aplicar(url)
+        feitos = migrador_postgres.aplicar(url, esquema=S.ESQUEMAS_POSTGRES[banco])
     except migrador_postgres.ErroMigracao as erro:          # mensagens fixas: nunca repetem a URL
         raise SystemExit(str(erro))
     print(("Migrações aplicadas: " + ", ".join(feitos)) if feitos else "Esquema PostgreSQL em dia: nenhuma migração pendente.")
@@ -797,7 +828,7 @@ def enviar_execucoes(a, fab):
 
 
 # com DB_BACKEND=postgres (o painel na nuvem, D96) so estes comandos rodam; a coleta e o resto ficam no SQLite local
-COMANDOS_NO_POSTGRES = ("painel", "usuario-admin", "pg-migrar", "pg-demo")
+COMANDOS_NO_POSTGRES = ("painel", "usuario-admin", "pg-migrar", "pg-demo", "pg-importar")
 
 
 def main():
@@ -928,17 +959,23 @@ def main():
                    help="execucao a enviar (repita para varias; vao na ordem dada; a dona de uma pagina usada por outra vai antes)")
     sub.add_parser("pg-migrar", help="aplica as migracoes do banco PostgreSQL do painel na nuvem (usa DATABASE_URL_DIRECT do ambiente)")
     sub.add_parser("pg-demo", help="carrega o banco de demonstracao no PostgreSQL vazio (usa DATABASE_URL_DIRECT; nunca sobrescreve)")
+    sub.add_parser("pg-importar", help="copia o banco local do vies para o seu esquema no PostgreSQL migrado e vazio (usa DATABASE_URL_DIRECT; nunca sobrescreve)")
 
-    # --banco em todo comando que abre o banco da pesquisa (D111); os do PostgreSQL e o da demonstracao tem banco proprio
+    # --banco em todo comando que abre o banco da pesquisa (D111) e nos do PostgreSQL que escolhem o esquema; a demonstracao tem banco proprio
     for nome, s in sub.choices.items():
-        if nome not in ("pg-migrar", "pg-demo", "painel-demo"):
+        if nome not in ("pg-demo", "painel-demo"):
             s.add_argument("--banco", choices=S.BANCOS, default="real",
                            help="banco da pesquisa: real (data/, o padrão) ou vies (data/vies/, a busca de viés algorítmico)")
     a = p.parse_args()
     if a.cmd not in COMANDOS_NO_POSTGRES and banco_do_ambiente() == "postgres":
         raise SystemExit(f"O comando {a.cmd} roda só no SQLite local: tire DB_BACKEND=postgres do ambiente.")
+    if a.cmd == "usuario-admin" and a.banco != "real" and banco_do_ambiente() == "postgres":
+        raise SystemExit("usuario-admin no PostgreSQL não usa --banco: as contas são as mesmas nos dois bancos (esquema public).")
     if a.cmd == "pg-migrar":
-        _pg_migrar()
+        _pg_migrar(a.banco)
+        return
+    if a.cmd == "pg-importar":
+        _pg_importar(a.banco)
         return
     if a.cmd == "pg-demo":
         _pg_demo()

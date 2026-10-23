@@ -318,6 +318,7 @@ CREATE TABLE IF NOT EXISTS triagem_escopo (
     pais_escopo        TEXT,                                         -- triagem da busca de vies: pais ou escopo, por extenso
     topicos            TEXT,                                         -- triagem da busca de vies: topicos separados por "; "
     eixo               TEXT,                                         -- triagem da busca de vies: um dos 6 eixos de exploracao
+    recorte            TEXT,                                         -- triagem do vies, prompt v2: vies_algoritmico ou aplicacoes_tecnologicas
     UNIQUE (run_id, fonte, item_id, uf)
 );
 CREATE INDEX IF NOT EXISTS ix_triagem_escopo_item ON triagem_escopo(fonte, item_id, uf);

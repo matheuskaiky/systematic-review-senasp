@@ -36,7 +36,7 @@ def banco(tmp_path):
     return tmp_path / "busca.db"
 
 
-def _triar(banco, linhas, versao="v1", run=None):
+def _triar(banco, linhas, versao=TE.PROMPT_TRIAGEM_VIES_VERSAO, run=None):
     repo = RepositorioSQLite(banco)
     try:
         run = run or repo.iniciar_execucao("triar-escopo", "h", "{}", "c")
@@ -58,7 +58,8 @@ def _cli(banco, tmp_path, **kw):
     ctx = Contexto(banco="vies", nome_banco="busca.db", somente_leitura=True, pasta_backup=tmp_path / "b", ufs=dict(C.UFS),
                    status_permitidos=set(V.STATUS), status_definicoes=dict(V.STATUS), hosts_permitidos=("testserver",),
                    consultas_literatura=dict(TERMOS), conjunto_da_consulta=dict(CONJUNTO), eixos_exploracao=dict(EIXOS_EXPLORACAO),
-                   versao_triagem_vies=TE.PROMPT_TRIAGEM_VIES_VERSAO, **kw)
+                   versao_triagem_vies=TE.PROMPT_TRIAGEM_VIES_VERSAO,
+                   versoes_triagem_vies=TE.VERSOES_TRIAGEM_VIES, **kw)
     return TestClient(criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(tmp_path), ctx))
 
 
@@ -85,7 +86,7 @@ def test_leitura_pega_a_triagem_mais_recente_da_versao_do_vies(banco):
     _triar(banco, [_linha("referencia", ref, topicos="novo"), _linha("artigo", art)])
     _triar(banco, [_linha("referencia", ref, topicos="de outro prompt")], versao="t2")
     _triar(banco, [_linha("web", ref, uf="SP", topicos="web")])
-    t = LeituraPainelSQLite(banco).triagens_vies("v1")
+    t = LeituraPainelSQLite(banco).triagens_vies(TE.PROMPT_TRIAGEM_VIES_VERSAO)
     assert set(t) == {("referencia", ref), ("artigo", art)} and t[("referencia", ref)]["topicos"] == "novo"
     assert LeituraPainelSQLite(banco).triagens_vies("") == {}
 
@@ -98,7 +99,7 @@ def test_banco_sem_as_colunas_novas_nao_quebra_a_leitura(banco):
         con.execute(f"ALTER TABLE triagem_escopo DROP COLUMN {c}")
     con.commit()
     leitura = LeituraPainelSQLite(banco)
-    linha = leitura.triagens_vies("v1")[("referencia", ref)]
+    linha = leitura.triagens_vies(TE.PROMPT_TRIAGEM_VIES_VERSAO)[("referencia", ref)]
     assert "tipo_fonte" not in linha.keys() and leitura.veredito_referencia(ref)["status_bruto"] == "alta"
 
 
@@ -142,7 +143,7 @@ def test_pagina_da_referencia_mostra_consultas_por_extenso_e_a_triagem(banco, tm
                           ("País/escopo", "Brasil / SP"), ("Tópicos e palavras-chave", "Reconhecimento facial; viés racial"),
                           ("Eixo de exploração", EIXO), ("Justificativa", "trata de viés")):
         assert f"<dt>{rotulo}</dt><dd>{valor}</dd>" in html
-    assert f'<a href="/execucoes/{run}?configuracao=1#configuracao"><code>{run}</code></a> · prompt v1' in html
+    assert f'<a href="/execucoes/{run}?configuracao=1#configuracao"><code>{run}</code></a> · prompt v2' in html
 
 
 def test_referencia_sem_triagem_e_inexistente(banco, tmp_path):
@@ -185,6 +186,13 @@ def test_artigo_mostra_o_cartao_da_triagem_vies_e_o_antigo_continua(banco, tmp_p
     assert "Área temática" in html and "<dt>Tipo de fonte</dt>" not in html      # a triagem t2 mais recente vale
 
 
+def test_artigo_com_triagem_vies_da_versao_anterior_mostra_a_ficha_do_vies(banco, tmp_path):
+    _, art = _ids(banco)
+    _triar(banco, [_linha("artigo", art, tipo_fonte="Artigo científico")], versao="v1")
+    html = _cli(banco, tmp_path).get(f"/literatura/artigos/{art}").text
+    assert "<dt>Tipo de fonte</dt><dd>Artigo científico</dd>" in html and "Termo gerador" not in html
+
+
 # ---------- página da execução ----------
 def test_bloco_da_configuracao_diz_abrir_ou_fechar(banco, tmp_path):
     run = _triar(banco, [])
@@ -209,8 +217,8 @@ def test_postgres_igual_ao_sqlite(banco, tmp_path, pg_url):
 
         def plano(d):
             return {k: {c: v for c, v in dict(l).items() if c not in ("id", "criado_em")} for k, l in d.items()}
-        assert plano(pg.triagens_vies("v1")) == plano(sq.triagens_vies("v1"))
-        assert pg.triagens_vies("v1")[("referencia", ref)]["topicos"] == "Reconhecimento facial; viés racial"
+        assert plano(pg.triagens_vies(TE.PROMPT_TRIAGEM_VIES_VERSAO)) == plano(sq.triagens_vies(TE.PROMPT_TRIAGEM_VIES_VERSAO))
+        assert pg.triagens_vies(TE.PROMPT_TRIAGEM_VIES_VERSAO)[("referencia", ref)]["topicos"] == "Reconhecimento facial; viés racial"
         assert pg.veredito_referencia(ref)["topicos"] == sq.veredito_referencia(ref)["topicos"]
         a, b = dict(sq.referencia_web(ref)), dict(pg.referencia_web(ref))
         assert [dict(o) for o in a.pop("ocorrencias")] == [dict(o) for o in b.pop("ocorrencias")] and a == b

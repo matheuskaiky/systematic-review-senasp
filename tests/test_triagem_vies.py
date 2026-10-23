@@ -30,7 +30,8 @@ EIXO = next(iter(EIXOS_EXPLORACAO))
 
 def _obj(**kw):
     o = {"id": "1", "relevancia": "alta", "confianca": "alta", "tipo_fonte": "Artigo científico", "pais_escopo": "Brasil",
-         "topicos": ["Reconhecimento facial", "viés racial"], "eixo": EIXO, "justificativa": "trata de viés no policiamento"}
+         "topicos": ["Reconhecimento facial", "viés racial"], "recorte": "vies_algoritmico", "eixo": EIXO,
+         "justificativa": "trata de viés no policiamento"}
     o.update(kw)
     return o
 
@@ -50,9 +51,19 @@ def _conferir(**kw):
 
 # ---------- configuração ----------
 def test_configuracao_da_triagem_vies():
-    assert (CFG.versao, CFG.vies, CFG.curta, CFG.ano_minimo, CFG.max_custo_padrao_usd) == ("v1", True, False, 0, 0.50)
-    assert (CFG.lote_padrao, CFG.lote_maximo, CFG.tokens_fixos_por_chamada) == (10, 25, 2000)
-    for trecho in ('answer "Indeterminado"', "1 to 5 short topics", '"conferência", "ensaio controlado"', '"query_terms" (the searches'):
+    assert (CFG.versao, CFG.vies, CFG.curta, CFG.ano_minimo, CFG.max_custo_padrao_usd) == ("v2", True, False, 0, 0.50)
+    assert CFG.recortes == ("vies_algoritmico", "aplicacoes_tecnologicas")
+    assert TE.RECORTES_VIES == {"vies_algoritmico": "Viés algorítmico", "aplicacoes_tecnologicas": "Aplicações tecnológicas"}
+    assert (CFG.lote_padrao, CFG.lote_maximo, CFG.tokens_fixos_por_chamada) == (10, 25, 2300)
+    assert TE.VERSOES_TRIAGEM_VIES == ("v1", "v2")
+    for trecho in ('answer "Indeterminado"', "1 to 5 short topics", '"conferência", "ensaio controlado"', '"query_terms" (the searches',
+                   '"recorte": the angle of the item', '- "vies_algoritmico": its main subject is bias',
+                   '- "aplicacoes_tecnologicas": its main subject is the use', "(2) TECHNOLOGICAL APPLICATIONS",
+                   "facial recognition, and technological solutions",
+                   '- "baixa": only tangentially related, including public security technology without AI or automated decisions',
+                   "or bias and ethics of AI in another area that transfers clearly to public security",
+                   'Choose between "alta" and "media" by what the item shows. When in doubt between keeping and excluding an item, keep it.',
+                   'never from "query_terms": they only say which search found it', 'even\n"fora_do_escopo" (the closer one)'):
         assert trecho in CFG.sistema_artigo
     assert len(CFG.tipos_fonte) == 43 and CFG.tipos_fonte[-1] == "Solução tecnológica / produto"
     assert CFG.eixos == tuple(EIXOS_EXPLORACAO) and CFG.sem_eixo == "Nenhum"
@@ -82,7 +93,12 @@ def test_os_sufixos_cobrem_os_43_tipos():
 # ---------- esquema e mensagem ----------
 def test_esquema_da_triagem_vies():
     obj = DT.montar_esquema(CFG, ["1", "2"])["properties"]["itens"]["items"]
-    assert obj["required"] == ["id", "relevancia", "confianca", "tipo_fonte", "pais_escopo", "topicos", "eixo", "justificativa"]
+    assert obj["required"] == ["id", "relevancia", "confianca", "tipo_fonte", "pais_escopo", "topicos", "recorte", "eixo",
+                               "justificativa"]
+    assert obj["properties"]["recorte"]["enum"] == ["vies_algoritmico", "aplicacoes_tecnologicas"]
+    assert list(obj["properties"]) == ["id", "relevancia", "confianca", "tipo_fonte", "pais_escopo", "topicos", "recorte", "eixo",
+                                       "justificativa"]
+    assert "prefer the higher level" not in CFG.sistema_artigo and "defence" not in CFG.sistema_artigo
     assert obj["properties"]["id"]["enum"] == ["1", "2"]
     assert obj["properties"]["relevancia"]["enum"] == ["alta", "media", "baixa", "fora_do_escopo"]
     assert obj["properties"]["tipo_fonte"]["enum"] == list(TE.TIPOS_FONTE)
@@ -139,6 +155,10 @@ def test_relevancia_vira_status(relevancia, confianca, status, valido):
     ("topicos", ["a; b"], None, "topicos_invalidos"), ("topicos", ["x" * 81], None, "topicos_invalidos"),
     ("topicos", ["x" * 80], "x" * 80, None), ("topicos", "a; b", None, "topicos_invalidos"),
     ("topicos", ["a", 3], None, "topicos_invalidos"), ("topicos", None, None, "topicos_invalidos"),
+    ("recorte", "vies_algoritmico", "vies_algoritmico", None), ("recorte", "aplicacoes_tecnologicas", "aplicacoes_tecnologicas", None),
+    ("recorte", " aplicacoes_tecnologicas ", "aplicacoes_tecnologicas", None), ("recorte", "Viés algorítmico", None, "recorte_invalido"),
+    ("recorte", "VIES_ALGORITMICO", None, "recorte_invalido"), ("recorte", "", None, "recorte_invalido"),
+    ("recorte", None, None, "recorte_invalido"), ("recorte", 1, None, "recorte_invalido"), ("recorte", ["vies_algoritmico"], None, "recorte_invalido"),
     ("eixo", EIXO, EIXO, None), ("eixo", "Nenhum", None, None), ("eixo", "Outro", None, "eixo_invalido"),
     ("eixo", None, None, "eixo_invalido"), ("eixo", EIXO.lower(), None, "eixo_invalido"),
     ("eixo", unicodedata.normalize("NFD", EIXO), EIXO, None),
@@ -154,9 +174,9 @@ def test_campos_da_triagem_vies(campo, valor, esperado, problema):
 
 
 def test_erros_combinados_aparecem_todos_na_ordem_dos_campos():
-    linha = _conferir(relevancia="?", confianca="?", tipo_fonte="?", pais_escopo="", topicos=[], eixo="?")
+    linha = _conferir(relevancia="?", confianca="?", tipo_fonte="?", pais_escopo="", topicos=[], recorte="?", eixo="?")
     assert linha["problemas"] == ["relevancia_invalida", "confianca_invalida", "tipo_fonte_invalido", "pais_escopo_invalido",
-                                  "topicos_invalidos", "eixo_invalido"]
+                                  "topicos_invalidos", "recorte_invalido", "eixo_invalido"]
     assert (linha["status"], linha["valido"]) == ("quarentena", False)
 
 
@@ -241,7 +261,7 @@ class _Triador:
 
     def triar(self, itens, instr):
         self.chamadas += 1
-        assert instr.versao == "v1" and instr.sistema == CFG.sistema_artigo
+        assert instr.versao == "v2" and instr.sistema == CFG.sistema_artigo
         objs = [self.respostas.get(DT.chave_item(i), _obj(id=DT.chave_item(i))) for i in itens]
         reg = RegistroChamada(provedor=self.nome, operacao="triar_escopo", parametros={}, requisitado_em=agora(),
                               http_status=200, raw=b"{}", custo_usd=0.001)
@@ -263,9 +283,9 @@ def test_grava_os_campos_da_triagem_vies(vies):
     linhas = repo.conn.execute("SELECT item_id, fonte, status, status_bruto, tipo_fonte, pais_escopo, topicos, eixo, "
                                "prompt_versao, valido FROM triagem_escopo ORDER BY item_id").fetchall()
     assert [tuple(l) for l in linhas] == [
-        (1, "referencia", "elegivel", "alta", "Artigo científico", "Brasil", "Reconhecimento facial; viés racial", EIXO, "v1", 1),
-        (2, "referencia", "excluido", "fora_do_escopo", "Reportagem / literatura cinzenta", "EUA", "vigilância", None, "v1", 1),
-        (3, "referencia", "elegivel", "alta", "Artigo científico", "Brasil", "Reconhecimento facial; viés racial", EIXO, "v1", 1)]
+        (1, "referencia", "elegivel", "alta", "Artigo científico", "Brasil", "Reconhecimento facial; viés racial", EIXO, "v2", 1),
+        (2, "referencia", "excluido", "fora_do_escopo", "Reportagem / literatura cinzenta", "EUA", "vigilância", None, "v2", 1),
+        (3, "referencia", "elegivel", "alta", "Artigo científico", "Brasil", "Reconhecimento facial; viés racial", EIXO, "v2", 1)]
 
 
 def test_repetir_nao_chama_de_novo_e_artigos_tambem_triam(vies):
@@ -301,7 +321,7 @@ def test_banco_antigo_ganha_as_colunas_ao_abrir(tmp_path):
     con.close()
     RepositorioSQLite(caminho).fechar()
     colunas = {l[1] for l in sqlite3.connect(caminho).execute("PRAGMA table_info(triagem_escopo)")}
-    assert {"tipo_fonte", "pais_escopo", "topicos", "eixo"} <= colunas
+    assert {"tipo_fonte", "pais_escopo", "topicos", "eixo", "recorte"} <= colunas
 
 
 # ---------- comando ----------
@@ -357,11 +377,40 @@ def test_postgres_tem_as_colunas_novas(pg_url):
     M.aplicar(pg_url)
     with psycopg.connect(pg_url) as con:
         colunas = {l[0] for l in con.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'triagem_escopo'")}
-    assert {"tipo_fonte", "pais_escopo", "topicos", "eixo"} <= colunas
+    assert {"tipo_fonte", "pais_escopo", "topicos", "eixo", "recorte"} <= colunas
 
 
 def test_pacote_de_envio_continua_na_versao_2_sem_as_colunas_do_vies():
     from dominio import pacote_coleta as P
-    assert P.VERSAO == 2 and P.CAMPOS_SO_DO_VIES == {"triagem_escopo": ("tipo_fonte", "pais_escopo", "topicos", "eixo")}
+    assert P.VERSAO == 2 and P.CAMPOS_SO_DO_VIES == {"triagem_escopo": ("tipo_fonte", "pais_escopo", "topicos", "eixo", "recorte")}
     assert not set(P.CAMPOS_SO_DO_VIES["triagem_escopo"]) & set(P.COLUNAS["triagem_escopo"])
     assert len(P.TIPOS["triagem_escopo"][0]) == len(P.COLUNAS["triagem_escopo"])
+
+
+# ---------- v2: o recorte de cada item e o conjunto C ----------
+def test_conjunto_c_das_aplicacoes_tecnologicas():
+    assert [(t.id, t.query, t.idioma, t.grupo) for t in C.CONJUNTOS_LITERATURA["C"]] == [
+        ("LC1", "inteligência artificial segurança pública", "pt", "conjunto_C"),
+        ("LC2", "inteligência artificial investigação criminal", "pt", "conjunto_C"),
+        ("LC3", "inteligência artificial policiamento", "pt", "conjunto_C"),
+        ("LC4", "reconhecimento facial segurança pública", "pt", "conjunto_C"),
+        ("LC5", "soluções tecnológicas inteligência artificial segurança pública", "pt", "conjunto_C")]
+    assert list(C.CONJUNTOS_LITERATURA) == ["A", "B", "C"]
+
+
+def test_sem_recortes_na_configuracao_nada_muda():
+    from dataclasses import replace
+    v1 = replace(CFG, recortes=())
+    obj = DT.montar_esquema(v1, ["1"])["properties"]["itens"]["items"]
+    assert "recorte" not in obj["properties"] and "recorte" not in obj["required"]
+    linhas, _ = DT.validar_resposta([_item()], json.dumps({"itens": [_obj(recorte="qualquer")]}), v1)
+    assert linhas[0]["recorte"] is None and linhas[0]["valido"] is True
+
+
+def test_grava_o_recorte(vies):
+    repo, bruto = vies
+    run = repo.iniciar_execucao("triar-escopo", "h", "{}", "c")
+    linha = _conferir(recorte="aplicacoes_tecnologicas")
+    repo.salvar_triagem_escopo(run, None, "v2", [linha])
+    repo.confirmar()
+    assert repo.conn.execute("SELECT recorte FROM triagem_escopo WHERE run_id = ?", (run,)).fetchone()[0] == "aplicacoes_tecnologicas"

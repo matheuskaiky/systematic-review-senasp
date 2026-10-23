@@ -65,6 +65,7 @@ class ConfigTriagem:
     sufixos_tipo_fonte: dict = field(default_factory=dict)
     eixos: tuple = ()
     sem_eixo: str = ""
+    recortes: tuple = ()             # triagem do vies a partir da v2: o recorte de cada item (vazio na v1)
 
     def como_dict(self):
         """Tudo que define a triagem, para gravar no config_json da execucao."""
@@ -146,6 +147,14 @@ def montar_esquema(config, ids=None):
                            "eixo": {"type": "string", "enum": list(config.eixos) + [config.sem_eixo]},
                            "justificativa": {"type": "string", "description": "at most 25 words, in Brazilian Portuguese"}},
             "required": ["id", "relevancia", "confianca", "tipo_fonte", "pais_escopo", "topicos", "eixo", "justificativa"]}
+        if config.recortes:                  # o recorte vem antes do eixo, na ordem do prompt (a geracao segue as propriedades)
+            props = {}
+            for nome, valor in objeto["properties"].items():
+                if nome == "eixo":
+                    props["recorte"] = {"type": "string", "enum": list(config.recortes)}
+                props[nome] = valor
+            objeto["properties"] = props
+            objeto["required"].insert(objeto["required"].index("eixo"), "recorte")
     elif config.curta:
         objeto = {
             "type": "object",
@@ -244,7 +253,7 @@ def _linha_base(item):
             "status": QUARENTENA, "status_bruto": None, "confianca": None, "categoria_motivo": None,
             "justificativa": None, "termo_gerador": None, "sinal_negativo": None, "dominio_tematico": None,
             "escopo_geografico": None, "tipo_documento": None, "tipo_fonte": None, "pais_escopo": None, "topicos": None,
-            "eixo": None, "valido": False, "problemas": []}
+            "recorte": None, "eixo": None, "valido": False, "problemas": []}
 
 
 def _conferir(item, obj, config):
@@ -393,7 +402,8 @@ def _texto(v):
 def _conferir_vies(item, obj, config):
     """Triagem da busca de vies: a relevancia vira o status (alta e media: elegivel; baixa: quarentena; fora_do_escopo:
     excluido, so com confianca alta). O tipo de fonte ganha o sufixo do codigo; os topicos viram texto separado por '; '
-    (1 a 5, sem repeticao, cada um com ate MAX_CHARS_TOPICO caracteres); eixo "sem eixo" fica nulo. Um campo fora do
+    (1 a 5, sem repeticao, cada um com ate MAX_CHARS_TOPICO caracteres); o recorte (v2) tem de ser uma das chaves de
+    `config.recortes`; eixo "sem eixo" fica nulo. Um campo fora do
     vocabulario ou do tamanho fica nulo e marca a linha como invalida."""
     linha = _linha_base(item)
     problemas = linha["problemas"]
@@ -440,6 +450,12 @@ def _conferir_vies(item, obj, config):
         linha["topicos"] = "; ".join(topicos)
     else:
         problemas.append("topicos_invalidos")
+    if config.recortes:
+        recorte = _texto(obj.get("recorte"))
+        if recorte in config.recortes:
+            linha["recorte"] = recorte
+        else:
+            problemas.append("recorte_invalido")
     eixo = _texto(obj.get("eixo"))
     if eixo in config.eixos:
         linha["eixo"] = eixo

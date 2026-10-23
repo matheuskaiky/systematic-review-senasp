@@ -170,7 +170,7 @@
         <article class="cartao cartao-llm" id="triagem-llm"><h2 data-ic="robot" data-tom="violeta">Triagem de escopo pelo modelo</h2>
           {% if not a.llm %}<p class="nao-avaliado">Este artigo ainda não foi avaliado pelo modelo. A triagem do modelo é só uma opinião, registrada à parte da sua decisão.</p>
           {% else %}
-          {% set da_busca_vies = ctx.versao_triagem_vies and a.llm.prompt_versao == ctx.versao_triagem_vies %}
+          {% set da_busca_vies = ctx.versao_triagem_vies and (a.llm.prompt_versao == ctx.versao_triagem_vies or a.llm.prompt_versao in ctx.versoes_triagem_vies) %}
           {% if not da_busca_vies %}<p class="selos">{{ s.llm(a.llm.status, a.llm.categoria_motivo, a.llm.valido) }}{% if a.llm.confianca %} <span class="selo neutro">Confiança {{ rotulos.rotulo(rotulos.CONFIANCA, a.llm.confianca)|lower }}</span>{% endif %}</p>{% endif %}
           {% if a.llm.status == "excluido" %}
           <p class="aviso aviso-excluido" role="status"><strong>Excluído pelo modelo.</strong> O modelo tem certeza de que este artigo é inútil para o escopo, por isso ele fica oculto das listas e da fila de triagem por padrão

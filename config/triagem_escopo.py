@@ -187,11 +187,15 @@ CONFIG_CURTA = ConfigTriagem(
 assert SEM_CATEGORIA not in CATEGORIAS_MOTIVO
 
 # ----- triagem da busca de vies algoritmico (banco `vies`, D111): o escopo combinado para esta busca -----
-# Os artigos do Scholar e as referencias da web achados pelos conjuntos A e B. A saida preenche as colunas "Tipo de
+# Os artigos do Scholar e as referencias da web achados pelos conjuntos A, B e C. A saida preenche as colunas "Tipo de
 # fonte", "Pais/escopo" e "Topicos e palavras-chave" do modelo de referencias; relevancia, eixo e justificativa vao alem
 # do modelo e aparecem so na pagina de cada resultado.
-PROMPT_TRIAGEM_VIES_VERSAO = "v1"
+PROMPT_TRIAGEM_VIES_VERSAO = "v2"   # v2 (23/10/2026): escopo amplo (vies e aplicacoes tecnologicas) e o recorte de cada item
 RELEVANCIAS_VIES = ("alta", "media", "baixa", "fora_do_escopo")
+# o recorte de cada item (v2): a chave gravada e o rotulo do painel e das planilhas
+RECORTES_VIES = {"vies_algoritmico": "Viés algorítmico", "aplicacoes_tecnologicas": "Aplicações tecnológicas"}
+# as versoes do prompt que sao da triagem do vies (o cartao do artigo mostra a ficha do vies para qualquer uma delas)
+VERSOES_TRIAGEM_VIES = ("v1", "v2")
 # Os 43 tipos-base aprovados (D110), em ordem alfabetica; o sufixo e posto pelo codigo, nunca pelo modelo
 TIPOS_FONTE = (
     "Artigo científico", "Artigo jurídico", "Artigo técnico", "Capítulo de livro", "Dissertação",
@@ -214,37 +218,49 @@ SUFIXOS_TIPO_FONTE = {t: ("" if t in TIPOS_LITERATURA_CIENTIFICA else
 SEM_EIXO = "Nenhum"
 LOTE_PADRAO_VIES = 10
 LOTE_MAXIMO_VIES = 25                # 25 itens x ~220 tokens de saida, mais o raciocinio, cabem em MAX_TOKENS_SAIDA
-TOKENS_FIXOS_POR_CHAMADA_VIES = 2000  # o prompt (~1.300 tokens) e o esquema (~550)
+TOKENS_FIXOS_POR_CHAMADA_VIES = 2300  # o prompt v2 (~1.700 tokens) e o esquema (~600)
 SNIPPET_MAX_CHARS_VIES = 1200
 MAX_CUSTO_PADRAO_VIES_USD = 0.50
 SAIDA_POR_ITEM_VIES = {"baixo": 120, "medio": 160, "alto": 220}
 ORIGEM_ARTIGO_VIES = "scholarly articles found by Google Scholar searches in Portuguese"
 ORIGEM_REFERENCIA_VIES = "web pages found by web searches in Portuguese"
 
-_SISTEMA_VIES = """You screen search results for a literature review on artificial intelligence (AI) in public security,
-with emphasis on ALGORITHMIC BIAS, CRIMINAL INVESTIGATION, DISCRIMINATION and ETHICS.
+_SISTEMA_VIES = """You screen search results for a literature review on artificial intelligence (AI) in public security.
+The review has two angles: (1) ALGORITHMIC BIAS, DISCRIMINATION, ETHICS and RIGHTS; and (2) TECHNOLOGICAL APPLICATIONS of
+AI in public security, policing and criminal investigation, with or without discussing bias.
 Write all free text in Brazilian Portuguese (pt-BR). Use the enum values exactly as listed.
 
 SCOPE (agreed for this research):
-- The searches combined: artificial intelligence + public security + algorithmic bias + criminal investigation; and
-  artificial intelligence + public security + algorithmic bias + discrimination + ethics. Searches were in Portuguese.
+- The searches combined: artificial intelligence + public security + algorithmic bias + criminal investigation;
+  artificial intelligence + public security + algorithmic bias + discrimination + ethics; and artificial intelligence +
+  public security, criminal investigation, policing or facial recognition, and technological solutions. Searches were in
+  Portuguese.
 - Include traditional scientific literature AND grey literature (websites, technical documents, reports, documents not
   published in scientific databases), technological solutions, products, empirical studies, regulation and anything
   related to the subject. Items from any country and any year may be useful.
 - Out of scope: items unrelated to AI or automated decision systems, or unrelated to public security, policing,
   criminal investigation, forensics, criminal justice or the rights affected by them.
 
-"relevancia":
-- "alta": directly about AI or algorithms in public security, policing, criminal investigation, forensics or criminal
-  justice AND about bias, discrimination, ethics, rights or governance; or an empirical study, technological solution or
-  product in that area.
-- "media": AI in public security without the bias or ethics angle; or bias and ethics of AI in another area that
-  transfers clearly to public security.
-- "baixa": only tangentially related.
+"relevancia" (the same for both angles):
+- "alta": directly about AI, algorithms or automated decision systems in public security, policing, criminal
+  investigation, forensics or criminal justice: their bias, discrimination, ethics, rights or governance; or their
+  applications, implementations, empirical results, technological solutions or products.
+- "media": AI in an adjacent area (justice in general, surveillance, smart cities) that transfers clearly to public
+  security; or bias and ethics of AI in another area that transfers clearly to public security.
+- "baixa": only tangentially related, including public security technology without AI or automated decisions (ordinary
+  cameras, body cams, drones without AI).
 - "fora_do_escopo": unrelated. Use it ONLY when you are certain; then "confianca" must be "alta".
-When in doubt, prefer the higher level.
+Choose between "alta" and "media" by what the item shows. When in doubt between keeping and excluding an item, keep it.
 
 "confianca": how sure you are of "relevancia": alta, media or baixa.
+
+"recorte": the angle of the item, exactly one of:
+- "vies_algoritmico": its main subject is bias, discrimination, fairness, ethics, rights, transparency, accountability or
+  governance of AI or algorithms;
+- "aplicacoes_tecnologicas": its main subject is the use, implementation, performance, products or solutions of AI or
+  technology, without centring bias or ethics.
+An item that discusses both goes to the one that dominates its title and snippet. Give an angle to every item, even
+"fora_do_escopo" (the closer one); the analyses ignore the angle of out-of-scope items.
 
 "tipo_fonte": exactly one of: {tipos}.
 Choose the closest type from what the title, snippet, authors and URL show (a news site: "Reportagem"; a government
@@ -266,7 +282,8 @@ here, not in "tipo_fonte". Never query codes, never the whole title.
 INPUT: one item per line, as JSON, with "id", "query_terms" (the searches that found it), "titulo", "resumo" (the
 search snippet), "autores_publicacao" (authors, venue and year, for articles), "ano" (null if unknown), "url" and "host".
 Return exactly one object per item, echoing its "id" unchanged. Never skip an item and never repeat an id. Judge only
-what the item shows. Do not invent facts."""
+what the item shows. Do not invent facts. Judge "relevancia" and "recorte" from the item itself (title, snippet,
+authors, URL), never from "query_terms": they only say which search found it."""
 
 
 def sistema_vies(eixos):
@@ -289,7 +306,7 @@ def config_vies(eixos):
         tokens_fixos_por_chamada=TOKENS_FIXOS_POR_CHAMADA_VIES,
         saida_por_item=dict(SAIDA_POR_ITEM_VIES), raciocinio_por_chamada=dict(RACIOCINIO_POR_CHAMADA),
         vies=True, relevancias=RELEVANCIAS_VIES, tipos_fonte=TIPOS_FONTE, sufixos_tipo_fonte=dict(SUFIXOS_TIPO_FONTE),
-        eixos=tuple(eixos), sem_eixo=SEM_EIXO)
+        eixos=tuple(eixos), sem_eixo=SEM_EIXO, recortes=tuple(RECORTES_VIES))
 
 
 assert len(TIPOS_FONTE) == len(set(TIPOS_FONTE)) == 43

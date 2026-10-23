@@ -408,7 +408,7 @@ def test_retomada_com_argumentos_ilegiveis_e_recusada(ambiente, ambiente_cli, mo
 
 @pytest.mark.parametrize("args", [
     ("--simulado",),                                                    # sem --conjunto
-    ("--conjunto", "C", "--simulado"),                                  # conjunto desconhecido
+    ("--conjunto", "D", "--simulado"),                                  # conjunto desconhecido
     ("--conjunto", "a", "--simulado"),                                  # minuscula
     ("--conjunto", "--simulado"),                                       # --conjunto vazio
     ("--conjunto", "A", "--fonte", "web", "--simulado"),                # --fonte ainda nao existe

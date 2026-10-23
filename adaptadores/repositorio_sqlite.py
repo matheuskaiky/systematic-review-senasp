@@ -46,7 +46,7 @@ _COLUNAS_NOVAS = {
                          "independente": "INTEGER NOT NULL DEFAULT 0"},
     "resultados_web": {"cidade": "TEXT"},
     "classificacoes": {"cidade": "TEXT"},
-    "triagem_escopo": {"tipo_fonte": "TEXT", "pais_escopo": "TEXT", "topicos": "TEXT", "eixo": "TEXT"},
+    "triagem_escopo": {"tipo_fonte": "TEXT", "pais_escopo": "TEXT", "topicos": "TEXT", "eixo": "TEXT", "recorte": "TEXT"},
 }
 
 
@@ -639,8 +639,8 @@ class RepositorioSQLite:
                 """INSERT INTO triagem_escopo (run_id, chamada_id, fonte, item_id, uf, provedor, termos_consulta, status,
                        status_bruto, confianca, categoria_motivo, justificativa, termo_gerador, sinal_negativo,
                        dominio_tematico, escopo_geografico, tipo_documento, valido, problemas, prompt_versao, criado_em,
-                       tipo_fonte, pais_escopo, topicos, eixo)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                       tipo_fonte, pais_escopo, topicos, eixo, recorte)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(run_id, fonte, item_id, uf) DO UPDATE SET
                        chamada_id=excluded.chamada_id, provedor=excluded.provedor, termos_consulta=excluded.termos_consulta,
                        status=excluded.status, status_bruto=excluded.status_bruto, confianca=excluded.confianca,
@@ -649,13 +649,14 @@ class RepositorioSQLite:
                        dominio_tematico=excluded.dominio_tematico, escopo_geografico=excluded.escopo_geografico,
                        tipo_documento=excluded.tipo_documento, valido=excluded.valido, problemas=excluded.problemas,
                        prompt_versao=excluded.prompt_versao, criado_em=excluded.criado_em, tipo_fonte=excluded.tipo_fonte,
-                       pais_escopo=excluded.pais_escopo, topicos=excluded.topicos, eixo=excluded.eixo""",
+                       pais_escopo=excluded.pais_escopo, topicos=excluded.topicos, eixo=excluded.eixo,
+                       recorte=excluded.recorte""",
                 (run_id, chamada_id, l["fonte"], l["item_id"], l["uf"] or "", l.get("provedor"),
                  json.dumps(l.get("termos_consulta") or [], ensure_ascii=False), l["status"], l.get("status_bruto"),
                  l.get("confianca"), l.get("categoria_motivo"), l.get("justificativa"), l.get("termo_gerador"),
                  l.get("sinal_negativo"), l.get("dominio_tematico"), l.get("escopo_geografico"), l.get("tipo_documento"),
                  int(bool(l["valido"])), json.dumps(l.get("problemas") or [], ensure_ascii=False), prompt_versao, agora(),
-                 l.get("tipo_fonte"), l.get("pais_escopo"), l.get("topicos"), l.get("eixo")))
+                 l.get("tipo_fonte"), l.get("pais_escopo"), l.get("topicos"), l.get("eixo"), l.get("recorte")))
         return len(linhas)
 
     def triagem_escopo_ja_feita(self, run_id, fonte, item_id, uf=""):

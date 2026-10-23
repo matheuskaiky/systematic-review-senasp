@@ -124,6 +124,7 @@ class Contexto:
     conjunto_da_consulta: dict = field(default_factory=dict)     # id da consulta da busca de vies -> conjunto (A, B)
     eixos_exploracao: dict = field(default_factory=dict)         # esquema de exploracao da busca de vies (D102)
     versao_triagem_vies: str = ""                                # versao do prompt da triagem da busca de vies (D116)
+    versoes_triagem_vies: tuple = ()                             # todas as versoes desse prompt (o cartao do artigo reconhece cada uma)
     consultas_literatura: dict = field(default_factory=dict)     # id -> texto das consultas dos conjuntos (so para exibir)
     brutos_aqui: bool = True                                     # False na nuvem: os arquivos brutos ficam no computador da coleta (D99)
     aceita_envios: bool = False                                  # True so no painel da nuvem (PostgreSQL): POST /api/coletas (D98)

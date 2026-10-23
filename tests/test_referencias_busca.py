@@ -197,7 +197,7 @@ def test_filtros_na_tela(consulta, n, banco, tmp_path):
     assert r.status_code == 200 and f"<strong>{n}</strong> referência(s)" in r.text
 
 
-@pytest.mark.parametrize("consulta", ["conjunto=C", "fonte=Google", "p=0", "p=abc", "conjunto=+A", "conjunto=a", "fonte=web", "fonte=Perplexity",
+@pytest.mark.parametrize("consulta", ["conjunto=D", "fonte=Google", "p=0", "p=abc", "conjunto=+A", "conjunto=a", "fonte=web", "fonte=Perplexity",
                                       "fonte=Scholar+"])
 def test_filtro_invalido_da_404(consulta, banco, tmp_path):
     assert _cli(banco, tmp_path).get(f"/literatura/referencias?{consulta}").status_code == 404

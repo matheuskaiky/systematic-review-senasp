@@ -193,6 +193,13 @@ def test_conjuntos_de_literatura_sao_as_consultas_aprovadas():
             ("LB4", "viés algorítmico discriminação segurança pública", "pt", "conjunto_B", ""),
             ("LB5", "inteligência artificial viés algorítmico ética", "pt", "conjunto_B", ""),
         ],
+        "C": [
+            ("LC1", "inteligência artificial segurança pública", "pt", "conjunto_C", ""),
+            ("LC2", "inteligência artificial investigação criminal", "pt", "conjunto_C", ""),
+            ("LC3", "inteligência artificial policiamento", "pt", "conjunto_C", ""),
+            ("LC4", "reconhecimento facial segurança pública", "pt", "conjunto_C", ""),
+            ("LC5", "soluções tecnológicas inteligência artificial segurança pública", "pt", "conjunto_C", ""),
+        ],
     }
     assert all(isinstance(t, Termo) for v in C.CONJUNTOS_LITERATURA.values() for t in v)
     assert all(isinstance(v, tuple) for v in C.CONJUNTOS_LITERATURA.values())

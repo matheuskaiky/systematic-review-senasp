@@ -23,7 +23,7 @@ CAMPOS_HUMANOS = {
 }
 # colunas so da triagem da busca de vies (D116): o banco `vies` nunca e enviado, e o pacote versao 2 continua com o
 # formato de antes (a nuvem com o codigo anterior aceita os pacotes de agora)
-CAMPOS_SO_DO_VIES = {"triagem_escopo": ("tipo_fonte", "pais_escopo", "topicos", "eixo")}
+CAMPOS_SO_DO_VIES = {"triagem_escopo": ("tipo_fonte", "pais_escopo", "topicos", "eixo", "recorte")}
 
 # compartilhadas entre execucoes: juntadas pela chave natural; a da nuvem, se existe, nunca muda (D100)
 COMPARTILHADAS = {

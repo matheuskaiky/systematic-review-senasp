@@ -181,6 +181,14 @@ CONJUNTOS_LITERATURA = {
         Termo("LB4", "viés algorítmico discriminação segurança pública", "pt", "conjunto_B"),
         Termo("LB5", "inteligência artificial viés algorítmico ética", "pt", "conjunto_B"),
     ),
+    # Conjunto C (pesquisador, 23/10/2026): as aplicacoes tecnologicas de IA na seguranca publica, sem o recorte de vies
+    "C": (
+        Termo("LC1", "inteligência artificial segurança pública", "pt", "conjunto_C"),
+        Termo("LC2", "inteligência artificial investigação criminal", "pt", "conjunto_C"),
+        Termo("LC3", "inteligência artificial policiamento", "pt", "conjunto_C"),
+        Termo("LC4", "reconhecimento facial segurança pública", "pt", "conjunto_C"),
+        Termo("LC5", "soluções tecnológicas inteligência artificial segurança pública", "pt", "conjunto_C"),
+    ),
 }
 # Filtros da busca web desta frente (D103): 20 resultados por consulta, so paginas em portugues, pais Brasil.
 FILTROS_LITERATURA_WEB = FiltrosBusca(max_resultados=20, idiomas=("pt",), pais="BR")

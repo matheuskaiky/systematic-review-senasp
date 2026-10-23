@@ -17,7 +17,7 @@ from composicao import banco_escolhido
 from config import consultas as C
 
 SINT = pathlib.Path(__file__).parent / "fixtures" / "sintetico"
-IDS_LITERATURA = [f"LA{n}" for n in range(1, 6)] + [f"LB{n}" for n in range(1, 6)]
+IDS_LITERATURA = [f"LA{n}" for n in range(1, 6)] + [f"LB{n}" for n in range(1, 6)] + [f"LC{n}" for n in range(1, 6)]
 SENHA = "senha-de-teste-123"
 
 
@@ -331,9 +331,9 @@ def test_nao_se_escolhe_um_banco_dentro_de_outro(ambiente):
     assert _caminhos() == antes
 
 
-def test_estimar_no_vies_conta_os_dez_termos(ambiente, monkeypatch, capsys):
+def test_estimar_no_vies_conta_os_quinze_termos(ambiente, monkeypatch, capsys):
     _cli(monkeypatch, "estimar", "--banco", "vies")
-    assert f"Academic terms: 10 | pages per term (max.): {C.MAX_PAGINAS_ACADEMICO}" in capsys.readouterr().out
+    assert f"Academic terms: 15 | pages per term (max.): {C.MAX_PAGINAS_ACADEMICO}" in capsys.readouterr().out
 
 
 def test_registro_do_vies_tem_os_caminhos_do_vies(ambiente, monkeypatch, silencio):

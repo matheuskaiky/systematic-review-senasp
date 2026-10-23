@@ -39,7 +39,7 @@ CONSULTAS_EXPORTACAO = {
                                 e.termo_gerador, e.sinal_negativo, e.dominio_tematico, e.escopo_geografico,
                                 e.tipo_documento, e.valido, e.problemas, e.termos_consulta, e.provedor,
                                 e.prompt_versao, e.run_id, e.chamada_id, e.criado_em, e.tipo_fonte, e.pais_escopo,
-                                e.topicos, e.eixo
+                                e.topicos, e.eixo, e.recorte
                          FROM triagem_escopo e
                          WHERE e.id = (SELECT x.id FROM triagem_escopo x
                                        WHERE x.fonte=e.fonte AND x.item_id=e.item_id AND x.uf=e.uf

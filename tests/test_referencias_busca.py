@@ -45,8 +45,8 @@ def test_linha_da_web():
     assert RB.linha_web(_web()) == {
         "ID": "W-1", "Autor/Instituição": "exemplo.org", "Ano": 2024, "Título": "T", "Tipo de fonte": "", "País/escopo": "",
         "Tópicos e palavras-chave": "", "URL": "https://exemplo.org/a", "Prioridade de leitura": "",
-        "Status de leitura": "Não iniciado", "Notas": "", "Fonte da busca": "Web", "Conjunto": "A",
-        "Execução": ["20261021_213559_3526e4", "20261022_151331_c84423"]}
+        "Status de leitura": "Não iniciado", "Notas": "", "Fonte da busca": "Web", "Conjunto": "A", "Recorte": "", "Local": "",
+        "Consultas": ["LA1", "LA2"], "Execução": ["20261021_213559_3526e4", "20261022_151331_c84423"]}
 
 
 def test_linha_do_artigo():
@@ -54,7 +54,7 @@ def test_linha_do_artigo():
         "ID": "A-7", "Autor/Instituição": "M Silva, J Souza", "Ano": 2023, "Título": "Um artigo", "Tipo de fonte": "",
         "País/escopo": "", "Tópicos e palavras-chave": "", "URL": "https://scielo.br/x",
         "Prioridade de leitura": "", "Status de leitura": "Não iniciado", "Notas": "", "Fonte da busca": "Scholar", "Conjunto": "A, B",
-        "Execução": ["20261022_151407_ef2c8f"]}
+        "Recorte": "", "Local": "", "Consultas": ["LA3", "LB1"], "Execução": ["20261022_151407_ef2c8f"]}
 
 
 @pytest.mark.parametrize("campo, valor, coluna, esperado", [
@@ -186,7 +186,7 @@ def test_tela_mostra_as_colunas_do_modelo_e_conta(banco, tmp_path):
     assert r.status_code == 200
     cabecalhos = re.findall(r"<th[^>]*>([^<]+)</th>", r.text)
     # as 11 colunas do modelo, a execução logo ao lado delas, depois a fonte da busca e o conjunto
-    assert cabecalhos == list(RB.COLUNAS) + ["Execução", "Fonte da busca", "Conjunto"]
+    assert cabecalhos == list(RB.COLUNAS) + ["Recorte", "Local", "Consultas", "Execução", "Fonte da busca", "Conjunto"]
     assert "<strong>5</strong> referência(s)" in r.text
     assert 'href="/literatura/referencias"' in _cli(banco, tmp_path).get("/").text          # item do menu
 
@@ -224,7 +224,7 @@ def test_paginacao_de_50(tmp_path):
     assert p3.status_code == 200 and p3.text.count("<tr>") == 1 and "Página 3 de 2" in p3.text
     filtrada = cli.get("/literatura/referencias?fonte=Web&q=t").text
     assert 'href="/literatura/referencias?fonte=Web&amp;q=t&amp;p=2"' in filtrada
-    assert 'href="/literatura/referencias.xlsx?fonte=Web&amp;q=t"' in filtrada
+    assert 'href="/literatura/referencias.xlsx?fonte=Web&amp;q=t&amp;modelo=erico"' in filtrada
 
 
 def test_referencias_clicaveis(banco, tmp_path):
@@ -291,7 +291,7 @@ def test_sem_permissao_de_ver_execucoes_a_execucao_e_so_texto(banco, tmp_path):
 
 def test_texto_so_com_espacos_nao_vira_filtro(banco, tmp_path):
     r = _cli(banco, tmp_path).get("/literatura/referencias?q=+++")
-    assert "<strong>5</strong> referência(s)" in r.text and "Limpar" not in r.text and 'href="/literatura/referencias.xlsx"' in r.text
+    assert "<strong>5</strong> referência(s)" in r.text and "Limpar" not in r.text and 'href="/literatura/referencias.xlsx?modelo=erico"' in r.text
 
 
 @pytest.mark.parametrize("url, esperado", [
@@ -388,5 +388,5 @@ def test_eixos_do_esquema_sao_os_seis_literais():
 def test_botao_baixar_curto_no_cartao_dos_filtros(banco, tmp_path):
     html = _cli(banco, tmp_path).get("/literatura/referencias?conjunto=B").text
     form = re.search(r'<form class="filtros".*?</form>', html, re.S).group(0)
-    assert '<a class="botao secundario" href="/literatura/referencias.xlsx?conjunto=B"' in form and ">Baixar</a>" in form
+    assert 'href="/literatura/referencias.xlsx?conjunto=B&amp;modelo=erico">Modelo Érico</a>' in form and ">Baixar</summary>" in form
     assert "Baixar no modelo de referências" not in html and "<strong>3</strong> referência(s).</p>" in html

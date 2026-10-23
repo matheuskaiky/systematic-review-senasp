@@ -130,6 +130,16 @@ def planilha_referencias_busca(linhas, eixos):
                          ESTILO_CABECALHO_REFERENCIAS)
 
 
+def planilha_referencias_colunas(linhas, colunas, textos_consultas):
+    """O download "Colunas selecionadas": a aba "Referências" com as `colunas` escolhidas na tela, na ordem dela, cada
+    celula como texto (`referencias_busca.valor_texto`), com o cabecalho, as larguras, a primeira linha congelada e o
+    filtro."""
+    abas = OrderedDict()
+    abas[RB.ABA_COLUNAS] = pd.DataFrame([[RB.valor_texto(l, c, textos_consultas) for c in colunas] for l in linhas],
+                                        columns=list(colunas))
+    return planilha_xlsx(abas, {RB.ABA_COLUNAS: tuple(RB.LARGURA_DA_COLUNA[c] for c in colunas)}, ESTILO_CABECALHO_REFERENCIAS)
+
+
 def planilha_casos_estaduais(linhas, ufs, tecnologias, status):
     """O arquivo no modelo "Casos Estaduais" (D112): a aba dos casos e a do resumo por UF, formatadas como o modelo."""
     abas = OrderedDict()

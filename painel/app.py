@@ -125,6 +125,7 @@ class Contexto:
     eixos_exploracao: dict = field(default_factory=dict)         # esquema de exploracao da busca de vies (D102)
     versao_triagem_vies: str = ""                                # versao do prompt da triagem da busca de vies (D116)
     versoes_triagem_vies: tuple = ()                             # todas as versoes desse prompt (o cartao do artigo reconhece cada uma)
+    recortes_vies: dict = field(default_factory=dict)            # chave -> rotulo do recorte da triagem v2 (D120)
     consultas_literatura: dict = field(default_factory=dict)     # id -> texto das consultas dos conjuntos (so para exibir)
     brutos_aqui: bool = True                                     # False na nuvem: os arquivos brutos ficam no computador da coleta (D99)
     aceita_envios: bool = False                                  # True so no painel da nuvem (PostgreSQL): POST /api/coletas (D98)
@@ -673,42 +674,61 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                         headers={"Content-Disposition": f'attachment; filename="{escolhido.arquivo}"', "Cache-Control": "no-store"})
 
     def _referencias_da_busca(request):
-        """As linhas da tela Referencias com os filtros da URL; None quando um filtro nao e um dos valores aceitos."""
+        """(linhas, filtros, colunas) da tela Referencias com os filtros e as colunas escolhidas da URL; (None, None,
+        None) quando um filtro ou uma coluna nao e um dos valores aceitos."""
         q = request.query_params
         conjunto, fonte, texto = q.get("conjunto", ""), q.get("fonte", ""), q.get("q", "").strip()
+        recorte = q.get("recorte", "")
+        colunas = referencias_busca.colunas_escolhidas(q.getlist("colunas"))
         if conjunto not in ("",) + tuple(sorted(set(contexto.conjunto_da_consulta.values()))) or \
-                fonte not in ("", referencias_busca.FONTE_WEB, referencias_busca.FONTE_SCHOLAR):
-            return None, None
+                fonte not in ("", referencias_busca.FONTE_WEB, referencias_busca.FONTE_SCHOLAR) or \
+                recorte not in ("",) + tuple(contexto.recortes_vies) or colunas is None:
+            return None, None, None
         todas = referencias_busca.referencias(leitura.linhas_referencias_web(),
                                               leitura.linhas_artigos_das_consultas(list(contexto.conjunto_da_consulta)),
-                                              contexto.conjunto_da_consulta, leitura.triagens_vies(contexto.versao_triagem_vies))
-        filtros = {k: v for k, v in (("conjunto", conjunto), ("fonte", fonte), ("q", texto)) if v}
-        return referencias_busca.filtrar(todas, conjunto, fonte, texto), filtros
+                                              contexto.conjunto_da_consulta, leitura.triagens_vies(contexto.versao_triagem_vies),
+                                              contexto.recortes_vies)
+        filtros = {k: v for k, v in (("conjunto", conjunto), ("fonte", fonte), ("recorte", recorte), ("q", texto)) if v}
+        return (referencias_busca.filtrar(todas, conjunto, fonte, texto, contexto.recortes_vies.get(recorte, "")), filtros,
+                colunas)
+
+    def _base_referencias(filtros, colunas):
+        """A parte da URL que repete os filtros e, quando nao sao todas, as colunas escolhidas."""
+        pares = list(filtros.items())
+        if colunas != list(referencias_busca.COLUNAS_TELA):
+            pares += [("colunas", c) for c in colunas]
+        return urlencode(pares)
 
     @app.get("/literatura/referencias", response_class=HTMLResponse)
     def referencias(request: Request):
         """As referencias da busca de vies algoritmico nas colunas do modelo de referencias (D103)."""
         if not leitura.existe():
             return sem_banco(request)
-        linhas, filtros = _referencias_da_busca(request)
+        linhas, filtros, colunas = _referencias_da_busca(request)
         n = _inteiro(request.query_params.get("p"), 1)
         if linhas is None or n is None:
             return erro(request, 404, "Filtro inválido", "Um dos filtros da página não é um valor aceito.")
         paginas = max((len(linhas) + 49) // 50, 1)
         return pagina(request, "referencias.html", linhas=linhas[(n - 1) * 50:n * 50], total=len(linhas), n=n, paginas=paginas,
-                      filtros=filtros, base=urlencode(filtros), colunas=referencias_busca.COLUNAS_TELA)
+                      filtros=filtros, base=_base_referencias(filtros, colunas), colunas=colunas,
+                      todas_colunas=referencias_busca.COLUNAS_TELA,
+                      textos_das_consultas=lambda cs: referencias_busca.textos_das_consultas(cs, contexto.consultas_literatura))
 
     @app.get("/literatura/referencias.xlsx")
     def referencias_xlsx(request: Request):
-        """As mesmas linhas da tela (com os filtros dela) no modelo de referencias, com o esquema de exploracao."""
+        """As mesmas linhas da tela (com os filtros dela): `modelo=erico` (o padrao) no modelo de referencias, com o
+        esquema de exploracao; `modelo=colunas`, uma aba so com as colunas escolhidas na tela, na ordem dela."""
         if not leitura.existe():
             return sem_banco(request)
-        linhas, _ = _referencias_da_busca(request)
-        if linhas is None:
+        linhas, _, colunas = _referencias_da_busca(request)
+        modelo = request.query_params.get("modelo", "erico")
+        if linhas is None or modelo not in ("erico", "colunas"):
             return erro(request, 404, "Filtro inválido", "Um dos filtros da página não é um valor aceito.")
         prefixo = "" if contexto.banco == "real" else f"{contexto.banco}_"      # C6
         nome = f"{prefixo}referencias_{datetime.now():%Y%m%d_%H%M}.xlsx"
-        return Response(exportacao.planilha_referencias_busca(linhas, contexto.eixos_exploracao),
+        conteudo = (exportacao.planilha_referencias_colunas(linhas, colunas, contexto.consultas_literatura) if modelo == "colunas"
+                    else exportacao.planilha_referencias_busca(linhas, contexto.eixos_exploracao))
+        return Response(conteudo,
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         headers={"Content-Disposition": f'attachment; filename="{nome}"', "Cache-Control": "no-store"})
 

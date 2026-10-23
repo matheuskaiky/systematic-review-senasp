@@ -75,8 +75,8 @@ def test_colunas_do_modelo_vem_da_triagem_valida(triagem, esperado):
                          "conjuntos": "A", "execucoes": "r"})
     linha = RB.com_triagem(base, triagem)
     assert (linha["Tipo de fonte"], linha["País/escopo"], linha["Tópicos e palavras-chave"]) == esperado
-    assert {k: v for k, v in linha.items() if k not in RB.COLUNAS_DA_TRIAGEM} == {
-        k: v for k, v in base.items() if k not in RB.COLUNAS_DA_TRIAGEM}          # nada mais muda
+    fora = set(RB.COLUNAS_DA_TRIAGEM) | set(RB.COLUNAS_TRIAGEM_TELA)            # recorte e local tambem vem da triagem
+    assert {k: v for k, v in linha.items() if k not in fora} == {k: v for k, v in base.items() if k not in fora}   # nada mais muda
 
 
 # ---------- leitura ----------

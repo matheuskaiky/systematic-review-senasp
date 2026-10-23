@@ -235,7 +235,7 @@ O painel roda por padrão no computador de quem pesquisa, sobre o banco SQLite l
 **Enviar a coleta para a nuvem:** `python main.py enviar --run <run_id>` (repita `--run` para várias) manda só os dados da coleta daquela execução, sem os arquivos brutos e sem decisões humanas, usando o endereço do painel e o token pessoal da página Minha conta (`PAINEL_NUVEM_URL` e `PAINEL_TOKEN` no `.env`). Reenviar a mesma execução só acrescenta e atualiza o que mudou.
 
 > [!NOTE]
-> Os passos de implantação na nuvem ficam na documentação interna do projeto, fora deste repositório.
+> Os passos de implantação na nuvem ficam em `IMPLANTACAO.md`.
 
 ---
 

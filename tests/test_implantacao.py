@@ -73,8 +73,15 @@ def test_script_de_copia_executavel_valido_e_pela_api_de_backup():
         assert trecho in s, trecho
 
 
-def test_readme_explica_a_implantacao():
+def test_readme_fica_so_com_o_uso_local():
     r = _ler("README.md")
+    for trecho in ("## Implantação", "docker compose", "gcloud", "Oracle Cloud", "Cloud Run", "Caddy"):
+        assert trecho not in r, trecho
+    assert "`IMPLANTACAO.md`" in r
+
+
+def test_guia_de_implantacao_explica_a_oracle():
+    r = _ler("IMPLANTACAO.md")
     assert "## Implantação do Painel na Nuvem (Oracle Cloud)" in r
     for trecho in ("docker compose up -d --build",
                    'docker compose exec app python main.py usuario-admin --login <login> --nome "<nome>" --demo',
@@ -112,8 +119,8 @@ def test_env_example_tem_as_variaveis_do_postgres_vazias():
     assert {"DB_BACKEND=", "DATABASE_URL=", "DATABASE_URL_DIRECT="} <= set(linhas)
 
 
-def test_readme_explica_o_cloud_run():
-    r = _ler("README.md")
+def test_guia_de_implantacao_explica_o_cloud_run():
+    r = _ler("IMPLANTACAO.md")
     assert "## Implantação do Painel no Google Cloud Run (PostgreSQL no Neon)" in r
     for trecho in ('read -rs URL && printf \'%s\' "$URL" | gcloud secrets create painel-database-url --data-file=- --project "$PROJETO"; unset URL',
                    "--role=roles/secretmanager.secretAccessor",

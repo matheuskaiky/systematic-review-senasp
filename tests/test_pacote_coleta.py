@@ -228,6 +228,12 @@ def local(copiar_demo):
     repo.fechar()
 
 
+def _run_com_urls_e_chamadas(repo):
+    """A primeira execucao (na ordem de envio) com URLs e chamadas: as execucoes da demonstracao criadas no mesmo segundo
+    mudam de ordem entre as maquinas, e a academica nao tem URL."""
+    return next(r for r in _runs(repo) if (lambda p: p["tabelas"]["urls"] and p["tabelas"]["chamadas"])(repo.pacote_da_execucao(r)))
+
+
 def _runs(repo):
     """As execucoes numa ordem de envio valida: a dona de uma pagina usada por outra vai antes (as externas)."""
     todas = [r[0] for r in repo.conn.execute("SELECT run_id FROM execucoes ORDER BY run_id")]
@@ -360,7 +366,7 @@ def test_todas_as_execucoes_chegam_iguais_e_reenviar_nao_muda_nada(local, centra
 
 def test_reenvio_acrescenta_e_atualiza_so_o_que_mudou_e_nada_e_apagado(local, central):
     fabrica, consultar = central
-    run = _runs(local)[0]
+    run = _run_com_urls_e_chamadas(local)
     local.conn.execute("INSERT INTO metricas_run (run_id, chave, valor) VALUES (?, 'metrica_apagada_depois', 1.0)", (run,))
     local.conn.commit()
     _enviar(fabrica, _pacote_json(local, run))
@@ -407,7 +413,7 @@ def test_decisoes_humanas_e_exclusao_do_relatorio_nunca_sao_tocadas(local, centr
 
 def test_url_e_artigo_da_nuvem_nunca_mudam(local, central):
     fabrica, consultar = central
-    run = _runs(local)[0]
+    run = _run_com_urls_e_chamadas(local)
     p = _pacote_json(local, run)
     u, a = p["tabelas"]["urls"][0], p["tabelas"]["artigos"][0] if p["tabelas"]["artigos"] else None
     repo = fabrica()

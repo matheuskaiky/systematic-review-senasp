@@ -10,7 +10,7 @@ from datetime import datetime
 
 from dominio import analises_ferramentas as AF, analises_vies as AV
 from painel import analises_blocos as b, analises_blocos_cobertura as bc, analises_blocos_ferramentas as bf
-from painel import analises_blocos_ruido as br, analises_blocos_vies as bv
+from painel import analises_blocos_ruido as br, analises_blocos_vies as bv, visao_geral_vies
 
 ABAS = (
     ("visao", "Visão geral"), ("adocao", "Adoção por UF"), ("busca", "Eficiência da busca"),
@@ -86,8 +86,7 @@ def montar_vies(leitura, contexto, secao, ferramentas):
     """Os blocos do banco `vies` (busca de vies algoritmico) e os numeros do panorama: so as analises do tipo de informacao
     desta busca (fonte, relevancia, ferramentas, tipo de fonte, eixo, topicos, ano, pais, consultas, conjuntos e sites)."""
     conjunto = contexto.conjunto_da_consulta
-    itens = AV.itens(leitura.linhas_referencias_web(), leitura.linhas_artigos_das_consultas(list(conjunto)), conjunto,
-                     leitura.triagens_vies(contexto.versao_triagem_vies))
+    itens = visao_geral_vies.itens(leitura, contexto)
     ids_por_conjunto = {}
     for cid, nome in conjunto.items():
         ids_por_conjunto.setdefault(nome, []).append(cid)

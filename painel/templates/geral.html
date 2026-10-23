@@ -7,11 +7,7 @@
 <h1>Visão geral</h1>
 <p class="sub">Levantamento nas secretarias estaduais de segurança pública. Os números consideram só as execuções marcadas para o relatório.</p>
 
-{% if alertas %}
-<section class="aviso aviso-lista" aria-label="Pontos de atenção"><strong>Pontos de atenção</strong>
-  <ul>{% for nivel, texto, link, rotulo_link in alertas %}<li>{{ texto }}{% if link %} <a href="{{ link }}">{{ rotulo_link }}</a>{% endif %}</li>{% endfor %}</ul>
-</section>
-{% endif %}
+{% include "_alertas.html" %}
 
 <section class="kpis" aria-label="Indicadores">
   <div class="kpi" data-ic="magnifying-glass" data-tom="cobalto"><span class="kpi-valor">{{ fmt.numero(r.consultas_web) }}</span><span class="kpi-rotulo">Consultas web</span></div>
@@ -51,17 +47,7 @@
 </section>
 {% endif %}
 
-<section class="cartao">
-  <h2 data-ic="play-circle" data-tom="ambar">Últimas execuções</h2>
-  {% if execucoes %}
-  <div class="tabela-rolavel"><table>
-    <thead><tr><th>Execução</th><th>Comando</th><th>Situação</th><th>Início</th><th class="num">Custo</th><th>Relatório</th></tr></thead>
-    <tbody>{% for e in execucoes %}
-      <tr><td><code>{{ e.run_id }}</code></td><td>{{ e.comando }}</td><td>{{ e.status }}</td><td>{{ fmt.data_hora(e.iniciado_em) }}</td>
-          <td class="num">{{ fmt.moeda_usd(e.custo_usd) }}</td><td>{{ "dentro" if e.no_relatorio else "fora" }}</td></tr>
-    {% endfor %}</tbody></table></div>
-  {% else %}<p class="vazio">Nenhuma execução registrada ainda. Rode <code>python main.py pipeline-uf --ufs PI --limite 5</code>.</p>{% endif %}
-</section>
+{% set comando_inicial = "python main.py pipeline-uf --ufs PI --limite 5" %}{% include "_execucoes_recentes.html" %}
 {{ guia_leitura(
   "Como interpretar esta página e suas métricas",
   [

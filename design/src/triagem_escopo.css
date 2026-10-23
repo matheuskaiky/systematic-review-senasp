@@ -6,7 +6,7 @@
 .cartao-llm .ficha dd small { display: block; }
 
 /* abas de visão (lista de links com o item atual marcado): controle segmentado, no matiz da página */
-.abas { display: flex; flex-wrap: wrap; gap: .2rem; width: fit-content; max-width: 100%; margin: 0 0 var(--esp-4); padding: .25rem; background: var(--superficie-subtil); border: 1px solid var(--borda); border-radius: var(--raio-md); }
+.abas { display: flex; flex-wrap: wrap; gap: .2rem; margin: 0 0 var(--esp-4); padding: .25rem; background: var(--superficie-subtil); border: 1px solid var(--borda); border-radius: var(--raio-md); }
 .abas a { display: inline-flex; align-items: center; gap: var(--esp-2); min-height: 2.25rem; padding: .35rem .85rem; border: 1px solid transparent; border-radius: calc(var(--raio-md) - 3px);
   text-decoration: none; background: transparent; color: var(--texto-suave); font-weight: 550; }
 .abas a:hover { background: var(--superficie); color: var(--texto); border-color: var(--borda); }

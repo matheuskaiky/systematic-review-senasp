@@ -54,18 +54,24 @@ _ADMIN = ("administracao", "Administração", (
     ("/estatisticas-usuarios", "Atividade dos revisores", "/estatisticas-usuarios", ()),
 ))
 
+# as telas só da Tarefa 1 (secretarias, páginas baixadas e achados): saem do menu no banco `vies`; as rotas continuam no ar
+SO_TAREFA_1 = frozenset({"/estados", "/achados", "/revisao/achados", "/classificadores", "/execucoes/comparar", "/solucoes",
+                         "/buscar-texto"})
+
 # na fila de revisão, a página de um item conta como a página da fila
 _FILAS = (("/achados", "/revisao/achados"), ("/literatura/artigos", "/literatura/triagem"))
 
 
-def grupos(caminho, em_fila=False, admin=False):
-    """Lista de {id, nome, aberto, itens: [{href, texto, atual}]} para o `caminho` (ex.: `/estados/SP`) da página atual."""
+def grupos(caminho, em_fila=False, admin=False, banco="real"):
+    """Lista de {id, nome, aberto, itens: [{href, texto, atual}]} para o `caminho` (ex.: `/estados/SP`) da página atual.
+    No banco `vies`, sem as telas de `SO_TAREFA_1`."""
     caminho = (caminho.rstrip("/") or "/") if caminho else ""          # sem caminho conhecido: nenhum link atual
     if em_fila:
         caminho = next((fila for lista, fila in _FILAS if _sob(caminho, lista)), caminho)
     saida = []
     for id_, nome, itens in _GRUPOS + ((_ADMIN,) if admin else ()):
-        marcados = [{"href": h, "texto": t, "atual": _atual(caminho, h, p, ex)} for h, t, p, ex in itens]
+        marcados = [{"href": h, "texto": t, "atual": _atual(caminho, h, p, ex)} for h, t, p, ex in itens
+                    if not (banco == "vies" and h in SO_TAREFA_1)]
         saida.append({"id": id_, "nome": nome, "aberto": any(i["atual"] for i in marcados), "itens": marcados})
     return saida
 

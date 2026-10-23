@@ -21,7 +21,7 @@ EDICOES = [
     ('geral.html', '<h2>Funil</h2>', '<h2 data-ic="funnel" data-tom="cobalto">Funil</h2>'),
     ('geral.html', '<h2>Progresso da revisão</h2>', '<h2 data-ic="list-checks" data-tom="cobalto">Progresso da revisão</h2>'),
     ('geral.html', '<h2 id="t-prontidao">Prontidão', '<h2 id="t-prontidao" data-ic="gauge" data-tom="violeta">Prontidão'),
-    ('geral.html', '<h2>Últimas execuções</h2>', '<h2 data-ic="play-circle" data-tom="ambar">Últimas execuções</h2>'),
+    ('_execucoes_recentes.html', '<h2>Últimas execuções</h2>', '<h2 data-ic="play-circle" data-tom="ambar">Últimas execuções</h2>'),
     ('estados.html', '<h2>Mapa</h2>', '<h2 data-ic="map-trifold">Mapa</h2>'),
     ('estados.html', '<h2>Tabela</h2>', '<h2 data-ic="table">Tabela</h2>'),
     ('literatura.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.numero(d.n_artigos) }}', '<div class="kpi" data-ic="article" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(d.n_artigos) }}'),

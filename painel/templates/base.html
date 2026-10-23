@@ -20,7 +20,7 @@
 <div class="layout{% block classe_layout %}{% endblock %}">
   {% block menu %}<nav class="menu" aria-label="Principal">
     <a class="marca" href="/">Levantamento<br><small>IA na Segurança Pública</small></a>
-    {% for g in menu_grupos(caminho, em_fila|default(false), (usuario and usuario.grupo == "Administrador") or false) %}
+    {% for g in menu_grupos(caminho, em_fila|default(false), (usuario and usuario.grupo == "Administrador") or false, ctx.banco) %}
     <details class="menu-grupo" data-grupo="{{ g.id }}"{% if g.aberto %} open{% endif %}>
       <summary>{{ g.nome }}</summary>
       <ul class="menu-lista" aria-label="{{ g.nome }}">

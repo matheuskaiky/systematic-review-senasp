@@ -26,7 +26,7 @@ from dominio.sugestoes import CAMPOS_ACHADO, chave_autor, ficha_da_decisao
 from dominio import autenticacao, referencias_busca, relevancia as relev
 from dominio.erros import BancoIndisponivel
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
-from painel import analises_blocos, formatacao as fmt, mapa_ufs, navegacao, rotulos
+from painel import analises_blocos, formatacao as fmt, mapa_ufs, navegacao, rotulos, visao_geral_vies
 from painel.entidades import Entidades, explicacao_da_entidade, link_entidade
 from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_do_brasil, mapa_de_calor
 
@@ -431,6 +431,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     def geral(request: Request):
         if not leitura.existe():
             return sem_banco(request)
+        if contexto.banco == "vies":                 # o banco da busca de vies tem a visao geral dela, sem o funil da Tarefa 1
+            return pagina(request, "geral_vies.html", **visao_geral_vies.dados(leitura, contexto))
         r, rev = leitura.resumo_geral(), leitura.contagem_revisao()
         f = leitura.funil()
         etapas = [("Consultas web", f["consultas_web"]), ("Resultados", f["resultados"]), ("URLs únicas", f["urls_unicas"]),

@@ -911,6 +911,57 @@ class RepositorioSQLite:
             self.conn.rollback()
             raise
 
+    COLUNAS_VALIDACAO = ("ordem", "fonte", "item_id", "triagem_id", "estrato", "estrato_tamanho", "modelo_relevancia",
+                         "modelo_grupo", "modelo_eixo", "modelo_pais")
+
+    def sortear_validacao_vies(self, linhas):
+        """Grava a amostra da validacao (RB34) de uma vez; recusa se ja houver amostra (ela nunca e trocada)."""
+        try:
+            if not self.conn.in_transaction:
+                self.conn.execute("BEGIN IMMEDIATE")
+            if self.conn.execute("SELECT 1 FROM validacao_vies LIMIT 1").fetchone():
+                raise SystemExit("A amostra da validação já foi sorteada.")
+            if not linhas:
+                raise SystemExit("Nenhum item com triagem válida do modelo para sortear.")
+            quando = agora()
+            self.conn.executemany(
+                f"INSERT INTO validacao_vies ({', '.join(self.COLUNAS_VALIDACAO)}, sorteado_em) "
+                f"VALUES ({', '.join('?' for _ in self.COLUNAS_VALIDACAO)}, ?)",
+                [tuple(l[c] for c in self.COLUNAS_VALIDACAO) + (quando,) for l in linhas])
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
+
+    def responder_validacao_vies(self, ordem, resposta, revisor):
+        """A resposta da pessoa a um item da amostra (os quatro campos ja conferidos). Uma pessoa so responde a amostra
+        (a primeira que respondeu); com tudo respondido, nada muda mais (a concordancia ja esta na tela). A mesma resposta
+        nao muda nada (nem o horario)."""
+        revisor = str(revisor or "").strip()
+        if not revisor:
+            raise SystemExit("Informe o nome do revisor")
+        try:
+            if not self.conn.in_transaction:
+                self.conn.execute("BEGIN IMMEDIATE")
+            atual = self.conn.execute("SELECT relevancia, grupo, eixo, pais, revisor FROM validacao_vies WHERE ordem=?",
+                                      (ordem,)).fetchone()
+            if atual is None:
+                raise SystemExit(f"Item da validação inexistente: {ordem}")
+            if not self.conn.execute("SELECT 1 FROM validacao_vies WHERE relevancia IS NULL LIMIT 1").fetchone():
+                raise SystemExit("A validação já foi concluída: as respostas não mudam mais.")
+            dono = self.conn.execute("SELECT revisor FROM validacao_vies WHERE revisor IS NOT NULL ORDER BY respondido_em, ordem "
+                                     "LIMIT 1").fetchone()
+            if dono is not None and dono[0] != revisor:
+                raise SystemExit("Esta amostra já está sendo respondida por outra pessoa: só ela responde.")
+            novo = (resposta["relevancia"], resposta["grupo"], resposta["eixo"], resposta["pais"], revisor)
+            if tuple(atual) != novo:
+                self.conn.execute("UPDATE validacao_vies SET relevancia=?, grupo=?, eixo=?, pais=?, revisor=?, respondido_em=? "
+                                  "WHERE ordem=?", novo + (agora(), ordem))
+            self.conn.commit()
+        except BaseException:
+            self.conn.rollback()
+            raise
+
     def _decisao_atual(self, alvo_tipo, alvo_id):
         """(decidido, valor, autor, ficha, versao) da decisao de hoje de um achado ou de um artigo (titulo e resumo)."""
         if alvo_tipo == "achado":

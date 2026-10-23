@@ -1159,5 +1159,5 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     from painel import rotas_extras
     rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos, entidades=entidades,
                                                  pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita, contas=contas,
-                                                 contas_ocupadas=contas_ocupadas, novo_repositorio=repositorio_fabrica))
+                                                 contas_ocupadas=contas_ocupadas, novo_repositorio=repositorio_fabrica, escrever=_escrever))
     return app

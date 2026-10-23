@@ -26,7 +26,7 @@ def test_lista_das_telas_so_da_tarefa_1():
 def test_menu_do_vies_sem_as_telas_da_tarefa_1_na_mesma_ordem():
     todos = navegacao.enderecos()
     assert _hrefs(navegacao.grupos("/", banco="vies")) == [h for h in todos if h not in TAREFA_1]
-    assert _hrefs(navegacao.grupos("/", banco="real")) == todos == _hrefs(navegacao.grupos("/"))
+    assert _hrefs(navegacao.grupos("/", banco="real")) == [h for h in todos if h not in navegacao.SO_VIES] == _hrefs(navegacao.grupos("/"))
     assert [g["id"] for g in navegacao.grupos("/", banco="vies")] == ["revisao", "analises", "auditoria"]
 
 

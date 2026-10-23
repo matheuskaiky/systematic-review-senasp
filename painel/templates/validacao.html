@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Validação da triagem{% endblock %}
+{% block conteudo %}
+<h1>Validação da triagem</h1>
+<p class="sub">Uma pessoa confere uma amostra da triagem feita pelo modelo, sem ver a resposta dele. A concordância entre as duas aparece quando a amostra inteira estiver respondida.</p>
+
+{% if not linhas %}
+<section class="cartao">
+  <h2 data-ic="list-checks" data-tom="violeta">Amostra ainda não sorteada</h2>
+  <p>A amostra tem {{ tamanho }} itens com triagem válida do modelo, sorteados com semente fixa e estratificados pela relevância que o modelo deu. O sorteio é feito uma vez só e não muda depois.</p>
+  {% if ctx.somente_leitura %}<p class="vazio">Painel em modo somente leitura.</p>
+  {% elif usuario and usuario.grupo != "Administrador" %}<p class="vazio">Só quem administra o painel sorteia a amostra.</p>
+  {% else %}<form method="post" action="/validacao/sortear"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="botao">Sortear a amostra</button></form>{% endif %}
+</section>
+{% else %}
+<section class="cartao">
+  <h2 data-ic="list-checks" data-tom="violeta">Andamento</h2>
+  <p><strong>{{ respondidas }} de {{ linhas|length }}</strong> itens respondidos.</p>
+  {% if not completa %}{% set proximo = (linhas|selectattr("relevancia", "none")|first) %}<a class="botao" href="/validacao/{{ proximo.ordem }}">Conferir o próximo item</a>{% endif %}
+  <div class="tabela-rolavel"><table>
+    <thead><tr><th class="num">Nº</th><th>Fonte</th><th>Título</th><th>Situação</th></tr></thead>
+    <tbody>{% for l in linhas %}
+      <tr><td class="num">{{ l.ordem }}</td><td>{{ "Web" if l.fonte == "referencia" else "Scholar" }}</td>
+          <td><a href="/validacao/{{ l.ordem }}">{{ l.titulo or "(sem título)" }}</a></td>
+          <td>{% if l.relevancia %}<span class="selo ok">✔ respondido</span>{% else %}<span class="selo neutro">○ a conferir</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+</section>
+
+{% if resultado %}
+<section class="cartao" aria-labelledby="t-concordancia">
+  <h2 id="t-concordancia" data-ic="scales" data-tom="violeta">Concordância entre a pessoa e o modelo</h2>
+  <p class="sub">Na amostra de {{ linhas|length }} itens, sem ponderar (o sorteio garante itens de cada relevância, então a amostra não tem as proporções do corpus). A concordância da elegibilidade (relevância alta ou média) também é estimada para todos os itens triados, pesando cada estrato pelo seu tamanho.</p>
+  <div class="tabela-rolavel"><table>
+    <thead><tr><th>Campo</th><th class="num">Iguais</th><th class="num">Concordância</th><th class="num">Kappa de Cohen</th><th>Leitura do kappa</th></tr></thead>
+    <tbody>{% for campo, nome in (("elegivel", "elegibilidade (alta ou média)"), ("relevancia", rotulos.relevancia), ("grupo", rotulos.grupo), ("eixo", rotulos.eixo), ("pais", rotulos.pais)) %}{% set r = resultado[campo] %}
+      <tr><td>{{ nome }}</td><td class="num">{{ r.iguais }} de {{ r.n }}</td><td class="num">{{ fmt.pct(r.iguais, r.n) }}</td>
+          <td class="num">{% if r.kappa.kappa is not none %}{{ "%.2f"|format(r.kappa.kappa)|replace(".", ",") }}{% else %}—{% endif %}</td>
+          <td>{{ r.faixa or "não definido (sem variação)" }}</td></tr>
+    {% endfor %}</tbody></table></div>
+  <p>Concordância da elegibilidade estimada para todos os itens triados: <strong>{% if resultado.elegivel_estimada is not none %}{{ "%.0f"|format(resultado.elegivel_estimada * 100) }}%{% else %}—{% endif %}</strong> de concordância.</p>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

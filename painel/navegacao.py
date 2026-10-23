@@ -21,6 +21,7 @@ _GRUPOS = (
     ("analises", "Análises e qualidade", (
         ("/analises", "Análises", "/analises", ()),
         ("/triagem-escopo", "Triagem de escopo (LLM)", "/triagem-escopo", ()),
+        ("/validacao", "Validação da triagem", "/validacao", ()),
         ("/classificadores", "Classificadores", "/classificadores", ()),
         # sem parâmetros a página é o seletor de duas execuções (responde 200), então o link direto está certo
         ("/execucoes/comparar", "Comparar execuções", "/execucoes/comparar", ()),
@@ -58,20 +59,23 @@ _ADMIN = ("administracao", "Administração", (
 SO_TAREFA_1 = frozenset({"/estados", "/achados", "/revisao/achados", "/classificadores", "/execucoes/comparar", "/solucoes",
                          "/buscar-texto"})
 
+# as telas só do banco `vies`: saem do menu nos outros bancos
+SO_VIES = frozenset({"/validacao"})
+
 # na fila de revisão, a página de um item conta como a página da fila
 _FILAS = (("/achados", "/revisao/achados"), ("/literatura/artigos", "/literatura/triagem"))
 
 
 def grupos(caminho, em_fila=False, admin=False, banco="real"):
     """Lista de {id, nome, aberto, itens: [{href, texto, atual}]} para o `caminho` (ex.: `/estados/SP`) da página atual.
-    No banco `vies`, sem as telas de `SO_TAREFA_1`."""
+    No banco `vies`, sem as telas de `SO_TAREFA_1`; nos outros, sem as de `SO_VIES`."""
     caminho = (caminho.rstrip("/") or "/") if caminho else ""          # sem caminho conhecido: nenhum link atual
     if em_fila:
         caminho = next((fila for lista, fila in _FILAS if _sob(caminho, lista)), caminho)
     saida = []
     for id_, nome, itens in _GRUPOS + ((_ADMIN,) if admin else ()):
         marcados = [{"href": h, "texto": t, "atual": _atual(caminho, h, p, ex)} for h, t, p, ex in itens
-                    if not (banco == "vies" and h in SO_TAREFA_1)]
+                    if not (banco == "vies" and h in SO_TAREFA_1) and not (banco != "vies" and h in SO_VIES)]
         saida.append({"id": id_, "nome": nome, "aberto": any(i["atual"] for i in marcados), "itens": marcados})
     return saida
 

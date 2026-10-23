@@ -30,7 +30,7 @@ MENU = [
     ("/", "squares-four", "cobalto"), ("/literatura/prisma", "flow-arrow", "cobalto"), ("/estados", "map-trifold", "petroleo"),
     ("/achados", "binoculars", "petroleo"), ("/revisao/achados", "seal-check", "petroleo"), ("/literatura/artigos", "article", "rosa"),
     ("/literatura/referencias", "bookmarks", "rosa"), ("/literatura", "books", "rosa"), ("/literatura/triagem", "funnel", "rosa"),
-    ("/analises", "chart-line-up", "violeta"), ("/triagem-escopo", "robot", "violeta"), ("/classificadores", "tag", "violeta"),
+    ("/analises", "chart-line-up", "violeta"), ("/triagem-escopo", "robot", "violeta"), ("/validacao", "user-check", "violeta"), ("/classificadores", "tag", "violeta"),
     ("/execucoes/comparar", "git-diff", "violeta"), ("/solucoes", "lightbulb", "ambar"),
     ("/buscar-texto", "magnifying-glass", "petroleo"), ("/execucoes", "play-circle", "ambar"), ("/chamadas", "plugs-connected", "ambar"),
     ("/metodologia", "flask", "cobalto"), ("/sobre", "database", "cobalto"),

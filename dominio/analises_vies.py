@@ -238,12 +238,19 @@ def paises(lista, n=12):
     return sorted(linhas, key=lambda x: (-x[1], x[0]))[:n]
 
 
+def categoria_pais(pais):
+    """'brasil' quando qualquer parte do pais/escopo (separado por '/') e Brasil; 'indeterminado' sem pais ou com
+    'Indeterminado'; 'outro' no resto."""
+    if not pais or _chave_texto(pais) in PAISES_SEM_LUGAR:
+        return "indeterminado"
+    return "brasil" if "brasil" in [_chave_texto(p) for p in pais.split("/")] else "outro"
+
+
 def brasil(lista):
     """(obras no escopo sobre o Brasil, obras no escopo com lugar definido): o Brasil conta quando qualquer parte do
     pais/escopo (separado por '/') e 'Brasil'; 'Indeterminado' fica fora do denominador."""
-    com_lugar = [i for i in no_escopo(obras(lista)) if i["pais"] and _chave_texto(i["pais"]) not in PAISES_SEM_LUGAR]
-    no_brasil = [i for i in com_lugar if "brasil" in [_chave_texto(p) for p in i["pais"].split("/")]]
-    return len(no_brasil), len(com_lugar)
+    categorias = [categoria_pais(i["pais"]) for i in no_escopo(obras(lista))]
+    return categorias.count("brasil"), len(categorias) - categorias.count("indeterminado")
 
 
 def consultas(lista, ids_por_conjunto):

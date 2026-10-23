@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}Validação: item {{ item.ordem }}{% endblock %}
+{% block conteudo %}
+<p class="sub"><a href="/validacao">← Validação da triagem</a> · item {{ item.ordem }} de {{ total }}</p>
+<h1>{{ item.titulo or "(sem título)" }}</h1>
+
+<section class="cartao">
+  <h2 data-ic="file-text" data-tom="violeta">O item</h2>
+  <dl class="ficha">
+    <dt>Fonte</dt><dd>{{ "Referência da web" if item.fonte == "referencia" else "Artigo do Google Scholar" }}</dd>
+    {% if item.origem %}<dt>{{ "Site" if item.fonte == "referencia" else "Autores e publicação" }}</dt><dd>{{ item.origem }}</dd>{% endif %}
+    {% if item.url %}<dt>Endereço</dt><dd>{% if item.url|url_segura != "#" %}<a href="{{ item.url|url_segura }}" rel="noopener noreferrer" target="_blank">{{ item.url }}</a>{% else %}{{ item.url }} <small>(endereço não é http/https)</small>{% endif %}</dd>{% endif %}
+  </dl>
+  {% if item.trecho %}<p>{{ item.trecho }}</p>{% else %}<p class="vazio">Sem trecho registrado: abra o endereço para ler.</p>{% endif %}
+</section>
+
+<section class="cartao" aria-labelledby="t-resposta">
+  <h2 id="t-resposta" data-ic="user-check" data-tom="violeta">Sua resposta</h2>
+  <p class="sub">Responda pelo que leu no item. Até terminar a amostra, não abra a triagem do modelo: a página do artigo ou da referência, a Triagem de escopo e as Análises mostram a resposta dele.</p>
+  {% if erros %}<div class="aviso aviso-lista" role="alert"><strong>Resposta não gravada</strong><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+  {% if ctx.somente_leitura %}<p class="vazio">Painel em modo somente leitura.</p>
+  {% elif "triar_artigos" in perms %}
+  <form method="post" action="/validacao/{{ item.ordem }}/triar">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="campo campo-espaco">
+      <label for="revisor">Seu nome (revisor)</label>
+      {% if usuario %}<input id="revisor" name="revisor" value="{{ usuario.nome }}" readonly required autocomplete="name">{% else %}<input id="revisor" name="revisor" value="{{ revisor }}" required autocomplete="name" placeholder="ex.: Maria Silva">{% endif %}
+    </div>
+    {% set nomes = {"relevancia": {"alta": "Alta", "media": "Média", "baixa": "Baixa", "fora_do_escopo": "Fora do escopo"},
+                    "pais": {"brasil": "Brasil", "outro": "Outro país", "indeterminado": "Indeterminado"}} %}
+    {% for campo in ("relevancia", "grupo", "eixo", "pais") %}
+    <div class="campo campo-espaco">
+      <label for="v-{{ campo }}">{{ rotulos[campo]|capitalize }}</label>
+      <select id="v-{{ campo }}" name="{{ campo }}" required>
+        <option value="">— escolha —</option>
+        {% for op in opcoes[campo] %}<option value="{{ op }}"{% if valores[campo] == op %} selected{% endif %}>{% if campo == "eixo" %}{{ eixos.get(op, "Nenhum eixo") }}{% else %}{{ nomes.get(campo, {}).get(op, op) }}{% endif %}</option>{% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+    <button type="submit" class="botao">Gravar e ir ao próximo</button>
+  </form>
+  {% else %}<p class="vazio">Seu grupo não pode responder a validação.</p>{% endif %}
+  {% if proximo_pendente %}<p><a href="/validacao/{{ proximo_pendente }}">Pular para o próximo a conferir</a></p>{% endif %}
+</section>
+{% endblock %}

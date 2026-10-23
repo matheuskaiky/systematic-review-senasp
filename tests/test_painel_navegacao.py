@@ -16,7 +16,7 @@ from painel import navegacao  # noqa: E402
 
 ESTATICOS = Path(__file__).resolve().parent.parent / "painel" / "static"
 GRUPOS = {"Revisão sistemática": ["/", "/literatura/prisma", "/estados", "/achados", "/revisao/achados", "/literatura/artigos", "/literatura/referencias", "/literatura", "/literatura/triagem"],
-          "Análises e qualidade": ["/analises", "/triagem-escopo", "/classificadores", "/execucoes/comparar", "/solucoes"],
+          "Análises e qualidade": ["/analises", "/triagem-escopo", "/validacao", "/classificadores", "/execucoes/comparar", "/solucoes"],
           "Auditoria e operação": ["/buscar-texto", "/execucoes", "/chamadas", "/metodologia", "/sobre"]}
 TODOS_OS_LINKS = [h for hs in GRUPOS.values() for h in hs]
 
@@ -44,10 +44,10 @@ def test_os_tres_grupos_e_todos_os_links_aparecem_uma_vez_cada(cliente):
     cli, _ = cliente
     menu = _menu(cli.get("/").text)
     assert [g[0] for g in menu] == list(GRUPOS)
-    for nome, _, links in menu:
-        assert [h for h, _, _ in links] == GRUPOS[nome], nome
+    for nome, _, links in menu:                          # no banco real (a demonstracao), sem as telas so do vies
+        assert [h for h, _, _ in links] == [h for h in GRUPOS[nome] if h not in navegacao.SO_VIES], nome
     todos = [h for _, _, links in menu for h, _, _ in links]
-    assert sorted(todos) == sorted(TODOS_OS_LINKS) and len(todos) == len(set(todos)) == 19
+    assert sorted(todos) == sorted(h for h in TODOS_OS_LINKS if h not in navegacao.SO_VIES) and len(todos) == len(set(todos)) == 19
 
 
 def test_a_marca_continua_levando_a_visao_geral(cliente):
@@ -60,6 +60,8 @@ def test_todo_endereco_do_menu_existe_na_aplicacao(cliente):
     cli, _ = cliente
     assert sorted(navegacao.enderecos()) == sorted(TODOS_OS_LINKS)
     for rota in TODOS_OS_LINKS:
+        if rota in navegacao.SO_VIES:                     # so existe no banco vies (testada em test_validacao_vies)
+            continue
         r = cli.get(rota, follow_redirects=False)
         assert r.status_code in (200, 303), (rota, r.status_code)
 

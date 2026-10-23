@@ -1290,3 +1290,26 @@ CREATE TABLE IF NOT EXISTS ocorrencias_web (
 );
 CREATE INDEX IF NOT EXISTS ix_ocorrencias_web_run ON ocorrencias_web(run_id);
 CREATE INDEX IF NOT EXISTS ix_ocorrencias_web_referencia ON ocorrencias_web(referencia_id);
+
+-- Validacao humana da triagem do banco `vies` por amostra (RB34): a amostra sorteada, a resposta do modelo no momento do
+-- sorteio e a da pessoa, que confere sem ver a do modelo.
+CREATE TABLE IF NOT EXISTS validacao_vies (
+    ordem             INTEGER PRIMARY KEY,
+    fonte             TEXT NOT NULL CHECK (fonte IN ('artigo', 'referencia')),
+    item_id           INTEGER NOT NULL,
+    triagem_id        INTEGER NOT NULL REFERENCES triagem_escopo(id),
+    estrato           TEXT NOT NULL,
+    estrato_tamanho   INTEGER NOT NULL,
+    modelo_relevancia TEXT NOT NULL,
+    modelo_grupo      TEXT,
+    modelo_eixo       TEXT NOT NULL,
+    modelo_pais       TEXT NOT NULL,
+    relevancia        TEXT,
+    grupo             TEXT,
+    eixo              TEXT,
+    pais              TEXT,
+    revisor           TEXT,
+    respondido_em     TEXT,
+    sorteado_em       TEXT NOT NULL,
+    UNIQUE (fonte, item_id)
+);

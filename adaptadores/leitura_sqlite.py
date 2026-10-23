@@ -424,6 +424,23 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         consultas e conjuntos que as acharam."""
         return self._consulta(SQL_REFERENCIAS_WEB)
 
+    def linhas_validacao_vies(self):
+        """A amostra da validacao da triagem do `vies` (RB34), na ordem de conferencia, com o que a pessoa le de cada item:
+        titulo e trecho (da ocorrencia mais recente, para a referencia da web; D101), endereco e origem. Sem a tabela
+        (banco aberto so para leitura antes de ganhar a tabela): lista vazia."""
+        if self._um("SELECT 1 AS x FROM sqlite_master WHERE type='table' AND name='validacao_vies'") is None:
+            return []
+        return self._consulta(f"""
+            SELECT v.*,
+                   CASE v.fonte WHEN 'artigo' THEN a.titulo ELSE ({_OCORRENCIA_RECENTE.format(c="titulo")}) END AS titulo,
+                   CASE v.fonte WHEN 'artigo' THEN a.snippet ELSE ({_OCORRENCIA_RECENTE.format(c="snippet")}) END AS trecho,
+                   CASE v.fonte WHEN 'artigo' THEN a.link ELSE r.url_original END AS url,
+                   CASE v.fonte WHEN 'artigo' THEN a.autores_publicacao ELSE r.dominio END AS origem
+            FROM validacao_vies v
+            LEFT JOIN artigos a ON v.fonte = 'artigo' AND a.artigo_id = v.item_id
+            LEFT JOIN referencias_web r ON v.fonte = 'referencia' AND r.referencia_id = v.item_id
+            ORDER BY v.ordem""")
+
     def linhas_artigos_das_consultas(self, consultas):
         """Os artigos que alguma das `consultas` (ids de termo) achou, com as consultas que os acharam."""
         if not consultas:

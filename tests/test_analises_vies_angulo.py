@@ -191,9 +191,9 @@ def _lista_bloco():
 def test_bloco_titulo_subtitulo_textos_e_tabela():
     b = bv.bloco_origem_angulo(_lista_bloco(), NOMES, RECORTES)
     assert b["id"] == "vies-origem-angulo"
-    assert b["titulo"] == "Origem da busca × ângulo predominante: 2 obras elegíveis"
-    assert b["subtitulo"] == ("por obra: denominador de 2 obras elegíveis (relevância alta ou média); não são itens nem "
-                              "ocorrências")
+    assert b["titulo"] == "Origem da busca × ângulo predominante: 2 obras com relevância alta ou média"
+    assert b["subtitulo"] == ("por obra: denominador de 2 obras com relevância alta ou média segundo o modelo; não são "
+                              "itens nem ocorrências")
     assert b["texto"] == [
         "Cada célula representa obras distintas, classificadas com relevância alta ou média pela triagem v2. Os conjuntos "
         "indicam onde as obras foram encontradas; os ângulos representam classificações predominantes atribuídas "
@@ -237,7 +237,8 @@ def test_bloco_avisa_das_referencias_ambiguas():
 def test_bloco_sem_obras_elegiveis():
     lista = _itens([_web(1, "LA1")], [], {("referencia", 1): _t("baixa")})
     b = bv.bloco_origem_angulo(lista, NOMES, RECORTES)
-    assert b["titulo"] == "Sem obras elegíveis para cruzar origem e ângulo predominante" and b["tabela"] is None
+    assert b["titulo"] == ("Nenhuma obra com relevância alta ou média segundo o modelo para cruzar origem e ângulo "
+                           "predominante") and b["tabela"] is None
 
 
 def test_bloco_nao_diz_que_a_intersecao_e_zero_nem_tem_links():
@@ -276,7 +277,7 @@ def test_pagina_de_analises_mostra_a_matriz_depois_dos_conjuntos(tmp_path):
     assert html.index('id="vies-conjuntos"') < html.index('id="vies-origem-angulo"')
     bloco = html[html.index('id="vies-origem-angulo"'):]
     assert "Viés algorítmico" in bloco and "Aplicações tecnológicas" in bloco and "Total de obras" in bloco
-    total = re.search(r"Origem da busca × ângulo predominante: (\d+) obras? elegíve", bloco)
+    total = re.search(r"Origem da busca × ângulo predominante: (\d+) obras? com relevância alta ou média", bloco)
     assert total and int(total.group(1)) >= 1
     linhas = re.findall(r"<tr><td>([^<]+)</td>", bloco[bloco.index("Total de obras"):])
     assert linhas[:9] == ["Só A", "Só B", "Só C", "A + B", "A + C", "B + C", "A + B + C", "Sem conjunto", "Total"]

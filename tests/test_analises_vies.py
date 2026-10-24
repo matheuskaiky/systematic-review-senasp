@@ -250,7 +250,7 @@ def test_titulo_dos_grupos(lista, titulo):
 @pytest.mark.parametrize("lista, titulo", [
     (_com(1, 0), "Obras no escopo por eixo de exploração"),          # um eixo só: sem "mais" nem "menos"
     (_itens([_web(1), _web(2), _web(3)], [], {("referencia", 1): _t(), ("referencia", 2): _t(), ("referencia", 3): _t(eixo="Biometria e vigilância")}),
-     "O eixo mais coberto é Direitos e governança (2 itens); o menos coberto, Biometria e vigilância (1 item)"),
+     "O eixo mais coberto é Direitos e governança (2 obras); o menos coberto, Biometria e vigilância (1 obra)"),
     (_com(0, 0), "Sem eixos para mostrar"),
 ])
 def test_titulo_dos_eixos(lista, titulo):
@@ -259,13 +259,14 @@ def test_titulo_dos_eixos(lista, titulo):
 
 def test_eixos_sem_obra_aparecem_como_lacuna():
     b = bv.bloco_eixos(_com(1, 0), tuple(EIXOS_EXPLORACAO))
-    assert b["titulo"].startswith("O eixo mais coberto é Direitos e governança (1 item); o menos coberto,")
+    assert b["titulo"].startswith("O eixo mais coberto é Direitos e governança (1 obra); o menos coberto,")
     assert b["texto"][0].startswith("Sem nenhuma obra: ")
 
 
 @pytest.mark.parametrize("anos, titulo", [
-    ([2025, 2026, 2026, 2020], "A maior parte dos artigos é recente: 3 de 4 com ano são de 2025 ou 2026"),
-    ([2020, 2021, 2026], "Artigos do Scholar por ano de publicação"),
+    ([2025, 2026, 2026, 2020], "Distribuição por ano dos artigos do Scholar no escopo com ano conhecido: 3 de 4 são de "
+                               "2025 ou 2026"),
+    ([2020, 2021, 2026], "Distribuição por ano dos artigos do Scholar no escopo com ano conhecido"),
     ([], "Sem artigos do Scholar com ano conhecido"),
 ])
 def test_titulo_dos_anos_usa_so_o_scholar(anos, titulo):
@@ -275,9 +276,9 @@ def test_titulo_dos_anos_usa_so_o_scholar(anos, titulo):
 
 
 @pytest.mark.parametrize("relevancias, titulo", [
-    ({"LA1": "alta", "LA2": "alta", "LB1": "fora_do_escopo"}, "A consulta com menor parte elegível é LB1: 0 de 1 item, 1 fora do escopo"),
-    ({"LA1": "fora_do_escopo", "LA2": "fora_do_escopo", "LB1": "alta"}, "As consultas com menor parte elegível, empatadas, são LA1, LA2"),
-    ({"LA1": "alta", "LA2": "alta", "LB1": "alta"}, "Todas as consultas têm a mesma parte elegível"),
+    ({"LA1": "alta", "LA2": "alta", "LB1": "fora_do_escopo"}, "A consulta com menor parte de relevância alta ou média é LB1: 0 de 1 item, 1 fora do escopo"),
+    ({"LA1": "fora_do_escopo", "LA2": "fora_do_escopo", "LB1": "alta"}, "As consultas com menor parte de relevância alta ou média, empatadas, são LA1, LA2"),
+    ({"LA1": "alta", "LA2": "alta", "LB1": "alta"}, "Todas as consultas têm a mesma parte com relevância alta ou média"),
 ])
 def test_titulo_das_consultas(relevancias, titulo):
     web = [_web(i, consultas=c) for i, c in enumerate(relevancias, 1)]
@@ -296,8 +297,12 @@ def test_aviso_quando_uma_fonte_tem_mais_de_uma_ferramenta():
     duas = {**LEITURA, "chamadas": LEITURA["chamadas"] + [dict(LEITURA["chamadas"][2], provedor="outra_busca")]}
     texto = bv.bloco_ferramentas_relevancia(AV.relevancia_por_ferramenta(AF.linhas(duas), lista))["texto"]
     assert texto == ["A fonte Web tem mais de uma ferramenta: os resultados não são atribuídos a cada uma, os itens se repetem em "
-                     "cada linha e a comparação entre elas não é causal."]
-    assert bv.bloco_ferramentas_relevancia(AV.relevancia_por_ferramenta(AF.linhas(LEITURA), lista))["texto"] == []
+                     "cada linha e a comparação entre elas não é causal.",
+                     "A comparação entre as ferramentas não é de qualidade pura: a referência da web foi julgada pelo título e "
+                     "pelo trecho da busca, e o artigo do Scholar pelo título, pelo resumo e pelos autores."]
+    assert bv.bloco_ferramentas_relevancia(AV.relevancia_por_ferramenta(AF.linhas(LEITURA), lista))["texto"] == [
+        "A comparação entre as ferramentas não é de qualidade pura: a referência da web foi julgada pelo título e pelo trecho da "
+        "busca, e o artigo do Scholar pelo título, pelo resumo e pelos autores."]
 
 
 def test_complemento_das_fontes_so_abaixo_do_limiar():
@@ -368,9 +373,10 @@ def test_no_banco_vies_so_as_abas_da_busca_de_vies_com_legenda(banco, tmp_path):
 def test_panorama_mostra_os_cartoes_e_a_conclusao(banco, tmp_path):
     html = _cli(banco, tmp_path).get("/analises?secao=panorama").text
     assert "<strong>5</strong><span>obras distintas</span>" in html and "<strong>4</strong><span>referências da web</span>" in html
-    assert "<strong>1</strong><span>fora do escopo</span>" in html
-    assert "Os números descrevem o corpus recuperado por estas buscas (em português, nestas fontes), não a literatura em geral." in html
-    assert "Elegíveis (relevância alta ou média): 100% das referências da web e 0% dos artigos do Scholar" in html
+    assert "<strong>1</strong><span>itens classificados como fora do escopo</span>" in html
+    assert ("Os números descrevem o corpus recuperado por estas buscas (consultas escritas em português, nestas fontes), não a "
+            "literatura em geral.") in html
+    assert "Relevância alta ou média segundo o modelo: 100% das referências da web e 0% dos artigos do Scholar" in html
 
 
 def test_banco_real_ganha_ferramentas_e_legenda_com_os_termos(copiar_demo, tmp_path):

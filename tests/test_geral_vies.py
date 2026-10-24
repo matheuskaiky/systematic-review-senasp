@@ -51,7 +51,7 @@ def test_visao_geral_do_vies_mostra_os_numeros_da_busca(banco, tmp_path):
     assert '<span class="kpi-valor">5</span><span class="kpi-rotulo">Obras distintas</span>' in html
     assert '<span class="kpi-valor">4</span><span class="kpi-rotulo">Referências da web</span>' in html
     assert '<span class="kpi-valor">1</span><span class="kpi-rotulo">Fora do escopo</span>' in html
-    assert "Elegíveis (relevância alta ou média): 100% das referências da web e 0% dos artigos do Scholar" in html
+    assert "Relevância alta ou média segundo o modelo: 100% das referências da web e 0% dos artigos do Scholar" in html
     assert '<link rel="stylesheet" href="/static/analises.css">' in html
     assert "Funil do levantamento nas secretarias" not in html and "Prontidão metodológica" not in html
     assert "Triagem humana dos artigos" in html and "Últimas execuções" in html

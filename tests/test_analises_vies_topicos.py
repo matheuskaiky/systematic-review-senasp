@@ -123,4 +123,5 @@ def test_um_topico_so():
 
 
 def test_sem_topicos():
-    assert bv.bloco_topicos([], list(TEXTOS.values()))["titulo"] == "Sem tópicos para mostrar"
+    assert bv.bloco_topicos([], list(TEXTOS.values()))["titulo"] == (
+        "Nenhum tópico classificado foi encontrado nos registros considerados por esta análise")

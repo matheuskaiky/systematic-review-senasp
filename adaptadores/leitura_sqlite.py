@@ -56,11 +56,27 @@ SQL_REFERENCIAS_WEB = f"""
 # uma passada so por ocorrencias (sem subconsulta por artigo: ocorrencias nao tem indice por artigo_id)
 SQL_ARTIGOS_DAS_CONSULTAS = """
     SELECT a.artigo_id, a.autores_publicacao, a.ano, a.titulo, a.link, GROUP_CONCAT(DISTINCT o.termo_id) AS consultas,
-           GROUP_CONCAT(DISTINCT o.run_id) AS execucoes
+           GROUP_CONCAT(DISTINCT o.run_id) AS execucoes, GROUP_CONCAT(DISTINCT CAST(o.chamada_id AS TEXT)) AS chamadas
     FROM artigos a JOIN ocorrencias o ON o.artigo_id = a.artigo_id
     WHERE o.termo_id IN ({marcas})
     GROUP BY a.artigo_id, a.autores_publicacao, a.ano, a.titulo, a.link
     ORDER BY a.artigo_id"""
+
+
+def _idioma_da_chamada(parametros_json):
+    """A chave neutra do filtro de idioma de uma chamada do Scholar (o nome do parametro fica aqui, no adaptador):
+    'sem_filtro' sem `lr` ou com `lr` nulo; 'so_portugues' com `lr` = "lang_pt"; 'outro' com outro valor de `lr` (texto
+    vazio, numero, lista) ou com parametros que nao sao um objeto JSON."""
+    try:
+        parametros = json.loads(parametros_json)
+    except (TypeError, ValueError):
+        return "outro"
+    if not isinstance(parametros, dict):
+        return "outro"
+    lr = parametros.get("lr")
+    if lr is None:
+        return "sem_filtro"
+    return "so_portugues" if lr == "lang_pt" else "outro"
 
 
 class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTriagemEscopo, LeituraAnalises, LeituraTermosCobertura,
@@ -446,7 +462,17 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
         if not consultas:
             return []
         marcas = ", ".join("?" for _ in consultas)
-        return self._consulta(SQL_ARTIGOS_DAS_CONSULTAS.format(marcas=marcas), tuple(consultas))
+        linhas = self._consulta(SQL_ARTIGOS_DAS_CONSULTAS.format(marcas=marcas), tuple(consultas))
+        por_linha = [{int(c) for c in str(l.pop("chamadas") or "").split(",") if c.strip()} for l in linhas]
+        ids = sorted(set().union(*por_linha)) if por_linha else []
+        chave = {}
+        for i in range(0, len(ids), 500):                  # em lotes: o limite de parametros do SQLite
+            lote = ids[i:i + 500]
+            chave.update((r["chamada_id"], _idioma_da_chamada(r["parametros_json"])) for r in self._consulta(
+                f"SELECT chamada_id, parametros_json FROM chamadas WHERE chamada_id IN ({', '.join('?' for _ in lote)})", tuple(lote)))
+        for l, chamadas in zip(linhas, por_linha):
+            l["idiomas"] = ",".join(sorted({chave.get(c, "outro") for c in chamadas}))
+        return linhas
 
     def linhas_casos_estaduais(self):
         """Os achados das execucoes do relatorio, com a pagina (titulo e data do resultado mais recente da mesma URL e UF,

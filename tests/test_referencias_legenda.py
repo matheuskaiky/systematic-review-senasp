@@ -12,6 +12,11 @@ from test_referencias_recorte import CONJUNTO, TEXTOS, _cli, banco  # noqa: F401
 PARES = [
     ("ID", "<strong>W-n</strong> é a referência da web nº n e <strong>A-n</strong>, o artigo do Scholar nº n; o código abre a ficha."),
     ("Fonte da busca", "<strong>Web</strong> é a busca na web; <strong>Scholar</strong>, o Google Scholar."),
+    ("Idioma da busca", "Só nos artigos do Scholar, que roda cada consulta com o filtro só português e sem filtro de idioma: "
+                        "<strong>Só português</strong> quando só a busca com o filtro achou o artigo; <strong>Sem filtro</strong> "
+                        "quando só a busca sem filtro o achou; <strong>As duas</strong> quando as duas o acharam; "
+                        "<strong>Outro filtro</strong> quando alguma busca usou outro idioma. Contam todas as buscas que acharam o artigo, "
+                        "de qualquer conjunto. Vazio nas referências da web."),
     ("Conjunto", "A letra do conjunto das consultas que acharam a referência (tabela acima); várias letras quando consultas de "
                  "mais de um conjunto a acharam."),
     ("Consultas", "As consultas que acharam a referência, por extenso."),
@@ -67,7 +72,7 @@ def test_legenda_cita_os_rotulos_reais_da_tela():
     for coluna in RB.COLUNAS_TELA:
         if coluna not in ("Autor/Instituição", "Ano", "Título", "URL"):          # colunas que se explicam pelo nome
             assert coluna in texto, coluna
-    for rotulo in list(TE.RECORTES_VIES.values()) + list(RB.LOCAIS.values()):
+    for rotulo in list(TE.RECORTES_VIES.values()) + list(RB.LOCAIS.values()) + list(RB.IDIOMAS_DA_BUSCA.values()) + [RB.IDIOMA_OUTRO]:
         assert f"<strong>{rotulo}</strong>" in texto, rotulo
     for nome in (RB.STATUS_NAO_INICIADO, RB.ABA_REFERENCIAS, RB.ABA_ESQUEMA, RB.ABA_COLUNAS, RB.FONTE_WEB, RB.FONTE_SCHOLAR):
         assert nome in texto, nome

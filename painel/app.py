@@ -720,19 +720,21 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         None) quando um filtro ou uma coluna nao e um dos valores aceitos."""
         q = request.query_params
         conjunto, fonte, texto = q.get("conjunto", ""), q.get("fonte", ""), q.get("q", "").strip()
-        recorte = q.get("recorte", "")
+        recorte, idioma = q.get("recorte", ""), q.get("idioma", "")
         colunas = referencias_busca.colunas_escolhidas(q.getlist("colunas"))
         if conjunto not in ("",) + tuple(sorted(set(contexto.conjunto_da_consulta.values()))) or \
                 fonte not in ("", referencias_busca.FONTE_WEB, referencias_busca.FONTE_SCHOLAR) or \
-                recorte not in ("",) + tuple(contexto.recortes_vies) or colunas is None:
+                recorte not in ("",) + tuple(contexto.recortes_vies) or \
+                idioma not in ("",) + tuple(referencias_busca.IDIOMAS_DA_BUSCA) or colunas is None:
             return None, None, None
         todas = referencias_busca.referencias(leitura.linhas_referencias_web(),
                                               leitura.linhas_artigos_das_consultas(list(contexto.conjunto_da_consulta)),
                                               contexto.conjunto_da_consulta, leitura.triagens_vies(contexto.versao_triagem_vies),
                                               contexto.recortes_vies)
-        filtros = {k: v for k, v in (("conjunto", conjunto), ("fonte", fonte), ("recorte", recorte), ("q", texto)) if v}
-        return (referencias_busca.filtrar(todas, conjunto, fonte, texto, contexto.recortes_vies.get(recorte, "")), filtros,
-                colunas)
+        filtros = {k: v for k, v in (("conjunto", conjunto), ("fonte", fonte), ("recorte", recorte), ("idioma", idioma),
+                                     ("q", texto)) if v}
+        return (referencias_busca.filtrar(todas, conjunto, fonte, texto, contexto.recortes_vies.get(recorte, ""),
+                                          referencias_busca.IDIOMAS_DA_BUSCA.get(idioma, "")), filtros, colunas)
 
     def _base_referencias(filtros, colunas):
         """A parte da URL que repete os filtros e, quando nao sao todas, as colunas escolhidas."""
@@ -753,7 +755,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         paginas = max((len(linhas) + 49) // 50, 1)
         return pagina(request, "referencias.html", linhas=linhas[(n - 1) * 50:n * 50], total=len(linhas), n=n, paginas=paginas,
                       filtros=filtros, base=_base_referencias(filtros, colunas), colunas=colunas,
-                      todas_colunas=referencias_busca.COLUNAS_TELA,
+                      todas_colunas=referencias_busca.COLUNAS_TELA, idiomas_da_busca=referencias_busca.IDIOMAS_DA_BUSCA,
                       textos_das_consultas=lambda cs: referencias_busca.textos_das_consultas(cs, contexto.consultas_literatura))
 
     @app.get("/literatura/referencias.xlsx")

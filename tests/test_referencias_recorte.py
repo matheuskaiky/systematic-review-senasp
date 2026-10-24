@@ -24,7 +24,8 @@ ROTULOS = dict(TE.RECORTES_VIES)
 
 # ---------- colunas e linhas ----------
 def test_colunas_da_tela_na_ordem():
-    assert RB.COLUNAS_TELA == RB.COLUNAS + ("Recorte", "Local", "Consultas", "Execução", "Fonte da busca", "Conjunto")
+    assert RB.COLUNAS_TELA == RB.COLUNAS + ("Recorte", "Local", "Consultas", "Execução", "Fonte da busca", "Idioma da busca",
+                                            "Conjunto")
     assert RB.LOCAIS == {"brasil": "Brasil", "outro": "Internacional", "indeterminado": "Indeterminado"}
 
 
@@ -158,8 +159,8 @@ def test_download_de_todas_as_colunas_formatado_como_o_modelo(banco, tmp_path):
     erico = openpyxl.load_workbook(io.BytesIO(cli.get("/literatura/referencias.xlsx?modelo=erico").content)).active
     f = wb.active
     assert [c.value for c in f[1]] == list(RB.COLUNAS_TELA)
-    assert [f.column_dimensions[openpyxl.utils.get_column_letter(i)].width for i in range(1, 18)] == [RB.LARGURA_DA_COLUNA[c] for c in RB.COLUNAS_TELA]
-    assert f.freeze_panes == "A2" and f.auto_filter.ref == f"A1:Q{f.max_row}"
+    assert [f.column_dimensions[openpyxl.utils.get_column_letter(i)].width for i in range(1, 19)] == [RB.LARGURA_DA_COLUNA[c] for c in RB.COLUNAS_TELA]
+    assert f.freeze_panes == "A2" and f.auto_filter.ref == f"A1:R{f.max_row}"
     assert f["A1"].fill.fgColor.rgb == erico["A1"].fill.fgColor.rgb and f["A1"].font.b == erico["A1"].font.b
     assert f["I2"].value is None                                          # texto vazio vira celula vazia
 
@@ -179,7 +180,7 @@ def test_colunas_escolhidas_na_tela_na_paginacao_e_no_download(banco, tmp_path):
     cli = _cli(banco, tmp_path)
     html = cli.get("/literatura/referencias?colunas=Título&colunas=ID&colunas=Consultas&colunas=Local").text
     assert _cabecalhos(html) == ["ID", "Título", "Local", "Consultas"]
-    assert "Colunas (4 de 17)" in html and 'value="Recorte">' in html and 'value="ID" checked>' in html
+    assert "Colunas (4 de 18)" in html and 'value="Recorte">' in html and 'value="ID" checked>' in html
     base = "colunas=ID&amp;colunas=T%C3%ADtulo&amp;colunas=Local&amp;colunas=Consultas"
     assert f'href="/literatura/referencias.xlsx?{base}&amp;modelo=colunas">Colunas selecionadas</a>' in html
     assert f'href="/literatura/referencias.xlsx?{base}&amp;modelo=erico">Modelo Érico</a>' in html
@@ -199,7 +200,7 @@ def test_todas_as_colunas_nao_vao_no_endereco(banco, tmp_path):
     assert "colunas=" not in explicitas.split("<table")[0].split("escolha-colunas-itens")[0]
     html = _cli(banco, tmp_path).get("/literatura/referencias").text
     assert 'href="/literatura/referencias.xlsx?modelo=erico">Modelo Érico</a>' in html and "colunas=" not in html.split("<table")[0].split("escolha-colunas-itens")[0]
-    assert "Colunas (17 de 17)" in html and '<a href="/literatura/referencias">Limpar</a>' not in html
+    assert "Colunas (18 de 18)" in html and '<a href="/literatura/referencias">Limpar</a>' not in html
 
 
 def test_menu_baixar_tem_os_dois_modelos(banco, tmp_path):

@@ -8,6 +8,7 @@
   <label>Conjunto <select name="conjunto"><option value="">todos</option>{% for c in ctx.conjunto_da_consulta.values()|unique|sort %}<option value="{{ c }}"{% if filtros.conjunto == c %} selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
   <label>Fonte <select name="fonte"><option value="">todas</option>{% for f in ("Web", "Scholar") %}<option value="{{ f }}"{% if filtros.fonte == f %} selected{% endif %}>{{ f }}</option>{% endfor %}</select></label>
   <label class="larga">Recorte <select name="recorte"><option value="">todos</option>{% for chave, rotulo in ctx.recortes_vies.items() %}<option value="{{ chave }}"{% if filtros.recorte == chave %} selected{% endif %}>{{ rotulo }}{% if chave == "aplicacoes_tecnologicas" %} (sem foco no viés){% endif %}</option>{% endfor %}</select></label>
+  <label>Idioma da busca <select name="idioma"><option value="">todos</option>{% for chave, rotulo in idiomas_da_busca.items() %}<option value="{{ chave }}"{% if filtros.idioma == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>
   <label>Buscar <input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="título ou autor" aria-keyshortcuts="/" data-atalho-busca></label>
   <details class="escolha-colunas larga"><summary>Colunas ({{ colunas|length }} de {{ todas_colunas|length }})</summary>
     <div class="escolha-colunas-itens">{% for c in todas_colunas %}<label><input type="checkbox" name="colunas" value="{{ c }}"{% if c in colunas %} checked{% endif %}> {{ c }}</label>{% endfor %}</div>

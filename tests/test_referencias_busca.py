@@ -45,7 +45,8 @@ def test_linha_da_web():
     assert RB.linha_web(_web()) == {
         "ID": "W-1", "Autor/Instituição": "exemplo.org", "Ano": 2024, "Título": "T", "Tipo de fonte": "", "País/escopo": "",
         "Tópicos e palavras-chave": "", "URL": "https://exemplo.org/a", "Prioridade de leitura": "",
-        "Status de leitura": "Não iniciado", "Notas": "", "Fonte da busca": "Web", "Conjunto": "A", "Recorte": "", "Local": "",
+        "Status de leitura": "Não iniciado", "Notas": "", "Fonte da busca": "Web", "Idioma da busca": "", "Conjunto": "A",
+        "Recorte": "", "Local": "",
         "Consultas": ["LA1", "LA2"], "Execução": ["20261021_213559_3526e4", "20261022_151331_c84423"]}
 
 
@@ -53,7 +54,8 @@ def test_linha_do_artigo():
     assert RB.linha_artigo(_art(), CONJUNTO) == {
         "ID": "A-7", "Autor/Instituição": "M Silva, J Souza", "Ano": 2023, "Título": "Um artigo", "Tipo de fonte": "",
         "País/escopo": "", "Tópicos e palavras-chave": "", "URL": "https://scielo.br/x",
-        "Prioridade de leitura": "", "Status de leitura": "Não iniciado", "Notas": "", "Fonte da busca": "Scholar", "Conjunto": "A, B",
+        "Prioridade de leitura": "", "Status de leitura": "Não iniciado", "Notas": "", "Fonte da busca": "Scholar",
+        "Idioma da busca": "", "Conjunto": "A, B",
         "Recorte": "", "Local": "", "Consultas": ["LA3", "LB1"], "Execução": ["20261022_151407_ef2c8f"]}
 
 
@@ -191,7 +193,8 @@ def test_tela_mostra_as_colunas_do_modelo_e_conta(banco, tmp_path):
     assert r.status_code == 200
     cabecalhos = re.findall(r"<th[^>]*>([^<]+)</th>", _lista(r.text))
     # as 11 colunas do modelo, a execução logo ao lado delas, depois a fonte da busca e o conjunto
-    assert cabecalhos == list(RB.COLUNAS) + ["Recorte", "Local", "Consultas", "Execução", "Fonte da busca", "Conjunto"]
+    assert cabecalhos == list(RB.COLUNAS) + ["Recorte", "Local", "Consultas", "Execução", "Fonte da busca", "Idioma da busca",
+                                             "Conjunto"]
     assert "<strong>5</strong> referência(s)" in r.text
     assert 'href="/literatura/referencias"' in _cli(banco, tmp_path).get("/").text          # item do menu
 

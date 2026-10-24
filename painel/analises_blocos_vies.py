@@ -306,6 +306,44 @@ def bloco_conjuntos(itens, nomes):
                   tabela={"cabecalho": ["Combinação", "Obras"], "linhas": [[r, fmt.numero(n)] for r, n in linhas]})
 
 
+def bloco_origem_angulo(itens, nomes, recortes):
+    """A origem da busca (combinacao de conjuntos) x o angulo predominante da triagem v2 (`recortes`: chave -> rotulo), nas
+    obras elegiveis. So contagens: o angulo e um rotulo unico do modelo, nao a intersecao tematica."""
+    r = AV.origem_por_angulo(itens, nomes, tuple(recortes))
+    total = r["elegiveis"]
+    if not total:
+        return _bloco("vies-origem-angulo", "Sem obras elegíveis para cruzar origem e ângulo predominante")
+    rotulos = {**recortes, AV.SEM_ANGULO: "Sem ângulo"}
+    tot_col = {c: sum(r["matriz"][l][c] for l in r["linhas"]) for c in r["colunas"]}
+    titulo = f"Origem da busca × ângulo predominante: {_obras_pl(total)} elegíveis"
+    graf = g.mapa_de_calor_assimetrico(
+        r["linhas"], [{"chave": c, "rotulo": rotulos[c]} for c in r["colunas"]],
+        {(l, c): r["matriz"][l][c] for l in r["linhas"] for c in r["colunas"]}, titulo,
+        descricao="Obras elegíveis por combinação de conjuntos de consultas e ângulo predominante da triagem")
+    texto = ["Cada célula representa obras distintas, classificadas com relevância alta ou média pela triagem v2. Os conjuntos "
+             "indicam onde as obras foram encontradas; os ângulos representam classificações predominantes atribuídas "
+             "automaticamente pelo modelo. Uma obra pode abordar os dois temas, embora tenha apenas um ângulo predominante.",
+             "Interseção temática viés × aplicações: indisponível na triagem v2, pois o recorte é mutuamente exclusivo por "
+             "construção.",
+             f"Fora desta matriz: {_obras_pl(r['fora'])} de relevância baixa, fora do escopo ou sem triagem válida (na obra que "
+             "junta web e Scholar, vale a triagem do artigo do Scholar; o panorama mostra a relevância por item)."]
+    if r["divergentes"]:
+        texto.append(f"{_obras_pl(r['divergentes'])} {'tem' if r['divergentes'] == 1 else 'têm'} itens com ângulos "
+                     "diferentes na web e no Scholar; a matriz usa o ângulo do artigo do Scholar.")
+    if r["ambiguas"]:
+        n = len(r["ambiguas"])
+        texto.append(f"{fmt.numero(n)} {'referência' if n == 1 else 'referências'} da web "
+                     f"{'casa' if n == 1 else 'casam'} com mais de um artigo do Scholar: os conjuntos "
+                     f"{'dela' if n == 1 else 'delas'} não foram somados a nenhuma obra (a decidir).")
+    tabela = {"cabecalho": ["Origem"] + [rotulos[c] for c in r["colunas"]] + ["Total de obras"],
+              "linhas": [[l] + [fmt.numero(r["matriz"][l][c]) for c in r["colunas"]] + [fmt.numero(sum(r["matriz"][l].values()))]
+                         for l in r["linhas"]]
+              + [["Total"] + [fmt.numero(tot_col[c]) for c in r["colunas"]] + [fmt.numero(total)]]}
+    return _bloco("vies-origem-angulo", titulo, graf,
+                  f"por obra: denominador de {_obras_pl(total)} elegíveis (relevância alta ou média); não são itens nem "
+                  "ocorrências", texto, aviso=AVISO_MODELO, tabela=tabela)
+
+
 # ---------------------------------------------------------------- sites da web
 def bloco_dominios(itens):
     """Os sites (dominio registravel) que mais aparecem nas referencias da web no escopo."""

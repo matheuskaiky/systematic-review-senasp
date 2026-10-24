@@ -19,6 +19,7 @@ from dominio.servicos import normalizar_url
 FONTE_WEB, FONTE_SCHOLAR = "Web", "Scholar"
 FONTE_DA_ETAPA = {"busca_literatura": FONTE_WEB, "busca_academica": FONTE_SCHOLAR}   # a etapa que gravou as chamadas
 SEM_CONJUNTO = "Sem conjunto"      # a obra sem nenhum dos conjuntos configurados
+SEM_ANGULO = "sem_angulo"          # coluna do recorte ausente (sem triagem valida, triagem v1) ou fora da lista configurada
 RELEVANCIAS = ("alta", "media", "baixa", "fora_do_escopo")
 ELEGIVEIS = ("alta", "media")                      # alta e media dao "elegivel" na triagem (D116)
 SEM_TRIAGEM = "sem triagem válida"
@@ -54,8 +55,10 @@ def grupo_do_tipo(tipo_fonte):
 def _da_triagem(t):
     """Os campos da triagem mais recente do item, so quando ela passou nas conferencias (`valido`)."""
     if not t or not t.get("valido"):
-        return {"relevancia": None, "tipo_fonte": None, "pais": None, "topicos": [], "eixo": None, "confianca": None}
+        return {"relevancia": None, "tipo_fonte": None, "pais": None, "topicos": [], "eixo": None, "confianca": None,
+                "recorte": None}
     return {"relevancia": t.get("status_bruto"), "tipo_fonte": t.get("tipo_fonte"), "pais": t.get("pais_escopo"),
+            "recorte": t.get("recorte"),          # angulo predominante da triagem v2, como gravado (None na v1)
             "topicos": [x.strip() for x in (t.get("topicos") or "").split(";") if x.strip()], "eixo": t.get("eixo"),
             "confianca": t.get("confianca")}
 
@@ -320,11 +323,45 @@ def conjuntos_por_obra(lista, nomes):
     acharam, em todas as combinacoes de `combinacoes(nomes)` e por fim SEM_CONJUNTO (a obra sem nenhum conjunto de `nomes`;
     um conjunto fora de `nomes` nao conta). `ambiguas`: os ids das referencias da web sem obra atribuida."""
     obras_, ambiguas = obras_com_origem(lista)
-    c = Counter()
-    for o in obras_:
-        achados = [n for n in nomes if n in o["conjuntos_da_obra"]]
-        c[(f"Só {achados[0]}" if len(achados) == 1 else " + ".join(achados)) if achados else SEM_CONJUNTO] += 1
+    c = Counter(_combinacao_da_obra(o, nomes) for o in obras_)
     return {r: c.get(r, 0) for r in combinacoes(nomes) + [SEM_CONJUNTO]}, ambiguas
+
+
+def _combinacao_da_obra(obra, nomes):
+    """O rotulo da combinacao exata dos conjuntos de `nomes` que acharam a obra (de `obras_com_origem`); SEM_CONJUNTO sem
+    nenhum."""
+    achados = [n for n in nomes if n in obra["conjuntos_da_obra"]]
+    if not achados:
+        return SEM_CONJUNTO
+    return f"Só {achados[0]}" if len(achados) == 1 else " + ".join(achados)
+
+
+def origem_por_angulo(lista, nomes, recortes):
+    """A matriz origem x angulo predominante das obras elegiveis (relevancia alta ou media da triagem da obra).
+
+    Linhas: `combinacoes(nomes)` e por fim SEM_CONJUNTO; colunas: `recortes` (as chaves do recorte, na ordem dada) e por
+    fim SEM_ANGULO (recorte ausente ou fora de `recortes`). Cada obra elegivel conta uma vez, numa linha e numa coluna.
+    A obra e a de `obras_com_origem` (a mesma deduplicacao; com artigo do Scholar, a relevancia e o recorte sao os dele).
+    Devolve {"matriz": {linha: {coluna: n}}, "linhas", "colunas", "elegiveis": n, "fora": obras nao elegiveis (relevancia
+    baixa, fora do escopo ou sem triagem valida), "divergentes": obras da matriz cujo recorte (o do artigo do Scholar,
+    quando ha) e um de `recortes` e que tem outro item com um recorte diferente, tambem de `recortes` (vale o da obra; a
+    divergencia fica contada), "ambiguas": ids das referencias da web sem obra}. A entrada nao muda."""
+    obras_, ambiguas = obras_com_origem(lista)
+    linhas = combinacoes(nomes) + [SEM_CONJUNTO]
+    colunas = list(recortes) + [SEM_ANGULO]
+    matriz = {l: {c: 0 for c in colunas} for l in linhas}
+    recorte_do_item = {i["id"]: i["recorte"] for i in lista}
+    fora = divergentes = 0
+    for o in obras_:
+        if o["relevancia"] not in ELEGIVEIS:
+            fora += 1
+            continue
+        if o["recorte"] in recortes and any(recorte_do_item[i] in recortes and recorte_do_item[i] != o["recorte"]
+                                            for _, i in o["membros"][1:]):
+            divergentes += 1
+        matriz[_combinacao_da_obra(o, nomes)][o["recorte"] if o["recorte"] in recortes else SEM_ANGULO] += 1
+    return {"matriz": matriz, "linhas": linhas, "colunas": colunas, "elegiveis": len(obras_) - fora, "fora": fora,
+            "divergentes": divergentes, "ambiguas": ambiguas}
 
 
 def dominio_registravel(dominio):

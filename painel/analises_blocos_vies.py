@@ -194,25 +194,34 @@ def bloco_eixo_relevancia(itens):
     return _bloco("vies-eixo-relevancia", titulo, graf, BASE_OBRAS)
 
 
+TOPICOS_NO_GRAFICO, TOPICOS_NA_TABELA = 20, 50
+MARCA_TERMO_DE_BUSCA = " (termo de busca)"     # marca textual no grafico: o topico tambem e expressao das consultas
+
+
 def bloco_topicos(itens, textos_das_consultas):
-    """Os topicos mais citados que nao sao as palavras das consultas; os que sao ficam na memoria de calculo."""
-    proprios, da_busca = AV.topicos(itens, textos_das_consultas, 20)
-    if not proprios and not da_busca:
+    """Todos os topicos numa lista so, pela frequencia; o que tambem e expressao das consultas leva uma marca textual e
+    conta como os demais."""
+    lista = AV.topicos(itens, textos_das_consultas)
+    if not lista:
         return _bloco("vies-topicos", "Sem tópicos para mostrar")
-    if len(proprios) > 1:
-        titulo = f"Além das palavras da busca, os tópicos mais citados são {proprios[0][0]} e {proprios[1][0]}"
-    elif proprios:
-        titulo = f"Além das palavras da busca, o tópico mais citado é {proprios[0][0]}"
+    if len(lista) > 1:
+        titulo = f"Os tópicos mais citados são {lista[0][0]} e {lista[1][0]}"
     else:
-        titulo = "Os tópicos só repetem as palavras da busca"
-    graf = _barras(proprios, titulo, "Obras no escopo que citam cada tópico (20 mais citados, sem as palavras da busca)") if proprios else None
-    linhas = [[t, fmt.numero(n), "não"] for t, n in proprios] + [[t, fmt.numero(n), "sim"] for t, n in da_busca]
+        titulo = f"O tópico mais citado é {lista[0][0]}"
+    graf = _barras([(t + (MARCA_TERMO_DE_BUSCA if busca else ""), n) for t, n, busca in lista[:TOPICOS_NO_GRAFICO]], titulo,
+                   f"Obras no escopo que citam cada tópico ({TOPICOS_NO_GRAFICO} mais citados)")
+    linhas = [[t, fmt.numero(n), "sim" if busca else "não"] for t, n, busca in lista[:TOPICOS_NA_TABELA]]
     return _bloco("vies-topicos", titulo, graf, f"{BASE_OBRAS}; cada tópico conta uma vez por obra",
-                  [f"Os tópicos que repetem as palavras das consultas ({', '.join(t for t, _ in da_busca[:6])}) estão na memória "
-                   "de cálculo." if da_busca else "",
-                   "Variantes de singular e plural contam juntas (por exemplo, vieses algorítmicos com viés algorítmico)."],
+                  ["Os tópicos marcados com “(termo de busca)” também são expressões das consultas; contam como os demais.",
+                   "As contagens descrevem os rótulos que o modelo deu aos resultados recuperados, não a frequência dos temas na "
+                   "literatura nem a adoção das tecnologias.",
+                   "Variantes de singular e plural contam juntas (por exemplo, vieses algorítmicos com viés algorítmico).",
+                   f"{fmt.numero(len(lista))} {'tópico distinto' if len(lista) == 1 else 'tópicos distintos'}; a tabela mostra "
+                   f"{'o' if min(len(lista), TOPICOS_NA_TABELA) == 1 else 'os'} {fmt.numero(min(len(lista), TOPICOS_NA_TABELA))} "
+                   f"mais {'citado' if min(len(lista), TOPICOS_NA_TABELA) == 1 else 'citados'}."],
+                  aviso=AVISO_MODELO,
                   link={"href": "/literatura/referencias", "rotulo": "Ver os tópicos de cada item na tela Referências"},
-                  tabela={"cabecalho": ["Tópico", "Obras", "Palavra da busca"], "linhas": linhas})
+                  tabela={"cabecalho": ["Tópico", "Obras", "Também é termo de busca"], "linhas": linhas})
 
 
 # ---------------------------------------------------------------- tempo e lugar

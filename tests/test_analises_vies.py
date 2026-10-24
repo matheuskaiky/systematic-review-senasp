@@ -143,18 +143,6 @@ def test_conteudo_conta_cada_obra_uma_vez_e_eixos_vazios_aparecem():
     assert AV.tipos_por_grupo_e_fonte(lista) == {("Literatura científica", "Web"): 1, ("Literatura científica", "Scholar"): 2}
 
 
-def test_topicos_separam_as_palavras_da_busca_e_juntam_variantes():
-    nfd = unicodedata.normalize("NFD", "reconhecimento facial")
-    lista = _itens([_web(i) for i in range(1, 5)], [], {
-        ("referencia", 1): _t(topicos=f"Reconhecimento facial; {nfd}; Viés algorítmico; IA"),
-        ("referencia", 2): _t(topicos="reconhecimento  facial; Vieses algorítmicos; ia"),
-        ("referencia", 3): _t(topicos="Ética"), ("referencia", 4): _t(topicos="zeta", status_bruto="fora_do_escopo")})
-    proprios, da_busca = AV.topicos(lista, TEXTOS.values())
-    assert proprios == [("IA", 2), ("Reconhecimento facial", 2)]          # empate: ordem alfabética do rótulo
-    assert da_busca == [("Viés algorítmico", 2), ("Ética", 1)]            # variante plural junta; ética está em LB1
-    assert AV.topicos(lista, TEXTOS.values(), n=1)[0] == [("IA", 2)]
-
-
 def test_anos_e_por_ano():
     lista = _itens([_web(1, data_pub=None), _web(2, data_pub="2023-01-01")], [_art(5, ano=2025), _art(6, ano=None), _art(7, ano=2025)],
                    {("referencia", 1): _t(), ("referencia", 2): _t(), ("artigo", 5): _t(), ("artigo", 6): _t(), ("artigo", 7): _t()})

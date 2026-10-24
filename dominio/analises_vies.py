@@ -192,12 +192,13 @@ def eixo_por_relevancia(lista):
     return Counter((i["eixo"] or SEM_EIXO, i["relevancia"]) for i in no_escopo(obras(lista)))
 
 
-def topicos(lista, textos_das_consultas=(), n=20):
+def topicos(lista, textos_das_consultas=()):
     """Os topicos das obras no escopo, sem diferenca de maiuscula, acento composto ou espaco, com as variantes de
-    VARIANTES_TOPICOS juntadas; cada topico conta uma vez por obra. Devolve (proprios, da_busca): os `n` mais citados que
-    nao aparecem, como palavra ou expressao inteira, no texto de nenhuma consulta, e todos os que aparecem (esses so repetem
-    as palavras da busca). Rotulo: a forma
-    canonica da variante ou a forma escrita mais frequente (empate: a primeira em ordem alfabetica), com maiuscula inicial."""
+    VARIANTES_TOPICOS juntadas; cada topico conta uma vez por obra. Devolve todos numa lista so, [(rotulo, obras,
+    termo_de_busca)], do mais citado para o menos (empate: pelo rotulo); `termo_de_busca` diz se o topico aparece, como
+    palavra ou expressao inteira, no texto de alguma consulta (uma caracteristica do topico, que conta como os demais).
+    Rotulo: a forma canonica da variante ou a forma escrita mais frequente (empate: a primeira em ordem alfabetica), com
+    maiuscula inicial."""
     busca = [_chave_texto(t) for t in textos_das_consultas]
     canonicas = set(VARIANTES_TOPICOS.values())
     contagem_chave, formas = Counter(), {}
@@ -215,9 +216,7 @@ def topicos(lista, textos_das_consultas=(), n=20):
               for k, f in formas.items()}
     ordenados = sorted(contagem_chave.items(), key=lambda x: (-x[1], rotulo[x[0]]))
     na_busca = {k for k in contagem_chave if any(re.search(rf"(?<!\w){re.escape(k)}(?!\w)", b) for b in busca)}
-    da_busca = [(rotulo[k], v) for k, v in ordenados if k in na_busca]
-    proprios = [(rotulo[k], v) for k, v in ordenados if k not in na_busca]
-    return proprios[:n], da_busca
+    return [(rotulo[k], v, k in na_busca) for k, v in ordenados]
 
 
 def anos_scholar(lista):

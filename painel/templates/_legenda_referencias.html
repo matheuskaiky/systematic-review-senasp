@@ -1,0 +1,23 @@
+{# Legenda do fim da pagina /literatura/referencias: o que significa cada codigo e cada coluna da tela e dos downloads. #}
+<section class="legenda-pagina" id="legenda" aria-labelledby="t-legenda">
+  <h2 id="t-legenda">Legenda</h2>
+  <p class="sub">O que significam os códigos e as colunas desta página.</p>
+  <h3>Consultas e conjuntos</h3>
+  <div class="tabela-rolavel"><table>
+    <thead><tr><th scope="col">Código</th><th scope="col">Conjunto</th><th scope="col">Consulta</th></tr></thead>
+    <tbody>{% for cid, nome in ctx.conjunto_da_consulta.items() %}<tr><td><code>{{ cid }}</code></td><td>{{ nome }}</td><td>{{ ctx.consultas_literatura.get(cid, "") }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <h3>Códigos e colunas</h3>
+  <dl class="pares">
+    <dt>ID</dt><dd><strong>W-n</strong> é a referência da web nº n e <strong>A-n</strong>, o artigo do Scholar nº n; o código abre a ficha.</dd>
+    <dt>Fonte da busca</dt><dd><strong>Web</strong> é a busca na web; <strong>Scholar</strong>, o Google Scholar.</dd>
+    <dt>Conjunto</dt><dd>A letra do conjunto das consultas que acharam a referência (tabela acima); várias letras quando consultas de mais de um conjunto a acharam.</dd>
+    <dt>Consultas</dt><dd>As consultas que acharam a referência, por extenso.</dd>
+    <dt>Execução</dt><dd>O código de cada execução que achou a referência: data e hora do início em UTC (<code>AAAAMMDD_HHMMSS</code>) e seis caracteres que separam execuções do mesmo segundo. Com permissão para ver as chamadas, o código abre a execução.</dd>
+    <dt>Tipo de fonte, País/escopo e Tópicos e palavras-chave</dt><dd>Da triagem do modelo; ficam vazios enquanto a referência não foi triada ou quando a triagem não passou nas conferências.</dd>
+    <dt>Recorte</dt><dd>Da triagem do modelo. <strong>Viés algorítmico</strong>: o assunto principal é viés, discriminação, equidade, ética, direitos, transparência, responsabilização ou governança da IA ou de algoritmos. <strong>Aplicações tecnológicas</strong>: o assunto principal é o uso, a implantação, o desempenho, os produtos ou as soluções de IA ou de tecnologia, sem centrar no viés ou na ética. Quando o item trata dos dois, vale o que domina o título e o resumo.</dd>
+    <dt>Local</dt><dd>Pelo país/escopo da triagem: <strong>Brasil</strong> quando alguma parte (separada por "/") é Brasil; <strong>Indeterminado</strong> sem país ou com "Indeterminado"; <strong>Internacional</strong> no resto.</dd>
+    <dt>Prioridade de leitura, Status de leitura e Notas</dt><dd>Para preencher na planilha baixada; o status começa como "Não iniciado".</dd>
+    <dt>Baixar</dt><dd><strong>Modelo Érico</strong>: a planilha no modelo de referências ampliado, com as abas "Referências ampliadas" e "Esquema de exploração". <strong>Colunas selecionadas</strong>: uma aba "Referências" só com as colunas marcadas em "Colunas". As duas levam só as linhas dos filtros desta página.</dd>
+  </dl>
+</section>

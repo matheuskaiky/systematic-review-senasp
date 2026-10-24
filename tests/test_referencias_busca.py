@@ -181,10 +181,15 @@ def _cli(banco, tmp_path):
     return TestClient(criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(tmp_path), ctx))
 
 
+def _lista(html):
+    """A pagina sem a legenda do fim (que tem a sua propria tabela de consultas)."""
+    return html.split('<section class="legenda-pagina"')[0]
+
+
 def test_tela_mostra_as_colunas_do_modelo_e_conta(banco, tmp_path):
     r = _cli(banco, tmp_path).get("/literatura/referencias")
     assert r.status_code == 200
-    cabecalhos = re.findall(r"<th[^>]*>([^<]+)</th>", r.text)
+    cabecalhos = re.findall(r"<th[^>]*>([^<]+)</th>", _lista(r.text))
     # as 11 colunas do modelo, a execução logo ao lado delas, depois a fonte da busca e o conjunto
     assert cabecalhos == list(RB.COLUNAS) + ["Recorte", "Local", "Consultas", "Execução", "Fonte da busca", "Conjunto"]
     assert "<strong>5</strong> referência(s)" in r.text
@@ -215,13 +220,13 @@ def test_paginacao_de_50(tmp_path):
     finally:
         repo.fechar()
     cli = _cli(caminho, tmp_path)
-    assert cli.get("/literatura/referencias").text.count("<tr>") == 51          # cabeçalho + 50
+    assert _lista(cli.get("/literatura/referencias").text).count("<tr>") == 51          # cabeçalho + 50
     p2 = cli.get("/literatura/referencias?p=2").text
-    assert p2.count("<tr>") == 11 and "Página 2 de 2" in p2
+    assert _lista(p2).count("<tr>") == 11 and "Página 2 de 2" in p2
     # sem ano, empate pelo número: a página 2 tem as referências 51 a 60, nessa ordem
     assert re.findall(r'<a href="/literatura/referencias/web/\d+">(W-\d+)</a>', p2) == [f"W-{i}" for i in range(51, 61)]
     p3 = cli.get("/literatura/referencias?p=3")                      # além da última: como nas outras listas, vazia
-    assert p3.status_code == 200 and p3.text.count("<tr>") == 1 and "Página 3 de 2" in p3.text
+    assert p3.status_code == 200 and _lista(p3.text).count("<tr>") == 1 and "Página 3 de 2" in p3.text
     filtrada = cli.get("/literatura/referencias?fonte=Web&q=t").text
     assert 'href="/literatura/referencias?fonte=Web&amp;q=t&amp;p=2"' in filtrada
     assert 'href="/literatura/referencias.xlsx?fonte=Web&amp;q=t&amp;modelo=erico"' in filtrada

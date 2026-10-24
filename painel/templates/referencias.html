@@ -35,4 +35,5 @@
   {% if n < paginas %}<a href="/literatura/referencias?{{ base }}{{ '&' if base }}p={{ n + 1 }}">Próxima →</a>{% endif %}
 </nav>
 {% endif %}
+{% include "_legenda_referencias.html" %}
 {% endblock %}

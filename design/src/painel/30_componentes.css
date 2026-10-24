@@ -233,3 +233,16 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--texto); bac
 .filtros .escolha-colunas-itens label { flex-direction: row; align-items: center; gap: .4rem; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: var(--fs-sm); color: var(--texto); }
 .consultas-lista { margin: 0; padding-left: 1rem; min-width: 16rem; }
 .consultas-lista li + li { margin-top: .3rem; }
+
+/* Legenda do fim de uma pagina (tela Referencias): codigos e colunas em pares termo e definicao. */
+.legenda-pagina { margin-top: var(--esp-6); padding-top: var(--esp-4); border-top: 1px solid var(--borda); }
+.legenda-pagina h3 { margin-top: var(--esp-4); }
+.pares { display: grid; grid-template-columns: minmax(8rem, 16rem) minmax(0, 1fr); gap: 0 var(--esp-5); margin: var(--esp-3) 0; }
+.pares dt, .pares dd { padding: .4rem 0; border-bottom: 1px dotted var(--borda-forte); }
+.pares dt { font-weight: 600; color: var(--texto-suave); }
+.pares dd { margin: 0; overflow-wrap: anywhere; }
+.pares dt:last-of-type, .pares dd:last-of-type { border-bottom: 0; }
+@media (max-width: 700px) {
+  .pares { grid-template-columns: minmax(0, 1fr); }
+  .pares dt { border-bottom: 0; padding-bottom: 0; }
+}

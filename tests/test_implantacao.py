@@ -95,7 +95,7 @@ def test_ci_sobe_a_imagem_atras_do_caddy():
     w = _ler(".github/workflows/testes.yml")
     assert "  imagem:" in w and "DOMAIN_NAME: localhost" in w and "run: docker compose up -d --build" in w
     assert "grep -qi '^strict-transport-security: max-age=31536000' cabecalhos.txt" in w
-    assert "grep -qiE '^set-cookie: csrf=[^;]+;.*secure' cabecalhos.txt" in w
+    assert "grep -qiE '^set-cookie: __session=[^;]+;.*secure' cabecalhos.txt" in w
     assert 'codigo=$(envio https://localhost)\n          [ "$codigo" = "400" ]' in w
     assert 'codigo=$(envio https://outro-site.example)\n          [ "$codigo" = "403" ]' in w
     assert '[ "$codigo" = "200" ] || { echo "o painel nao respondeu (ultimo codigo: $codigo)"; exit 1; }' in w
@@ -141,7 +141,7 @@ def test_ci_sobe_a_imagem_do_cloud_run():
     for trecho in ("POSTGRES_INITDB_ARGS: --locale-provider=libc --locale=C.UTF-8",
                    "run: docker build -f Dockerfile.cloudrun -t painel-cloudrun .",
                    "painel-cloudrun python main.py pg-migrar", "-e PORT=8080",
-                   "grep -qiE '^set-cookie: csrf=[^;]+;.*secure' cabecalhos.txt",
+                   "grep -qiE '^set-cookie: __session=[^;]+;.*secure' cabecalhos.txt",
                    'codigo=$(envio https://localhost)\n          [ "$codigo" = "400" ]',
                    'codigo=$(envio https://outro-site.example)\n          [ "$codigo" = "403" ]'):
         assert trecho in job, trecho

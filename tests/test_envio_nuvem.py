@@ -53,7 +53,11 @@ def nuvem(copiar_demo, tmp_path):
 
 
 def _runs(local):
-    todas = [r for (r,) in local.conn.execute("SELECT run_id FROM execucoes ORDER BY run_id")]
+    # execucoes com chamadas e brutos primeiro: na demonstracao varias execucoes caem no mesmo segundo, e o sufixo aleatorio do
+    # run_id mudaria qual vem primeiro (em outra maquina, a primeira podia ser uma execucao sem nenhuma chamada)
+    todas = [r for (r,) in local.conn.execute(
+        "SELECT run_id FROM execucoes e ORDER BY NOT EXISTS (SELECT 1 FROM chamadas c WHERE c.run_id = e.run_id "
+        "AND c.raw_path IS NOT NULL), run_id")]
     depende = {r: {e["run_id"] for e in local.pacote_da_execucao(r)["externas"]["paginas"]} for r in todas}
     ordem = []
     while len(ordem) < len(todas):

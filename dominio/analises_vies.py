@@ -276,31 +276,38 @@ def consultas(lista, ids_por_conjunto):
     return saida
 
 
+def _casamentos_da_web(lista):
+    """[(item da web, criterio, alvos)] de cada referencia da web que `obras` tira por repetir artigo do Scholar, na ordem
+    da entrada: criterio "url" (URL normalizada igual) ou "titulo" (so o titulo normalizado igual, sem URL igual), e os ids
+    dos artigos que casam (na ordem da entrada; mais de um = ambiguidade). A mesma regra de `_repetidos_por_criterio`."""
+    por_url, por_titulo = {}, {}
+    for a in lista:
+        if a["fonte"] == FONTE_SCHOLAR:
+            if a["url"]:
+                por_url.setdefault(normalizar_url(a["url"]), []).append(a["id"])
+            chave = chave_titulo(a["titulo"])
+            if chave is not None:
+                por_titulo.setdefault(chave, []).append(a["id"])
+    repetidos_url, repetidos_titulo = _repetidos_por_criterio(lista)
+    saida = []
+    for i in lista:
+        if i["id"] in repetidos_url:
+            saida.append((i, "url", list(dict.fromkeys(por_url[normalizar_url(i["url"])]))))
+        elif i["id"] in repetidos_titulo:
+            saida.append((i, "titulo", list(dict.fromkeys(por_titulo[chave_titulo(i["titulo"])]))))
+    return saida
+
+
 def obras_com_origem(lista):
     """(obras, ambiguas): as mesmas obras de `obras(lista)`, na mesma ordem, cada uma copiada com `membros` [(fonte, id)]
     e `conjuntos_da_obra` (a uniao dos conjuntos dos membros, em ordem alfabetica). A referencia da web que `obras` tira
     por repetir um artigo do Scholar (URL normalizada igual; sem ela, titulo normalizado igual) soma os seus conjuntos aos
     desse artigo quando ele e um so; se casa com mais de um artigo, nao e atribuida a nenhum e o seu id volta em `ambiguas`
     (para decidir depois). Cada obra e uma copia profunda: a entrada nao muda, nem pelas listas da saida."""
-    por_url, por_titulo = {}, {}
-    for a in lista:
-        if a["fonte"] == FONTE_SCHOLAR:
-            if a["url"]:
-                por_url.setdefault(normalizar_url(a["url"]), set()).add(a["id"])
-            chave = chave_titulo(a["titulo"])
-            if chave is not None:
-                por_titulo.setdefault(chave, set()).add(a["id"])
-    repetidos_url, repetidos_titulo = _repetidos_por_criterio(lista)
     extras, ambiguas = {}, []
-    for i in lista:
-        if i["id"] in repetidos_url:
-            alvos = por_url[normalizar_url(i["url"])]
-        elif i["id"] in repetidos_titulo:
-            alvos = por_titulo[chave_titulo(i["titulo"])]
-        else:
-            continue
+    for i, _, alvos in _casamentos_da_web(lista):
         if len(alvos) == 1:
-            extras.setdefault(next(iter(alvos)), []).append(i)
+            extras.setdefault(alvos[0], []).append(i)
         else:
             ambiguas.append(i["id"])
     saida = []
@@ -309,6 +316,58 @@ def obras_com_origem(lista):
         saida.append({**copy.deepcopy(o), "membros": [(m["fonte"], m["id"]) for m in membros],
                       "conjuntos_da_obra": sorted({c for m in membros for c in m["conjuntos"]})})
     return saida, ambiguas
+
+
+# os campos da triagem comparados entre os itens da mesma obra, na ordem da auditoria
+CAMPOS_AUDITADOS = ("relevancia", "recorte", "eixo", "tipo_fonte", "pais")
+
+
+def _ficha(item):
+    """Os dados de um item para a auditoria: id, fonte, conjuntos e os campos da triagem (None sem triagem valida)."""
+    return {"id": item["id"], "fonte": item["fonte"], "conjuntos": list(item["conjuntos"]),
+            **{c: item[c] for c in CAMPOS_AUDITADOS}}
+
+
+def auditoria_identidade(lista):
+    """A auditoria descritiva da identidade das obras, sem decidir nada novo (a regra de `obras` nao muda).
+
+    Devolve {"pares": [{"obra", "web", "criterio" ("url" | "titulo"), "status" ("juncao_url" | "juncao_titulo"),
+    "membros": [ficha do artigo, ficha da web], "divergencias": campos de CAMPOS_AUDITADOS com valores diferentes
+    (ausencia conta como valor)}] na ordem das obras e, em cada uma, da entrada; "ambiguas": [{"web", "criterio",
+    "artigos", "status": "ambiguidade"}] das referencias que casam com mais de um artigo (sem juncao);
+    "urls_compartilhadas": [{"url", "artigos", "status": "possivel_duplicata", "membros": fichas, "divergencias": campos
+    em que algum membro difere do primeiro}] das URLs normalizadas de mais de um artigo do Scholar (nao juntados: seguem
+    obras distintas), na ordem da primeira aparicao; "contagens": pares, por_url, por_titulo, pares_com_divergencia,
+    divergencias por campo (so dos pares), urls_compartilhadas, ambiguas}. Os rotulos do artigo e da web ficam lado a lado: a precedencia do Scholar nas
+    analises por obra e regra operacional, nao juizo de correcao. A entrada nao muda."""
+    por_id = {i["id"]: i for i in lista}
+    obras_, _ = obras_com_origem(lista)
+    criterio_da_web = {i["id"]: criterio for i, criterio, alvos in _casamentos_da_web(lista) if len(alvos) == 1}
+    pares = []
+    for o in obras_:
+        artigo = por_id[o["id"]]
+        for _, mid in o["membros"][1:]:
+            web = por_id[mid]
+            criterio = criterio_da_web[mid]
+            pares.append({"obra": o["id"], "web": mid, "criterio": criterio,
+                          "status": "juncao_url" if criterio == "url" else "juncao_titulo",
+                          "membros": [_ficha(artigo), _ficha(web)],
+                          "divergencias": [c for c in CAMPOS_AUDITADOS if artigo[c] != web[c]]})
+    ambiguas = [{"web": i["id"], "criterio": criterio, "artigos": alvos, "status": "ambiguidade"}
+                for i, criterio, alvos in _casamentos_da_web(lista) if len(alvos) > 1]
+    grupos = {}
+    for a in lista:
+        if a["fonte"] == FONTE_SCHOLAR and a["url"]:
+            grupos.setdefault(normalizar_url(a["url"]), []).append(a["id"])
+    compartilhadas = [{"url": u, "artigos": ids, "status": "possivel_duplicata", "membros": [_ficha(por_id[a]) for a in ids],
+                       "divergencias": [c for c in CAMPOS_AUDITADOS if any(por_id[a][c] != por_id[ids[0]][c] for a in ids[1:])]}
+                      for u, ids in grupos.items() if len(ids) > 1]
+    return {"pares": pares, "ambiguas": ambiguas, "urls_compartilhadas": compartilhadas,
+            "contagens": {"pares": len(pares), "por_url": sum(1 for p in pares if p["criterio"] == "url"),
+                          "por_titulo": sum(1 for p in pares if p["criterio"] == "titulo"),
+                          "pares_com_divergencia": sum(1 for p in pares if p["divergencias"]),
+                          "divergencias": {c: sum(1 for p in pares if c in p["divergencias"]) for c in CAMPOS_AUDITADOS},
+                          "urls_compartilhadas": len(compartilhadas), "ambiguas": len(ambiguas)}}
 
 
 def combinacoes(nomes):

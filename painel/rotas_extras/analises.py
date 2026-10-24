@@ -92,7 +92,8 @@ def montar_vies(leitura, contexto, secao, ferramentas):
         ids_por_conjunto.setdefault(nome, []).append(cid)
     textos = contexto.consultas_literatura
     resumo = AV.resumo(itens)
-    blocos = {"panorama": lambda: [bv.bloco_relevancia(itens), bv.bloco_sobreposicao(resumo)],
+    blocos = {"panorama": lambda: [bv.bloco_relevancia(itens), bv.bloco_sobreposicao(resumo),
+                                   bv.bloco_identidade(itens, contexto.recortes_vies)],
               "ferramentas": lambda: [bv.bloco_ferramentas_relevancia(AV.relevancia_por_ferramenta(ferramentas, itens)),
                                       bf.bloco_ferramentas_busca(ferramentas), bf.bloco_custos(ferramentas)],
               "tipos": lambda: [bv.bloco_grupos(itens), bv.bloco_relevancia_por_grupo(itens), bv.bloco_tipos(itens)],

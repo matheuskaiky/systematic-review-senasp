@@ -83,6 +83,71 @@ def bloco_sobreposicao(r):
                          ("… só pelo título", fmt.numero(r["n_ambas_so_por_titulo"]))])
 
 
+CAMPOS_DA_AUDITORIA = {"relevancia": "Relevância", "recorte": "Ângulo predominante", "eixo": "Eixo",
+                       "tipo_fonte": "Tipo de fonte", "pais": "País/escopo"}
+STATUS_DA_IDENTIDADE = {"juncao_url": "Junção automática pela URL", "juncao_titulo": "Junção automática só pelo título",
+                        "possivel_duplicata": "Possível duplicata (URL compartilhada, não juntada)"}
+
+
+def bloco_identidade(itens, recortes):
+    """A auditoria da identidade das obras: os itens da web juntados a artigos do Scholar, o criterio, as divergencias de
+    classificacao entre os dois e as URLs compartilhadas por artigos diferentes. Descritiva: nao decide identidade."""
+    r = AV.auditoria_identidade(itens)
+    c = r["contagens"]
+    if not c["pares"] and not c["urls_compartilhadas"] and not c["ambiguas"]:
+        return _bloco("vies-identidade", "Nenhum item da web foi juntado a um artigo do Scholar nos registros considerados")
+    k = c["pares_com_divergencia"]
+    titulo = (f"{_itens_pl(c['pares'])} da web {'foi juntado' if c['pares'] == 1 else 'foram juntados'} a artigos do Scholar; "
+              + ("nenhum par tem classificações diferentes" if not k else
+                 f"{fmt.numero(k)} {'par tem' if k == 1 else 'pares têm'} classificações diferentes"))
+    graf = _barras([(CAMPOS_DA_AUDITORIA[campo], n) for campo, n in c["divergencias"].items()], titulo,
+                   "Pares web/Scholar com valores diferentes em cada campo da triagem") if c["pares"] else None
+
+    def valor(campo, v):
+        if v is None:
+            return "—"
+        return _rel(v) if campo == "relevancia" else recortes.get(v, v) if campo == "recorte" else v
+    linhas = []
+    for p in r["pares"]:
+        for m in p["membros"]:
+            web = m["fonte"] == AV.FONTE_WEB
+            linhas.append([p["obra"], m["id"], m["fonte"], ("pela URL" if p["criterio"] == "url" else "só pelo título") if web else "—",
+                           STATUS_DA_IDENTIDADE[p["status"]] if web else "—", ", ".join(m["conjuntos"]) or "—"]
+                          + [valor(campo, m[campo]) for campo in AV.CAMPOS_AUDITADOS]
+                          + [", ".join(CAMPOS_DA_AUDITORIA[d] for d in p["divergencias"]) or "nenhum" if web else ""])
+    for g in r["urls_compartilhadas"]:
+        for k_m, m in enumerate(g["membros"]):
+            linhas.append([g["artigos"][0], m["id"], m["fonte"], "URL compartilhada", STATUS_DA_IDENTIDADE["possivel_duplicata"],
+                           ", ".join(m["conjuntos"]) or "—"] + [valor(campo, m[campo]) for campo in AV.CAMPOS_AUDITADOS]
+                          + [(", ".join(CAMPOS_DA_AUDITORIA[d] for d in g["divergencias"]) or "nenhum") if k_m == len(g["membros"]) - 1 else ""])
+    texto = ["Divergência de classificação: itens juntados como a mesma obra receberam rótulos diferentes do modelo (um rótulo "
+             "ausente também conta, e o país/escopo é texto livre: diferenças de redação contam). Nas análises por obra vale o "
+             "rótulo do artigo do Scholar, por regra operacional, não por ser mais correto; os dois ficam aqui.",
+             "Identidade: a junção pela URL ou só pelo título é automática (D104) e deve ser conferida, porque a mesma URL não "
+             "prova a mesma obra e títulos comuns podem juntar obras diferentes. Artigos do Scholar que compartilham a URL "
+             "normalizada não são juntados e aparecem como possíveis duplicatas; a referência que casa com mais de um artigo "
+             "fica sem junção (ambiguidade). Nenhuma decisão nova de identidade foi tomada."]
+    if c["urls_compartilhadas"]:
+        texto.append(f"{fmt.numero(c['urls_compartilhadas'])} "
+                     f"{'URL normalizada é compartilhada' if c['urls_compartilhadas'] == 1 else 'URLs normalizadas são compartilhadas'} "
+                     "por artigos diferentes do Scholar, que seguem contados como obras distintas: "
+                     + "; ".join(" e ".join(g["artigos"]) for g in r["urls_compartilhadas"]) + ".")
+    if c["ambiguas"]:
+        texto.append(f"{fmt.numero(c['ambiguas'])} {'referência da web casa' if c['ambiguas'] == 1 else 'referências da web casam'} "
+                     f"com mais de um artigo e {'ficou' if c['ambiguas'] == 1 else 'ficaram'} sem junção (ambiguidade): "
+                     + "; ".join(f"{a['web']} ({', '.join(a['artigos'])})" for a in r["ambiguas"]) + ".")
+    return _bloco("vies-identidade", titulo, graf,
+                  "por par: cada item da web juntado a um artigo do Scholar (D104), inclusive os fora do escopo", texto,
+                  aviso=AVISO_MODELO,
+                  pares=[("Pares web/Scholar", fmt.numero(c["pares"])), ("… pela URL", fmt.numero(c["por_url"])),
+                         ("… só pelo título", fmt.numero(c["por_titulo"])),
+                         ("Pares com classificação diferente", fmt.numero(k)),
+                         ("Possíveis duplicatas (URL compartilhada)", fmt.numero(c["urls_compartilhadas"])),
+                         ("Referências ambíguas", fmt.numero(c["ambiguas"]))],
+                  tabela={"cabecalho": ["Obra", "Item", "Fonte", "Critério", "Identidade", "Conjuntos", "Relevância",
+                                        "Ângulo", "Eixo", "Tipo de fonte", "País/escopo", "Diverge em"], "linhas": linhas})
+
+
 # ---------------------------------------------------------------- ferramentas
 def bloco_ferramentas_relevancia(linhas):
     """Cada ferramenta de busca: a parte elegivel dos itens que trouxe e o custo por item elegivel."""

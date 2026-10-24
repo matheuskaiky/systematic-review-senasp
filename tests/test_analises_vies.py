@@ -188,11 +188,6 @@ def test_consultas():
         {"conjunto": "B", "consulta": "LB1", "web": 1, "scholar": 1, "exclusivos": 1, "triados": 2, "alta": 0, "elegiveis": 1, "fora": 1}]
 
 
-def test_conjuntos_so_a_e_b():
-    lista = _itens([_web(1), _web(2, consultas="LA1,LB1"), _web(3, consultas="ZZ9")], [_art(5), _art(6, consultas="LA2")])
-    assert AV.conjuntos(lista) == {"Web": {"Só A": 1, "Só B": 0, "A e B": 1}, "Scholar": {"Só A": 1, "Só B": 1, "A e B": 0}}
-
-
 @pytest.mark.parametrize("dominio, registravel", [
     ("new.scielo.br", "scielo.br"), ("scielo.br", "scielo.br"), ("pt.scribd.com", "scribd.com"), ("www.exemplo.org", "exemplo.org"),
     ("basedeconhecimento.cgu.gov.br", "cgu.gov.br"), ("ibccrim.org.br", "ibccrim.org.br"), ("publicacoes.ibccrim.org.br", "ibccrim.org.br"),
@@ -300,14 +295,6 @@ def test_titulo_das_consultas(relevancias, titulo):
     web = [_web(i, consultas=c) for i, c in enumerate(relevancias, 1)]
     lista = _itens(web, [], {("referencia", i): _t(status_bruto=r) for i, r in enumerate(relevancias.values(), 1)})
     assert bv.bloco_consultas(lista, {"A": ["LA1", "LA2"], "B": ["LB1"]}, TEXTOS)["titulo"] == titulo
-
-
-@pytest.mark.parametrize("consultas, titulo", [
-    (["LA1", "LB1", "LA1", "LB1", "LA1", "LA1,LB1"], "Os conjuntos A e B se complementam: 1 de 6 itens aparecem nos dois"),
-    (["LA1,LB1", "LA1"], "1 de 2 itens aparecem nos dois conjuntos"),
-])
-def test_titulo_dos_conjuntos(consultas, titulo):
-    assert bv.bloco_conjuntos(_itens([_web(i, consultas=c) for i, c in enumerate(consultas, 1)]))["titulo"] == titulo
 
 
 @pytest.mark.parametrize("dominios, copias", [(["pt.scribd.com", "x.org"], True), (["x.org"], False)])

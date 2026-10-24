@@ -3,19 +3,22 @@ fonte, eixo, topicos, ano, pais/escopo, dominio) e o rendimento das consultas, d
 recebe as linhas que o painel ja le (referencias da web, artigos das consultas e a triagem mais recente de cada item).
 
 Duas bases de contagem, sempre ditas na tela:
-- por fonte (relevancia, grupos de literatura, consultas, conjuntos, ferramentas, dominios): cada item da sua fonte, mesmo
-  que a mesma obra apareca nas duas;
-- de conteudo (tipos, eixos, topicos, paises): cada obra uma vez (`obras`), so as que a triagem deixou no escopo."""
+- por fonte (relevancia, grupos de literatura, consultas, ferramentas, dominios): cada item da sua fonte, mesmo que a
+  mesma obra apareca nas duas;
+- de conteudo (tipos, eixos, topicos, paises): cada obra uma vez (`obras`), so as que a triagem deixou no escopo;
+- de origem (conjuntos): cada obra uma vez, todas (inclusive as fora do escopo), na uniao dos conjuntos dos seus itens."""
+import copy
 import re
 import unicodedata
 from collections import Counter
+from itertools import combinations
 
 from dominio.casos_estaduais import ano_da_data
 from dominio.servicos import normalizar_url
 
 FONTE_WEB, FONTE_SCHOLAR = "Web", "Scholar"
 FONTE_DA_ETAPA = {"busca_literatura": FONTE_WEB, "busca_academica": FONTE_SCHOLAR}   # a etapa que gravou as chamadas
-CONJUNTOS = ("A", "B")
+SEM_CONJUNTO = "Sem conjunto"      # a obra sem nenhum dos conjuntos configurados
 RELEVANCIAS = ("alta", "media", "baixa", "fora_do_escopo")
 ELEGIVEIS = ("alta", "media")                      # alta e media dao "elegivel" na triagem (D116)
 SEM_TRIAGEM = "sem triagem válida"
@@ -271,18 +274,57 @@ def consultas(lista, ids_por_conjunto):
     return saida
 
 
-def conjuntos(lista):
-    """{fonte: {"Só A": n, "Só B": n, "A e B": n}}: quanto os conjuntos A e B se sobrepoem em cada fonte. Item sem nenhum
-    dos dois conjuntos fica de fora."""
-    saida = {}
-    for fonte in (FONTE_WEB, FONTE_SCHOLAR):
-        c = Counter()
-        for i in lista:
-            nomes = set(i["conjuntos"]) & set(CONJUNTOS)
-            if i["fonte"] == fonte and nomes:
-                c["A e B" if nomes == set(CONJUNTOS) else f"Só {nomes.pop()}"] += 1
-        saida[fonte] = {k: c.get(k, 0) for k in ("Só A", "Só B", "A e B")}
-    return saida
+def obras_com_origem(lista):
+    """(obras, ambiguas): as mesmas obras de `obras(lista)`, na mesma ordem, cada uma copiada com `membros` [(fonte, id)]
+    e `conjuntos_da_obra` (a uniao dos conjuntos dos membros, em ordem alfabetica). A referencia da web que `obras` tira
+    por repetir um artigo do Scholar (URL normalizada igual; sem ela, titulo normalizado igual) soma os seus conjuntos aos
+    desse artigo quando ele e um so; se casa com mais de um artigo, nao e atribuida a nenhum e o seu id volta em `ambiguas`
+    (para decidir depois). Cada obra e uma copia profunda: a entrada nao muda, nem pelas listas da saida."""
+    por_url, por_titulo = {}, {}
+    for a in lista:
+        if a["fonte"] == FONTE_SCHOLAR:
+            if a["url"]:
+                por_url.setdefault(normalizar_url(a["url"]), set()).add(a["id"])
+            chave = chave_titulo(a["titulo"])
+            if chave is not None:
+                por_titulo.setdefault(chave, set()).add(a["id"])
+    repetidos_url, repetidos_titulo = _repetidos_por_criterio(lista)
+    extras, ambiguas = {}, []
+    for i in lista:
+        if i["id"] in repetidos_url:
+            alvos = por_url[normalizar_url(i["url"])]
+        elif i["id"] in repetidos_titulo:
+            alvos = por_titulo[chave_titulo(i["titulo"])]
+        else:
+            continue
+        if len(alvos) == 1:
+            extras.setdefault(next(iter(alvos)), []).append(i)
+        else:
+            ambiguas.append(i["id"])
+    saida = []
+    for o in obras(lista):
+        membros = [o] + extras.get(o["id"], [])
+        saida.append({**copy.deepcopy(o), "membros": [(m["fonte"], m["id"]) for m in membros],
+                      "conjuntos_da_obra": sorted({c for m in membros for c in m["conjuntos"]})})
+    return saida, ambiguas
+
+
+def combinacoes(nomes):
+    """Os rotulos das combinacoes nao vazias de `nomes`, das menores para as maiores e, em cada tamanho, na ordem de
+    `nomes`: ("A", "B") -> ["Só A", "Só B", "A + B"]."""
+    return [f"Só {g[0]}" if len(g) == 1 else " + ".join(g) for n in range(1, len(nomes) + 1) for g in combinations(nomes, n)]
+
+
+def conjuntos_por_obra(lista, nomes):
+    """({rotulo: obras}, ambiguas): cada obra (de `obras_com_origem`) na combinacao exata dos conjuntos de `nomes` que a
+    acharam, em todas as combinacoes de `combinacoes(nomes)` e por fim SEM_CONJUNTO (a obra sem nenhum conjunto de `nomes`;
+    um conjunto fora de `nomes` nao conta). `ambiguas`: os ids das referencias da web sem obra atribuida."""
+    obras_, ambiguas = obras_com_origem(lista)
+    c = Counter()
+    for o in obras_:
+        achados = [n for n in nomes if n in o["conjuntos_da_obra"]]
+        c[(f"Só {achados[0]}" if len(achados) == 1 else " + ".join(achados)) if achados else SEM_CONJUNTO] += 1
+    return {r: c.get(r, 0) for r in combinacoes(nomes) + [SEM_CONJUNTO]}, ambiguas
 
 
 def dominio_registravel(dominio):

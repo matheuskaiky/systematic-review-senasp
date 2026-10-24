@@ -26,6 +26,10 @@ def _itens_pl(n):
     return f"{fmt.numero(n)} {'item' if n == 1 else 'itens'}"
 
 
+def _obras_pl(n):
+    return f"{fmt.numero(n)} {'obra' if n == 1 else 'obras'}"
+
+
 def _barras(linhas, titulo, descricao):
     return graficos.barras_horizontais(linhas, titulo, descricao, fmt.numero, MARGEM_ROTULOS, MAX_ROTULO)
 
@@ -279,20 +283,27 @@ def bloco_consultas(itens, ids_por_conjunto, textos):
                   aviso=AVISO_MODELO, tabela=tabela)
 
 
-def bloco_conjuntos(itens):
-    """Quanto os conjuntos A e B se sobrepoem em cada fonte."""
-    c = AV.conjuntos(itens)
-    cols = ("Só A", "Só B", "A e B")
-    total = sum(sum(v.values()) for v in c.values())
+def bloco_conjuntos(itens, nomes):
+    """Em que combinacao dos conjuntos de consultas (`nomes`, na ordem da configuracao) cada obra foi achada."""
+    contagem, ambiguas = AV.conjuntos_por_obra(itens, nomes)
+    total = sum(contagem.values())
     if not total:
-        return _bloco("vies-conjuntos", "Sem itens dos conjuntos para comparar")
-    ambos = sum(v["A e B"] for v in c.values())
-    titulo = (f"Os conjuntos A e B se complementam: {fmt.numero(ambos)} de {_itens_pl(total)} aparecem nos dois"
-              if ambos / total < LIMIAR_SOBREPOSICAO else f"{fmt.numero(ambos)} de {_itens_pl(total)} aparecem nos dois conjuntos")
-    graf = g.mapa_de_calor_assimetrico([AV.FONTE_WEB, AV.FONTE_SCHOLAR], list(cols),
-                                       {(f, k): c[f][k] for f in c for k in cols}, titulo,
-                                       descricao="Itens por fonte e conjunto de consultas que os achou")
-    return _bloco("vies-conjuntos", titulo, graf, "por fonte: cada item da sua fonte (a mesma obra nas duas fontes conta em cada uma)")
+        return _bloco("vies-conjuntos", "Sem obras dos conjuntos para comparar")
+    varios = sum(contagem[r] for r in AV.combinacoes(nomes)[len(nomes):])     # as combinacoes de dois ou mais conjuntos
+    titulo = (f"Nenhuma de {_obras_pl(total)} foi achada por mais de um conjunto de consultas" if not varios else
+              f"{fmt.numero(varios)} de {_obras_pl(total)} {'foi achada' if varios == 1 else 'foram achadas'} "
+              "por mais de um conjunto de consultas")
+    linhas = list(contagem.items())
+    graf = _barras(linhas, titulo, "Obras pela combinação exata dos conjuntos de consultas que as acharam")
+    texto = ["Cada obra conta uma vez, na combinação de todos os conjuntos que acharam os seus itens (web e Scholar). "
+             "As buscas item por item, por consulta e por fonte, estão no bloco anterior."]
+    if ambiguas:
+        texto.append(f"{fmt.numero(len(ambiguas))} {'referência' if len(ambiguas) == 1 else 'referências'} da web "
+                     f"{'casa' if len(ambiguas) == 1 else 'casam'} com mais de um artigo do Scholar: os conjuntos "
+                     f"{'dela' if len(ambiguas) == 1 else 'delas'} não "
+                     "foram somados a nenhuma obra (a decidir).")
+    return _bloco("vies-conjuntos", titulo, graf, "por obra: todas as obras, inclusive as fora do escopo, na união dos conjuntos de todos os seus itens", texto,
+                  tabela={"cabecalho": ["Combinação", "Obras"], "linhas": [[r, fmt.numero(n)] for r, n in linhas]})
 
 
 # ---------------------------------------------------------------- sites da web

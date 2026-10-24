@@ -99,7 +99,7 @@ def montar_vies(leitura, contexto, secao, ferramentas):
               "temas": lambda: [bv.bloco_eixos(itens, tuple(contexto.eixos_exploracao)), bv.bloco_eixo_relevancia(itens),
                                 bv.bloco_topicos(itens, list(textos.values()))],
               "tempo": lambda: [bv.bloco_anos(itens, datetime.now().year), bv.bloco_paises(itens)],
-              "consultas": lambda: [bv.bloco_consultas(itens, ids_por_conjunto, textos), bv.bloco_conjuntos(itens)],
+              "consultas": lambda: [bv.bloco_consultas(itens, ids_por_conjunto, textos), bv.bloco_conjuntos(itens, tuple(ids_por_conjunto))],
               "web": lambda: [bv.bloco_dominios(itens)]}[secao]()
     return blocos, (resumo if secao == "panorama" else None)
 

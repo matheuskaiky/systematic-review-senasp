@@ -517,6 +517,11 @@ def abrir_painel(a, fab):
         for d in dominios:
             if not re.fullmatch(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*", d):
                 raise SystemExit(f"PAINEL_HOSTS aceita só nomes de domínio, sem esquema, porta, barra ou '*': {d}")
+        # origens publicas de um proxy na frente (Firebase Hosting, dominio proprio): o Origin do navegador que vale alem do Host
+        origens = tuple(o.strip().lower() for o in os.environ.get("PAINEL_ORIGENS", "").split(",") if o.strip())
+        for o in origens:
+            if not re.fullmatch(r"https://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*", o):
+                raise SystemExit(f"PAINEL_ORIGENS aceita só endereços https://<domínio>, sem porta, caminho, barra final ou '*': {o}")
     elif a.host not in ("127.0.0.1", "localhost"):
         raise SystemExit("O painel só aceita conexões locais (127.0.0.1).")
     import uvicorn
@@ -547,6 +552,7 @@ def abrir_painel(a, fab):
         consultas_literatura={t.id: t.query for ts in C.CONJUNTOS_LITERATURA.values() for t in ts})
     if servidor:
         contexto.hosts_permitidos = dominios + ("127.0.0.1", "localhost")   # o dominio publico e o acesso de dentro da VM
+        contexto.origens_publicas, contexto.exige_https = origens, True
     if fab.postgres:
         # PostgreSQL (painel na nuvem): o painel nunca migra; so confere que as migracoes estao todas aplicadas
         pendentes = fab.esquema_postgres_pendente()

@@ -77,6 +77,7 @@ def test_primeira_visita_sem_menu_sem_conta_sem_estilo_embutido_e_sem_cache(pain
 
 def test_as_outras_paginas_continuam_com_menu_conta_detalhe_e_sem_no_store(painel):
     cli, _, copia, _ = painel
+    cli.get("/")                                     # o primeiro pedido grava o cookie e sai sem cache; a regra e a do segundo
     r = cli.get("/")
     h = r.text
     assert '<div class="layout">\n  <nav class="menu" aria-label="Principal">' in h and '</nav>\n  <main id="conteudo"' in h
@@ -85,10 +86,11 @@ def test_as_outras_paginas_continuam_com_menu_conta_detalhe_e_sem_no_store(paine
     assert "no-store" not in r.headers.get("cache-control", "")
 
 
-@pytest.mark.parametrize("metodo,caminho", [("get", "/static/painel.css"), ("get", "/entrarx"), ("get", "/entrar/x"), ("post", "/sair")])
+@pytest.mark.parametrize("metodo,caminho", [("get", "/static/painel.css"), ("get", "/entrarx"), ("get", "/entrar/x")])   # /sair grava o cookie (token novo): sai sem cache
 def test_no_store_so_no_caminho_exato_da_entrada(painel, metodo, caminho):
     cli, _, _, _ = painel
-    dados = {"data": {"csrf": _csrf(cli)}} if metodo == "post" else {}
+    csrf = _csrf(cli)                                # com o cookie ja gravado (resposta que grava o cookie sai sem cache)
+    dados = {"data": {"csrf": csrf}} if metodo == "post" else {}
     r = getattr(cli, metodo)(caminho, follow_redirects=False, **dados)
     assert "no-store" not in r.headers.get("cache-control", "")
 
@@ -197,10 +199,10 @@ def test_entrada_certa_troca_o_token_e_nao_guarda_cache(painel):
     antigo = _csrf(cli)
     r = cli.post("/entrar", data={"login": "maria", "senha": SENHA, "proximo": "/chamadas", "csrf": antigo}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/chamadas" and r.headers.get("cache-control") == "no-store"
-    novo = r.cookies.get("csrf")
-    assert novo and novo != antigo and len(novo) >= 40 and r.cookies.get("sessao")
+    novo, sessao = r.cookies.get("__session").split(".")
+    assert novo and novo != antigo and len(novo) >= 40 and sessao
     cabecalhos = [v for k, v in r.headers.multi_items() if k == "set-cookie"]
-    csrf = [v for v in cabecalhos if v.startswith("csrf=")]
+    csrf = [v for v in cabecalhos if v.startswith("__session=")]
     assert len(csrf) == 1 and "HttpOnly" in csrf[0] and "SameSite=strict" in csrf[0]
     h = cli.get("/chamadas").text
     assert f'name="csrf" value="{novo}"' in h and f'value="{antigo}"' not in h
@@ -229,9 +231,9 @@ def test_sessao_vencida_leva_a_entrada_com_o_recado(painel, metodo, caminho, loc
     c.commit()
     r = getattr(cli, metodo)(caminho, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == local
-    apagado = [v for k, v in r.headers.multi_items() if k == "set-cookie" and v.startswith("sessao=")]
-    assert len(apagado) == 1 and ("Max-Age=0" in apagado[0] or "expires=Thu, 01 Jan 1970" in apagado[0])
-    assert not cli.cookies.get("sessao")
+    apagado = [v for k, v in r.headers.multi_items() if k == "set-cookie" and v.startswith("__session=")]
+    assert len(apagado) == 1 and "." not in apagado[0].split(";")[0]           # fica so o token de CSRF, sem a sessao
+    assert "." not in cli.cookies.get("__session")
     r = cli.get("/chamadas", follow_redirects=False)
     assert r.headers["location"] == "/entrar?proximo=%2Fchamadas"          # o recado aparece uma vez so
 
@@ -239,7 +241,7 @@ def test_sessao_vencida_leva_a_entrada_com_o_recado(painel, metodo, caminho, loc
 def test_cookie_de_sessao_vazio_nao_gera_recado(painel):
     cli, _, _, contas_db = painel
     _sem_visitante(contas_db)
-    cli.cookies.set("sessao", "")
+    cli.cookies.set("__session", "")
     r = cli.get("/chamadas", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/entrar?proximo=%2Fchamadas"
 

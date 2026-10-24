@@ -288,7 +288,7 @@ def test_revisor_decide_com_o_proprio_nome_sem_cookie_de_revisor(painel):
     r = _entrar(cli, "maria", proximo="/chamadas")
     assert r.status_code == 303 and r.headers["location"] == "/chamadas"
     sc = r.headers["set-cookie"].lower()
-    assert "sessao=" in sc and "httponly" in sc and "samesite=strict" in sc and "path=/" in sc and "max-age" not in sc and "secure" not in sc
+    assert "__session=" in sc and "httponly" in sc and "samesite=strict" in sc and "path=/" in sc and "max-age" not in sc and "secure" not in sc
     achado = sqlite3.connect(copia).execute("SELECT achado_id FROM v_achados_revisao WHERE verificado=0 LIMIT 1").fetchone()[0]
     h = cli.get(f"/achados/{achado}").text
     csrf = re.search(r'name="csrf" value="([^"]+)"', h).group(1)
@@ -394,7 +394,7 @@ def test_faixa_da_conta_e_dica_de_admin(painel):
 def test_token_guardado_so_como_hash(painel):
     cli, _, _, contas_db = painel
     _criar(painel, "maria", "Revisor")
-    token = _entrar(cli, "maria").cookies["sessao"]
+    token = _entrar(cli, "maria").cookies["__session"].split(".")[1]
     guardado = sqlite3.connect(contas_db).execute("SELECT token_hash FROM sessoes").fetchone()[0]
     assert guardado == hashlib.sha256(token.encode()).hexdigest()
 
@@ -463,7 +463,7 @@ def test_r1_banco_de_contas_ocupado_vira_503_formatado(painel, monkeypatch):
         raise A.ContasOcupadas("ocupado")
     for metodo in ("usuario_da_sessao", "permissoes_do_grupo"):
         monkeypatch.setattr(contas, metodo, ocupado)
-    for cookies in ({}, {"sessao": "qualquer"}):
+    for cookies in ({}, {"__session": "c" * 43 + "." + "s" * 43}):
         cli.cookies.clear()
         for k, v in cookies.items():
             cli.cookies.set(k, v)
@@ -489,7 +489,7 @@ def test_r1_sair_com_banco_ocupado_nao_apaga_o_cookie(painel, monkeypatch):
         raise A.ContasOcupadas("ocupado")
     monkeypatch.setattr(contas, "fechar_sessao", ocupado)
     r = cli.post("/sair", data={"csrf": csrf}, follow_redirects=False)
-    assert r.status_code == 503 and "sessao=" not in r.headers.get("set-cookie", "")
+    assert r.status_code == 503 and "set-cookie" not in r.headers
 
 
 def test_r1_autor_pode_desfazer_a_propria_revogacao(painel):

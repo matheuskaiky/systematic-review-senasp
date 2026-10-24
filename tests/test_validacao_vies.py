@@ -274,7 +274,7 @@ def _cli(banco, tmp_path, nome="vies", somente_leitura=False):
 
 
 def _post(cli, rota, **dados):
-    return cli.post(rota, data={"csrf": cli.cookies.get("csrf"), **dados}, headers={"Origin": "http://testserver"},
+    return cli.post(rota, data={"csrf": cli.cookies.get("__session"), **dados}, headers={"Origin": "http://testserver"},
                     follow_redirects=False)
 
 
@@ -354,7 +354,7 @@ def test_sem_csrf_ou_de_outra_origem_e_recusado(banco, tmp_path, rota):
     if rota != "/validacao/sortear":
         _post(cli, "/validacao/sortear")
     sem = cli.post(rota, data={"revisor": "Ana", **VALIDA}, headers={"Origin": "http://testserver"}, follow_redirects=False)
-    outra = cli.post(rota, data={"csrf": cli.cookies.get("csrf"), "revisor": "Ana", **VALIDA},
+    outra = cli.post(rota, data={"csrf": cli.cookies.get("__session"), "revisor": "Ana", **VALIDA},
                      headers={"Origin": "http://outro.exemplo"}, follow_redirects=False)
     assert sem.status_code == outra.status_code == 403
     assert sqlite3.connect(banco).execute("SELECT COUNT(*) FROM validacao_vies WHERE relevancia IS NOT NULL").fetchone()[0] == 0

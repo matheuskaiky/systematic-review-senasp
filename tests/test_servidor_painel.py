@@ -125,14 +125,14 @@ def test_sem_servidor_continua_so_local(servidor, monkeypatch):
     assert TestClient(app, base_url="http://127.0.0.1").get("/entrar").status_code == 404   # a demonstracao local continua sem login
 
 
-def test_cookies_seguros_em_https_e_nao_em_http(servidor, monkeypatch):
+def test_cookies_seguros_no_servidor_ate_em_http(servidor, monkeypatch):
     _, chamadas = servidor
     _rodar(monkeypatch, "painel", "--demo", "--servidor")
     app = chamadas[0][0]
-    for base, seguro in ((f"https://{DOMINIO}", True), ("http://localhost", False)):
+    for base in (f"https://{DOMINIO}", "http://localhost"):
         r = TestClient(app, base_url=base).get("/entrar")
-        cookie = next(v for k, v in r.headers.multi_items() if k == "set-cookie" and v.startswith("csrf="))
-        assert ("Secure" in cookie) is seguro, (base, cookie)
+        cookie = next(v for k, v in r.headers.multi_items() if k == "set-cookie" and v.startswith("__session="))
+        assert "Secure" in cookie, (base, cookie)
 
 
 def test_admin_da_demonstracao_vai_para_contas_demo(servidor, monkeypatch):

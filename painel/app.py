@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import json
 import mimetypes
+import re
 import secrets
 import threading
 from dataclasses import dataclass, field
@@ -71,6 +72,30 @@ class StaticComCache(StaticFiles):
         return resposta
 
 
+# o Firebase Hosting so repassa ao Cloud Run o cookie com este nome (os demais sao descartados); por isso um cookie so leva o
+# token de CSRF e, com login, o de sessao: "<csrf>" ou "<csrf>.<sessao>"
+COOKIE = "__session"
+_PARTE_DO_COOKIE = re.compile(r"[A-Za-z0-9_-]{1,128}")   # alfabeto de secrets.token_urlsafe
+
+
+def ler_cookie(request):
+    """(csrf, sessao) do cookie `__session`; sessao e None sem login. Qualquer outro formato, ou o cookie repetido no cabecalho
+    (outro subdominio ou outro caminho gravou um igual), vale como cookie ausente: (None, None)."""
+    repetidos = [c for c in request.headers.get("cookie", "").split(";") if c.strip().startswith(COOKIE + "=")]
+    if len(repetidos) > 1:
+        return None, None
+    partes = request.cookies.get(COOKIE, "").split(".")
+    if len(partes) > 2 or not all(_PARTE_DO_COOKIE.fullmatch(p) for p in partes):
+        return None, None
+    return partes[0], (partes[1] if len(partes) == 2 else None)
+
+
+def gravar_cookie(resposta, csrf, sessao, https):
+    """Grava `__session` com o token de CSRF e, se houver, o de sessao (sessao None = sem login)."""
+    valor = csrf + ("." + sessao if sessao else "")
+    resposta.set_cookie(COOKIE, valor, httponly=True, samesite="strict", secure=https, path="/")
+
+
 def tema_do_cookie(request):
     """Le o cookie `tema` com lista fechada de valores. Valor desconhecido vira None (= seguir o sistema)."""
     valor = request.cookies.get("tema")
@@ -116,6 +141,8 @@ class Contexto:
     bases: tuple = ()                               # bases das buscas manuais
     solucoes_conhecidas: tuple = ()                 # SolucaoConhecida (config/solucoes_conhecidas.py), para a pagina /solucoes
     hosts_permitidos: tuple = ("127.0.0.1", "localhost")   # DNS rebinding: qualquer outro Host e recusado
+    origens_publicas: tuple = ()        # "https://<dominio>" de um proxy na frente do painel (Firebase Hosting): Origin aceito alem do proprio
+    exige_https: bool = False           # no servidor: o proprio endereco so vale em https e os cookies sao sempre Secure
     backup_feito: bool = field(default=False)
     autenticacao: bool = field(default=False)
     modelos_referencias: dict = field(default_factory=dict)      # nome -> ModeloPlanilhaReferencias (config/modelos_exportacao.py)
@@ -233,7 +260,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 return await call_next(request)
 
             agora = datetime.now(timezone.utc).isoformat()
-            token = request.cookies.get("sessao")
+            token = ler_cookie(request)[1]
             usuario = None
             try:
                 if token:
@@ -261,12 +288,12 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 else:
                     alvo = "/"
                 destino = "/entrar?proximo=" + quote(alvo, safe="")
-                sessao_vencida = bool(request.cookies.get("sessao"))
+                sessao_vencida = bool(ler_cookie(request)[1])
                 if sessao_vencida:
                     destino += "&aviso=expirada"  # havia sessao, mas ela venceu ou foi encerrada
                 resposta = RedirectResponse(destino, status_code=303)
                 if sessao_vencida:
-                    resposta.delete_cookie("sessao", path="/")  # o recado aparece uma vez so
+                    gravar_cookie(resposta, request.state.csrf, None, _https(request))  # o recado aparece uma vez so
                 return resposta
             else:
                 return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
@@ -274,11 +301,17 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     # ---------- seguranca: cabecalhos, CSRF (cookie duplicado no formulario) e cookies SameSite=Strict ----------
     @app.middleware("http")
     async def seguranca(request: Request, call_next):
-        token = request.cookies.get("csrf") or secrets.token_urlsafe(32)
+        csrf = ler_cookie(request)[0]
+        token = csrf or secrets.token_urlsafe(32)
         request.state.csrf = token
         resposta = await call_next(request)
-        if not request.cookies.get("csrf"):
-            resposta.set_cookie("csrf", token, httponly=True, samesite="strict", secure=(request.url.scheme == "https"))
+        estatico = request.url.path.startswith("/static/")
+        if not csrf and not estatico and not any(v.startswith(COOKIE + "=") for v in resposta.headers.getlist("set-cookie")):
+            gravar_cookie(resposta, token, None, _https(request))
+        if resposta.headers.getlist("set-cookie"):
+            # nenhum cache guarda uma resposta que grava o cookie: o CDN do Firebase usa `__session` na chave do cache, mas quem
+            # chega sem ele receberia o token de outra pessoa (o CDN guarda ate respostas 404 por 10 minutos)
+            resposta.headers["Cache-Control"] = "no-store"
         resposta.headers["Content-Security-Policy"] = CSP
         resposta.headers["X-Content-Type-Options"] = "nosniff"
         resposta.headers["Referrer-Policy"] = "same-origin"
@@ -290,21 +323,39 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
 
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(contexto.hosts_permitidos))
 
+    origens_publicas = frozenset(contexto.origens_publicas)
+
+    def _https(request):
+        return contexto.exige_https or request.url.scheme == "https"
+
     def _mesma_origem(request):
-        """Origin (ou, sem ele, Referer) tem de ser o proprio painel: o cookie de CSRF sozinho nao distingue outra porta
-        de localhost. Sem nenhum dos dois (cliente que nao e navegador) nao ha o que conferir."""
-        for cabecalho in ("origin", "referer"):
-            valor = request.headers.get(cabecalho)
-            if valor is not None:
-                return urlsplit(valor).netloc == request.headers.get("host")
-        return True
+        """Origin (ou, sem ele, Referer) tem de ser uma origem deste painel: a do proprio pedido (esquema + Host, com a porta;
+        no servidor so em https) ou uma de PAINEL_ORIGENS (proxy na frente, como o Firebase Hosting, que chama o Cloud Run com
+        outro Host). Comparacao exata, sem curinga. Havendo Origin, o Referer e ignorado. Sem nenhum dos dois (cliente que nao
+        e navegador) nao ha o que conferir; o token de CSRF continua exigido. X-Forwarded-Host e X-Fh-Requested-Host nunca contam."""
+        origem = request.headers.get("origin")
+        if origem is None:
+            referer = request.headers.get("referer")
+            if referer is None:
+                return True
+            try:
+                partes = urlsplit(referer)
+            except ValueError:
+                return False
+            if "@" in partes.netloc:
+                return False
+            origem = f"{partes.scheme}://{partes.netloc}"
+        host = request.headers.get("host", "")
+        if host and (request.url.scheme == "https" or not contexto.exige_https) and origem == f"{request.url.scheme}://{host}":
+            return True
+        return origem in origens_publicas
 
     def checar_escrita(request, csrf):
         if contexto.somente_leitura:
             return erro(request, 403, "Modo somente leitura", "O painel foi iniciado com --somente-leitura; nenhuma decisão é gravada.")
         if not _mesma_origem(request):
             return erro(request, 403, "Pedido recusado", "O pedido veio de outro site ou de outra porta, não deste painel.")
-        if not csrf or not hmac.compare_digest(csrf.encode("utf-8"), request.cookies.get("csrf", "").encode("utf-8")):
+        if not csrf or not hmac.compare_digest(csrf.encode("utf-8"), (ler_cookie(request)[0] or "").encode("utf-8")):
             return erro(request, 403, "Formulário recusado", "O token de segurança não confere. Recarregue a página e tente de novo.")
         return None
 
@@ -388,7 +439,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 return _form_erro("credenciais", 400)          # a tentativa ja foi contada na reserva
 
             try:
-                old_token = request.cookies.get("sessao")
+                old_token = ler_cookie(request)[1]
                 if old_token:
                     contas.fechar_sessao(hashlib.sha256(old_token.encode()).hexdigest())
 
@@ -401,16 +452,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 return _form_erro("credenciais", 400)          # a senha mudou (ou a conta foi desativada) durante o login
 
             resposta = RedirectResponse(prox_seguro, status_code=303)
-            eh_https = (request.url.scheme == "https")
-            resposta.set_cookie(
-                "sessao",
-                token,
-                httponly=True,
-                samesite="strict",
-                secure=eh_https,
-                path="/",
-            )
-            resposta.set_cookie("csrf", secrets.token_urlsafe(32), httponly=True, samesite="strict", secure=eh_https)  # token novo a cada entrada
+            gravar_cookie(resposta, secrets.token_urlsafe(32), token, _https(request))   # token de CSRF novo a cada entrada
             return resposta
 
         @app.post("/sair")
@@ -418,14 +460,14 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             bloqueio = checar_escrita(request, csrf)
             if bloqueio:
                 return bloqueio
-            token = request.cookies.get("sessao")
+            token = ler_cookie(request)[1]
             if token:
                 try:
                     contas.fechar_sessao(hashlib.sha256(token.encode()).hexdigest())
                 except autenticacao.ContasOcupadas:
                     return _erro_contas_ocupadas(request)
             resposta = RedirectResponse("/entrar?aviso=saiu", status_code=303)
-            resposta.delete_cookie("sessao", path="/")
+            gravar_cookie(resposta, secrets.token_urlsafe(32), None, _https(request))   # token de CSRF novo ao sair
             return resposta
 
     # ---------- visao geral ----------

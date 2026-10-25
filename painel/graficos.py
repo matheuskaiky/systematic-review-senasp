@@ -2,7 +2,7 @@
 import hashlib
 from html import escape
 
-from painel import mapa_ufs
+from painel import graficos_analises, mapa_ufs
 from painel.graficos_analises import _cortar
 
 
@@ -11,7 +11,7 @@ def _uid(*partes):
     return hashlib.sha1(repr(partes).encode("utf-8")).hexdigest()[:8]
 
 
-def barras_horizontais(itens, titulo, descricao, formatar=str, margem_esq=175, max_rotulo=None):
+def barras_horizontais(itens, titulo, descricao, formatar=str, margem_esq=175, max_rotulo=None, hrefs=None):
     """itens = [(rotulo, valor)]. Barra proporcional ao maior valor; o texto acompanha cada barra. `margem_esq`: espaco dos
     rotulos (aumente para rotulos longos, que de outro modo saem cortados a esquerda); `max_rotulo`: rotulo mais longo que
     isso aparece cortado com reticencias (o inteiro fica na dica da barra)."""
@@ -27,10 +27,14 @@ def barras_horizontais(itens, titulo, descricao, formatar=str, margem_esq=175, m
         y = 4 + i * altura_linha
         w = max((valor or 0) / maximo * (largura - margem_esq - 70), 2 if valor else 0)
         visivel = _cortar(rot, max_rotulo) if max_rotulo else str(rot)
-        partes.append(f'<text class="gr-rotulo" x="{margem_esq - 10}" y="{y + 19}" text-anchor="end">{escape(visivel)}</text>'
-                      f'<rect class="gr-barra" x="{margem_esq}" y="{y + 3}" width="{w:.1f}" height="21" rx="3">'
-                      f'<title>{escape(str(rot))}: {escape(formatar(valor))}</title></rect>'
-                      f'<text class="gr-valor" x="{margem_esq + w + 8:.1f}" y="{y + 19}">{escape(formatar(valor))}</text>')
+        grupo = (f'<text class="gr-rotulo" x="{margem_esq - 10}" y="{y + 19}" text-anchor="end">{escape(visivel)}</text>'
+                 f'<rect class="gr-barra" x="{margem_esq}" y="{y + 3}" width="{w:.1f}" height="21" rx="3">'
+                 f'<title>{escape(str(rot))}: {escape(formatar(valor))}</title></rect>'
+                 f'<text class="gr-valor" x="{margem_esq + w + 8:.1f}" y="{y + 19}">{escape(formatar(valor))}</text>')
+        href = hrefs[i] if hrefs and i < len(hrefs) else None
+        if href is not None:
+            grupo = graficos_analises._link(href, f"{rot}: {formatar(valor)}", grupo)
+        partes.append(grupo)
     partes.append("</svg>")
     return "".join(partes)
 

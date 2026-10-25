@@ -6,5 +6,6 @@
   <label>Fonte <select name="fonte"><option value="">qualquer</option>{% for chave, rotulo in fontes %}<option value="{{ chave }}"{% if filtros.fonte == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>
   {% if filtros.perspectiva == "integrada" %}<label>Ângulo predominante <select name="angulo"><option value="">qualquer</option>{% for chave, rotulo in ang_opcoes %}<option value="{{ chave }}"{% if filtros.angulo == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>{% else %}<p>Ângulo: definido pela perspectiva ({{ rotulo_recorte }}).</p>{% endif %}
   <label>Eixo <select name="eixo"><option value="">qualquer</option>{% for e in eixos %}<option value="{{ e }}"{% if filtros.eixo == e %} selected{% endif %}>{{ e }}</option>{% endfor %}<option value="sem_eixo"{% if filtros.eixo == "sem_eixo" %} selected{% endif %}>Sem eixo</option></select></label>
+  <label>Divergência entre web e Scholar <select name="divergencia"><option value="">qualquer</option>{% for chave, rotulo in divergencias %}<option value="{{ chave }}"{% if filtros.divergencia == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>
   <button class="botao" type="submit">Filtrar</button>{% if query_limpar %} <a href="{{ acao }}">Limpar</a>{% endif %}
 </form>

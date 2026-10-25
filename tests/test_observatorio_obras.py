@@ -355,7 +355,8 @@ def test_formulario_completo_e_padroes(sintetico):
     s = _selects(cli.get("/observatorio/obras").text)
     assert [(r, n) for r, n, _ in s] == [("Perspectiva", "perspectiva"), ("Universo", "universo"),
                                          ("Combinação exata dos conjuntos", "combinacao"), ("Achada no conjunto", "conjunto"),
-                                         ("Fonte", "fonte"), ("Ângulo predominante", "angulo"), ("Eixo", "eixo")]
+                                         ("Fonte", "fonte"), ("Ângulo predominante", "angulo"), ("Eixo", "eixo"),
+                                         ("Divergência entre web e Scholar", "divergencia")]
     op = {n: o for _, n, o in s}
     assert op["perspectiva"] == [(k, k == "integrada", t) for k, t in OV.PERSPECTIVAS]
     assert op["universo"] == [(k, k == "elegiveis", t) for k, t in OV.UNIVERSOS]
@@ -366,6 +367,8 @@ def test_formulario_completo_e_padroes(sintetico):
                             ("aplicacoes_tecnologicas", False, "Aplicações tecnológicas"), ("sem_angulo", False, "Sem ângulo")]
     assert op["eixo"] == [("", False, "qualquer"), ("E1", False, "E1"), ("E2", False, "E2"), ("E3", False, "E3"),
                           ("sem_eixo", False, "Sem eixo")]
+    assert op["divergencia"] == [("", False, "qualquer"), ("com", False, "Com divergência entre os itens"),
+                                 ("sem", False, "Sem divergência entre os itens")]
     assert '<button class="botao" type="submit">Filtrar</button>' in cli.get("/observatorio/obras").text
     assert 'href="/observatorio/obras">Limpar</a>' not in cli.get("/observatorio/obras").text
     assert 'href="/observatorio/obras">Limpar</a>' in cli.get("/observatorio/obras?fonte=web").text
@@ -377,7 +380,7 @@ def test_formulario_marca_cada_valor_escolhido(sintetico):
                    "&eixo=E1").text
     marcados = {n: [v for v, sel, _ in o if sel] for _, n, o in _selects(html)}
     assert marcados == {"perspectiva": ["integrada"], "universo": ["todas"], "combinacao": ["A+C"], "conjunto": ["A"],
-                        "fonte": ["ambas"], "angulo": ["vies_algoritmico"], "eixo": ["E1"]}
+                        "fonte": ["ambas"], "angulo": ["vies_algoritmico"], "eixo": ["E1"], "divergencia": []}
 
 
 def test_contagem_no_singular_e_vazio_sem_tabela_nem_paginas(sintetico):
@@ -483,3 +486,30 @@ def test_documento_http_maiusculo_continua_valendo(sintetico):
     linha = cli.get("/observatorio/obras").text.split("<tbody>", 1)[1].split("</tr>", 1)[0]
     assert re.findall(r"<td[^>]*>(.*?)</td>", linha, re.S)[8] == \
         '<a href="HTTPS://X.example/a?b=1&amp;c=2" rel="noopener noreferrer" target="_blank">abrir</a>'
+
+
+# ---------- F1.2: filtro de divergencia na lista ----------
+@pytest.mark.parametrize("consulta, linhas", [
+    ("divergencia=com", [["A-3", "W-3"]]),
+    ("divergencia=sem", [["A-2"], ["W-1"], ["W-5"]]),
+    ("divergencia=com&fonte=so_scholar", []),
+    ("divergencia=sem&universo=todas&conjunto=C", [["A-2"], ["A-6"]]),
+])
+def test_filtro_de_divergencia_na_lista(sintetico, consulta, linhas):
+    cli, _ = sintetico
+    r = cli.get(f"/observatorio/obras?{consulta}")
+    assert r.status_code == 200 and _linhas(r.text) == linhas and _total(r.text) == len(linhas)
+
+
+def test_divergencia_marcada_no_formulario_e_preservada_nas_paginas(muitas):
+    html = muitas.get("/observatorio/obras?divergencia=sem").text
+    assert {n: [v for v, sel, _ in o if sel] for _, n, o in _selects(html)}["divergencia"] == ["sem"]
+    assert 'href="/observatorio/obras?divergencia=sem&amp;pagina=2">Próxima →</a>' in html
+
+
+@pytest.mark.parametrize("consulta, mensagem", [("divergencia=x", "Filtro inválido: divergencia."),
+                                                ("divergencia=com&divergencia=sem", "Filtro repetido: divergencia.")])
+def test_divergencia_invalida(sintetico, consulta, mensagem):
+    cli, _ = sintetico
+    r = cli.get(f"/observatorio/obras?{consulta}")
+    assert r.status_code == 400 and mensagem in r.text

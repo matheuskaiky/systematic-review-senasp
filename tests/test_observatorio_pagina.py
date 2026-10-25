@@ -368,3 +368,77 @@ def test_pagina_carrega_a_folha_das_analises(sintetico):
     cli, _ = sintetico
     for rota in ("/observatorio", "/observatorio?perspectiva=vies"):
         assert '<link rel="stylesheet" href="/static/analises.css">' in cli.get(rota).text, rota
+
+
+# ---------- F1.2: barras de combinacao e de eixo levam a lista ----------
+def _barras_com_link(html, id_):
+    """{href: n} dos links das barras do bloco `id_`."""
+    bloco = _bloco(html, id_)
+    saida = {}
+    for href, conteudo in re.findall(r'<a class="an-link" href="([^"]+)"[^>]*>(.*?)</a>', bloco, re.S):
+        n = re.findall(r'<text class="gr-valor"[^>]*>([^<]+)</text>', conteudo)
+        saida[href.replace("&amp;", "&")] = int(n[0].replace(".", ""))
+    return saida
+
+
+@pytest.mark.parametrize("base, id_", [
+    ("", "obs-combinacoes"), ("universo=todas", "obs-combinacoes"), ("fonte=web", "obs-combinacoes"),
+    ("divergencia=sem", "obs-combinacoes"),
+    ("perspectiva=vies", "obs-vies-origem"), ("perspectiva=vies&universo=todas", "obs-vies-origem"),
+    ("perspectiva=tecnologias", "obs-tec-origem"),
+    ("perspectiva=vies", "obs-vies-eixos"), ("perspectiva=vies&universo=todas", "obs-vies-eixos"),
+    ("perspectiva=tecnologias&universo=todas", "obs-tec-eixos"),
+])
+def test_cada_barra_leva_a_lista_com_o_mesmo_total(sintetico, base, id_):
+    cli, _ = sintetico
+    links = _barras_com_link(cli.get(f"/observatorio?{base}").text, id_)
+    assert links
+    linhas = _tabela(_bloco(cli.get(f"/observatorio?{base}").text, id_))
+    assert len(links) == sum(1 for l in linhas if l[1] != "0")       # so as barras com obras levam a lista
+    from urllib.parse import parse_qsl, urlsplit
+    chave = "eixo" if id_.endswith("eixos") else "combinacao"
+    for href, n in links.items():
+        assert href.startswith("/observatorio/obras?") and _total(cli.get(href).text) == n, href
+        pares = parse_qsl(urlsplit(href).query)
+        extra = [(k, v) for k, v in pares if (k, v) not in parse_qsl(base)]
+        assert [k for k, _ in extra] == [chave], href                 # os filtros ativos ficam; so a chave da barra entra
+        assert sorted(set(pares) - set(extra)) == sorted(parse_qsl(base)), href
+    # cada barra leva ao valor dela: o rotulo da barra (no aria-label do link) da o valor esperado na URL
+    rotulo_para_valor = ({r: k for k, r in OV.combinacoes(NOMES)} if chave == "combinacao" else
+                         {"Sem eixo": OV.SEM_EIXO, "E1": "E1", "E2": "E2", "E3": "E3"})
+    bloco = _bloco(cli.get(f"/observatorio?{base}").text, id_)
+    for href, rotulo in re.findall(r'<a class="an-link" href="([^"]+)" aria-label="([^"]+): [\d.]+ \(ver os registros\)">', bloco):
+        valor = dict(parse_qsl(urlsplit(href.replace("&amp;", "&")).query))[chave]
+        assert valor == rotulo_para_valor[rotulo], (rotulo, href)
+
+
+def test_barra_de_combinacao_usa_a_combinacao_exata(sintetico):
+    cli, _ = sintetico
+    links = _barras_com_link(cli.get("/observatorio?universo=todas").text, "obs-combinacoes")
+    assert links["/observatorio/obras?universo=todas&combinacao=A%2BC"] == 1
+    assert not any("conjunto=" in h for h in links)
+
+
+def test_barras_de_eixo_e_sem_eixo(sintetico):
+    from test_observatorio_vies import _itens, _t, _web
+    cli, itens = sintetico
+    itens["lista"] = _itens([_web(1), _web(2), _web(3)], [],
+                            {("referencia", 1): _t(eixo="E1"), ("referencia", 2): _t(eixo=None),
+                             ("referencia", 3): _t(eixo="Eixo fora da configuração")})
+    links = _barras_com_link(cli.get("/observatorio?perspectiva=vies").text, "obs-vies-eixos")
+    assert links == {"/observatorio/obras?perspectiva=vies&eixo=E1": 1,
+                     "/observatorio/obras?perspectiva=vies&eixo=sem_eixo": 1}  # o eixo fora da configuracao fica sem link
+
+
+def test_matriz_continua_com_os_mesmos_links(sintetico):
+    cli, _ = sintetico
+    assert set(_celulas(cli.get("/observatorio").text)) == {
+        "/observatorio/obras?combinacao=A&angulo=vies_algoritmico", "/observatorio/obras?combinacao=C&angulo=aplicacoes_tecnologicas",
+        "/observatorio/obras?combinacao=A%2BC&angulo=vies_algoritmico", "/observatorio/obras?combinacao=nenhum&angulo=sem_angulo"}
+
+
+def test_formulario_da_pagina_tem_o_filtro_de_divergencia(sintetico):
+    cli, _ = sintetico
+    html = cli.get("/observatorio?divergencia=com").text
+    assert '<option value="com" selected>Com divergência entre os itens</option>' in html
+    assert "<dt>Obras</dt><dd>1 obra · universo: Relevância alta ou média</dd>" in html

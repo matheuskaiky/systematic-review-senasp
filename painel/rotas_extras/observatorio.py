@@ -196,6 +196,7 @@ def registrar(c):
             perspectivas=OV.PERSPECTIVAS,
             universos=OV.UNIVERSOS,
             fontes=OV.FONTES,
+            divergencias=OV.DIVERGENCIAS,
         )
 
     @app.get("/observatorio/obras", response_class=HTMLResponse)
@@ -235,4 +236,5 @@ def registrar(c):
             perspectivas=OV.PERSPECTIVAS,
             universos=OV.UNIVERSOS,
             fontes=OV.FONTES,
+            divergencias=OV.DIVERGENCIAS,
         )

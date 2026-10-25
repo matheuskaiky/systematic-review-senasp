@@ -47,10 +47,14 @@ def _bloco_matriz(filtradas, nomes, recortes_vies, subtitulo, n, href):
     return _bloco("obs-matriz", titulo, grafico=grafico, subtitulo=subtitulo, texto=textos, tabela=tabela)
 
 
-def _bloco_combinacoes(id_, filtradas, nomes, subtitulo, n):
+def _bloco_combinacoes(id_, filtradas, nomes, subtitulo, n, href):
     titulo = f"Obras por combinação exata dos conjuntos: {bv._obras_pl(n)}"
-    dados_comb = [(rotulo, count) for _, rotulo, count in OV.por_combinacao(filtradas, nomes)]
-    grafico = bv._barras(dados_comb, titulo, "Obras pela combinação exata dos conjuntos de consultas que as acharam")
+    dados_brutos = OV.por_combinacao(filtradas, nomes)
+    dados_comb = [(rotulo, count) for _, rotulo, count in dados_brutos]
+    hrefs = [href(combinacao=chave) if count > 0 else None for chave, _, count in dados_brutos]
+    grafico = bv._barras(
+        dados_comb, titulo, "Obras pela combinação exata dos conjuntos de consultas que as acharam", hrefs=hrefs
+    )
     texto = [
         "Cada obra conta uma vez, na combinação de todos os conjuntos que acharam os seus itens (web e Scholar). Uma obra achada em A e em C não conta em “Só A” nem em “Só C”."
     ]
@@ -87,10 +91,17 @@ def _bloco_vies_total(subtitulo, n, href):
     return _bloco("obs-vies-total", titulo, subtitulo=subtitulo, texto=textos, link=link)
 
 
-def _bloco_eixos(id_, filtradas, eixos, subtitulo):
+def _bloco_eixos(id_, filtradas, eixos, subtitulo, href):
     titulo = "Obras por eixo de exploração"
     dados_eixos = AV.contagem([o.get("eixo") or AV.SEM_EIXO for o in filtradas], ordem=eixos)
-    grafico = bv._barras(dados_eixos, titulo, "Obras por eixo de exploração")
+    eixos_set = set(eixos)
+    hrefs = [
+        (href(eixo=OV.SEM_EIXO) if e == AV.SEM_EIXO else href(eixo=e) if e in eixos_set else None)
+        if c > 0
+        else None
+        for e, c in dados_eixos
+    ]
+    grafico = bv._barras(dados_eixos, titulo, "Obras por eixo de exploração", hrefs=hrefs)
     tabela = {
         "cabecalho": ["Eixo", "Obras"],
         "linhas": [[e, fmt.numero(c)] for e, c in dados_eixos],
@@ -109,10 +120,14 @@ def _bloco_grupos(filtradas, subtitulo):
     return _bloco("obs-vies-grupos", titulo, grafico=grafico, subtitulo=subtitulo, tabela=tabela)
 
 
-def _bloco_origem(id_, filtradas, nomes, subtitulo):
+def _bloco_origem(id_, filtradas, nomes, subtitulo, href):
     titulo = "Obras por combinação exata dos conjuntos"
-    dados_origem = [(rotulo, count) for _, rotulo, count in OV.por_combinacao(filtradas, nomes)]
-    grafico = bv._barras(dados_origem, titulo, "Obras pela combinação exata dos conjuntos de consultas que as acharam")
+    dados_brutos = OV.por_combinacao(filtradas, nomes)
+    dados_origem = [(rotulo, count) for _, rotulo, count in dados_brutos]
+    hrefs = [href(combinacao=chave) if count > 0 else None for chave, _, count in dados_brutos]
+    grafico = bv._barras(
+        dados_origem, titulo, "Obras pela combinação exata dos conjuntos de consultas que as acharam", hrefs=hrefs
+    )
     tabela = {
         "cabecalho": ["Combinação", "Obras"],
         "linhas": [[r, fmt.numero(c)] for r, c in dados_origem],
@@ -170,22 +185,22 @@ def blocos(perspectiva, filtradas, ambiguas, filtros, nomes, recortes_vies, eixo
     if perspectiva == "integrada":
         return [
             _bloco_matriz(filtradas, nomes, recortes_vies, subtitulo, n, href),
-            _bloco_combinacoes("obs-combinacoes", filtradas, nomes, subtitulo, n),
+            _bloco_combinacoes("obs-combinacoes", filtradas, nomes, subtitulo, n, href),
             _bloco_identidade(filtradas, ambiguas, subtitulo, href),
         ]
     if perspectiva == "vies":
         return [
             _bloco_vies_total(subtitulo, n, href),
-            _bloco_eixos("obs-vies-eixos", filtradas, eixos, subtitulo),
+            _bloco_eixos("obs-vies-eixos", filtradas, eixos, subtitulo, href),
             _bloco_grupos(filtradas, subtitulo),
-            _bloco_origem("obs-vies-origem", filtradas, nomes, subtitulo),
+            _bloco_origem("obs-vies-origem", filtradas, nomes, subtitulo, href),
             _bloco_vies_indisponivel(subtitulo),
         ]
     if perspectiva == "tecnologias":
         return [
             _bloco_tec_total(subtitulo, n, href),
-            _bloco_eixos("obs-tec-eixos", filtradas, eixos, subtitulo),
-            _bloco_origem("obs-tec-origem", filtradas, nomes, subtitulo),
+            _bloco_eixos("obs-tec-eixos", filtradas, eixos, subtitulo, href),
+            _bloco_origem("obs-tec-origem", filtradas, nomes, subtitulo, href),
             _bloco_tec_topicos(filtradas, textos_das_consultas, subtitulo),
             _bloco_tec_indisponivel(subtitulo),
         ]

@@ -31,8 +31,8 @@ def _obras_pl(n):
     return f"{fmt.numero(n)} {'obra' if n == 1 else 'obras'}"
 
 
-def _barras(linhas, titulo, descricao):
-    return graficos.barras_horizontais(linhas, titulo, descricao, fmt.numero, MARGEM_ROTULOS, MAX_ROTULO)
+def _barras(linhas, titulo, descricao, hrefs=None):
+    return graficos.barras_horizontais(linhas, titulo, descricao, fmt.numero, MARGEM_ROTULOS, MAX_ROTULO, hrefs=hrefs)
 
 
 # ---------------------------------------------------------------- panorama

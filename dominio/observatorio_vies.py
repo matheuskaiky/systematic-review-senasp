@@ -5,7 +5,8 @@ import re
 
 from dominio import analises_vies as AV
 
-FILTROS = ("perspectiva", "universo", "combinacao", "conjunto", "fonte", "angulo", "eixo")
+FILTROS = ("perspectiva", "universo", "combinacao", "conjunto", "fonte", "angulo", "eixo", "divergencia")
+DIVERGENCIAS = (("com", "Com divergência entre os itens"), ("sem", "Sem divergência entre os itens"))
 PERSPECTIVAS = (("integrada", "Integrada"), ("vies", "Viés algorítmico e discriminação"),
                 ("tecnologias", "Aplicações tecnológicas de IA"))
 ANGULO_DA_PERSPECTIVA = {"vies": "vies_algoritmico", "tecnologias": "aplicacoes_tecnologicas"}
@@ -56,7 +57,7 @@ def projecao(lista, nomes):
 def ler_filtros(pares, nomes, recortes, eixos):
     """Devolve (filtros, erros) com a leitura estrita dos parametros de consulta."""
     filtros = {"perspectiva": "integrada", "universo": "elegiveis", "combinacao": None, "conjunto": None,
-               "fonte": None, "angulo": None, "eixo": None}
+               "fonte": None, "angulo": None, "eixo": None, "divergencia": None}
     valores_por_chave = {k: [] for k in FILTROS}
     for chave, valor in pares:
         if chave in valores_por_chave:
@@ -72,6 +73,7 @@ def ler_filtros(pares, nomes, recortes, eixos):
         "fonte": {k for k, _ in FONTES},
         "angulo": set(recortes) | {AV.SEM_ANGULO},
         "eixo": set(eixos) | {SEM_EIXO},
+        "divergencia": {k for k, _ in DIVERGENCIAS},
     }
 
     erros = []
@@ -106,6 +108,7 @@ def filtrar(obras, filtros, recortes):
     conjunto = filtros.get("conjunto")
     fonte = filtros.get("fonte")
     eixo = filtros.get("eixo")
+    divergencia = filtros.get("divergencia")
 
     resultado = []
     for o in obras:
@@ -137,6 +140,12 @@ def filtrar(obras, filtros, recortes):
                 if eixo_obra:
                     continue
             elif eixo_obra != eixo:
+                continue
+        if divergencia is not None:
+            tem_div = bool(o.get("divergencias"))
+            if divergencia == "com" and not tem_div:
+                continue
+            if divergencia == "sem" and tem_div:
                 continue
         resultado.append(o)
     return resultado

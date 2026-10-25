@@ -56,14 +56,15 @@ def _ids(obras):
 
 def _filtros(**k):
     base = {"perspectiva": "integrada", "universo": "elegiveis", "combinacao": None, "conjunto": None, "fonte": None,
-            "angulo": None, "eixo": None}
+            "angulo": None, "eixo": None, "divergencia": None}
     base.update(k)
     return base
 
 
 # ---------- constantes ----------
 def test_constantes():
-    assert OV.FILTROS == ("perspectiva", "universo", "combinacao", "conjunto", "fonte", "angulo", "eixo")
+    assert OV.FILTROS == ("perspectiva", "universo", "combinacao", "conjunto", "fonte", "angulo", "eixo", "divergencia")
+    assert OV.DIVERGENCIAS == (("com", "Com divergência entre os itens"), ("sem", "Sem divergência entre os itens"))
     assert OV.PERSPECTIVAS == (("integrada", "Integrada"), ("vies", "Viés algorítmico e discriminação"),
                                ("tecnologias", "Aplicações tecnológicas de IA"))
     assert OV.ANGULO_DA_PERSPECTIVA == {"vies": V, "tecnologias": AP}
@@ -389,7 +390,8 @@ def test_fatia_e_ultima_pagina():
 def _valores_aceitos():
     return {"perspectiva": [k for k, _ in OV.PERSPECTIVAS], "universo": [k for k, _ in OV.UNIVERSOS],
             "combinacao": [k for k, _ in OV.combinacoes(NOMES)], "conjunto": list(NOMES), "fonte": [k for k, _ in OV.FONTES],
-            "angulo": list(RECORTES) + [AV.SEM_ANGULO], "eixo": list(EIXOS) + [OV.SEM_EIXO]}
+            "angulo": list(RECORTES) + [AV.SEM_ANGULO], "eixo": list(EIXOS) + [OV.SEM_EIXO],
+            "divergencia": ["com", "sem"]}
 
 
 @pytest.mark.parametrize("chave, valor", [(k, v) for k, vs in _valores_aceitos().items() for v in vs])
@@ -405,8 +407,8 @@ def test_cada_chave_repetida(chave):
 
 
 def test_todos_os_erros_juntos_na_ordem():
-    pares = [("eixo", "x"), ("angulo", "x"), ("fonte", "x"), ("conjunto", "x"), ("combinacao", "x"), ("universo", "x"),
-             ("perspectiva", "x")]
+    pares = [("divergencia", "x"), ("eixo", "x"), ("angulo", "x"), ("fonte", "x"), ("conjunto", "x"), ("combinacao", "x"),
+             ("universo", "x"), ("perspectiva", "x")]
     assert OV.ler_filtros(pares, NOMES, RECORTES, EIXOS) == (PADRAO, [f"Filtro inválido: {k}." for k in OV.FILTROS])
     pares = [(k, "x") for k in OV.FILTROS] + [(k, "y") for k in OV.FILTROS]
     assert OV.ler_filtros(pares, NOMES, RECORTES, EIXOS) == (PADRAO, [f"Filtro repetido: {k}." for k in OV.FILTROS])
@@ -506,3 +508,43 @@ def test_ordenar_calcula_a_chave_uma_vez_por_obra(monkeypatch):
     monkeypatch.setattr(AV, "chave_titulo", contada)
     OV.ordenar(obras)
     assert len(chamadas) == len(obras)
+
+
+# ---------- F1.2: filtro de divergencia (definicao da auditoria de identidade; possivel duplicata nao conta) ----------
+@pytest.mark.parametrize("pares, valor, erros", [
+    ([("divergencia", "com")], "com", []), ([("divergencia", "sem")], "sem", []), ([("divergencia", " sem ")], "sem", []),
+    ([("divergencia", "")], None, []), ([("divergencia", "Com")], None, ["Filtro inválido: divergencia."]),
+    ([("divergencia", "sim")], None, ["Filtro inválido: divergencia."]),
+    ([("divergencia", "com"), ("divergencia", "sem")], None, ["Filtro repetido: divergencia."]),
+])
+def test_ler_filtro_de_divergencia(pares, valor, erros):
+    assert OV.ler_filtros(pares, NOMES, RECORTES, EIXOS) == (_filtros(divergencia=valor), erros)
+
+
+@pytest.mark.parametrize("filtros, ids", [
+    (_filtros(divergencia="com"), ["A-3"]),
+    (_filtros(divergencia="sem"), ["W-1", "W-5", "A-2"]),
+    (_filtros(divergencia="com", fonte="so_web"), []),
+    (_filtros(divergencia="sem", universo="todas"), ["W-1", "W-5", "A-2", "A-4", "A-6"]),
+    (_filtros(divergencia="com", perspectiva="vies"), ["A-3"]),
+    (_filtros(divergencia="com", perspectiva="tecnologias"), []),
+])
+def test_filtrar_por_divergencia(filtros, ids):
+    obras, _ = OV.projecao(_corpus(), NOMES)
+    assert _ids(OV.filtrar(obras, filtros, RECORTES)) == ids
+
+
+def test_possivel_duplicata_nao_e_divergencia():
+    lista = _itens([], [_art(1, url="https://x.org/p"), _art(2, url="https://x.org/p")],
+                   {("artigo", 1): _t("alta", V, "E1"), ("artigo", 2): _t("media", AP, "E2")})
+    obras, _ = OV.projecao(lista, NOMES)
+    assert all(o["possivel_duplicata"] for o in obras)
+    assert _ids(OV.filtrar(obras, _filtros(divergencia="com"), RECORTES)) == []
+    assert _ids(OV.filtrar(obras, _filtros(divergencia="sem"), RECORTES)) == ["A-1", "A-2"]
+
+
+def test_com_e_sem_divergencia_particionam_as_obras():
+    obras, _ = OV.projecao(_corpus(), NOMES)
+    com = _ids(OV.filtrar(obras, _filtros(universo="todas", divergencia="com"), RECORTES))
+    sem = _ids(OV.filtrar(obras, _filtros(universo="todas", divergencia="sem"), RECORTES))
+    assert sorted(com + sem) == sorted(_ids(obras)) and not set(com) & set(sem)

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block titulo %}Observatório{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/analises.css">{% endblock %}
+{% block conteudo %}
+<h1>Observatório Analítico — Inteligência Artificial e Segurança Pública</h1>
+<p class="aviso" role="status"><strong>Retratos da busca e dos rótulos automáticos.</strong> Os números descrevem as obras recuperadas pelas consultas desta busca e classificadas automaticamente pela triagem v2, sem conferência humana nem codificação temática: não são uma síntese validada da literatura nem inclusão na revisão.</p>
+<dl class="obs-ficha"><dt>Obras</dt><dd>{{ fmt.numero(total) }} {{ 'obra' if total == 1 else 'obras' }} · universo: {{ rotulo_universo }}</dd><dt>Versão da triagem</dt><dd>{{ ctx.versao_triagem_vies }}</dd><dt>Dados lidos em</dt><dd>{{ hora_leitura }}</dd></dl>
+<nav class="an-abas" aria-label="Perspectivas do Observatório">
+  {% for chave, rotulo in perspectivas %}{% set q = consulta(filtros, perspectiva=chave, angulo=filtros.angulo if chave == "integrada" else none) %}<a href="/observatorio{{ '?' ~ q if q else '' }}"{% if chave == filtros.perspectiva %} aria-current="page"{% endif %}>{{ rotulo }}</a>{% endfor %}
+</nav>
+{% with acao = "/observatorio" %}{% include "_filtros_observatorio.html" %}{% endwith %}
+<p><a class="botao secundario" href="/observatorio/obras{{ '?' ~ query_limpar if query_limpar else '' }}">Ver as obras destes filtros</a></p>
+{% if not total %}
+<p class="vazio">Nenhuma obra com estes filtros. <a href="/observatorio">Limpar filtros</a></p>
+{% else %}
+{% include "_blocos_analise.html" %}
+{% endif %}
+{% endblock %}

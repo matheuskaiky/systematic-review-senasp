@@ -35,33 +35,7 @@
 {% if not resumo.tem_dados_humanos %}<p class="aviso aviso-forte" role="status">Ainda não há verificação humana. Os gráficos de adoção mostram o que o <strong>modelo classificou</strong>; as análises que medem o acerto do modelo aguardam as decisões de uma pessoa.</p>{% endif %}
 {% endif %}
 
-{% for bl in blocos %}
-<section class="an-bloco" id="{{ bl.id }}" aria-labelledby="t-{{ bl.id }}">
-  <h2 id="t-{{ bl.id }}">{{ bl.titulo }}</h2>
-  {% if bl.subtitulo %}<p class="an-subtitulo">{{ bl.subtitulo }}</p>{% endif %}
-  {% if bl.aviso %}<p class="aviso" role="status">{{ bl.aviso }}</p>{% endif %}
-  {% if bl.cartoes %}{{ pr.cartoes(bl.cartoes) }}{% endif %}
-  {% if bl.grafico %}<div class="an-grafico">{{ bl.grafico }}</div>{% endif %}
-  {% if bl.selo %}<p><span class="selo {{ bl.selo.classe }}">{{ bl.selo.rotulo }}</span> {{ bl.selo.texto }}</p>{% endif %}
-  {% for t in bl.texto %}{% if not (bl.selo and t == bl.selo.texto) %}<p>{{ t }}</p>{% endif %}{% endfor %}
-  {% if bl.motivos %}<ul class="an-motivos" aria-label="Motivos de bloqueio pelo robots.txt">{% for m in bl.motivos %}
-    {% set proibido = m.chave == "bloqueado_por_robots" %}
-    <li><span class="selo {{ 'robots-proibido' if proibido else 'robots-preventivo' }}"><span aria-hidden="true">{{ "✕" if proibido else "⚠" }}</span> {{ rotulos.MOTIVOS_DOWNLOAD[m.chave] }}: {{ fmt.numero(m.n) }}</span>
-      <small>{{ rotulos.EXPLICACAO_MOTIVOS_DOWNLOAD[m.chave] }}{% if m.n %} <a href="/chamadas?{{ {'etapa': 'download', 'resultado': 'robots_proibido' if proibido else 'robots_inacessivel'}|urlencode }}">Ver as chamadas com este motivo</a>{% endif %}</small></li>{% endfor %}</ul>{% endif %}
-  {% if bl.link %}<p><a href="{{ bl.link.href }}">{{ bl.link.rotulo }}</a></p>{% endif %}
-  {% if bl.pares or bl.tabela %}
-  <details class="an-memoria">
-    <summary>Memória de cálculo</summary>
-    {% if bl.pares %}<dl class="an-pares">{% for k, v in bl.pares %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}</dl>{% endif %}
-    {% if bl.tabela %}<div class="tabela-rolavel"><table>
-      <caption class="so-leitor">{{ bl.titulo }}</caption>
-      <thead><tr>{% for h in bl.tabela.cabecalho %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead>
-      <tbody>{% for linha in bl.tabela.linhas %}<tr>{% for cel in linha %}<td{% if loop.index > 1 %} class="num"{% endif %}>{{ cel }}</td>{% endfor %}</tr>{% endfor %}</tbody>
-    </table></div>{% endif %}
-  </details>
-  {% endif %}
-</section>
-{% endfor %}
+{% include "_blocos_analise.html" %}
 {% include "_legenda_analises.html" %}
 {% if ctx.banco != "vies" %}{{ guia_leitura(
   "Como interpretar esta página e suas métricas",

@@ -284,7 +284,7 @@ def test_so_no_banco_vies_e_so_no_menu_do_vies(banco, tmp_path):
     assert _post(real, "/validacao/sortear").status_code == 404
     assert 'href="/validacao"' not in real.get("/").text
     assert 'href="/validacao"' in _cli(banco, tmp_path).get("/").text
-    assert "/validacao" in navegacao.enderecos() and navegacao.SO_VIES == {"/validacao"}
+    assert "/validacao" in navegacao.enderecos() and navegacao.SO_VIES == {"/validacao", "/observatorio"}
 
 
 def test_fluxo_completo_sem_mostrar_a_resposta_do_modelo(banco, tmp_path):

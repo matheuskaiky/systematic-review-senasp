@@ -16,7 +16,7 @@ from painel import navegacao  # noqa: E402
 
 ESTATICOS = Path(__file__).resolve().parent.parent / "painel" / "static"
 GRUPOS = {"Revisão sistemática": ["/", "/literatura/prisma", "/estados", "/achados", "/revisao/achados", "/literatura/artigos", "/literatura/referencias", "/literatura", "/literatura/triagem"],
-          "Análises e qualidade": ["/analises", "/triagem-escopo", "/validacao", "/classificadores", "/execucoes/comparar", "/solucoes"],
+          "Análises e qualidade": ["/observatorio", "/analises", "/triagem-escopo", "/validacao", "/classificadores", "/execucoes/comparar", "/solucoes"],
           "Auditoria e operação": ["/buscar-texto", "/execucoes", "/chamadas", "/metodologia", "/sobre"]}
 TODOS_OS_LINKS = [h for hs in GRUPOS.values() for h in hs]
 

@@ -354,6 +354,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .menu-lista a[href='/literatura/referencias'] { --mi: "\e1b2"; --mi-f: "\e1b3"; --mt-fundo: var(--menu-rosa-fundo); --mt-tx: var(--menu-rosa-tx); --mt-solido: var(--menu-rosa-solido); }
 .menu-lista a[href='/literatura'] { --mi: "\e014"; --mi-f: "\e015"; --mt-fundo: var(--menu-rosa-fundo); --mt-tx: var(--menu-rosa-tx); --mt-solido: var(--menu-rosa-solido); }
 .menu-lista a[href='/literatura/triagem'] { --mi: "\e017"; --mi-f: "\e018"; --mt-fundo: var(--menu-rosa-fundo); --mt-tx: var(--menu-rosa-tx); --mt-solido: var(--menu-rosa-solido); }
+.menu-lista a[href='/observatorio'] { --mi: "\e113"; --mi-f: "\e114"; --mt-fundo: var(--menu-violeta-fundo); --mt-tx: var(--menu-violeta-tx); --mt-solido: var(--menu-violeta-solido); }
 .menu-lista a[href='/analises'] { --mi: "\e01a"; --mi-f: "\e01b"; --mt-fundo: var(--menu-violeta-fundo); --mt-tx: var(--menu-violeta-tx); --mt-solido: var(--menu-violeta-solido); }
 .menu-lista a[href='/triagem-escopo'] { --mi: "\e01d"; --mi-f: "\e01e"; --mt-fundo: var(--menu-violeta-fundo); --mt-tx: var(--menu-violeta-tx); --mt-solido: var(--menu-violeta-solido); }
 .menu-lista a[href='/validacao'] { --mi: "\e0a7"; --mi-f: "\e0a8"; --mt-fundo: var(--menu-violeta-fundo); --mt-tx: var(--menu-violeta-tx); --mt-solido: var(--menu-violeta-solido); }
@@ -390,6 +391,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .layout:has(.menu-lista a[href='/literatura/referencias'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/literatura'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/literatura/triagem'][aria-current="page"]) { --tom-tx: var(--tom-rosa-tx); --tom-fundo: var(--tom-rosa-fundo); --tom-borda: var(--tom-rosa-borda); --tom-solido: var(--tom-rosa-solido); --tom-solido-tx: var(--tom-rosa-solido-tx); }
+.layout:has(.menu-lista a[href='/observatorio'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/analises'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/triagem-escopo'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/validacao'][aria-current="page"]),
@@ -408,6 +410,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .layout:has(.menu-lista a[href='/literatura/referencias'][aria-current="page"]) { --pg-ic: "\e1b2"; --pg-ic-f: "\e1b3"; --pg-ic-d: "\e1b4"; }
 .layout:has(.menu-lista a[href='/literatura'][aria-current="page"]) { --pg-ic: "\e014"; --pg-ic-f: "\e015"; --pg-ic-d: "\e016"; }
 .layout:has(.menu-lista a[href='/literatura/triagem'][aria-current="page"]) { --pg-ic: "\e017"; --pg-ic-f: "\e018"; --pg-ic-d: "\e019"; }
+.layout:has(.menu-lista a[href='/observatorio'][aria-current="page"]) { --pg-ic: "\e113"; --pg-ic-f: "\e114"; --pg-ic-d: "\e115"; }
 .layout:has(.menu-lista a[href='/analises'][aria-current="page"]) { --pg-ic: "\e01a"; --pg-ic-f: "\e01b"; --pg-ic-d: "\e01c"; }
 .layout:has(.menu-lista a[href='/triagem-escopo'][aria-current="page"]) { --pg-ic: "\e01d"; --pg-ic-f: "\e01e"; --pg-ic-d: "\e01f"; }
 .layout:has(.menu-lista a[href='/validacao'][aria-current="page"]) { --pg-ic: "\e0a7"; --pg-ic-f: "\e0a8"; --pg-ic-d: "\e0a9"; }

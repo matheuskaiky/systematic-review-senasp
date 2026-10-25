@@ -19,6 +19,7 @@ _GRUPOS = (
         ("/literatura/triagem", "Triar artigos", "/literatura/triagem", ()),
     )),
     ("analises", "Análises e qualidade", (
+        ("/observatorio", "Observatório", "/observatorio", ()),
         ("/analises", "Análises", "/analises", ()),
         ("/triagem-escopo", "Triagem de escopo (LLM)", "/triagem-escopo", ()),
         ("/validacao", "Validação da triagem", "/validacao", ()),
@@ -60,7 +61,7 @@ SO_TAREFA_1 = frozenset({"/estados", "/achados", "/revisao/achados", "/classific
                          "/buscar-texto"})
 
 # as telas só do banco `vies`: saem do menu nos outros bancos
-SO_VIES = frozenset({"/validacao"})
+SO_VIES = frozenset({"/validacao", "/observatorio"})
 
 # na fila de revisão, a página de um item conta como a página da fila
 _FILAS = (("/achados", "/revisao/achados"), ("/literatura/artigos", "/literatura/triagem"))

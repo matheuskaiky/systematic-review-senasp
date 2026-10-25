@@ -118,11 +118,13 @@ def registrar(c):
         secao = (request.query_params.get("secao") or abas[0][0]).strip().lower()
         if secao not in {chave for chave, _ in abas}:
             return c.erro(request, 404, "Aba inválida", "Escolha uma das abas da página de análises.")
-        ferramentas = AF.linhas(leitura.analise_ferramentas())      # tambem para a legenda do fim da pagina
         if vies:
-            blocos, resumo_vies = montar_vies(leitura, c.contexto, secao, ferramentas)
+            with leitura.instantaneo() as l:
+                ferramentas = AF.linhas(l.analise_ferramentas())
+                blocos, resumo_vies = montar_vies(l, c.contexto, secao, ferramentas)
             return c.pagina(request, "analises.html", secao=secao, abas=abas, blocos=blocos, resumo=None, resumo_vies=resumo_vies,
                             ferramentas=ferramentas)
+        ferramentas = AF.linhas(leitura.analise_ferramentas())      # tambem para a legenda do fim da pagina
         ver_nomes = getattr(request.state, "ver_nomes", True)
         blocos, resumo = montar(leitura, secao, ver_nomes=ver_nomes, ferramentas=ferramentas)
         return c.pagina(request, "analises.html", secao=secao, abas=abas, blocos=blocos, resumo=resumo, ferramentas=ferramentas)

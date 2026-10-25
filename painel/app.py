@@ -476,7 +476,9 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         if not leitura.existe():
             return sem_banco(request)
         if contexto.banco == "vies":                 # o banco da busca de vies tem a visao geral dela, sem o funil da Tarefa 1
-            return pagina(request, "geral_vies.html", **visao_geral_vies.dados(leitura, contexto))
+            with leitura.instantaneo() as l:
+                d = visao_geral_vies.dados(l, contexto)
+            return pagina(request, "geral_vies.html", **d)
         r, rev = leitura.resumo_geral(), leitura.contagem_revisao()
         f = leitura.funil()
         etapas = [("Consultas web", f["consultas_web"]), ("Resultados", f["resultados"]), ("URLs únicas", f["urls_unicas"]),

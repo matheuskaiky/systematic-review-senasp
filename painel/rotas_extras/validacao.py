@@ -46,8 +46,9 @@ def registrar(c):
         bloqueio = c.checar_escrita(request, csrf)
         if bloqueio:
             return bloqueio
-        linhas = VV.sortear(visao_geral_vies.itens(leitura, contexto), leitura.triagens_vies(contexto.versao_triagem_vies),
-                            _eixos())
+        with leitura.instantaneo() as l:
+            linhas = VV.sortear(visao_geral_vies.itens(l, contexto), l.triagens_vies(contexto.versao_triagem_vies),
+                                _eixos())
         try:
             c.escrever(lambda repo: repo.sortear_validacao_vies(linhas))
         except SystemExit as e:

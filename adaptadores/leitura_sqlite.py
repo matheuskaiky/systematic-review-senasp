@@ -1,4 +1,6 @@
-"""Leituras do painel sobre o banco SQLite. Abre uma conexao somente leitura por consulta e nunca roda o schema."""
+"""Leituras do painel sobre o banco SQLite. Abre uma conexao somente leitura por consulta (ou uma so por bloco, em `instantaneo`) e nunca roda o schema."""
+import contextlib
+import copy
 import json
 import sqlite3
 from pathlib import Path
@@ -93,6 +95,21 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA busy_timeout = 5000")
             return [dict(l) for l in conn.execute(sql, args).fetchall()]
+        finally:
+            conn.close()
+
+    @contextlib.contextmanager
+    def instantaneo(self):
+        """Leitura consistente: uma copia desta leitura cujas consultas usam uma so conexao e uma so transacao de leitura ate o
+        fim do bloco (todas veem o mesmo estado do banco). A conexao fecha no fim do bloco, mesmo com erro."""
+        conn = sqlite3.connect(f"file:{self._caminho.as_posix()}?mode=ro", uri=True)
+        try:
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA busy_timeout = 5000")
+            conn.execute("BEGIN")
+            copia = copy.copy(self)
+            copia._consulta = lambda sql, args=(): [dict(linha) for linha in conn.execute(sql, args).fetchall()]
+            yield copia
         finally:
             conn.close()
 

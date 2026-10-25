@@ -1,5 +1,7 @@
 """Leituras do painel no PostgreSQL (painel na nuvem, D96): as mesmas consultas da LeituraPainelSQLite (herdadas), sobre
 a conexao compativel, cada uma numa transacao somente leitura com conexao emprestada do pool."""
+import contextlib
+import copy
 import sqlite3
 
 from adaptadores.consultas_exportacao import ler_tabelas
@@ -35,5 +37,18 @@ class LeituraPainelPostgres(LeituraPainelSQLite):
         try:
             conn.somente_leitura()
             return [dict(l) for l in conn.execute(sql, args).fetchall()]
+        finally:
+            conn.close()
+
+    @contextlib.contextmanager
+    def instantaneo(self):
+        """Como no SQLite: uma so conexao do pool, numa transacao REPEATABLE READ somente leitura; volta ao pool no fim do
+        bloco, mesmo com erro."""
+        conn = ConexaoPostgres(self._pool, self._chaves)
+        try:
+            conn.somente_leitura(instantaneo=True)
+            copia = copy.copy(self)
+            copia._consulta = lambda sql, args=(): [dict(linha) for linha in conn.execute(sql, args).fetchall()]
+            yield copia
         finally:
             conn.close()

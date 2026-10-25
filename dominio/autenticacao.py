@@ -73,6 +73,7 @@ FALHAS_ATE_BLOQUEIO = 5
 MINUTOS_DE_BLOQUEIO = 5
 HORAS_DE_SESSAO = 12
 DIAS_MAXIMOS_DE_SESSAO = 7          # validade absoluta: uma sessao em uso continuo tambem expira
+TOLERANCIA_RELOGIO_NA_CRIACAO_SEGUNDOS = 2  # sessao nunca renovada (ultimo uso igual a criacao): relogio do servidor ate 2 s atrasado no pedido seguinte nao a invalida (RI38)
 
 
 def hash_senha(senha: str, sal: bytes | None = None) -> str:

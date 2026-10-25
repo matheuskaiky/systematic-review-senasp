@@ -150,7 +150,7 @@ class ContasSQLite:
 
     def usuario_da_sessao(self, token_hash: str, agora: str) -> dict | None:
         """Valida a sessão por ociosidade (12h), validade absoluta (7 dias desde a criação) e usuário ativo, atualizando acessos.
-        Criação ou último uso ilegíveis ou no futuro invalidam a sessão."""
+        Criação ou último uso ilegíveis ou no futuro invalidam a sessão; a sessão nunca renovada (último uso igual à criação) tolera até TOLERANCIA_RELOGIO_NA_CRIACAO_SEGUNDOS de relógio atrasado (RI38)."""
         with self._conexao(escrita=True) as conn:
             row = conn.execute(
                 "SELECT s.token_hash, s.usuario_id, s.ultimo_uso, u.login, u.nome, u.ativo, g.nome, g.grupo_id, s.criada_em "
@@ -169,8 +169,13 @@ class ContasSQLite:
             ultimo_uso_dt = autenticacao.ler_instante(ultimo_uso_str)
             agora_dt = autenticacao.ler_instante(agora)
             criada_dt = autenticacao.ler_instante(criada_em_str)
-            if (ultimo_uso_dt is None or agora_dt is None or criada_dt is None
-                    or criada_dt > agora_dt or ultimo_uso_dt > agora_dt
+            if ultimo_uso_dt is None or agora_dt is None or criada_dt is None:
+                conn.execute("DELETE FROM sessoes WHERE token_hash = ?", (token_hash,))
+                return None
+
+            recem_criada = (ultimo_uso_dt == criada_dt)
+            limite = agora_dt + timedelta(seconds=autenticacao.TOLERANCIA_RELOGIO_NA_CRIACAO_SEGUNDOS) if recem_criada else agora_dt
+            if (criada_dt > limite or ultimo_uso_dt > limite
                     or (agora_dt - ultimo_uso_dt) >= timedelta(hours=autenticacao.HORAS_DE_SESSAO)
                     or (agora_dt - criada_dt) >= timedelta(days=autenticacao.DIAS_MAXIMOS_DE_SESSAO)):
                 conn.execute("DELETE FROM sessoes WHERE token_hash = ?", (token_hash,))

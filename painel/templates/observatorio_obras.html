@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}Obras do Observatório{% endblock %}
+{% block conteudo %}
+<p class="trilha"><a href="/observatorio{{ '?' ~ query_trilha if query_trilha else '' }}">Observatório</a> › obras</p>
+<h1>Obras do Observatório</h1>
+<p class="sub">Cada linha é uma obra: a referência da web que repete um artigo do Scholar entra na obra do artigo. Os filtros valem para a obra inteira e nunca tiram só um dos seus itens. Os rótulos vêm da triagem automática v2.</p>
+<form class="filtros" method="get" action="/observatorio/obras">
+  <label>Perspectiva <select name="perspectiva">{% for chave, rotulo in perspectivas %}<option value="{{ chave }}"{% if filtros.perspectiva == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>
+  <label>Universo <select name="universo">{% for chave, rotulo in universos %}<option value="{{ chave }}"{% if filtros.universo == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>
+  <label>Combinação exata dos conjuntos <select name="combinacao"><option value="">qualquer</option>{% for chave, rotulo in comb_opcoes %}<option value="{{ chave }}"{% if filtros.combinacao == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>
+  <label>Achada no conjunto <select name="conjunto"><option value="">qualquer</option>{% for n in nomes %}<option value="{{ n }}"{% if filtros.conjunto == n %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+  <label>Fonte <select name="fonte"><option value="">qualquer</option>{% for chave, rotulo in fontes %}<option value="{{ chave }}"{% if filtros.fonte == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>
+  {% if filtros.perspectiva == "integrada" %}<label>Ângulo predominante <select name="angulo"><option value="">qualquer</option>{% for chave, rotulo in ang_opcoes %}<option value="{{ chave }}"{% if filtros.angulo == chave %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}</select></label>{% else %}<p>Ângulo: definido pela perspectiva ({{ rotulo_recorte }}).</p>{% endif %}
+  <label>Eixo <select name="eixo"><option value="">qualquer</option>{% for e in eixos %}<option value="{{ e }}"{% if filtros.eixo == e %} selected{% endif %}>{{ e }}</option>{% endfor %}<option value="sem_eixo"{% if filtros.eixo == "sem_eixo" %} selected{% endif %}>Sem eixo</option></select></label>
+  <button class="botao" type="submit">Filtrar</button>{% if query_limpar %} <a href="/observatorio/obras">Limpar</a>{% endif %}
+</form>
+<p><strong>{{ fmt.numero(total) }}</strong> {{ 'obra' if total == 1 else 'obras' }} · universo: {{ rotulo_universo }}. Unidade: obra (cada obra uma vez).</p>
+<p class="aviso" role="status">{{ aviso_modelo }}</p>
+{% if not total %}
+<p class="vazio">Nenhuma obra com estes filtros. <a href="/observatorio/obras">Limpar filtros</a></p>
+{% else %}
+<div class="tabela-rolavel"><table><caption class="so-leitor">Obras com os filtros escolhidos</caption>
+  <thead><tr><th scope="col">Título</th><th scope="col">Fontes</th><th scope="col">Conjuntos</th><th scope="col">Ângulo</th><th scope="col">Relevância</th><th scope="col">Eixo</th><th scope="col">Divergência</th><th scope="col">Itens</th><th scope="col">Documento</th></tr></thead>
+  <tbody>
+  {% for r in linhas %}
+    <tr><td><a href="{{ r.link_representante }}">{{ r.titulo }}</a></td><td>{{ r.fontes }}</td><td>{{ r.conjuntos }}</td><td>{{ r.angulo }}</td><td>{{ r.relevancia }}</td><td>{{ r.eixo }}</td><td>{{ r.divergencia }}</td><td>{% for m in r.membros %}<a href="{{ m.link }}">{{ m.id }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</td><td>{% if r.url|url_segura != "#" %}<a href="{{ r.url|url_segura }}" rel="noopener noreferrer" target="_blank">abrir</a>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+<nav class="paginacao" aria-label="Páginas">
+  {% if pagina > 1 %}<a href="/observatorio/obras?{{ consulta(filtros, pagina=pagina - 1) }}">← Anterior</a>{% endif %}
+  <span>Página {{ pagina }} de {{ paginas }}</span>
+  {% if pagina < paginas %}<a href="/observatorio/obras?{{ consulta(filtros, pagina=pagina + 1) }}">Próxima →</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

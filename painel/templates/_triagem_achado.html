@@ -6,7 +6,7 @@
 
   {% if ok %}
   <div class="aviso ok" role="status">Achado nº {{ ok }} gravado.
-    {% if not ctx.somente_leitura and "verificar_achados" in perms %}<form class="em-linha" method="post" action="/achados/{{ ok }}/desfazer{% if query %}?{{ query }}{% endif %}">
+    {% if pode_desfazer_ok %}<form class="em-linha" method="post" action="/achados/{{ ok }}/desfazer{% if query %}?{{ query }}{% endif %}">
       <input type="hidden" name="csrf" value="{{ csrf }}"><button class="link" type="submit">Desfazer</button></form>{% endif %}</div>
   {% endif %}
 

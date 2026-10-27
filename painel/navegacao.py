@@ -66,17 +66,35 @@ SO_VIES = frozenset({"/validacao", "/observatorio"})
 # na fila de revisão, a página de um item conta como a página da fila
 _FILAS = (("/achados", "/revisao/achados"), ("/literatura/artigos", "/literatura/triagem"))
 
+# ações que cada fila exige além de abrir a página (decisão de triagem ou de revisão)
+ACOES_DOS_ITENS = {
+    "/literatura/triagem": ("POST", "/literatura/artigos/1/triar"),
+    "/revisao/achados": ("POST", "/achados/1/verificar"),
+}
 
-def grupos(caminho, em_fila=False, admin=False, banco="real"):
+
+def grupos(caminho, em_fila=False, admin=False, banco="real", pode=None):
     """Lista de {id, nome, aberto, itens: [{href, texto, atual}]} para o `caminho` (ex.: `/estados/SP`) da página atual.
-    No banco `vies`, sem as telas de `SO_TAREFA_1`; nos outros, sem as de `SO_VIES`."""
+    No banco `vies`, sem as telas de `SO_TAREFA_1`; nos outros, sem as de `SO_VIES`. Com `pode`, filtra por permissão."""
     caminho = (caminho.rstrip("/") or "/") if caminho else ""          # sem caminho conhecido: nenhum link atual
     if em_fila:
         caminho = next((fila for lista, fila in _FILAS if _sob(caminho, lista)), caminho)
     saida = []
     for id_, nome, itens in _GRUPOS + ((_ADMIN,) if admin else ()):
-        marcados = [{"href": h, "texto": t, "atual": _atual(caminho, h, p, ex)} for h, t, p, ex in itens
-                    if not (banco == "vies" and h in SO_TAREFA_1) and not (banco != "vies" and h in SO_VIES)]
+        marcados = []
+        for h, t, p, ex in itens:
+            if banco == "vies" and h in SO_TAREFA_1:
+                continue
+            if banco != "vies" and h in SO_VIES:
+                continue
+            if pode is not None:
+                if not pode("GET", h):
+                    continue
+                if h in ACOES_DOS_ITENS and not pode(*ACOES_DOS_ITENS[h]):
+                    continue
+            marcados.append({"href": h, "texto": t, "atual": _atual(caminho, h, p, ex)})
+        if pode is not None and not marcados:
+            continue
         saida.append({"id": id_, "nome": nome, "aberto": any(i["atual"] for i in marcados), "itens": marcados})
     return saida
 

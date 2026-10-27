@@ -16,7 +16,7 @@
   <div class="kpi" data-ic="check-circle" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(tri.incluidos) }}</span><span class="kpi-rotulo">Incluídos</span></div>
   <div class="kpi" data-ic="hourglass" data-tom="ambar"><span class="kpi-valor">{{ fmt.numero(tri.pendentes) }}</span><span class="kpi-rotulo">Pendentes</span></div>
 </section>
-<p>{% if tri.pendentes %}<a class="botao" href="/literatura/triagem">Continuar a triagem ({{ fmt.numero(tri.pendentes) }})</a>{% endif %}
+<p>{% if tri.pendentes %}{% if pode_abrir("/literatura/triagem") and pode_enviar("/literatura/artigos/1/triar") %}<a class="botao" href="/literatura/triagem">Continuar a triagem ({{ fmt.numero(tri.pendentes) }})</a>{% endif %}{% endif %}
   <a class="botao secundario" href="/literatura/artigos">Ver todos os artigos</a> <a class="botao secundario" href="/literatura/prisma">Fluxo PRISMA</a></p>
 
 <section class="cartao" aria-labelledby="rel-titulo"><h2 id="rel-titulo" data-ic="star" data-tom="rosa">Relevância para Brasil + segurança pública</h2>

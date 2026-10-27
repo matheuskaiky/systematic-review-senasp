@@ -12,14 +12,17 @@ def itens(leitura, contexto):
                     leitura.triagens_vies(contexto.versao_triagem_vies))
 
 
-def dados(leitura, contexto):
+def dados(leitura, contexto, pode=None):
     """O contexto do modelo `geral_vies.html`: resumo, alertas, relevancia, triagem humana e ultimas execucoes."""
     lista = itens(leitura, contexto)
     resumo = AV.resumo(lista)
     r, tri = leitura.resumo_geral(), leitura.contagem_triagem()
     alertas = []
     if tri["pendentes"]:
-        alertas.append(("aviso", f"{fmt.numero(tri['pendentes'])} artigo(s) ainda sem triagem humana.", "/literatura/triagem", "Triar artigos"))
+        pode_link = pode is None or (pode("GET", "/literatura/triagem") and pode("POST", "/literatura/artigos/1/triar"))
+        href = "/literatura/triagem" if pode_link else None
+        rotulo_link = "Triar artigos" if pode_link else None
+        alertas.append(("aviso", f"{fmt.numero(tri['pendentes'])} artigo(s) ainda sem triagem humana.", href, rotulo_link))
     if r["execucoes_nao_concluidas"]:
         alertas.append(("aviso", f"{fmt.numero(r['execucoes_nao_concluidas'])} execução(ões) não concluída(s).", None, None))
     if r["chamadas_com_falha"]:

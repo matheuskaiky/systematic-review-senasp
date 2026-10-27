@@ -328,6 +328,16 @@ def pode(grupo: str, permissoes: set[str] | list[str], exigida: str | None) -> b
     return exigida in (permissoes or ())
 
 
+def pode_acessar(grupo: str, permissoes: set[str] | list[str], metodo: str, caminho: str) -> bool:
+    """Verifica se um grupo com dadas permissões tem acesso para executar o método no caminho."""
+    return pode(grupo, permissoes, permissao_exigida(metodo, caminho))
+
+
+def pode_desfazer_decisao(grupo: str | None, nome: str | None, autor: str | None) -> bool:
+    """Verifica se o usuário pode desfazer a decisão tomada por autor."""
+    return grupo == GRUPO_ADMIN or (bool(nome) and bool(autor) and nome == autor)
+
+
 def proximo_seguro(proximo: str) -> str:
     """Valida caminho relativo seguro para redirecionamento pós-login."""
     if not isinstance(proximo, str):

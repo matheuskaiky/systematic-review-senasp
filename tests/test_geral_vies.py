@@ -61,7 +61,8 @@ def test_visao_geral_do_banco_real_continua_com_o_funil(copiar_demo, tmp_path):
     demo, _ = copiar_demo("geral_real")
     html = _cli(demo, tmp_path, nome="real").get("/").text
     assert "Funil do levantamento nas secretarias" in html and "Obras distintas" not in html
-    assert all(f'href="{h}"' in _menu(html) for h in TAREFA_1)
+    assert all(f'href="{h}"' in _menu(html) for h in TAREFA_1 - {"/revisao/achados"})
+    assert 'href="/revisao/achados"' not in _menu(html)          # painel so de leitura: a fila de decisao nao aparece
 
 
 @pytest.mark.parametrize("arquivo, seletor", [

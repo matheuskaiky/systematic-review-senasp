@@ -9,8 +9,8 @@
   <h2 data-ic="list-checks" data-tom="violeta">Amostra ainda não sorteada</h2>
   <p>A amostra tem {{ tamanho }} itens com triagem válida do modelo, sorteados com semente fixa e estratificados pela relevância que o modelo deu. O sorteio é feito uma vez só e não muda depois.</p>
   {% if ctx.somente_leitura %}<p class="vazio">Painel em modo somente leitura.</p>
-  {% elif usuario and usuario.grupo != "Administrador" %}<p class="vazio">Só quem administra o painel sorteia a amostra.</p>
-  {% else %}<form method="post" action="/validacao/sortear"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="botao">Sortear a amostra</button></form>{% endif %}
+  {% elif pode_enviar("/validacao/sortear") %}<form method="post" action="/validacao/sortear"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="botao">Sortear a amostra</button></form>
+  {% else %}<p class="vazio">Só quem administra o painel sorteia a amostra.</p>{% endif %}
 </section>
 {% else %}
 <section class="cartao">

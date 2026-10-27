@@ -218,16 +218,49 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             return autenticacao.pode(usuario["grupo"], usuario["permissoes"], "ver_estatisticas_usuarios")
         return False
 
+    def _pode_rota(request):
+        def pode_rota(metodo: str, caminho: str) -> bool:
+            if metodo == "POST" and contexto.somente_leitura:
+                return False
+            if not contexto.autenticacao:
+                return True
+            if getattr(request.state, "contas_indisponiveis", False):
+                return False
+            grupo = getattr(request.state, "grupo_acesso", None)
+            permissoes = getattr(request.state, "permissoes_acesso", None)
+            if grupo is None or permissoes is None:
+                return False
+            return autenticacao.pode_acessar(grupo, permissoes, metodo, caminho)
+
+        return pode_rota
+
+    def _pode_desfazer(request, achado_id, historico):
+        """Verifica se o usuário pode desfazer a decisão do achado indicado."""
+        usuario = getattr(request.state, "usuario", None)
+        grupo = usuario["grupo"] if usuario else None
+        nome = usuario["nome"] if usuario else None
+        autor = next((h["verificado_por"] for h in historico if not h["desfeita"]), None)
+        return bool(
+            _pode_rota(request)("POST", f"/achados/{achado_id}/desfazer")
+            and leitura.tem_decisao_para_desfazer(achado_id)
+            and "verificar_achados" in _perms(request)
+            and (not contexto.autenticacao or autenticacao.pode_desfazer_decisao(grupo, nome, autor))
+        )
+
     def pagina(request, modelo, status=200, **dados):
         usuario = getattr(request.state, "usuario", None)
         revisor = usuario["nome"] if usuario else unquote(request.cookies.get("revisor", ""))
         ver_nomes = _ver_nomes(request)
         pode_estatisticas = _pode_estatisticas(request)
+        pode_rota = _pode_rota(request)
         return modelos.TemplateResponse(request, modelo, {"revisor": revisor, "csrf": getattr(request.state, "csrf", ""),
                                                           "tema": tema_do_cookie(request),
                                                           "usuario": usuario, "ver_nomes": ver_nomes,
                                                           "pode_estatisticas": pode_estatisticas,
                                                           "perms": _perms(request),
+                                                          "pode_rota": pode_rota,
+                                                          "pode_abrir": lambda c: pode_rota("GET", c),
+                                                          "pode_enviar": lambda c: pode_rota("POST", c),
                                                           "caminho": request.url.path, **dados}, status_code=status)
 
     def erro(request, status, titulo, texto):
@@ -267,7 +300,6 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                     token_hash = hashlib.sha256(token.encode()).hexdigest()
                     usuario = contas.usuario_da_sessao(token_hash, agora)
                 request.state.usuario = usuario
-                exigida = autenticacao.permissao_exigida(request.method, request.url.path)
                 if usuario:
                     grupo = usuario["grupo"]
                     permissoes = usuario["permissoes"]
@@ -277,10 +309,12 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
 
+            request.state.grupo_acesso = grupo
+            request.state.permissoes_acesso = permissoes
             request.state.ver_nomes = autenticacao.pode(grupo, permissoes, "ver_nomes_revisores")
             request.state.perms = frozenset(p for p in autenticacao.PERMISSOES if autenticacao.pode(grupo, permissoes, p))
 
-            if autenticacao.pode(grupo, permissoes, exigida):
+            if autenticacao.pode_acessar(grupo, permissoes, request.method, request.url.path):
                 return await call_next(request)
             elif not usuario:
                 if request.method == "GET":
@@ -477,7 +511,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             return sem_banco(request)
         if contexto.banco == "vies":                 # o banco da busca de vies tem a visao geral dela, sem o funil da Tarefa 1
             with leitura.instantaneo() as l:
-                d = visao_geral_vies.dados(l, contexto)
+                d = visao_geral_vies.dados(l, contexto, pode=_pode_rota(request))
             return pagina(request, "geral_vies.html", **d)
         r, rev = leitura.resumo_geral(), leitura.contagem_revisao()
         f = leitura.funil()
@@ -489,7 +523,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                                    "Quantidade em cada etapa, da busca web aos achados confirmados", fmt.numero)
         alertas = []
         if rev["total"] - rev["verificados"]:
-            alertas.append(("aviso", f"{fmt.numero(rev['total'] - rev['verificados'])} achado(s) ainda sem verificação humana.", "/revisao/achados", "Começar revisão"))
+            pode = _pode_rota(request)
+            pode_link = pode("GET", "/revisao/achados") and pode("POST", "/achados/1/verificar")
+            href = "/revisao/achados" if pode_link else None
+            rotulo_link = "Começar revisão" if pode_link else None
+            alertas.append(("aviso", f"{fmt.numero(rev['total'] - rev['verificados'])} achado(s) ainda sem verificação humana.", href, rotulo_link))
         if rev["pendentes_sem_evidencia"]:
             alertas.append(("aviso", f"{fmt.numero(rev['pendentes_sem_evidencia'])} achado(s) não verificado(s) com evidência não localizada no texto.", "/achados?verificacao=pendente&evidencia=0", "Ver"))
         if r["execucoes_nao_concluidas"]:
@@ -1017,17 +1055,14 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 "estado": "pendente",
             } for i in janela]
         historico = leitura.historico_achado(achado_id)
-        autor = next((h["verificado_por"] for h in historico if not h["desfeita"]), None)
-        usuario = getattr(request.state, "usuario", None)
-        pode_desfazer = bool(
-            leitura.tem_decisao_para_desfazer(achado_id)
-            and "verificar_achados" in _perms(request)
-            and (not contexto.autenticacao or bool(usuario and (usuario["grupo"] == autenticacao.GRUPO_ADMIN or usuario["nome"] == autor)))
-        )
+        pode_desfazer = _pode_desfazer(request, achado_id, historico)
+        pode_desfazer_ok = False
+        if ok and ok > 0:
+            pode_desfazer_ok = pode_desfazer if ok == achado_id else _pode_desfazer(request, ok, leitura.historico_achado(ok))
         return pagina(request, "achado.html", a=a, ev=_contexto_evidencia(a, bool(completo)), completo=bool(completo), ent=ent,
                       historico=historico, em_fila=em_fila, rev=rev, proximo=proximo,
                       query=_query_fila(request), ok=ok, restantes=len(ids),
-                      pode_desfazer=pode_desfazer, fila_itens=fila_itens,
+                      pode_desfazer=pode_desfazer, pode_desfazer_ok=pode_desfazer_ok, fila_itens=fila_itens,
                       **_sugestoes_ctx(request, "achado", achado_id, bool(a["verificado"]), a["status_final"], a["verificado_por"],
                                        ficha_da_decisao(tuple(a[c] for c in CAMPOS_ACHADO))),
                       status_opcoes=[(k, contexto.status_definicoes[k]) for k in contexto.status_definicoes])
@@ -1187,9 +1222,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         usuario = getattr(request.state, "usuario", None)
         if contexto.autenticacao:
             autor = next((h["verificado_por"] for h in leitura.historico_achado(achado_id) if not h["desfeita"]), None)
-            eh_admin = usuario and usuario.get("grupo") == autenticacao.GRUPO_ADMIN
-            eh_autor = usuario and autor and usuario.get("nome") == autor
-            if not (eh_admin or eh_autor):
+            if not (usuario and autenticacao.pode_desfazer_decisao(usuario.get("grupo"), usuario.get("nome"), autor)):
                 return erro(request, 403, "Sem permissão", "Só quem tomou a decisão ou um administrador pode desfazê-la. Registre uma sugestão.")
         try:
             _escrever(lambda repo: revisao.desfazer_decisao(repo, achado_id))

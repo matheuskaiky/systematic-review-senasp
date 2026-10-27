@@ -40,7 +40,7 @@ def anonimizar_revisores(d):
     return d_novo
 
 
-def montar(leitura, secao, ver_nomes=True, ferramentas=None):
+def montar(leitura, secao, ver_nomes=True, ferramentas=None, seguir=None):
     """Devolve (blocos, resumo). `resumo` so e lido nas abas que precisam dele (e a leitura mais cara). `ferramentas`: as
     linhas de `dominio.analises_ferramentas.linhas`, se quem chama ja as leu."""
     resumo = leitura.analise_resumo() if secao in ("visao", "auditoria") else None
@@ -77,7 +77,7 @@ def montar(leitura, secao, ver_nomes=True, ferramentas=None):
                 b.bloco_falsa_exclusao(leitura.analise_falsa_exclusao()),
                 b.bloco_auditoria_negativos(leitura.analise_auditoria_negativos()),
                 b.bloco_concordancia_achados(d)], resumo
-    return [b.bloco_opacidade(leitura.analise_opacidade_dominios()), b.bloco_nao_verificaveis(leitura.analise_nao_verificaveis()),
+    return [b.bloco_opacidade(leitura.analise_opacidade_dominios(), seguir=seguir), b.bloco_nao_verificaveis(leitura.analise_nao_verificaveis()),
             b.bloco_tokens(leitura.analise_calibracao_tokens()),
             b.bloco_tamanho(leitura.analise_tamanho_texto_achados())], resumo
 
@@ -126,5 +126,5 @@ def registrar(c):
                             ferramentas=ferramentas)
         ferramentas = AF.linhas(leitura.analise_ferramentas())      # tambem para a legenda do fim da pagina
         ver_nomes = getattr(request.state, "ver_nomes", True)
-        blocos, resumo = montar(leitura, secao, ver_nomes=ver_nomes, ferramentas=ferramentas)
+        blocos, resumo = montar(leitura, secao, ver_nomes=ver_nomes, ferramentas=ferramentas, seguir=c.pode_seguir(request))
         return c.pagina(request, "analises.html", secao=secao, abas=abas, blocos=blocos, resumo=resumo, ferramentas=ferramentas)

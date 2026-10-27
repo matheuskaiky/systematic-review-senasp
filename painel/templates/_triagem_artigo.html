@@ -45,7 +45,7 @@
 
       <article class="cartao"><h2 data-ic="compass">Onde foi encontrado</h2>
         {% if a.ocorrencias %}<h3>Google Scholar</h3><ul class="lista-simples">{% for o in a.ocorrencias %}<li><strong>{{ o.termo_id }}</strong> {{ ctx.termos.get(o.termo_id, "")|replace('"', '') }}
-          <small>· posição {{ o.posicao or "?" }}{% if o.pagina %}, página {{ o.pagina }}{% endif %}{% if o.citacoes_no_momento is not none %} · {{ o.citacoes_no_momento }} citações na época{% endif %} · execução <a href="/execucoes/{{ o.run_id }}"><code>{{ o.run_id }}</code></a></small></li>{% endfor %}</ul>{% endif %}
+          <small>· posição {{ o.posicao or "?" }}{% if o.pagina %}, página {{ o.pagina }}{% endif %}{% if o.citacoes_no_momento is not none %} · {{ o.citacoes_no_momento }} citações na época{% endif %} · execução {% if pode_seguir("/execucoes/" ~ o.run_id) %}<a href="/execucoes/{{ o.run_id }}"><code>{{ o.run_id }}</code></a>{% else %}<code>{{ o.run_id }}</code>{% endif %}</small></li>{% endfor %}</ul>{% endif %}
         {% if a.manuais %}<h3>Buscas manuais</h3><ul class="lista-simples">{% for m in a.manuais %}<li><strong>{{ m.base }}</strong> · {{ m.termo_id }}{% if m.data_busca %} · {{ m.data_busca }}{% endif %}{% if m.posicao %} · posição {{ m.posicao }}{% endif %}</li>{% endfor %}</ul>{% endif %}
       </article>
 
@@ -185,7 +185,7 @@
             <dt>Área temática</dt><dd>{{ e.rotulo(e.DOMINIOS, a.llm.dominio_tematico) if a.llm.dominio_tematico else "—" }}</dd>
             <dt>Escopo geográfico</dt><dd>{{ e.rotulo(e.ESCOPOS, a.llm.escopo_geografico) if a.llm.escopo_geografico else "—" }}</dd>
             <dt>Tipo de documento</dt><dd>{{ e.rotulo(e.TIPOS, a.llm.tipo_documento) if a.llm.tipo_documento else "—" }}</dd>
-            <dt>Execução</dt><dd><a href="/execucoes/{{ a.llm.run_id }}"><code>{{ a.llm.run_id }}</code></a>{% if a.llm.prompt_versao %} · prompt {{ a.llm.prompt_versao }}{% endif %} · <a href="/triagem-escopo">entender a triagem do modelo</a></dd>
+            <dt>Execução</dt><dd>{% if pode_seguir("/execucoes/" ~ a.llm.run_id) %}<a href="/execucoes/{{ a.llm.run_id }}"><code>{{ a.llm.run_id }}</code></a>{% else %}<code>{{ a.llm.run_id }}</code>{% endif %}{% if a.llm.prompt_versao %} · prompt {{ a.llm.prompt_versao }}{% endif %} · <a href="/triagem-escopo">entender a triagem do modelo</a></dd>
           </dl>{% endif %}{% endif %}
         </article>
       </details>

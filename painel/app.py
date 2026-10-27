@@ -234,6 +234,15 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
 
         return pode_rota
 
+    def _pode_seguir(request):
+        """Devolve uma função que verifica se o usuário da requisição pode seguir o endereço dado."""
+        pode = _pode_rota(request)
+
+        def seguir(href: str) -> bool:
+            return navegacao.pode_seguir(href, pode)
+
+        return seguir
+
     def _pode_desfazer(request, achado_id, historico):
         """Verifica se o usuário pode desfazer a decisão do achado indicado."""
         usuario = getattr(request.state, "usuario", None)
@@ -253,6 +262,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         ver_nomes = _ver_nomes(request)
         pode_estatisticas = _pode_estatisticas(request)
         pode_rota = _pode_rota(request)
+        pode_seguir = _pode_seguir(request)
         return modelos.TemplateResponse(request, modelo, {"revisor": revisor, "csrf": getattr(request.state, "csrf", ""),
                                                           "tema": tema_do_cookie(request),
                                                           "usuario": usuario, "ver_nomes": ver_nomes,
@@ -261,6 +271,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                                                           "pode_rota": pode_rota,
                                                           "pode_abrir": lambda c: pode_rota("GET", c),
                                                           "pode_enviar": lambda c: pode_rota("POST", c),
+                                                          "pode_seguir": pode_seguir,
                                                           "caminho": request.url.path, **dados}, status_code=status)
 
     def erro(request, status, titulo, texto):
@@ -524,7 +535,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         alertas = []
         if rev["total"] - rev["verificados"]:
             pode = _pode_rota(request)
-            pode_link = pode("GET", "/revisao/achados") and pode("POST", "/achados/1/verificar")
+            pode_link = navegacao.pode_seguir("/revisao/achados", pode)
             href = "/revisao/achados" if pode_link else None
             rotulo_link = "Começar revisão" if pode_link else None
             alertas.append(("aviso", f"{fmt.numero(rev['total'] - rev['verificados'])} achado(s) ainda sem verificação humana.", href, rotulo_link))
@@ -1259,5 +1270,6 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     from painel import rotas_extras
     rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos, entidades=entidades,
                                                  pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita, contas=contas,
-                                                 contas_ocupadas=contas_ocupadas, novo_repositorio=repositorio_fabrica, escrever=_escrever))
+                                                 contas_ocupadas=contas_ocupadas, novo_repositorio=repositorio_fabrica, escrever=_escrever,
+                                                 pode_seguir=_pode_seguir))
     return app

@@ -29,7 +29,7 @@
       <td>{% if o.consulta_id in ctx.consultas_literatura %}{{ ctx.consultas_literatura[o.consulta_id] }} <small><code>{{ o.consulta_id }}</code></small>{% else %}<code>{{ o.consulta_id }}</code>{% endif %}</td>
       <td class="num">{{ o.posicao if o.posicao is not none else "" }}</td>
       <td>{{ o.data_pub or "" }}</td>
-      <td>{% if "ver_chamadas" in perms %}<a href="/execucoes/{{ o.run_id|urlencode }}?configuracao=1#configuracao"><code>{{ o.run_id }}</code></a>{% else %}<code>{{ o.run_id }}</code>{% endif %}</td>
+      <td>{% if pode_seguir("/execucoes/" ~ (o.run_id|urlencode) ~ "?configuracao=1#configuracao") %}<a href="/execucoes/{{ o.run_id|urlencode }}?configuracao=1#configuracao"><code>{{ o.run_id }}</code></a>{% else %}<code>{{ o.run_id }}</code>{% endif %}</td>
     </tr>{% endfor %}</tbody></table></div>
   {% else %}<p class="vazio">Nenhuma ocorrência registrada.</p>{% endif %}
 </section>

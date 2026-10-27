@@ -1,7 +1,7 @@
 """Visao geral do banco `vies` (busca de vies algoritmico): os numeros desta busca no lugar do funil da Tarefa 1.
 Funcoes puras sobre as leituras do painel; a rota `/` chama `dados` quando o banco e o `vies`."""
 from dominio import analises_vies as AV
-from painel import analises_blocos_vies as bv, formatacao as fmt
+from painel import analises_blocos_vies as bv, formatacao as fmt, navegacao
 from painel.graficos import barra_empilhada
 
 
@@ -19,7 +19,7 @@ def dados(leitura, contexto, pode=None):
     r, tri = leitura.resumo_geral(), leitura.contagem_triagem()
     alertas = []
     if tri["pendentes"]:
-        pode_link = pode is None or (pode("GET", "/literatura/triagem") and pode("POST", "/literatura/artigos/1/triar"))
+        pode_link = pode is None or navegacao.pode_seguir("/literatura/triagem", pode)
         href = "/literatura/triagem" if pode_link else None
         rotulo_link = "Triar artigos" if pode_link else None
         alertas.append(("aviso", f"{fmt.numero(tri['pendentes'])} artigo(s) ainda sem triagem humana.", href, rotulo_link))

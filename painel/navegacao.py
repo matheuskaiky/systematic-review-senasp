@@ -4,6 +4,7 @@ Só apresentação: nenhuma rota é criada ou removida aqui. `grupos(caminho, em
 grupos com cada link marcado como atual (vira `aria-current="page"`) e o grupo que contém a página atual marcado como aberto.
 Um achado ou um artigo aberto pela fila de revisão (`?fila=1`) marca a fila ("Revisar achados", "Triar artigos"), não a lista.
 """
+from urllib.parse import unquote, urlsplit
 
 # (endereço, texto, prefixo que também marca o link como atual, prefixos de outro link que NÃO contam)
 _GRUPOS = (
@@ -73,6 +74,23 @@ ACOES_DOS_ITENS = {
 }
 
 
+def pode_seguir(href, pode):
+    """Informa se o usuário tem permissão para seguir o endereço dado.
+
+    Aceita apenas caminhos internos absolutos (começando com `/` e não `//`). Decodifica percent-escapes
+    e ignora parâmetros ou âncoras. Consulta primeiro o método GET e, para filas de decisão, a ação
+    exigida em ACOES_DOS_ITENS.
+    """
+    if not isinstance(href, str) or not href.startswith("/") or href.startswith("//"):
+        return False
+    caminho = unquote(urlsplit(href).path)
+    if not pode("GET", caminho):
+        return False
+    if caminho in ACOES_DOS_ITENS:
+        return bool(pode(*ACOES_DOS_ITENS[caminho]))
+    return True
+
+
 def grupos(caminho, em_fila=False, admin=False, banco="real", pode=None):
     """Lista de {id, nome, aberto, itens: [{href, texto, atual}]} para o `caminho` (ex.: `/estados/SP`) da página atual.
     No banco `vies`, sem as telas de `SO_TAREFA_1`; nos outros, sem as de `SO_VIES`. Com `pode`, filtra por permissão."""
@@ -87,11 +105,8 @@ def grupos(caminho, em_fila=False, admin=False, banco="real", pode=None):
                 continue
             if banco != "vies" and h in SO_VIES:
                 continue
-            if pode is not None:
-                if not pode("GET", h):
-                    continue
-                if h in ACOES_DOS_ITENS and not pode(*ACOES_DOS_ITENS[h]):
-                    continue
+            if pode is not None and not pode_seguir(h, pode):
+                continue
             marcados.append({"href": h, "texto": t, "atual": _atual(caminho, h, p, ex)})
         if pode is not None and not marcados:
             continue

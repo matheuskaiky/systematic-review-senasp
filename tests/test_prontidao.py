@@ -186,8 +186,9 @@ def test_cartao_na_pagina_inicial_e_primeiro_bloco_da_visao(demo, tmp_path):
     html = visao.text
     assert html.index('id="prontidao"') < html.index('id="hipoteses"')
     for texto in ("H2: regressão logística", "H5: citações e posição", "Auditoria dos negativos do modelo", 'class="barra-progresso"',
-                  "/revisao/achados", "/literatura/triagem", "auditoria-negativos-modelo --amostra 59"):
+                  "auditoria-negativos-modelo --amostra 59"):
         assert texto in html, texto
+    assert "/revisao/achados" not in html and "/literatura/triagem" not in html     # somente leitura: os cartoes nao oferecem as filas
     assert " style=" not in html
     home = cliente.get("/")
     assert home.status_code == 200 and "Prontidão metodológica" in home.text and 'class="barra-progresso"' in home.text

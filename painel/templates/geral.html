@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_guia.html" import guia_leitura %}
 {% import "_selos.html" as s %}
-{% import "_prontidao.html" as pr %}
+{% import "_prontidao.html" as pr with context %}
 {% block titulo %}Visão geral{% endblock %}
 {% block conteudo %}
 <h1>Visão geral</h1>
@@ -35,7 +35,7 @@
       <li><span class="selo st-descartado">✕ Descartados</span> {{ fmt.numero(rev.descartados) }}</li>
       <li><span class="selo neutro">○ Pendentes</span> {{ fmt.numero(pend) }}</li>
     </ul>
-    {% if pend %}{% if pode_abrir("/revisao/achados") and pode_enviar("/achados/1/verificar") %}<a class="botao" href="/revisao/achados">Continuar a revisão ({{ pend }})</a>{% endif %}{% else %}<p>Nada pendente.</p>{% endif %}
+    {% if pend %}{% if pode_seguir("/revisao/achados") %}<a class="botao" href="/revisao/achados">Continuar a revisão ({{ pend }})</a>{% endif %}{% else %}<p>Nada pendente.</p>{% endif %}
   </section>
 </div>
 

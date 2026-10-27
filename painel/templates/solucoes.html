@@ -65,7 +65,7 @@
       {% if k.resultados|length > max_links %}Mostrando os {{ max_links }} primeiros.{% endif %}</p>
     <ul>{% for r in k.resultados[:max_links] %}
       <li>{% if r.url|url_segura != "#" %}<a href="{{ r.url|url_segura }}" rel="noopener noreferrer">{{ r.titulo or r.url }}</a>{% else %}{{ r.titulo or "endereço não é http/https" }}{% endif %}
-        <br><small class="fornecedor">execução <a href="/execucoes/{{ r.run_id|urlencode }}"><code>{{ r.run_id }}</code></a> · consulta <code>{{ r.consulta_id }}</code> · posição {{ r.posicao if r.posicao is not none else "?" }}
+        <br><small class="fornecedor">execução {% if pode_seguir("/execucoes/" ~ (r.run_id|urlencode)) %}<a href="/execucoes/{{ r.run_id|urlencode }}"><code>{{ r.run_id }}</code></a>{% else %}<code>{{ r.run_id }}</code>{% endif %} · consulta <code>{{ r.consulta_id }}</code> · posição {{ r.posicao if r.posicao is not none else "?" }}
         {% if not r.no_relatorio %} · <strong>só em execução fora do relatório</strong>{% endif %}
         {% if not r.n_paginas %} · <strong>página nunca baixada</strong>{% if r.selecionada %} (foi selecionada para download){% endif %}{% elif not r.n_paginas_com_texto %} · baixada, mas sem texto extraído{% endif %}</small></li>{% endfor %}</ul>
   {% else %}<p class="nao-avaliado">Nenhum título ou resumo de resultado da UF cita o nome.</p>{% endif %}
@@ -74,7 +74,7 @@
   {% if k.paginas %}
     <ul>{% for p in k.paginas[:max_links] %}
       <li>{% if p.link_externo|url_segura != "#" %}<a href="{{ p.link_externo|url_segura }}" rel="noopener noreferrer">{{ p.dominio_final or p.url }}</a>{% else %}{{ p.dominio_final or "endereço não é http/https" }}{% endif %}
-        <small class="fornecedor">· execução <a href="/execucoes/{{ p.run_id|urlencode }}"><code>{{ p.run_id }}</code></a></small>
+        <small class="fornecedor">· execução {% if pode_seguir("/execucoes/" ~ (p.run_id|urlencode)) %}<a href="/execucoes/{{ p.run_id|urlencode }}"><code>{{ p.run_id }}</code></a>{% else %}<code>{{ p.run_id }}</code>{% endif %}</small>
         {% if p.achados_sem_nome %}<br>Achados desta página que não citam o nome: {% for a in p.achados_sem_nome %}<a href="/achados/{{ a.achado_id }}">{{ rotulos.rotulo(rotulos.TECNOLOGIAS, a.tecnologia) }} ({{ rotulos.rotulo(rotulos.STATUS, a.status_reportado) }})</a>{% if a.n > 1 %} <small class="fornecedor">×{{ a.n }}</small>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
         {% else %}<br><small class="fornecedor">nenhum achado foi extraído desta página</small>{% endif %}</li>{% endfor %}</ul>
     {% if k.paginas|length > max_links %}<p class="explica">Mostrando as {{ max_links }} primeiras de {{ k.paginas|length }}.</p>{% endif %}

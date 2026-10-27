@@ -10,6 +10,6 @@
   <dt>Eixo de exploração</dt><dd>{{ t.eixo or "nenhum" }}</dd>
   <dt>Justificativa</dt><dd>{{ t.justificativa or "não informada" }}</dd>
   {% if not t.valido %}<dt>Conferência</dt><dd>falhou: {{ t.problemas|lista_json }}</dd>{% endif %}
-  <dt>Execução</dt><dd>{% if "ver_chamadas" in perms %}<a href="/execucoes/{{ t.run_id|urlencode }}?configuracao=1#configuracao"><code>{{ t.run_id }}</code></a>{% else %}<code>{{ t.run_id }}</code>{% endif %} · prompt {{ t.prompt_versao }}</dd>
+  <dt>Execução</dt><dd>{% if pode_seguir("/execucoes/" ~ (t.run_id|urlencode) ~ "?configuracao=1#configuracao") %}<a href="/execucoes/{{ t.run_id|urlencode }}?configuracao=1#configuracao"><code>{{ t.run_id }}</code></a>{% else %}<code>{{ t.run_id }}</code>{% endif %} · prompt {{ t.prompt_versao }}</dd>
 </dl>
 {%- endmacro %}

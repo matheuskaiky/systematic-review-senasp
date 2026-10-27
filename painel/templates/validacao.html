@@ -16,7 +16,7 @@
 <section class="cartao">
   <h2 data-ic="list-checks" data-tom="violeta">Andamento</h2>
   <p><strong>{{ respondidas }} de {{ linhas|length }}</strong> itens respondidos.</p>
-  {% if not completa %}{% set proximo = (linhas|selectattr("relevancia", "none")|first) %}<a class="botao" href="/validacao/{{ proximo.ordem }}">Conferir o próximo item</a>{% endif %}
+  {% if not completa %}{% set proximo = (linhas|selectattr("relevancia", "none")|first) %}{% if pode_abrir("/validacao/" ~ proximo.ordem) and pode_enviar("/validacao/" ~ proximo.ordem ~ "/triar") %}<a class="botao" href="/validacao/{{ proximo.ordem }}">Conferir o próximo item</a>{% endif %}{% endif %}
   <div class="tabela-rolavel"><table>
     <thead><tr><th class="num">Nº</th><th>Fonte</th><th>Título</th><th>Situação</th></tr></thead>
     <tbody>{% for l in linhas %}

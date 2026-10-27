@@ -2,7 +2,7 @@
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from painel.metodologia_texto import gerar_metodologia
+from painel import metodologia_texto
 
 
 def registrar(c):
@@ -15,4 +15,6 @@ def registrar(c):
         fatos = leitura.fatos_metodologia(len(contexto.ufs) or 27)
         fatos["bases_esperadas"] = list(contexto.bases)
         fatos["banco"] = contexto.banco
-        return c.pagina(request, "metodologia.html", m=gerar_metodologia(fatos, contexto.ufs))
+        return c.pagina(request, "metodologia.html",
+                        m=metodologia_texto.filtrar_links(metodologia_texto.gerar_metodologia(fatos, contexto.ufs),
+                                                         c.pode_seguir(request)))

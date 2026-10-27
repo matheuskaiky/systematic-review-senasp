@@ -558,10 +558,15 @@ def bloco_auditoria_negativos(d):
 
 
 # ---------------------------------------------------------------- operacao
-def bloco_opacidade(d):
-    linhas = [{"dominio": x["dominio"], "total": x["n_tentadas"], "bloqueadas": x["n_robots"] + x["n_http_bloqueio"],
-               "inacessiveis": x.get("n_robots_inacessivel", 0), "href": _href("/chamadas", etapa="download", q=x["dominio"])}
-              for x in (d.get("dominios") or [])[:40]]
+def bloco_opacidade(d, seguir=None):
+    """Bloco da taxa de opacidade e transparência nos portais, com ranking dos domínios."""
+    linhas = []
+    for x in (d.get("dominios") or [])[:40]:
+        h = _href("/chamadas", etapa="download", q=x["dominio"])
+        if seguir is not None and not seguir(h):
+            h = None
+        linhas.append({"dominio": x["dominio"], "total": x["n_tentadas"], "bloqueadas": x["n_robots"] + x["n_http_bloqueio"],
+                       "inacessiveis": x.get("n_robots_inacessivel", 0), "href": h})
     if not d.get("n_tentadas"):
         return _bloco("opacidade", "Sem downloads registrados", aviso="Nenhuma página foi baixada ainda.")
     n_inacessivel = d.get("n_robots_inacessivel") or 0

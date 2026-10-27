@@ -3,8 +3,8 @@
 {% block conteudo %}
 <h1>Fila de triagem</h1>
 {% if tri.total == 0 %}<p class="vazio">Ainda não há artigos. Rode <code>python main.py academico --termos T01 --paginas 1</code>.</p>
-{% elif filtros %}<p class="vazio">Nenhum artigo pendente com estes filtros. <a href="/literatura/triagem">Ver a fila completa</a>.</p>
+{% elif filtros %}<p class="vazio">Nenhum artigo pendente com estes filtros.{% if pode_seguir("/literatura/triagem") %} <a href="/literatura/triagem">Ver a fila completa</a>.{% endif %}</p>
 {% else %}<div class="aviso ok" role="status">Triagem por título e resumo concluída: {{ fmt.numero(tri.incluidos) }} incluído(s) e {{ fmt.numero(tri.excluidos) }} excluído(s).</div>
 <p><a class="botao" href="/literatura/prisma">Ver o fluxo PRISMA</a> <a class="botao secundario" href="/literatura/artigos?decisao=incluir">Ver os incluídos (texto completo)</a></p>{% endif %}
-{% if tri.ocultos_llm %}<p class="contagem">{{ fmt.numero(tri.ocultos_llm) }} artigo(s) excluído(s) pelo modelo ficam fora da fila (quarentena temporária; nada foi apagado). <a href="/literatura/artigos?llm=excluido">Ver os excluídos</a> ou <a href="/literatura/triagem?llm=todos">incluí-los na fila</a>.</p>{% endif %}
+{% if tri.ocultos_llm %}<p class="contagem">{{ fmt.numero(tri.ocultos_llm) }} artigo(s) excluído(s) pelo modelo ficam fora da fila (quarentena temporária; nada foi apagado). <a href="/literatura/artigos?llm=excluido">Ver os excluídos</a>{% if pode_seguir("/literatura/triagem?llm=todos") %} ou <a href="/literatura/triagem?llm=todos">incluí-los na fila</a>{% endif %}.</p>{% endif %}
 {% endblock %}

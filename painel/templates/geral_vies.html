@@ -35,7 +35,7 @@
       <li><span class="selo st-descartado">✕ Excluídos</span> {{ fmt.numero(tri.excluidos) }}</li>
       <li><span class="selo neutro">○ Pendentes</span> {{ fmt.numero(tri.pendentes) }}</li>
     </ul>
-    {% if tri.pendentes %}{% if pode_abrir("/literatura/triagem") and pode_enviar("/literatura/artigos/1/triar") %}<a class="botao" href="/literatura/triagem">Continuar a triagem ({{ tri.pendentes }})</a>{% endif %}{% else %}<p>Nada pendente.</p>{% endif %}
+    {% if tri.pendentes %}{% if pode_seguir("/literatura/triagem") %}<a class="botao" href="/literatura/triagem">Continuar a triagem ({{ tri.pendentes }})</a>{% endif %}{% else %}<p>Nada pendente.</p>{% endif %}
   </section>
 </div>
 

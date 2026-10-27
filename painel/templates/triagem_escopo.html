@@ -29,7 +29,7 @@
   {% for chave, nome in fontes.items() %}<a href="{{ url(fonte=chave, status=none, categoria_motivo=none, termo=none, dominio_tematico=none, escopo_geografico=none, confianca=none, valido=none) }}"{% if chave == fonte %} aria-current="true"{% endif %}>{{ nome }} <span class="selo neutro">{{ fmt.numero(contagem_fontes.get(chave, 0)) }}</span></a>{% endfor %}
 </nav>
 
-<p class="contagem">{% if run %}Mostrando só as respostas da execução <a href="/execucoes/{{ run }}"><code>{{ run }}</code></a>. <a href="{{ url(run=none) }}">Voltar à avaliação mais recente de cada item</a>.
+<p class="contagem">{% if run %}Mostrando só as respostas da execução {% if pode_seguir("/execucoes/" ~ run) %}<a href="/execucoes/{{ run }}"><code>{{ run }}</code></a>{% else %}<code>{{ run }}</code>{% endif %}. <a href="{{ url(run=none) }}">Voltar à avaliação mais recente de cada item</a>.
   {% else %}Mostrando a avaliação <strong>mais recente de cada item</strong>, de qualquer execução.{% endif %}
   Custo das chamadas que produziram estas respostas: <strong>{% if resumo.custo_usd is none %}não registrado{% else %}{{ fmt.moeda_usd(resumo.custo_usd) }}{% endif %}</strong>
   ({{ fmt.numero(resumo.n_chamadas) }} chamada(s)).</p>
@@ -148,7 +148,7 @@
   <div class="tabela-rolavel"><table>
     <thead><tr><th scope="col">Execução</th><th scope="col">Fonte</th><th scope="col">Prompt</th><th scope="col" class="num">Linhas</th><th scope="col" class="num">Conferência falhou</th><th scope="col" class="num">Custo</th><th scope="col">Quando</th><th scope="col">Ver</th></tr></thead>
     <tbody>{% for e in execucoes %}
-      <tr><th scope="row"><a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a></th><td>{{ e.fontes or "—" }}</td><td>{{ e.prompt_versao or "—" }}</td><td class="num">{{ fmt.numero(e.n_linhas) }}</td>
+      <tr><th scope="row">{% if pode_seguir("/execucoes/" ~ e.run_id) %}<a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a>{% else %}<code>{{ e.run_id }}</code>{% endif %}</th><td>{{ e.fontes or "—" }}</td><td>{{ e.prompt_versao or "—" }}</td><td class="num">{{ fmt.numero(e.n_linhas) }}</td>
         <td class="num">{{ fmt.numero(e.n_invalidos) }}</td><td class="num">{% if e.custo_usd is none %}—{% else %}{{ fmt.moeda_usd(e.custo_usd) }}{% endif %}</td>
         <td>{{ fmt.data_hora(e.criado_em) }}</td><td>{% if e.run_id == run %}<span class="selo neutro">em exibição</span>{% else %}<a href="{{ url(run=e.run_id, status=none, categoria_motivo=none, termo=none, dominio_tematico=none, escopo_geografico=none, confianca=none, valido=none) }}">só esta execução</a>{% endif %}</td></tr>
     {% endfor %}</tbody></table></div>

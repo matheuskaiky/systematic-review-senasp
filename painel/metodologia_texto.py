@@ -15,6 +15,7 @@ MAX_UFS_NO_TEXTO = 27
 ETAPAS = rotulos.ETAPAS
 ETAPAS_COM_PRECO = ("busca_academica", "busca_web", "busca_literatura", "classificacao")   # download nao tem preco: nao conta como custo faltando
 PROVA_LITERATURA = "/literatura/prisma"
+ROTULOS_DE_LINK = ("Comece a revisão.", "Ver pendentes.", "Ver o PRISMA.", "Ver execuções.", "Ver as chamadas.", "Ver classificadores.")
 
 
 # ---------------------------------------------------------------- utilidades
@@ -593,3 +594,52 @@ def gerar_metodologia(fatos, ufs=None):
     else:
         secoes = [_literatura(x), _web(x), _classificacao(x), _verificacao(x), _ufs(x, ufs), _custos(x), _reprodutibilidade(x)]
     return {"secoes": secoes, "ressalvas": ressalvas, "vazio": x.vazio, "texto": _texto_puro(secoes, ressalvas)}
+
+
+def filtrar_links(m, seguir):
+    """Devolve uma nova estrutura de metodologia filtrando os links conforme a função `seguir(href)`.
+
+    Segmentos cujo endereço não é permitido pelo usuário perdem o link; se o texto for um rótulo que
+    existe apenas para levar ao link (constante ROTULOS_DE_LINK), o segmento é removido. Itens de lista
+    ou ressalvas que ficarem vazios são descartados. O dicionário original `m` não é modificado.
+    """
+    def _filtrar_segmentos(segmentos):
+        novos = []
+        for texto, href in segmentos:
+            if href is None:
+                novos.append((texto, None))
+            elif seguir(href):
+                novos.append((texto, href))
+            elif texto not in ROTULOS_DE_LINK:
+                novos.append((texto, None))
+        return novos
+
+    secoes_novas = []
+    for sec in m.get("secoes", []):
+        sec_nova = dict(sec)
+        blocos_novos = []
+        for b in sec.get("blocos", []):
+            b_novo = dict(b)
+            if b.get("tipo") == "p":
+                b_novo["seg"] = _filtrar_segmentos(b.get("seg", []))
+            elif b.get("tipo") == "ul":
+                itens_novos = []
+                for it in b.get("itens", []):
+                    it_filtrado = _filtrar_segmentos(it)
+                    if it_filtrado:
+                        itens_novos.append(it_filtrado)
+                b_novo["itens"] = itens_novos
+            blocos_novos.append(b_novo)
+        sec_nova["blocos"] = blocos_novos
+        secoes_novas.append(sec_nova)
+
+    ressalvas_novas = []
+    for res in m.get("ressalvas", []):
+        res_filtrada = _filtrar_segmentos(res)
+        if res_filtrada:
+            ressalvas_novas.append(res_filtrada)
+
+    saida = dict(m)
+    saida["secoes"] = secoes_novas
+    saida["ressalvas"] = ressalvas_novas
+    return saida

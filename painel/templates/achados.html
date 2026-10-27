@@ -34,7 +34,7 @@
 </section>
 {% endif %}
 
-<p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> achado(s){% if filtros.get("verificacao") == "pendente" or not filtros %} · <a href="/revisao/achados?{{ base }}">revisar esta fila</a>{% endif %}</p>
+<p class="contagem"><strong>{{ fmt.numero(res.total) }}</strong> achado(s){% if (filtros.get("verificacao") == "pendente" or not filtros) and pode_seguir("/revisao/achados?" ~ base) %} · <a href="/revisao/achados?{{ base }}">revisar esta fila</a>{% endif %}</p>
 {% if not res.itens and res.total %}
 <p class="vazio">Não há achados nesta página: são {{ fmt.numero(res.total) }} em {{ paginas }} página(s). <a href="/achados?{{ base }}{{ '&' if base }}p=1">Ir para a primeira</a>.</p>
 {% elif not res.itens %}

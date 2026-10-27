@@ -4,7 +4,7 @@
 {% macro seg(par) %}{% for texto, href in par %}{% if href %}<a href="{{ href }}">{{ texto }}</a>{% else %}{{ texto }}{% endif %}{% endfor %}{% endmacro %}
 {% block conteudo %}
 <h1>Metodologia</h1>
-<p class="sub">Texto gerado a partir do banco, pronto para adaptar à seção de método. Cada número é um link para a página do painel que o justifica. Nada aqui é inventado: o que falta nos dados aparece como ressalva.</p>
+<p class="sub">Texto gerado a partir do banco, pronto para adaptar à seção de método. Os números com link levam à página do painel que os justifica. Nada aqui é inventado: o que falta nos dados aparece como ressalva.</p>
 
 {% if m.ressalvas %}
 <section class="aviso aviso-lista" aria-label="Ressalvas">

@@ -5,7 +5,7 @@
   <div class="tabela-rolavel"><table>
     <thead><tr><th>Execução</th><th>Comando</th><th>Situação</th><th>Início</th><th class="num">Custo</th><th>Relatório</th></tr></thead>
     <tbody>{% for e in execucoes %}
-      <tr><td>{% if "ver_chamadas" in perms %}<a href="/execucoes/{{ e.run_id|urlencode }}"><code>{{ e.run_id }}</code></a>{% else %}<code>{{ e.run_id }}</code>{% endif %}</td><td>{{ e.comando }}</td><td>{{ e.status }}</td><td>{{ fmt.data_hora(e.iniciado_em) }}</td>
+      <tr><td>{% if pode_seguir("/execucoes/" ~ (e.run_id|urlencode)) %}<a href="/execucoes/{{ e.run_id|urlencode }}"><code>{{ e.run_id }}</code></a>{% else %}<code>{{ e.run_id }}</code>{% endif %}</td><td>{{ e.comando }}</td><td>{{ e.status }}</td><td>{{ fmt.data_hora(e.iniciado_em) }}</td>
           <td class="num">{{ fmt.moeda_usd(e.custo_usd) }}</td><td>{{ "dentro" if e.no_relatorio else "fora" }}</td></tr>
     {% endfor %}</tbody></table></div>
   {% else %}<p class="vazio">Nenhuma execução registrada ainda. Rode <code>{{ comando_inicial }}</code>.</p>{% endif %}

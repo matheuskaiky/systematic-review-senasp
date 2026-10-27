@@ -12,7 +12,7 @@
     </div>
     {% endfor %}
     {% if not compacto %}<p>{{ c.condicao }}</p>{% endif %}
-    {% if c.href %}<p><a href="{{ c.href }}">{{ c.rotulo_link }}</a></p>{% endif %}
+    {% if c.href and pode_seguir(c.href) %}<p><a href="{{ c.href }}">{{ c.rotulo_link }}</a></p>{% endif %}
     {% if c.comando %}<p>Comando: <code>{{ c.comando }}</code></p>{% endif %}
     {% if c.nota and not compacto %}<p class="an-subtitulo">{{ c.nota }}</p>{% endif %}
   </article>

@@ -65,6 +65,97 @@ GRUPOS_PADRAO = {
     "Leitor": {"ver_painel", "ver_nomes_revisores"},
 }
 
+MODULOS_PERMISSAO = {
+    "consulta": "Consulta da pesquisa",
+    "revisao": "Revisão e validação",
+    "acompanhamento": "Acompanhamento",
+    "tecnico": "Dados técnicos",
+}
+
+SENSIBILIDADES = (None, "escrita", "supervisao", "dados_pessoais", "tecnica_restrita", "escrita_externa")
+
+CATALOGO_PERMISSOES = {
+    "ver_painel": {"modulo": "consulta", "sensibilidade": None, "depende_de": ()},
+    "ver_nomes_revisores": {"modulo": "acompanhamento", "sensibilidade": "dados_pessoais", "depende_de": ("ver_painel",)},
+    "ver_chamadas": {"modulo": "tecnico", "sensibilidade": "tecnica_restrita", "depende_de": ("ver_painel",)},
+    "verificar_achados": {"modulo": "revisao", "sensibilidade": "escrita", "depende_de": ("ver_painel",)},
+    "revogar_verificacao": {"modulo": "revisao", "sensibilidade": "supervisao", "depende_de": ("verificar_achados",)},
+    "triar_artigos": {"modulo": "revisao", "sensibilidade": "escrita", "depende_de": ("ver_painel",)},
+    "triar_texto_completo": {"modulo": "revisao", "sensibilidade": "escrita", "depende_de": ("triar_artigos",)},
+    "ver_estatisticas_usuarios": {"modulo": "acompanhamento", "sensibilidade": "dados_pessoais", "depende_de": ("ver_painel",)},
+    "enviar_coletas": {"modulo": "tecnico", "sensibilidade": "escrita_externa", "depende_de": ()},
+}
+
+REGRAS_ROTAS = (
+    ("GET", "/entrar", None),
+    ("POST", "/entrar", None),
+    ("POST", "/sair", None),
+    ("GET", "/", "ver_painel"),
+    ("GET", "/estados", "ver_painel"),
+    ("GET", "/estados/{uf}", "ver_painel"),
+    ("GET", "/execucoes", "ver_chamadas"),
+    ("GET", "/execucoes/resultado.xlsx", "ver_chamadas"),
+    ("GET", "/execucoes/comparar", "ver_chamadas"),
+    ("GET", "/execucoes/{run_id}", "ver_chamadas"),
+    ("GET", "/chamadas", "ver_chamadas"),
+    ("GET", "/chamadas/{chamada_id}", "ver_chamadas"),
+    ("GET", "/chamadas/{chamada_id}/bruto", "ver_chamadas"),
+    ("GET", "/literatura", "ver_painel"),
+    ("GET", "/literatura/catalogo.xlsx", "triar_artigos"),
+    ("GET", "/literatura/referencias", "ver_painel"),
+    ("GET", "/literatura/referencias.xlsx", "ver_painel"),
+    ("GET", "/literatura/referencias/web/{referencia_id}", "ver_painel"),
+    ("GET", "/literatura/artigos", "ver_painel"),
+    ("GET", "/literatura/artigos/{artigo_id}", "ver_painel"),
+    ("GET", "/literatura/triagem", "ver_painel"),
+    ("GET", "/literatura/prisma", "ver_painel"),
+    ("GET", "/achados", "ver_painel"),
+    ("GET", "/achados/casos.xlsx", "verificar_achados"),
+    ("GET", "/achados/{achado_id}", "ver_painel"),
+    ("GET", "/revisao/achados", "ver_painel"),
+    ("GET", "/analises", "ver_painel"),
+    ("GET", "/classificadores", "ver_painel"),
+    ("GET", "/metodologia", "ver_painel"),
+    ("GET", "/observatorio", "ver_painel"),
+    ("GET", "/observatorio/obras", "ver_painel"),
+    ("GET", "/sobre", "ver_painel"),
+    ("GET", "/buscar-texto", "ver_painel"),
+    ("GET", "/solucoes", "ver_painel"),
+    ("GET", "/triagem-escopo", "ver_painel"),
+    ("GET", "/validacao", "ver_painel"),
+    ("GET", "/validacao/{ordem}", "ver_painel"),
+    ("GET", "/estatisticas-usuarios", "ver_estatisticas_usuarios"),
+    ("GET", "/conta", LOGADO),
+    ("GET", "/admin", SO_ADMIN),
+    ("GET", "/admin/usuarios", SO_ADMIN),
+    ("GET", "/admin/usuarios/{usuario_id}", SO_ADMIN),
+    ("GET", "/admin/grupos", SO_ADMIN),
+    ("GET", "/admin/auditoria", SO_ADMIN),
+    ("POST", "/literatura/artigos/{artigo_id}/triar", "triar_artigos"),
+    ("POST", "/literatura/artigos/{artigo_id}/sugerir", "triar_artigos"),
+    ("POST", "/literatura/artigos/{artigo_id}/sugestoes/{sugestao_id}/{acao}", "triar_artigos"),
+    ("POST", "/achados/{achado_id}/verificar", "verificar_achados"),
+    ("POST", "/achados/{achado_id}/sugerir", "verificar_achados"),
+    ("POST", "/achados/{achado_id}/sugestoes/{sugestao_id}/{acao}", "verificar_achados"),
+    ("POST", "/achados/{achado_id}/desfazer", "verificar_achados"),
+    ("POST", "/achados/{achado_id}/revogar", "revogar_verificacao"),
+    ("POST", "/validacao/sortear", SO_ADMIN),
+    ("POST", "/validacao/{ordem}/triar", "triar_artigos"),
+    ("POST", "/conta/token", "enviar_coletas"),
+    ("POST", "/conta/token/revogar", LOGADO),
+    ("POST", "/admin/usuarios", SO_ADMIN),
+    ("POST", "/admin/usuarios/{usuario_id}", SO_ADMIN),
+    ("POST", "/admin/grupos", SO_ADMIN),
+    ("POST", "/admin/grupos/novo", SO_ADMIN),
+    ("POST", "/admin/grupos/{grupo_id}/renomear", SO_ADMIN),
+    ("GET", "/api/coletas", SO_ADMIN),
+    ("POST", "/api/coletas", SO_ADMIN),
+    ("PUT", "/api/coletas", SO_ADMIN),
+    ("PATCH", "/api/coletas", SO_ADMIN),
+    ("DELETE", "/api/coletas", SO_ADMIN),
+    ("OPTIONS", "/api/coletas", SO_ADMIN),
+)
+
 SENHA_MIN = 10
 SENHA_MAX = 200
 NOME_MAX = 80
@@ -171,41 +262,41 @@ def validar_nome_grupo(nome: str) -> list[str]:
     return []
 
 
+def regra_explicita(metodo: str, caminho: str) -> tuple | None:
+    """Retorna a primeira regra explícita em REGRAS_ROTAS que casa com o método e o caminho.
+
+    Toda nova rota do painel precisa ter uma linha em REGRAS_ROTAS (o teste de cobertura falha caso contrário).
+    """
+    c_partes = caminho.split("/")
+    for regra in REGRAS_ROTAS:
+        r_metodo, r_padrao, _ = regra
+        if r_metodo != metodo:
+            continue
+        p_partes = r_padrao.split("/")
+        if len(p_partes) != len(c_partes):
+            continue
+        if all(bool(c) if (p.startswith("{") and p.endswith("}")) else (p == c) for p, c in zip(p_partes, c_partes)):
+            return regra
+    return None
+
+
 def permissao_exigida(metodo: str, caminho: str) -> str | None:
     """Determina a permissão necessária para acessar determinado método e rota."""
+    if metodo == "HEAD":
+        metodo = "GET"
     if caminho.startswith("/static/"):
         return None
     if caminho in ("/entrar", "/sair"):
         return None
+    regra = regra_explicita(metodo, caminho)
+    if regra is not None:
+        return regra[2]
     if caminho == "/admin" or caminho.startswith("/admin/"):
         return SO_ADMIN
-    if caminho == "/conta" and metodo == "GET":
-        return LOGADO
-    if caminho == "/conta/token" and metodo == "POST":
-        return "enviar_coletas"
-    if caminho == "/conta/token/revogar" and metodo == "POST":
-        return LOGADO                                   # quem perdeu a permissao ainda pode revogar o proprio token
     if metodo == "GET" and (caminho.startswith("/execucoes") or caminho.startswith("/chamadas")):
         return "ver_chamadas"
-    if metodo == "GET" and caminho == "/estatisticas-usuarios":
-        return "ver_estatisticas_usuarios"
-    if metodo == "GET" and caminho == "/literatura/catalogo.xlsx":
-        return "triar_artigos"                          # o catalogo leva as notas de leitura: visitante nao baixa
-    if metodo == "GET" and caminho == "/achados/casos.xlsx":
-        return "verificar_achados"                      # a planilha leva as observacoes da verificacao: visitante nao baixa
     if metodo == "GET":
         return "ver_painel"
-    if metodo == "POST" and caminho.endswith(("/sugerir", "/aceitar", "/descartar")):
-        if caminho.startswith("/achados/"):
-            return "verificar_achados"
-        if caminho.startswith("/literatura/artigos/"):
-            return "triar_artigos"
-    if metodo == "POST" and (caminho.endswith("/verificar") or caminho.endswith("/desfazer")):
-        return "verificar_achados"
-    if metodo == "POST" and caminho.endswith("/revogar"):
-        return "revogar_verificacao"
-    if metodo == "POST" and caminho.endswith("/triar"):
-        return "triar_artigos"
     return SO_ADMIN
 
 

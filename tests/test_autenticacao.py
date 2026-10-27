@@ -83,10 +83,10 @@ def test_catalogo_e_grupos_padrao():
     ("GET", "/administracao", "ver_painel"), ("GET", "/entrar/", "ver_painel"),
     ("GET", "/execucoes", "ver_chamadas"), ("GET", "/execucoes/x/y", "ver_chamadas"), ("GET", "/chamadas/9/bruto", "ver_chamadas"),
     ("POST", "/achados/5/verificar", "verificar_achados"), ("POST", "/achados/5/desfazer", "verificar_achados"),
-    ("POST", "/execucoes/x/verificar", "verificar_achados"), ("POST", "/achados/5/revogar", "revogar_verificacao"),
+    ("POST", "/execucoes/x/verificar", A.SO_ADMIN), ("POST", "/achados/5/revogar", "revogar_verificacao"),
     ("POST", "/literatura/artigos/5/triar", "triar_artigos"), ("GET", "/admin", A.SO_ADMIN), ("GET", "/admin/usuarios", A.SO_ADMIN),
     ("POST", "/admin/x/verificar", A.SO_ADMIN), ("POST", "/chamadas/1", A.SO_ADMIN), ("POST", "/achados/5/verificar/", A.SO_ADMIN),
-    ("HEAD", "/", A.SO_ADMIN), ("PUT", "/achados/5/verificar", A.SO_ADMIN), ("POST", "/qualquer/outra", A.SO_ADMIN)])
+    ("HEAD", "/", "ver_painel"), ("PUT", "/achados/5/verificar", A.SO_ADMIN), ("POST", "/qualquer/outra", A.SO_ADMIN)])
 def test_permissao_exigida_por_rota(metodo, caminho, esperado):
     assert A.permissao_exigida(metodo, caminho) == esperado
 

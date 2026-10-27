@@ -11,6 +11,19 @@ class ContasOcupadas(Exception):
     """O banco de contas está ocupado por outra gravação."""
 
 
+class PermissoesAlteradas(Exception):
+    """As permissões de algum grupo mudaram desde que a página foi aberta."""
+
+
+def versao_permissoes(estado: dict[int, set[str] | list[str] | tuple[str, ...]]) -> str:
+    """Calcula o hash SHA-256 do estado das permissões dos grupos."""
+    linhas = []
+    for gid in sorted(estado):
+        linhas.append(f"{gid}")
+        linhas += [f"{gid}\t{p}" for p in sorted(set(estado[gid]))]
+    return hashlib.sha256("\n".join(linhas).encode("utf-8")).hexdigest()
+
+
 def ler_instante(texto: str | None) -> datetime | None:
     """Converte string ISO em datetime com fuso horário, ou None se inválido ou ingênuo."""
     if not isinstance(texto, str) or not texto.strip():

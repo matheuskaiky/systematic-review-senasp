@@ -534,14 +534,25 @@ class ContasSQLite:
                 self._gravar_auditoria(conn, auditoria)
             return diff_count
 
-    def definir_matriz(self, permissoes_por_grupo: dict[int, set[str]], auditoria: tuple[str, str] | None = None) -> int:
+    def definir_matriz(
+        self,
+        permissoes_por_grupo: dict[int, set[str]],
+        auditoria: tuple[str, str] | None = None,
+        versao_esperada: str | None = None,
+    ) -> int:
         """Atualiza a matriz de permissões para todos os grupos em uma única transação."""
         with self._conexao(escrita=True) as conn:
-            total_alteracoes = 0
             cur_p = conn.execute("SELECT grupo_id, permissao FROM grupo_permissoes")
             atuais_por_grupo = {}
             for gid, p in cur_p.fetchall():
                 atuais_por_grupo.setdefault(gid, set()).add(p)
+
+            if versao_esperada is not None:
+                estado_atual = {gid: atuais_por_grupo.get(gid, set()) for gid in permissoes_por_grupo}
+                if autenticacao.versao_permissoes(estado_atual) != versao_esperada:
+                    raise autenticacao.PermissoesAlteradas("As permissões de algum grupo mudaram desde que a página foi aberta.")
+
+            total_alteracoes = 0
 
             grupos_ordenados = conn.execute(
                 "SELECT grupo_id, nome FROM grupos "

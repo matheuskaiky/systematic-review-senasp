@@ -16,7 +16,7 @@ def _converter_id(texto: str | None) -> int | None:
         and len(t.lstrip("0")) <= 19
         and int(t.lstrip("0") or "0") <= 9223372036854775807
     ):
-        return int(t)
+        return int(t.lstrip("0") or "0")
     return None
 
 
@@ -369,6 +369,9 @@ def registrar(c) -> None:
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
         form = {"novo": "", "renomear": {}}
+        versao = autenticacao.versao_permissoes(
+            {g["grupo_id"]: g["permissoes"] for g in grupos if g["nome"] != autenticacao.GRUPO_ADMIN}
+        )
         return c.pagina(
             request,
             "admin_grupos.html",
@@ -377,6 +380,7 @@ def registrar(c) -> None:
             proibidas_visitante=autenticacao.PERMISSOES_PROIBIDAS_VISITANTE,
             grupos_padrao=autenticacao.GRUPOS_PADRAO,
             form=form,
+            versao=versao,
             ok=(request.query_params.get("ok") == "1"),
         )
 
@@ -398,7 +402,14 @@ def registrar(c) -> None:
             for g in grupos_existentes
             if g["nome"] != autenticacao.GRUPO_ADMIN
         }
-        matriz = {gid: set() for gid in grupos_validos}
+        grupos_listados = []
+        vistos = set()
+        for v in form.getlist("grupos"):
+            gid = _converter_id(v)
+            if gid is not None and gid in grupos_validos and gid not in vistos:
+                vistos.add(gid)
+                grupos_listados.append(gid)
+        matriz = {gid: set() for gid in grupos_listados}
 
         for k in form.keys():
             m = re.fullmatch(r"p-([0-9]+)-([a-z_]+)", k)
@@ -406,7 +417,7 @@ def registrar(c) -> None:
                 continue
             gid_str, perm = m.group(1), m.group(2)
             gid = _converter_id(gid_str)
-            if gid is None or gid not in grupos_validos:
+            if gid is None or gid not in matriz:
                 continue
             if perm not in autenticacao.PERMISSOES:
                 continue
@@ -415,10 +426,20 @@ def registrar(c) -> None:
                 continue
             matriz[gid].add(perm)
 
+        versao_valores = form.getlist("versao")
+        versao = versao_valores[0] if versao_valores and isinstance(versao_valores[0], str) else ""
+
         admin_login = request.state.usuario["login"]
         agora = datetime.now(timezone.utc).isoformat()
         try:
-            c.contas.definir_matriz(matriz, (admin_login, agora))
+            c.contas.definir_matriz(matriz, (admin_login, agora), versao_esperada=versao)
+        except autenticacao.PermissoesAlteradas:
+            return c.erro(
+                request,
+                409,
+                "Permissões alteradas",
+                "As permissões mudaram depois que esta página foi aberta. Nada foi gravado: recarregue a página e refaça as alterações.",
+            )
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
 

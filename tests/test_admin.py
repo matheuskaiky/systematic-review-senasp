@@ -198,8 +198,15 @@ def test_redefinir_a_propria_senha_leva_a_entrada(adm):
 
 
 # ====================== matriz ======================
+def _ocultos_da_matriz(cli):
+    """Os campos ocultos que a pagina entrega: os grupos exibidos e a versao das permissoes deles."""
+    h = cli.get("/admin/grupos").text
+    return {"grupos": re.findall(r'<input type="hidden" name="grupos" value="([^"]*)">', h),
+            "versao": (re.findall(r'<input type="hidden" name="versao" value="([^"]*)">', h) or [""])[0]}
+
+
 def _dados_matriz(cli, contas):
-    dados = {"csrf": _csrf(cli, "/admin/grupos")}
+    dados = {"csrf": _csrf(cli, "/admin/grupos"), **_ocultos_da_matriz(cli)}
     for g in contas.grupos():
         if g["nome"] != "Administrador":
             for p in g["permissoes"]:
@@ -237,8 +244,8 @@ def test_matriz_salva_ignora_forjados_e_e_idempotente(adm):
     assert contas.permissoes_do_grupo("Leitor") == {"ver_painel"}
     assert _auditoria(contas_db) == [("salvar_permissoes", "Visitante", "+ver_nomes_revisores"),
                                      ("salvar_permissoes", "Leitor", "-ver_nomes_revisores")]
-    cli.post("/admin/grupos", data={**dados, "csrf": _csrf(cli, "/admin/grupos")})
-    assert len(_auditoria(contas_db)) == 2
+    r = cli.post("/admin/grupos", data={**dados, "csrf": _csrf(cli, "/admin/grupos"), **_ocultos_da_matriz(cli)}, follow_redirects=False)
+    assert r.status_code == 303 and len(_auditoria(contas_db)) == 2         # reenviar o mesmo estado nao grava nada
 
 
 def test_grupo_sem_caixas_fica_vazio(adm):

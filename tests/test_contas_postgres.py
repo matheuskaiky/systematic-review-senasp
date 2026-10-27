@@ -185,3 +185,16 @@ def test_nome_de_grupo_repetido_como_no_sqlite(pg, tmp_path, existente, novo, re
         else:
             contas.criar_grupo(novo, _agora())
 
+def test_matriz_com_versao_no_postgres(pg):
+    """A mesma regra no PostgreSQL: versao errada recusa sem gravar; dicionario vazio nao quebra a consulta."""
+    c, _, _ = pg
+    l = _gid(c, "Leitor")
+    atual = {l: set(next(g["permissoes"] for g in c.grupos() if g["grupo_id"] == l))}
+    with pytest.raises(A.PermissoesAlteradas):
+        c.definir_matriz({l: set()}, None, versao_esperada="0" * 64)
+    assert next(g["permissoes"] for g in c.grupos() if g["grupo_id"] == l) == atual[l]
+    assert c.definir_matriz({}, None, versao_esperada=A.versao_permissoes({})) == 0
+    with pytest.raises(A.PermissoesAlteradas):
+        c.definir_matriz({}, None, versao_esperada="0" * 64)
+    assert c.definir_matriz({l: set()}, None, versao_esperada=A.versao_permissoes(atual)) == len(atual[l])
+    assert next(g["permissoes"] for g in c.grupos() if g["grupo_id"] == l) == set()

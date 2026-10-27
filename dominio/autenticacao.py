@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import re
 import secrets
+import sys
+import unicodedata
 
 
 class ContasOcupadas(Exception):
@@ -99,6 +101,13 @@ CATALOGO_PERMISSOES = {
     "enviar_coletas": {"modulo": "tecnico", "sensibilidade": "escrita_externa", "depende_de": ()},
 }
 
+ROTULOS_SENSIBILIDADE = {
+    "supervisao": "supervisão",
+    "dados_pessoais": "dados pessoais",
+    "tecnica_restrita": "técnica restrita",
+    "escrita_externa": "escrita externa",
+}
+
 REGRAS_ROTAS = (
     ("GET", "/entrar", None),
     ("POST", "/entrar", None),
@@ -143,6 +152,7 @@ REGRAS_ROTAS = (
     ("GET", "/admin/usuarios", SO_ADMIN),
     ("GET", "/admin/usuarios/{usuario_id}", SO_ADMIN),
     ("GET", "/admin/grupos", SO_ADMIN),
+    ("GET", "/admin/grupos/{grupo_id:digitos}", SO_ADMIN),
     ("GET", "/admin/auditoria", SO_ADMIN),
     ("POST", "/literatura/artigos/{artigo_id}/triar", "triar_artigos"),
     ("POST", "/literatura/artigos/{artigo_id}/sugerir", "triar_artigos"),
@@ -331,6 +341,62 @@ def pode(grupo: str, permissoes: set[str] | list[str], exigida: str | None) -> b
 def pode_acessar(grupo: str, permissoes: set[str] | list[str], metodo: str, caminho: str) -> bool:
     """Verifica se um grupo com dadas permissões tem acesso para executar o método no caminho."""
     return pode(grupo, permissoes, permissao_exigida(metodo, caminho))
+
+
+def resumo_do_grupo(grupo: str, permissoes: set[str] | frozenset[str]) -> dict:
+    """Calcula resumo das capacidades efetivas do grupo."""
+    _pode = sys.modules[__name__].pode
+    hab = [p for p in PERMISSOES if _pode(grupo, permissoes, p)]
+    modulos = [m for m in MODULOS_PERMISSAO if any(CATALOGO_PERMISSOES[p]["modulo"] == m for p in hab)]
+    sens = [p for p in hab if CATALOGO_PERMISSOES[p]["sensibilidade"] in ROTULOS_SENSIBILIDADE]
+    return {
+        "habilitadas": hab,
+        "total": len(PERMISSOES),
+        "modulos_com_acesso": modulos,
+        "sensiveis_habilitadas": sens,
+    }
+
+
+def _normalizar_texto(texto: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", texto)
+    sem_combinantes = "".join(ch for ch in nfkd if unicodedata.combining(ch) == 0)
+    return sem_combinantes.casefold()
+
+
+def filtrar_permissoes(
+    grupo: str,
+    permissoes: set[str] | frozenset[str],
+    busca: str,
+    filtro: str,
+    modulo: str,
+) -> list[str]:
+    """Filtra permissões do catálogo segundo busca de texto, estado/sensibilidade e módulo."""
+    b = busca.strip()
+    if len(b) > 100:
+        return []
+    b_norm = _normalizar_texto(b)
+
+    _pode = sys.modules[__name__].pode
+    resultado = []
+    for chave in PERMISSOES:
+        meta = CATALOGO_PERMISSOES[chave]
+        if modulo in MODULOS_PERMISSAO and meta["modulo"] != modulo:
+            continue
+        if filtro == "habilitadas" and not _pode(grupo, permissoes, chave):
+            continue
+        elif filtro == "desabilitadas" and _pode(grupo, permissoes, chave):
+            continue
+        elif filtro == "sensiveis" and meta["sensibilidade"] not in ROTULOS_SENSIBILIDADE:
+            continue
+
+        if b_norm:
+            desc_norm = _normalizar_texto(PERMISSOES[chave])
+            chave_norm = _normalizar_texto(chave)
+            if b_norm not in desc_norm and b_norm not in chave_norm:
+                continue
+
+        resultado.append(chave)
+    return resultado
 
 
 def pode_desfazer_decisao(grupo: str | None, nome: str | None, autor: str | None) -> bool:

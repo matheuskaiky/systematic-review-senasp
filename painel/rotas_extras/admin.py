@@ -1,10 +1,25 @@
 """Rotas de administração do painel (usuários, matriz de permissões, auditoria e estatísticas)."""
 from datetime import datetime, timezone
 import re
+from starlette.convertors import Convertor, register_url_convertor
 from starlette.responses import RedirectResponse
 from fastapi import Form, Request
 
 from dominio import autenticacao
+from painel import navegacao
+
+
+class DigitosConvertor(Convertor[str]):
+    regex = "[0-9]+"
+
+    def convert(self, value: str) -> str:
+        return value
+
+    def to_string(self, value: str) -> str:
+        return str(value)
+
+
+register_url_convertor("digitos", DigitosConvertor())
 
 
 def _converter_id(texto: str | None) -> int | None:
@@ -382,6 +397,113 @@ def registrar(c) -> None:
             form=form,
             versao=versao,
             ok=(request.query_params.get("ok") == "1"),
+        )
+
+    @app.get("/admin/grupos/{grupo_id:digitos}")
+    def grupo_permissoes_view(request: Request, grupo_id: str):
+        try:
+            grupos = c.contas.grupos()
+        except autenticacao.ContasOcupadas:
+            return _erro_contas_ocupadas(request)
+
+        gid = _converter_id(grupo_id)
+        if gid is None:
+            return c.erro(
+                request,
+                404,
+                "Endereço inválido",
+                "Algum número ou parâmetro do endereço não é válido.",
+            )
+
+        grupo = next((g for g in grupos if g["grupo_id"] == gid), None)
+        if grupo is None:
+            return c.erro(
+                request,
+                404,
+                "Grupo não encontrado",
+                f"Não existe o grupo nº {gid}.",
+            )
+
+        try:
+            usuarios = c.contas.listar_usuarios()
+        except autenticacao.ContasOcupadas:
+            return _erro_contas_ocupadas(request)
+
+        nome = grupo["nome"]
+        permissoes = grupo["permissoes"]
+        usuarios_ativos = sum(1 for u in usuarios if u.get("grupo_id") == gid and u.get("ativo") == 1)
+
+        q = request.query_params.get("q", "")
+        filtro = request.query_params.get("filtro", "")
+        modulo = request.query_params.get("modulo", "")
+
+        filtro_ativo = filtro if filtro in ("habilitadas", "desabilitadas", "sensiveis") else ""
+        modulo_ativo = modulo if modulo in autenticacao.MODULOS_PERMISSAO else ""
+
+        resumo = autenticacao.resumo_do_grupo(nome, permissoes)
+        chaves_filtradas = autenticacao.filtrar_permissoes(nome, permissoes, q, filtro, modulo)
+
+        modulos_exibidos = []
+        for m_chave, m_rotulo in autenticacao.MODULOS_PERMISSAO.items():
+            chaves_modulo_filtradas = [
+                k for k in chaves_filtradas if autenticacao.CATALOGO_PERMISSOES[k]["modulo"] == m_chave
+            ]
+            if not chaves_modulo_filtradas:
+                continue
+
+            todas_modulo = [
+                k for k in autenticacao.PERMISSOES if autenticacao.CATALOGO_PERMISSOES[k]["modulo"] == m_chave
+            ]
+            hab_modulo = [k for k in todas_modulo if k in resumo["habilitadas"]]
+
+            itens = []
+            for k in chaves_modulo_filtradas:
+                meta = autenticacao.CATALOGO_PERMISSOES[k]
+                if nome == autenticacao.GRUPO_VISITANTE and k in autenticacao.PERMISSOES_PROIBIDAS_VISITANTE:
+                    estado = "Não permitida a quem não entrou"
+                elif k in resumo["habilitadas"]:
+                    estado = "Habilitada"
+                else:
+                    estado = "Não habilitada"
+
+                sensivel = autenticacao.ROTULOS_SENSIBILIDADE.get(meta["sensibilidade"])
+                dependencias = [autenticacao.PERMISSOES[d] for d in meta["depende_de"]]
+
+                itens.append({
+                    "chave": k,
+                    "descricao": autenticacao.PERMISSOES[k],
+                    "estado": estado,
+                    "sensivel": sensivel,
+                    "dependencias": dependencias,
+                })
+
+            modulos_exibidos.append({
+                "chave": m_chave,
+                "rotulo": m_rotulo,
+                "total_habilitadas": len(hab_modulo),
+                "total_modulo": len(todas_modulo),
+                "itens": itens,
+            })
+
+        previa_menu = navegacao.grupos(
+            "/",
+            admin=(nome == autenticacao.GRUPO_ADMIN),
+            banco=c.contexto.banco,
+            pode=lambda m, cam: autenticacao.pode_acessar(nome, permissoes, m, cam),
+        )
+
+        return c.pagina(
+            request,
+            "admin_grupo.html",
+            nome=nome,
+            usuarios_ativos=usuarios_ativos,
+            resumo=resumo,
+            q=q,
+            filtro_ativo=filtro_ativo,
+            modulo_ativo=modulo_ativo,
+            modulos_opcoes=list(autenticacao.MODULOS_PERMISSAO.items()),
+            modulos_exibidos=modulos_exibidos,
+            previa_menu=previa_menu,
         )
 
     @app.post("/admin/grupos")

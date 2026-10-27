@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Permissões — {{ nome }}{% endblock %}
+{% block conteudo %}
+<h1>{{ nome }}</h1>
+<p class="perm-resumo">{{ usuarios_ativos }} usuários ativos · {{ resumo.habilitadas|length }} de {{ resumo.total }} capacidades · {{ resumo.modulos_com_acesso|length }} módulos com acesso · Sensíveis habilitadas: {{ resumo.sensiveis_habilitadas|length }}</p>
+{% if nome == "Administrador" %}
+<p>O Administrador tem todas as capacidades e não pode ser alterado.</p>
+{% endif %}
+<form class="perm-filtros" method="get">
+  <label for="perm-q">Buscar</label>
+  <input id="perm-q" type="search" name="q" value="{{ q }}">
+  <label for="perm-filtro">Mostrar</label>
+  <select id="perm-filtro" name="filtro">
+    {% if filtro_ativo == "" %}<option value="" selected>Todas</option>{% else %}<option value="">Todas</option>{% endif %}
+    {% if filtro_ativo == "habilitadas" %}<option value="habilitadas" selected>Habilitadas</option>{% else %}<option value="habilitadas">Habilitadas</option>{% endif %}
+    {% if filtro_ativo == "desabilitadas" %}<option value="desabilitadas" selected>Desabilitadas</option>{% else %}<option value="desabilitadas">Desabilitadas</option>{% endif %}
+    {% if filtro_ativo == "sensiveis" %}<option value="sensiveis" selected>Sensíveis</option>{% else %}<option value="sensiveis">Sensíveis</option>{% endif %}
+  </select>
+  <label for="perm-modulo">Módulo</label>
+  <select id="perm-modulo" name="modulo">
+    {% if modulo_ativo == "" %}<option value="" selected>Todos</option>{% else %}<option value="">Todos</option>{% endif %}
+    {% for m_chave, m_rotulo in modulos_opcoes %}
+    {% if modulo_ativo == m_chave %}<option value="{{ m_chave }}" selected>{{ m_rotulo }}</option>{% else %}<option value="{{ m_chave }}">{{ m_rotulo }}</option>{% endif %}
+    {% endfor %}
+  </select>
+  <button class="botao" type="submit">Filtrar</button>
+</form>
+{% if modulos_exibidos %}
+{% for m in modulos_exibidos %}
+<details open class="modulo" data-modulo="{{ m.chave }}">
+  <summary>{{ m.rotulo }} — {{ m.total_habilitadas }} de {{ m.total_modulo }}</summary>
+  <ul>
+    {% for item in m.itens %}
+    <li class="perm" data-chave="{{ item.chave }}"><span class="perm-descricao">{{ item.descricao }}</span><span class="perm-estado">{{ item.estado }}</span>{% if item.sensivel %}<span class="perm-sensivel">◆ {{ item.sensivel }}</span>{% endif %}{% for dep in item.dependencias %}<span class="perm-depende">precisa de: {{ dep }}</span>{% endfor %}<details><summary>Detalhes técnicos</summary><code>{{ item.chave }}</code></details></li>
+    {% endfor %}
+  </ul>
+</details>
+{% endfor %}
+{% else %}
+<p class="vazio">Nenhuma permissão corresponde à busca e aos filtros.</p>
+{% endif %}
+<section class="perm-previa" aria-label="Prévia do menu">
+  <h2>Prévia do menu</h2>
+  <ul>
+    {% for g in previa_menu %}
+    <li class="previa-grupo"><span>{{ g.nome }}</span><ul>{% for item in g.itens %}<li>{{ item.texto }}</li>{% endfor %}</ul></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

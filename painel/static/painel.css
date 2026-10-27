@@ -707,6 +707,144 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--texto); bac
   .pares dt { border-bottom: 0; padding-bottom: 0; }
 }
 
+/* Página de permissões de grupo */
+main:has(.perm-resumo) h1,
+.perm-resumo,
+.perm-filtros,
+.perm-filtros label,
+.modulo,
+.modulo > summary,
+.perm,
+.perm-descricao,
+.perm-estado,
+.perm-sensivel,
+.perm-depende,
+.perm-previa,
+.previa-grupo {
+  overflow-wrap: anywhere;
+}
+
+.perm-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: var(--esp-3) 0 var(--esp-4);
+  padding: var(--esp-3);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+}
+
+.perm-filtros label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.perm-filtros input,
+.perm-filtros select {
+  width: auto;
+  max-width: 100%;
+}
+
+.modulo {
+  margin: var(--esp-3) 0;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: var(--esp-3);
+}
+
+.modulo > summary {
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--esp-1) 0;
+}
+
+.modulo ul {
+  list-style: none;
+  padding: 0;
+  margin: var(--esp-2) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.perm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-2);
+  border-radius: var(--raio-sm);
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+}
+
+.perm-descricao {
+  font-weight: 500;
+  flex: 1 1 14rem;
+}
+
+.perm-estado {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: .15rem .5rem;
+  border-radius: var(--raio-pilula);
+  background: var(--superficie-subtil);
+  border: 1px solid var(--borda);
+}
+
+.perm-sensivel {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: .15rem .5rem;
+  border-radius: var(--raio-pilula);
+  background: var(--tom-ambar-fundo);
+  color: var(--tom-ambar-tx);
+  border: 1px solid var(--tom-ambar-borda);
+}
+
+.perm-depende {
+  font-size: var(--fs-xs);
+  color: var(--texto-suave);
+}
+
+.perm details {
+  font-size: var(--fs-xs);
+  color: var(--texto-suave);
+}
+
+.perm-previa {
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-3);
+  border-top: 1px solid var(--borda);
+}
+
+.perm-previa ul {
+  list-style: none;
+  padding: 0;
+}
+
+.previa-grupo {
+  margin: var(--esp-2) 0;
+}
+
+.previa-grupo > span {
+  font-weight: 600;
+  display: block;
+  margin-bottom: var(--esp-1);
+}
+
+.previa-grupo ul {
+  padding-left: var(--esp-3);
+}
+
+.perm-nome {
+  overflow-wrap: anywhere;
+}
+
 /* ===== Gráficos, mapa, prontidão, PRISMA, árvore, glossário, entidades ===== */
 svg.grafico, svg.mapa, svg.barra-empilhada { width: 100%; height: auto; display: block; }
 svg.grafico { max-width: 820px; }   /* em cartão largo o gráfico não passa de 820px (senão o texto do SVG cresce junto) */

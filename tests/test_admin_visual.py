@@ -69,7 +69,7 @@ def test_templates_sem_abas_antigas_e_com_botoes_do_painel():
     ("admin_usuarios", [("user", "Novo usuário")]),
     ("admin_usuario", [("identification-badge", "Dados do usuário"), ("lock", "Redefinir senha"), ("lock", "Token de envio"),
                        ("shield-warning", "Situação da conta")]),
-    ("admin_grupos", [("users", "Novo grupo"), ("tag", "Renomear {{ g.nome }}")]),
+    ("admin_grupos", [("users", "Novo grupo"), ("tag", 'Renomear <span class="perm-nome">{{ g.nome }}</span>')]),
 ])
 def test_formularios_em_cartao_com_icone(arquivo, titulos):
     t = (RAIZ / "painel" / "templates" / f"{arquivo}.html").read_text(encoding="utf-8")

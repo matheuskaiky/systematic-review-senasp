@@ -20,7 +20,7 @@
         <tr>
           <th scope="col">Permissão</th>
           {% for g in grupos %}
-          <th scope="col">{{ g.nome }}</th>
+          <th scope="col">{{ g.nome }} <a href="/admin/grupos/{{ g.grupo_id }}">Ver as permissões</a></th>
           {% endfor %}
         </tr>
       </thead>
@@ -53,10 +53,10 @@
 
 {% for g in grupos %}
 {% if g.nome not in grupos_padrao and not g.fixo %}
-<section class="cartao"><h2 data-ic="tag" data-tom="cobalto">Renomear {{ g.nome }}</h2>
+<section class="cartao"><h2 data-ic="tag" data-tom="cobalto">Renomear <span class="perm-nome">{{ g.nome }}</span></h2>
 <form method="post" action="/admin/grupos/{{ g.grupo_id }}/renomear" class="form-admin">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <label for="renomear-{{ g.grupo_id }}">Novo nome para {{ g.nome }}</label>
+  <label for="renomear-{{ g.grupo_id }}">Novo nome para <span class="perm-nome">{{ g.nome }}</span></label>
   <input type="text" id="renomear-{{ g.grupo_id }}" name="nome" maxlength="40" required value="{{ form.renomear.get(g.grupo_id, '') }}">
   <button class="botao" type="submit">Renomear</button>
 </form>

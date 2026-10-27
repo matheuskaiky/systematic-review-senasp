@@ -98,7 +98,7 @@ def test_maturidade_conta_ufs_em_uso_e_avisa_quando_nao_ha_humano():
                      {"uf": "SP", "regiao": "Sudeste", "tecnologia": "leitura_placas", "status_max": "piloto",
                       "peso": 4, "por_status": {"piloto": 1}, "n_achados": 1, "n_verificados": 0}]}
     bl = b.bloco_maturidade(d)
-    assert bl["titulo"].startswith("1 de 3 UFs") and "classificadas pelo modelo" in bl["titulo"]
+    assert bl["titulo"].startswith("1 de 3 UFs") and "nos demais, o do modelo" in bl["titulo"]
     assert bl["aviso"] and "<svg" in str(bl["grafico"])
 
 

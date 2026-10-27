@@ -57,9 +57,14 @@ def bloco_maturidade(d):
         if c["status_max"] == "em_uso":
             em_uso.add(c["uf"])
     total = len(ufs) or 27
-    base = "confirmadas por humano" if d.get("base") == "confirmados" else "classificadas pelo modelo"
-    titulo = (f"{len(em_uso)} de {total} UFs têm ao menos uma tecnologia em uso ({base})" if d.get("n_achados")
-              else "Ainda não há achados para mapear")
+    if not d.get("n_achados"):
+        titulo = "Ainda não há achados para mapear"
+    elif d.get("base") == "confirmados":
+        titulo = (f"{len(em_uso)} de {total} UFs com ao menos um achado confirmado por revisor no estágio “em uso” "
+                  f"(estágio do revisor quando ele o registrou; nos demais, o do modelo)")
+    else:
+        titulo = (f"{len(em_uso)} de {total} UFs com ao menos um achado no estágio “em uso” "
+                  f"(estágio do revisor quando ele o registrou; nos demais, o do modelo)")
     texto = ["Cada quadrado mostra o estágio mais avançado encontrado para aquela tecnologia naquela UF "
              "(do cinza, apenas citado, ao azul-escuro, em uso). Clique para ver os achados."]
     por_status = {}

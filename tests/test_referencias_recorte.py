@@ -183,7 +183,7 @@ def test_colunas_escolhidas_na_tela_na_paginacao_e_no_download(banco, tmp_path):
     assert "Colunas (4 de 18)" in html and 'value="Recorte">' in html and 'value="ID" checked>' in html
     base = "colunas=ID&amp;colunas=T%C3%ADtulo&amp;colunas=Local&amp;colunas=Consultas"
     assert f'href="/literatura/referencias.xlsx?{base}&amp;modelo=colunas">Colunas selecionadas</a>' in html
-    assert f'href="/literatura/referencias.xlsx?{base}&amp;modelo=erico">Modelo Érico</a>' in html
+    assert f'href="/literatura/referencias.xlsx?{base}&amp;modelo=erico">Planilha de referências ampliada</a>' in html
     assert '<a href="/literatura/referencias">Limpar</a>' in html
     wb = openpyxl.load_workbook(io.BytesIO(cli.get(f"/literatura/referencias.xlsx?{base.replace('&amp;', '&')}&modelo=colunas").content))
     folha = wb.active
@@ -199,7 +199,7 @@ def test_todas_as_colunas_nao_vao_no_endereco(banco, tmp_path):
     assert '<a href="/literatura/referencias">Limpar</a>' not in explicitas and 'modelo=erico">' in explicitas
     assert "colunas=" not in explicitas.split("<table")[0].split("escolha-colunas-itens")[0]
     html = _cli(banco, tmp_path).get("/literatura/referencias").text
-    assert 'href="/literatura/referencias.xlsx?modelo=erico">Modelo Érico</a>' in html and "colunas=" not in html.split("<table")[0].split("escolha-colunas-itens")[0]
+    assert 'href="/literatura/referencias.xlsx?modelo=erico">Planilha de referências ampliada</a>' in html and "colunas=" not in html.split("<table")[0].split("escolha-colunas-itens")[0]
     assert "Colunas (18 de 18)" in html and '<a href="/literatura/referencias">Limpar</a>' not in html
 
 
@@ -207,7 +207,7 @@ def test_menu_baixar_tem_os_dois_modelos(banco, tmp_path):
     html = _cli(banco, tmp_path).get("/literatura/referencias?conjunto=B").text
     form = re.search(r'<form class="filtros".*?</form>', html, re.S).group(0)
     assert '<details class="menu-baixar"><summary class="botao secundario"' in form and ">Baixar</summary>" in form
-    assert form.index(">Modelo Érico</a>") < form.index(">Colunas selecionadas</a>")
+    assert form.index(">Planilha de referências ampliada</a>") < form.index(">Colunas selecionadas</a>")
     assert 'href="/literatura/referencias.xlsx?conjunto=B&amp;modelo=erico"' in form
 
 

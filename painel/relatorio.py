@@ -164,7 +164,7 @@ def _mapa(d):
     return (f'<section class="cartao" id="mapa"><h2>Situação por estado</h2><div class="mapa-caixa">{mapa}</div><p class="mapa-credito">{mapa_ufs.CREDITO}</p>'
             '<ul class="legenda"><li><span class="selo ok">✔ Confirmado</span> pelo menos um achado verificado por humano</li>'
             '<li><span class="selo alerta">◐ Classificado</span> achados só do modelo, sem confirmação humana (não é resultado)</li>'
-            '<li><span class="selo neutro">○ Sem achados</span> nenhum achado classificado</li></ul></section>')
+            '<li><span class="selo neutro">○ Nenhum achado encontrado</span> nas páginas coletadas (nenhum achado classificado; não indica ausência de uso)</li></ul></section>')
 
 
 def _linha_achado(a, verificado):

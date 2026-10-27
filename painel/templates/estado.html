@@ -5,7 +5,7 @@
 <p class="trilha"><a href="/estados">Estados</a> › {{ uf }}</p>
 <h1>{{ nome }} <small>({{ uf }})</small></h1>
 {% if not grupos %}
-<p class="vazio">Nenhum achado para este estado nas execuções do relatório.</p>
+<p class="vazio">Nenhum achado encontrado nas páginas coletadas para este estado, nas execuções do relatório. Isso não indica que o estado não use IA: indica apenas que a coleta não encontrou menções.</p>
 {% else %}
 <p class="sub">{{ total }} achado(s), agrupados por tecnologia.{% if mostrados < total %} Abaixo, os {{ mostrados }} primeiros; veja todos em <a href="/achados?uf={{ uf }}">Achados</a>.{% endif %}</p>
 {% for tec, itens in grupos.items() %}

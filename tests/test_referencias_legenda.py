@@ -31,7 +31,7 @@ PARES = [
     ("Local", "Pelo país/escopo da triagem: <strong>Brasil</strong> quando alguma parte (separada por \"/\") é Brasil; "
               "<strong>Indeterminado</strong> sem país ou com \"Indeterminado\"; <strong>Internacional</strong> no resto."),
     ("Prioridade de leitura, Status de leitura e Notas", "Para preencher na planilha baixada; o status começa como \"Não iniciado\"."),
-    ("Baixar", "<strong>Modelo Érico</strong>: a planilha no modelo de referências ampliado, com as abas \"Referências ampliadas\" e "
+    ("Baixar", "<strong>Planilha de referências ampliada</strong>: a planilha com as abas \"Referências ampliadas\" e "
                "\"Esquema de exploração\". <strong>Colunas selecionadas</strong>: uma aba \"Referências\" só com as colunas marcadas em "
                "\"Colunas\". As duas levam só as linhas dos filtros desta página."),
 ]
@@ -80,4 +80,4 @@ def test_legenda_cita_os_rotulos_reais_da_tela():
 
 def test_legenda_sem_o_nome_do_orientador_alem_do_modelo(banco, tmp_path):
     leg = _legenda(_cli(banco, tmp_path).get("/literatura/referencias").text)
-    assert "orientador" not in leg.lower() and leg.count("Érico") == 1
+    assert "orientador" not in leg.lower() and "Érico" not in leg                # o download ampliado tem nome descritivo

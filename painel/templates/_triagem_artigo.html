@@ -173,7 +173,7 @@
           {% set da_busca_vies = ctx.versao_triagem_vies and (a.llm.prompt_versao == ctx.versao_triagem_vies or a.llm.prompt_versao in ctx.versoes_triagem_vies) %}
           {% if not da_busca_vies %}<p class="selos">{{ s.llm(a.llm.status, a.llm.categoria_motivo, a.llm.valido) }}{% if a.llm.confianca %} <span class="selo neutro">Confiança {{ rotulos.rotulo(rotulos.CONFIANCA, a.llm.confianca)|lower }}</span>{% endif %}</p>{% endif %}
           {% if a.llm.status == "excluido" %}
-          <p class="aviso aviso-excluido" role="status"><strong>Excluído pelo modelo.</strong> O modelo tem certeza de que este artigo é inútil para o escopo, por isso ele fica oculto das listas e da fila de triagem por padrão
+          <p class="aviso aviso-excluido" role="status"><strong>Excluído pelo modelo.</strong> O modelo classificou este artigo como fora do escopo, com confiança alta; por isso ele fica oculto das listas e da fila de triagem por padrão
             (quarentena temporária). {% if a.decisao != "pendente" %}Como você já decidiu sobre ele ({{ "incluído" if a.decisao == "incluir" else "excluído" }}), a sua decisão prevalece e ele continua aparecendo nas listas.{% else %}Nada foi apagado: você decide, e pode vê-lo em <a href="/literatura/artigos?llm=excluido">Triagem LLM: apenas excluídos</a>.{% endif %}</p>
           {% elif a.llm.status == "quarentena" and not da_busca_vies %}<p class="explica-llm">{{ e.STATUS_EXPLICA.quarentena }}</p>{% endif %}
           {% if da_busca_vies %}{% import "_triagem_vies.html" as tv with context %}{{ tv.ficha(a.llm) }}{% else %}

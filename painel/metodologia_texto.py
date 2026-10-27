@@ -390,7 +390,7 @@ def _ufs(x, nomes_ufs):
             p.t(", " if i else "").l(uf, f"/estados/{quote(uf, safe='')}")
         p.t(")")
     p.t("; ").n(_g(u, "uf_so_classificado"), "/estados").t(" só têm achados classificados pelo modelo, ainda sem confirmação humana, e ").n(
-        _g(u, "uf_sem_achados"), "/estados").t(" não têm nenhum achado. “Sem achados” significa que nenhum achado foi classificado, não que a UF não use a tecnologia.")
+        _g(u, "uf_sem_achados"), "/estados").t(" não têm nenhum achado. “Nenhum achado encontrado” significa que nenhum achado foi classificado nas páginas coletadas, não que a UF não use a tecnologia.")
     blocos.append(_bloco_p(p))
 
     por_tec = ach.get("confirmados_por_tecnologia") or []

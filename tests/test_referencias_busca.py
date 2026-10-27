@@ -396,5 +396,5 @@ def test_eixos_do_esquema_sao_os_seis_literais():
 def test_botao_baixar_curto_no_cartao_dos_filtros(banco, tmp_path):
     html = _cli(banco, tmp_path).get("/literatura/referencias?conjunto=B").text
     form = re.search(r'<form class="filtros".*?</form>', html, re.S).group(0)
-    assert 'href="/literatura/referencias.xlsx?conjunto=B&amp;modelo=erico">Modelo Érico</a>' in form and ">Baixar</summary>" in form
+    assert 'href="/literatura/referencias.xlsx?conjunto=B&amp;modelo=erico">Planilha de referências ampliada</a>' in form and ">Baixar</summary>" in form
     assert "Baixar no modelo de referências" not in html and "<strong>3</strong> referência(s).</p>" in html

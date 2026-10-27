@@ -6,8 +6,8 @@ STATUS_EXPLICA = {
     "elegivel": "O modelo julga o item possivelmente útil para o escopo da pesquisa. Aparece normalmente nas listas.",
     "quarentena": "O modelo tem dúvida (informação ausente, cortada ou ambígua) e, na dúvida, não exclui. Aparece normalmente nas listas, "
                   "com o motivo da dúvida.",
-    "excluido": "O modelo tem certeza de que o item é inútil para o escopo (e a conferência automática confirmou: só vale com "
-                "confiança alta). Fica oculto das listas por padrão (quarentena temporária), mas nunca é apagado: você pode "
+    "excluido": "O modelo classificou o item como fora do escopo, com confiança alta, e a conferência automática aprovou a resposta. "
+                "Fica oculto das listas por padrão (quarentena temporária), mas nunca é apagado: você pode "
                 "mostrá-lo a qualquer momento e a sua decisão sempre prevalece.",
 }
 CATEGORIAS = {

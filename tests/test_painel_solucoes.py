@@ -129,7 +129,7 @@ def test_pagina_sem_arquivo_ou_sem_texto_nao_conta_e_nao_quebra(cli):
 
 def test_como_ler_deixa_claro_que_ausente_nao_prova(cli):
     t = texto(cli.get("/solucoes").text)
-    assert "não prova que ela não é usada" in t and "CASO_BO_FACIL" in t and "config/solucoes_conhecidas.py" in t
+    assert "não prova que ela não é usada" in t and "CASO_BO_FACIL" not in t and "config/solucoes_conhecidas.py" in t
 
 
 def test_sem_solucoes_configuradas_a_pagina_explica(modelo):

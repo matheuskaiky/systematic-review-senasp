@@ -204,6 +204,13 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
                    (SELECT COALESCE(SUM(custo_usd), 0) FROM chamadas c WHERE c.run_id=e.run_id) AS custo_usd
             FROM execucoes e ORDER BY e.iniciado_em DESC, e.rowid DESC LIMIT ?""", (min(max(int(n), 1), 50),))
 
+    def ultima_coleta_concluida(self) -> str | None:
+        """Devolve o maior finalizado_em das execuções concluídas e no relatório."""
+        linha = self._um(
+            "SELECT MAX(finalizado_em) AS fim FROM execucoes WHERE status = 'concluida' AND no_relatorio = 1"
+        )
+        return linha["fim"] if linha else None
+
     def cidades(self):
         """Cidades que tem achado (so secretarias municipais), para o filtro."""
         return [l["cidade"] for l in self._consulta(

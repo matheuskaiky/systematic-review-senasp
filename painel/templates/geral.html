@@ -1,53 +1,114 @@
 {% extends "base.html" %}
 {% from "_guia.html" import guia_leitura %}
-{% import "_selos.html" as s %}
 {% import "_prontidao.html" as pr with context %}
 {% block titulo %}Visão geral{% endblock %}
+{% block extra_head %}{% if banco == "vies" %}<link rel="stylesheet" href="/static/analises.css">{% endif %}{% endblock %}
 {% block conteudo %}
 <h1>Visão geral</h1>
-<p class="sub">Levantamento nas secretarias estaduais de segurança pública. Os números consideram só as execuções marcadas para o relatório.</p>
 
-{% include "_alertas.html" %}
+{% set icones = {
+  "identificacao": ("binoculars", "petroleo"),
+  "cobertura": ("magnifying-glass", "cobalto"),
+  "fila": ("list-checks", "cobalto"),
+  "decisoes_humanas": ("check-circle", "cobalto"),
+  "segundo_o_modelo": ("robot", "violeta"),
+  "conferencia": ("seal-check", "violeta"),
+  "prontidao": ("gauge", "violeta"),
+  "ocultos": ("prohibit", "rosa"),
+  "execucoes": ("play-circle", "ambar"),
+  "links": ("link", "petroleo")
+} %}
 
-<section class="kpis" aria-label="Indicadores">
-  <div class="kpi" data-ic="magnifying-glass" data-tom="cobalto"><span class="kpi-valor">{{ fmt.numero(r.consultas_web) }}</span><span class="kpi-rotulo">Consultas web</span></div>
-  <div class="kpi" data-ic="link" data-tom="petroleo"><span class="kpi-valor">{{ fmt.numero(r.urls_unicas) }}</span><span class="kpi-rotulo">URLs únicas</span></div>
-  <div class="kpi" data-ic="file-text" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(r.paginas_com_texto) }}</span><span class="kpi-rotulo">Páginas com texto</span></div>
-  <div class="kpi" data-ic="tag" data-tom="violeta"><span class="kpi-valor">{{ fmt.numero(r.classificacoes) }}</span><span class="kpi-rotulo">Classificações</span></div>
-  <div class="kpi" data-ic="binoculars" data-tom="petroleo"><span class="kpi-valor">{{ fmt.numero(r.achados) }}</span><span class="kpi-rotulo">Achados</span></div>
-  <div class="kpi" data-ic="seal-check" data-tom="violeta"><span class="kpi-valor">{{ fmt.pct(r.evidencia_ok, r.achados) }}</span><span class="kpi-rotulo">Evidência confere</span></div>
-  <div class="kpi" data-ic="check-circle" data-tom="cobalto"><span class="kpi-valor">{{ fmt.pct(r.verificados, r.achados) }}</span><span class="kpi-rotulo">Verificados</span></div>
-  <div class="kpi" data-ic="map-pin" data-tom="petroleo"><span class="kpi-valor">{{ r.ufs_confirmadas }} <small>de {{ n_ufs }}</small></span><span class="kpi-rotulo">UFs com achado confirmado</span></div>
-  {% if ver_custos %}<div class="kpi" data-ic="coins" data-tom="ambar"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}</span><span class="kpi-rotulo">Gasto real (todas as execuções)</span></div>{% endif %}
-</section>
-
-<div class="duas-colunas funil-progresso">
-  <section class="cartao">
-    <h2 data-ic="funnel" data-tom="cobalto">Funil</h2>
-    {{ funil|safe }}
+{% for s in secoes %}
+<section class="vg-secao" id="vg-{{ s.id }}" aria-labelledby="t-vg-{{ s.id }}">
+<h2 id="t-vg-{{ s.id }}">{{ s.titulo }}</h2>
+  {% for b in s.blocos %}
+  {% set ic = icones[b.id] %}
+  <section class="cartao vg-bloco" id="vg-bloco-{{ b.id }}" aria-labelledby="t-vg-bloco-{{ b.id }}">
+    <h3 id="t-vg-bloco-{{ b.id }}" data-ic="{{ ic[0] }}" data-tom="{{ ic[1] }}">{{ b.titulo }}</h3>
+    {% for t in b.texto %}
+    <p class="sub">{{ t }}</p>
+    {% endfor %}
+    {% if b.id == "identificacao" %}
+      {% if b.ultima_coleta %}
+    <p class="sub">Última coleta concluída em {{ fmt.data_hora(b.ultima_coleta) }}.</p>
+      {% else %}
+    <p class="sub">Ainda não há coleta concluída no relatório.</p>
+      {% endif %}
+    {% endif %}
+    {% if b.origem %}
+    <p class="vg-origem"><span class="selo neutro">◆ {{ b.origem_rotulo }}</span> {{ b.validacao }} Universo: {{ b.universo }} {{ b.definicao }}</p>
+    {% endif %}
+    {% if b.aviso %}
+    <p class="aviso" role="note">{{ b.aviso }}</p>
+    {% endif %}
+    {% if b.indicadores %}
+    <div class="kpis">
+      {% for i in b.indicadores -%}
+      <div class="kpi" id="vg-ind-{{ i.id }}"><span class="kpi-valor">
+        {%- if i.formato == "moeda" and ver_custos -%}
+          {{ fmt.moeda_usd(i.valor) }}
+        {%- else -%}
+          {{ fmt.numero(i.valor) }}
+        {%- endif -%}
+        {%- if i.denominador is not none %} <small>de {{ fmt.numero(i.denominador) }}</small>{% endif -%}
+      </span><span class="kpi-rotulo">{{ i.rotulo }}</span><span class="selo neutro">◆ {{ i.origem_rotulo }}</span></div>
+      {% endfor %}
+    </div>
+    <details class="vg-definicoes"><summary>Definições e origem dos números</summary><dl>
+      {% for i in b.indicadores %}
+      <dt>{{ i.rotulo }}</dt><dd>{{ i.definicao }} {{ i.origem_rotulo }}: {{ i.validacao }} Universo: {{ i.universo }}</dd>
+      {% endfor %}
+    </dl></details>
+    {% endif %}
+    {% if b.grafico %}
+    {{ b.grafico|safe }}
+    {% elif b.vazio %}
+    <p class="vazio">{{ b.vazio }}</p>
+    {% endif %}
+    {% if b.cartoes %}
+    {{ pr.cartoes(b.cartoes, true) }}
+    {% endif %}
+    {% if b.id == "execucoes" and b.execucoes is not none %}
+      {% if b.execucoes %}
+    <div class="tabela-rolavel"><table>
+      <thead><tr><th>Execução</th><th>Comando</th><th>Situação</th><th>Início</th>{% if b.mostrar_custo and ver_custos %}<th class="num">Custo</th>{% endif %}<th>Relatório</th></tr></thead>
+      <tbody>
+      {% for e in b.execucoes %}
+        <tr><td>{% if e.href %}<a href="{{ e.href }}"><code>{{ e.run_id }}</code></a>{% else %}<code>{{ e.run_id }}</code>{% endif %}</td><td>{{ e.comando }}</td><td>{{ e.status }}</td><td>{{ fmt.data_hora(e.iniciado_em) }}</td>{% if b.mostrar_custo and ver_custos %}<td class="num">{{ fmt.moeda_usd(e.custo_usd) }}</td>{% endif %}<td>{{ e.no_relatorio }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+      {% elif b.comando_inicial %}
+    <p class="vazio">Nenhuma execução registrada ainda. Rode <code>{{ b.comando_inicial }}</code>.</p>
+      {% endif %}
+    {% endif %}
+    {% for a in b.acoes %}
+    <a class="botao" href="{{ a.href }}">{{ a.texto }}</a>
+    {% endfor %}
   </section>
-  <section class="cartao">
-    <h2 data-ic="list-checks" data-tom="cobalto">Progresso da revisão</h2>
-    {% set pend = rev.total - rev.verificados %}
-    {{ barra|safe }}
-    <ul class="legenda">
-      <li><span class="selo ok">✔ Confirmados</span> {{ fmt.numero(rev.confirmados) }}</li>
-      <li><span class="selo st-descartado">✕ Descartados</span> {{ fmt.numero(rev.descartados) }}</li>
-      <li><span class="selo neutro">○ Pendentes</span> {{ fmt.numero(pend) }}</li>
-    </ul>
-    {% if pend %}{% if pode_seguir("/revisao/achados") %}<a class="botao" href="/revisao/achados">Continuar a revisão ({{ pend }})</a>{% endif %}{% else %}<p>Nada pendente.</p>{% endif %}
-  </section>
-</div>
-
-{% if prontidao %}
-<section class="cartao" aria-labelledby="t-prontidao">
-  <h2 id="t-prontidao" data-ic="gauge" data-tom="violeta">Prontidão metodológica</h2>
-  <p class="sub">O que falta rotular por uma pessoa para destravar cada análise. <a href="/analises?secao=visao">Detalhes</a></p>
-  {{ pr.cartoes(prontidao, true) }}
+  {% endfor %}
 </section>
-{% endif %}
+{% endfor %}
 
-{% set comando_inicial = "python main.py pipeline-uf --ufs PI --limite 5" %}{% include "_execucoes_recentes.html" %}
+{% if banco == "vies" %}
+{{ guia_leitura(
+  "Como interpretar esta página e suas métricas",
+  [
+    {"titulo": "Glossário rápido", "tipo": "glossario", "itens": [
+      ("Obra distinta", "Referência da web ou artigo do Scholar contado uma vez só: o mesmo trabalho achado nas duas fontes (mesmo endereço ou mesmo título) conta uma vez."),
+      ("Triagem do modelo", "Relevância, tipo de fonte, país, tópicos e eixo atribuídos pelo modelo de linguagem a cada item. É a opinião do modelo, não uma decisão."),
+      ("Relevância", "Alta ou média: elegível. Baixa: quarentena. Fora do escopo: sai das análises de conteúdo."),
+      ("Triagem humana", "A decisão de uma pessoa (incluir ou excluir) sobre cada artigo, feita em Triar artigos.")]},
+    {"titulo": "Interpretação prática", "tipo": "lista", "itens": [
+      "Os números descrevem o que estas buscas recuperaram (em português, nestas fontes), não a literatura em geral.",
+      "Enquanto a triagem humana estiver incompleta, trate a relevância como <strong>provisória</strong>: o modelo pode ter errado."]},
+    {"titulo": "Dica de ação", "tipo": "acao",
+     "texto": "As análises por fonte, tipo, eixo, ano, país, consulta e site ficam na página Análises."}
+  ],
+  id="guia-geral",
+  resumo="Traduz os termos desta página.") }}
+{% else %}
 {{ guia_leitura(
   "Como interpretar esta página e suas métricas",
   [
@@ -66,4 +127,5 @@
   id="guia-geral",
   resumo="Traduz os termos desta página. As fontes estão no fim.",
   fontes="<cite>PRISMA 2020</cite> (Page et al., BMJ 2021;372:n71).") }}
+{% endif %}
 {% endblock %}

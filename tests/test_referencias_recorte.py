@@ -218,7 +218,7 @@ def test_ultimas_execucoes_levam_a_execucao(banco, tmp_path):
     assert f'<td><a href="/execucoes/{run}"><code>{run}</code></a></td>' in html
 
 
-def test_ultimas_execucoes_sem_permissao_sao_texto(banco, tmp_path):
+def test_ultimas_execucoes_sem_permissao_nao_aparecem(banco, tmp_path):
     from adaptadores.contas_sqlite import ContasSQLite
     from dominio import autenticacao as A
     contas = ContasSQLite(tmp_path / "contas.db")
@@ -235,7 +235,7 @@ def test_ultimas_execucoes_sem_permissao_sao_texto(banco, tmp_path):
                     follow_redirects=False).status_code == 303
     run = LeituraPainelSQLite(banco).execucoes_recentes(1)[0]["run_id"]
     html = cli.get("/").text
-    assert f"<td><code>{run}</code></td>" in html and f'href="/execucoes/{run}"' not in html
+    assert run not in html and f'href="/execucoes/{run}"' not in html          # sem ver_chamadas, nem o identificador aparece
 
 
 def test_paginacao_leva_as_colunas(tmp_path):

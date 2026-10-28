@@ -48,13 +48,15 @@ def test_pagina_do_vies_sem_links_da_tarefa_1_no_menu_e_rotas_no_ar(banco, tmp_p
 def test_visao_geral_do_vies_mostra_os_numeros_da_busca(banco, tmp_path):
     html = _cli(banco, tmp_path).get("/").text
     assert "Busca de literatura científica e cinzenta sobre viés algorítmico" in html
-    assert '<span class="kpi-valor">5</span><span class="kpi-rotulo">Obras distintas</span>' in html
+    assert ('<div class="kpi" id="vg-ind-n_obras"><span class="kpi-valor">5</span><span class="kpi-rotulo">Obras distintas</span>'
+            '<span class="selo neutro">◆ Coleta</span></div>') in html
     assert '<span class="kpi-valor">4</span><span class="kpi-rotulo">Referências da web</span>' in html
-    assert '<span class="kpi-valor">1</span><span class="kpi-rotulo">Fora do escopo</span>' in html
+    assert re.search(r'<span class="kpi-valor">1 <small>de \d+</small></span><span class="kpi-rotulo">Fora do escopo segundo o modelo</span>'
+                     r'<span class="selo neutro">◆ Segundo o modelo</span>', html)
     assert "Relevância alta ou média segundo o modelo: 100% das referências da web e 0% dos artigos do Scholar" in html
     assert '<link rel="stylesheet" href="/static/analises.css">' in html
     assert "Funil do levantamento nas secretarias" not in html and "Prontidão metodológica" not in html
-    assert "Triagem humana dos artigos" in html and "Últimas execuções" in html
+    assert "Decisões humanas" in html and "Execuções e chamadas" in html
 
 
 def test_visao_geral_do_banco_real_continua_com_o_funil(copiar_demo, tmp_path):

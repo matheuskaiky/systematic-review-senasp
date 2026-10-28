@@ -9,7 +9,7 @@ import pytest
 
 from adaptadores import leitura_sqlite as LS
 from adaptadores.leitura_sqlite import LeituraPainelSQLite
-from painel import visao_geral_vies
+from painel import visao_geral, visao_geral_vies
 from painel.rotas_extras.analises import montar_vies
 from dominio import analises_ferramentas as AF
 from test_validacao_vies import _cli, _contexto, _post, banco  # noqa: F401  (fixture `banco`: vies com triagem)
@@ -364,7 +364,7 @@ def test_pg_uma_conexao_do_pool_por_operacao_e_somente_leitura(pg_vies, monkeypa
     with leitura.instantaneo() as l:
         for secao in SECOES:
             montar_vies(l, ctx, secao, AF.linhas(l.analise_ferramentas()))
-        visao_geral_vies.dados(l, ctx)
+        visao_geral.ler_dados(l, ctx)
         assert len(pedidas) == 1
         assert l._consulta("SELECT current_setting('transaction_isolation') AS i, "
                            "current_setting('transaction_read_only') AS ro")[0] == {"i": "repeatable read", "ro": "on"}

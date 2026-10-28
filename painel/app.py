@@ -27,7 +27,15 @@ from dominio.sugestoes import CAMPOS_ACHADO, chave_autor, ficha_da_decisao
 from dominio import autenticacao, referencias_busca, relevancia as relev
 from dominio.erros import BancoIndisponivel
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
-from painel import analises_blocos, formatacao as fmt, mapa_ufs, navegacao, rotulos, visao_geral_vies
+from painel import (
+    analises_blocos,
+    formatacao as fmt,
+    mapa_ufs,
+    navegacao,
+    rotulos,
+    visao_geral,
+    visao_geral_vies,
+)
 from painel.entidades import Entidades, explicacao_da_entidade, link_entidade
 from painel.graficos import barra_empilhada, barras_horizontais, colunas, mapa_do_brasil, mapa_de_calor
 
@@ -521,37 +529,27 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     def geral(request: Request):
         if not leitura.existe():
             return sem_banco(request)
-        if contexto.banco == "vies":                 # o banco da busca de vies tem a visao geral dela, sem o funil da Tarefa 1
+        if contexto.autenticacao:
+            logado = request.state.usuario is not None
+            grupo = request.state.grupo_acesso
+            permissoes = frozenset(request.state.permissoes_acesso)
+        else:
+            logado = True
+            grupo = autenticacao.GRUPO_ADMIN
+            permissoes = frozenset(autenticacao.PERMISSOES)
+        quem = {
+            "logado": logado,
+            "grupo": grupo,
+            "permissoes": permissoes,
+            "pode_rota": _pode_rota(request),
+        }
+        if contexto.banco == "vies":
             with leitura.instantaneo() as l:
-                d = visao_geral_vies.dados(l, contexto, pode=_pode_rota(request))
-            return pagina(request, "geral_vies.html", **d)
-        r, rev = leitura.resumo_geral(), leitura.contagem_revisao()
-        f = leitura.funil()
-        etapas = [("Consultas web", f["consultas_web"]), ("Resultados", f["resultados"]), ("URLs únicas", f["urls_unicas"]),
-                  ("Páginas selecionadas", f["selecionadas"]), ("Páginas com texto", f["paginas_com_texto"]),
-                  ("Classificações", f["classificacoes"]), ("Achados", f["achados"]), ("Achados verificados", f["verificados"]),
-                  ("Confirmados", f["confirmados"])]
-        funil = barras_horizontais(etapas, "Funil do levantamento nas secretarias",
-                                   "Quantidade em cada etapa, da busca web aos achados confirmados", fmt.numero)
-        alertas = []
-        if rev["total"] - rev["verificados"]:
-            pode = _pode_rota(request)
-            pode_link = navegacao.pode_seguir("/revisao/achados", pode)
-            href = "/revisao/achados" if pode_link else None
-            rotulo_link = "Começar revisão" if pode_link else None
-            alertas.append(("aviso", f"{fmt.numero(rev['total'] - rev['verificados'])} achado(s) ainda sem verificação humana.", href, rotulo_link))
-        if rev["pendentes_sem_evidencia"]:
-            alertas.append(("aviso", f"{fmt.numero(rev['pendentes_sem_evidencia'])} achado(s) não verificado(s) com evidência não localizada no texto.", "/achados?verificacao=pendente&evidencia=0", "Ver"))
-        if r["execucoes_nao_concluidas"]:
-            alertas.append(("aviso", f"{fmt.numero(r['execucoes_nao_concluidas'])} execução(ões) não concluída(s).", None, None))
-        if r["chamadas_com_falha"]:
-            alertas.append(("info", f"{fmt.numero(r['chamadas_com_falha'])} chamada(s) externa(s) com falha registrada.", None, None))
-        barra = barra_empilhada([(rev["confirmados"], "be-conf", "Confirmados"), (rev["descartados"], "be-desc", "Descartados")],
-                                rev["total"], f"{rev['confirmados']} confirmados, {rev['descartados']} descartados, "
-                                              f"{rev['total'] - rev['verificados']} pendentes")
-        return pagina(request, "geral.html", r=r, rev=rev, funil=funil, barra=barra, alertas=alertas,
-                      execucoes=leitura.execucoes_recentes(5), n_ufs=len(contexto.ufs),
-                      prontidao=analises_blocos.bloco_prontidao(leitura.analise_prontidao())["cartoes"])
+                dados = visao_geral.ler_dados(l, contexto)
+        else:
+            dados = visao_geral.ler_dados(leitura, contexto)
+        secoes = visao_geral.montar(dados, quem)
+        return pagina(request, "geral.html", secoes=secoes, banco=contexto.banco)
 
     # ---------- estados ----------
     def _linhas_ufs():

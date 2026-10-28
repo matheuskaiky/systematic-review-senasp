@@ -96,7 +96,7 @@ def test_visao_geral_mostra_numeros_e_nao_conta_execucao_fora_do_relatorio(clien
     total = c.execute("SELECT COUNT(*) FROM achados").fetchone()[0]
     assert esperado < total                                           # a execucao de comparacao esta fora do relatorio
     html = cli.get("/").text
-    assert f'<span class="kpi-valor">{esperado}</span><span class="kpi-rotulo">Achados</span>' in html.replace("\n", "")
+    assert f'<span class="kpi-valor">{esperado}</span><span class="kpi-rotulo">Achados apontados pelo modelo</span>' in html.replace("\n", "")
 
 
 # ============================== evidencia no texto ==============================

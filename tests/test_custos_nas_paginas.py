@@ -88,8 +88,8 @@ def test_visao_geral_sem_o_gasto_real(clis):
     for grupo, cli in clis.items():
         h = _corpo(cli.get("/").text)
         ve = grupo in ("Administrador", "TecnicoComCustos")
-        assert ("Gasto real (todas as execuções)" in h) is ve, grupo
-        assert ('<th class="num">Custo</th>' in h) is ve, grupo                    # ultimas execucoes
+        assert ("Gasto registrado" in h) is ve, grupo
+        assert ('<th class="num">Custo</th>' in h) is ve, grupo                    # ultimas execucoes (secao de operacao)
 
 
 def test_pagina_da_execucao_sem_custos(clis):

@@ -180,10 +180,10 @@ def test_visao_geral_do_vies_usa_a_mesma_regra(vies, monkeypatch):  # noqa: F811
     monkeypatch.setattr(LeituraPainelSQLite, "contagem_triagem",
                         lambda self: {"total": 5, "incluidos": 1, "excluidos": 1, "pendentes": 3})
     h = _corpo(vies["Administrador"].get("/").text)
-    assert 'href="/literatura/triagem">Continuar a triagem (3)' in h and 'href="/literatura/triagem">Triar artigos</a>' in h
+    assert 'href="/literatura/triagem">Continuar a triagem (3)</a>' in h
     monkeypatch.setattr(navegacao, "pode_seguir", lambda href, pode: _caminho(href) not in FILAS)
     h = _corpo(vies["Administrador"].get("/").text)
-    assert 'href="/literatura/triagem' not in h and "3 artigo(s) ainda sem triagem humana." in h
+    assert 'href="/literatura/triagem' not in h and "Artigos aguardando triagem humana" in h      # o numero fica, o botao some
 
 
 # ---------------- o valor fica, o rotulo some ----------------
@@ -194,12 +194,15 @@ def _sem_tags(html):
 def test_identificador_da_execucao_fica_como_texto(clientes):
     adm, leitor = clientes["Administrador"], clientes["Leitor"]
     artigo = re.search(r'href="/literatura/artigos/(\d+)"', adm.get("/literatura/artigos").text).group(1)
-    for url in ("/classificadores", "/buscar-texto?q=reconhecimento", f"/literatura/artigos/{artigo}", "/"):
+    for url in ("/classificadores", "/buscar-texto?q=reconhecimento", f"/literatura/artigos/{artigo}"):
         a, l = _corpo(adm.get(url).text), _corpo(leitor.get(url).text)
         runs = set(re.findall(r'<a href="/execucoes/([^"?#]+)[^"]*"><code>', a))
         assert runs, url
         for run in runs:
             assert f"<code>{run}</code>" in l and f'href="/execucoes/{run}' not in l, (url, run)
+    l = _corpo(leitor.get("/").text)                     # na Visao Geral, as execucoes so aparecem a quem tem ver_chamadas
+    assert re.search(r'<a href="/execucoes/[^"]+"><code>', _corpo(adm.get("/").text))
+    assert "Execuções e chamadas" not in l and not re.search(r"<code>\d{8}_\d{6}_", l)
 
 
 def test_metodologia_mantem_os_numeros_e_tira_os_rotulos(clientes):

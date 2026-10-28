@@ -9,19 +9,7 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "painel" / "templates"
 CSS = (TEMPLATES.parent / "static" / "painel.css").read_text(encoding="utf-8")
 
 EDICOES = [
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.consultas_web) }}', '<div class="kpi" data-ic="magnifying-glass" data-tom="cobalto"><span class="kpi-valor">{{ fmt.numero(r.consultas_web) }}'),
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.urls_unicas) }}', '<div class="kpi" data-ic="link" data-tom="petroleo"><span class="kpi-valor">{{ fmt.numero(r.urls_unicas) }}'),
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.paginas_com_texto) }}', '<div class="kpi" data-ic="file-text" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(r.paginas_com_texto) }}'),
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.classificacoes) }}', '<div class="kpi" data-ic="tag" data-tom="violeta"><span class="kpi-valor">{{ fmt.numero(r.classificacoes) }}'),
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.numero(r.achados) }}', '<div class="kpi" data-ic="binoculars" data-tom="petroleo"><span class="kpi-valor">{{ fmt.numero(r.achados) }}'),
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.evidencia_ok, r.achados) }}', '<div class="kpi" data-ic="seal-check" data-tom="violeta"><span class="kpi-valor">{{ fmt.pct(r.evidencia_ok, r.achados) }}'),
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.pct(r.verificados, r.achados) }}', '<div class="kpi" data-ic="check-circle" data-tom="cobalto"><span class="kpi-valor">{{ fmt.pct(r.verificados, r.achados) }}'),
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ r.ufs_confirmadas }}', '<div class="kpi" data-ic="map-pin" data-tom="petroleo"><span class="kpi-valor">{{ r.ufs_confirmadas }}'),
-    ('geral.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}', '<div class="kpi" data-ic="coins" data-tom="ambar"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}'),
-    ('geral.html', '<h2>Funil</h2>', '<h2 data-ic="funnel" data-tom="cobalto">Funil</h2>'),
-    ('geral.html', '<h2>Progresso da revisão</h2>', '<h2 data-ic="list-checks" data-tom="cobalto">Progresso da revisão</h2>'),
-    ('geral.html', '<h2 id="t-prontidao">Prontidão', '<h2 id="t-prontidao" data-ic="gauge" data-tom="violeta">Prontidão'),
-    ('_execucoes_recentes.html', '<h2>Últimas execuções</h2>', '<h2 data-ic="play-circle" data-tom="ambar">Últimas execuções</h2>'),
+    ('geral.html', '<h3 id="t-vg-bloco-{{ b.id }}">{{ b.titulo }}</h3>', '<h3 id="t-vg-bloco-{{ b.id }}" data-ic="{{ ic[0] }}" data-tom="{{ ic[1] }}">{{ b.titulo }}</h3>'),
     ('estados.html', '<h2>Mapa</h2>', '<h2 data-ic="map-trifold">Mapa</h2>'),
     ('estados.html', '<h2>Tabela</h2>', '<h2 data-ic="table">Tabela</h2>'),
     ('literatura.html', '<div class="kpi"><span class="kpi-valor">{{ fmt.numero(d.n_artigos) }}', '<div class="kpi" data-ic="article" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(d.n_artigos) }}'),

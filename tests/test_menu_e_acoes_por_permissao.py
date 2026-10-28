@@ -16,7 +16,7 @@ from adaptadores.leitura_sqlite import LeituraPainelSQLite
 from adaptadores.repositorio_sqlite import RepositorioSQLite
 from config import consultas as C, vocabulario as V
 from dominio import autenticacao as A
-from painel import navegacao, visao_geral_vies
+from painel import navegacao
 from painel.app import Contexto, criar_app
 from test_autenticacao import _criar, _entrar, _usuario, painel  # noqa: F401
 from test_painel import demo  # noqa: F401
@@ -156,8 +156,8 @@ def test_continuar_a_revisao_e_o_link_do_alerta(clientes):
         h = clientes[grupo].get("/").text
         decide = _pode(grupo, *DECIDE_ACHADO)
         assert ('href="/revisao/achados">Continuar a revisão' in h) is decide, grupo
-        assert ('>Começar revisão<' in h) is decide, grupo
-        assert "ainda sem verificação humana." in h, grupo                    # o alerta continua, sem o link
+        assert ("Achados aguardando verificação humana" in h) is decide, grupo   # a fila so aparece a quem decide
+        assert ">Começar revisão<" not in h and "ainda sem verificação humana." not in h, grupo
     assert 'href="/revisao/achados">Continuar a revisão' in clientes["Revisor"].get("/").text
 
 
@@ -169,10 +169,11 @@ def test_continuar_a_triagem_na_literatura(clientes):
 
 
 def test_partes_que_nao_oferecem_acao_continuam_iguais(clientes, painel):  # noqa: F811
-    """Esta etapa so trata do que oferece acao: o nome do banco na faixa e o cartao de execucoes continuam para todos."""
+    """O nome do banco na faixa continua para todos (muda na faixa do topo, depois); as execucoes saem da Visao Geral de quem
+    nao tem ver_chamadas."""
     _, _, copia, _ = painel
     h = clientes["Visitante"].get("/").text
-    assert f'<span class="banner-detalhe">{copia.name}</span>' in h and "Últimas execuções" in h
+    assert f'<span class="banner-detalhe">{copia.name}</span>' in h and "Execuções e chamadas" not in h
 
 
 # ---------------- desfazer ----------------
@@ -224,7 +225,7 @@ def somente_leitura(demo, tmp_path):  # noqa: F811
 def test_somente_leitura_nao_oferece_filas_nem_continuar(somente_leitura):
     h = somente_leitura.get("/").text
     assert "/revisao/achados" not in _menu(h) and "/literatura/triagem" not in _menu(h) and "/execucoes" in _menu(h)
-    assert "Continuar a revisão" not in h and ">Começar revisão<" not in h and "ainda sem verificação humana." in h
+    assert "Continuar a revisão" not in h and ">Começar revisão<" not in h and "Achados aguardando verificação humana" in h
     assert "Continuar a triagem" not in somente_leitura.get("/literatura").text
 
 
@@ -260,13 +261,13 @@ def test_sortear_sem_login_e_em_somente_leitura(banco, tmp_path):  # noqa: F811
 
 def test_continuar_e_alerta_da_triagem_no_vies(vies, monkeypatch):
     monkeypatch.setattr(LeituraPainelSQLite, "contagem_triagem",
-                        lambda self: {"total": 5, "incluidos": 1, "excluidos": 1, "pendentes": 3})
+                        lambda self: {"total": 5, "incluidos": 1, "excluidos": 1, "pendentes": 3, "ocultos_llm": 0})
     for grupo, cli in vies.items():
         h = cli.get("/").text
         decide = _pode(grupo, *DECIDE_ARTIGO)
         assert ('href="/literatura/triagem">Continuar a triagem (3)' in h) is decide, grupo
-        assert ('href="/literatura/triagem">Triar artigos</a>' in h) is decide, grupo
-        assert "3 artigo(s) ainda sem triagem humana." in h, grupo
+        assert ("Artigos aguardando triagem humana" in h) is decide, grupo
+        assert "ainda sem triagem humana." not in h, grupo
     assert 'href="/literatura/triagem">Continuar a triagem (3)' in vies["Revisor"].get("/").text
 
 
@@ -279,18 +280,20 @@ def test_menu_e_triagem_no_vies(vies, grupo):
 
 
 def test_visao_geral_do_vies_com_e_sem_regra(banco, tmp_path, monkeypatch):  # noqa: F811
+    """Com a regra das rotas negando o POST da decisao, so o botao da fila some; nenhum numero muda."""
+    from painel import visao_geral as VG
     monkeypatch.setattr(LeituraPainelSQLite, "contagem_triagem",
-                        lambda self: {"total": 5, "incluidos": 1, "excluidos": 1, "pendentes": 3})
+                        lambda self: {"total": 5, "incluidos": 1, "excluidos": 1, "pendentes": 3, "ocultos_llm": 0})
     ctx = _contexto("vies", False, tmp_path)
     with LeituraPainelSQLite(banco).instantaneo() as l:
-        sem = visao_geral_vies.dados(l, ctx)
-        com = visao_geral_vies.dados(l, ctx, pode=None)
-        nega = visao_geral_vies.dados(l, ctx, pode=lambda m, c: m == "GET")
-    assert sem["alertas"] == com["alertas"]
-    triagem = [a for a in nega["alertas"] if "sem triagem humana" in a[1]]
-    assert triagem and triagem[0][2] is None and triagem[0][3] is None
-    assert [a[1] for a in nega["alertas"]] == [a[1] for a in sem["alertas"]]   # so o link muda; nenhum alerta some
-
+        dados = VG.ler_dados(l, ctx)
+    quem = {"logado": True, "grupo": "Administrador", "permissoes": frozenset()}
+    sem = VG.montar(dados, quem)
+    nega = VG.montar(dados, {**quem, "pode_rota": lambda m, c: m == "GET"})
+    fila = lambda s: next(b for x in s for b in x["blocos"] if b["id"] == "fila")
+    assert fila(sem)["acoes"] == [{"texto": "Continuar a triagem (3)", "href": "/literatura/triagem"}] and fila(nega)["acoes"] == []
+    assert [[(b["id"], b["indicadores"]) for b in x["blocos"]] for x in sem] == [[(b["id"], b["indicadores"]) for b in x["blocos"]]
+                                                                              for x in nega]
 
 # ---------------- destino da fila e rota de desfazer tambem contam (decisoes da pre-revisao) ----------------
 def test_botoes_exigem_tambem_abrir_o_destino(clientes, monkeypatch):

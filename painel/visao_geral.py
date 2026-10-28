@@ -6,8 +6,15 @@ e supressão de dados preliminares automatizados (C2) e operacionais (C3) para q
 """
 from urllib.parse import quote
 
-from dominio import autenticacao
-from painel import formatacao as fmt, graficos, navegacao
+from dominio import analises_vies as AV, autenticacao
+from painel import (
+    analises_blocos,
+    analises_blocos_vies,
+    formatacao as fmt,
+    graficos,
+    navegacao,
+    visao_geral_vies,
+)
 
 PRELIMINAR = (
     "Resultado preliminar: produzido por processamento automatizado e ainda não validado por pesquisadores. "
@@ -102,6 +109,31 @@ def _bloco_base(
     }
 
 
+def ler_dados(leitura, contexto) -> dict:
+    """Lê os dados necessários para montar a Visão Geral de acordo com o banco configurado."""
+    banco = getattr(contexto, "banco", "real")
+    if banco == "vies":
+        lista = visao_geral_vies.itens(leitura, contexto)
+        return {
+            "banco": "vies",
+            "resumo": leitura.resumo_geral(),
+            "av": AV.resumo(lista),
+            "triagem": leitura.contagem_triagem(),
+            "relevancia": analises_blocos_vies.bloco_relevancia(lista),
+            "execucoes": leitura.execucoes_recentes(5),
+            "ultima_coleta": leitura.ultima_coleta_concluida(),
+        }
+    return {
+        "banco": "real",
+        "resumo": leitura.resumo_geral(),
+        "revisao": leitura.contagem_revisao(),
+        "prontidao": analises_blocos.bloco_prontidao(leitura.analise_prontidao())["cartoes"],
+        "execucoes": leitura.execucoes_recentes(5),
+        "ultima_coleta": leitura.ultima_coleta_concluida(),
+        "n_ufs": len(contexto.ufs),
+    }
+
+
 def montar(dados: dict, quem: dict) -> list[dict]:
     """Monta a lista de seções e blocos da Visão Geral."""
     banco = dados.get("banco", "real")
@@ -109,8 +141,12 @@ def montar(dados: dict, quem: dict) -> list[dict]:
     grupo = quem.get("grupo")
     permissoes = quem.get("permissoes", frozenset())
 
-    def pred(metodo: str, caminho: str) -> bool:
-        return autenticacao.pode_acessar(grupo, permissoes, metodo, caminho)
+    pode_rota = quem.get("pode_rota")
+    if callable(pode_rota):
+        pred = pode_rota
+    else:
+        def pred(metodo: str, caminho: str) -> bool:
+            return autenticacao.pode_acessar(grupo, permissoes, metodo, caminho)
 
     resumo = dados.get("resumo", {})
     revisao = dados.get("revisao", {})

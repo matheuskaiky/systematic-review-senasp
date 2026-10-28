@@ -1,6 +1,0 @@
-{# Pontos de atenção da visão geral: `alertas` = [(nivel, texto, link, rotulo_link)]. #}
-{% if alertas %}
-<section class="aviso aviso-lista" aria-label="Pontos de atenção"><strong>Pontos de atenção</strong>
-  <ul>{% for nivel, texto, link, rotulo_link in alertas %}<li>{{ texto }}{% if link %} <a href="{{ link }}">{{ rotulo_link }}</a>{% endif %}</li>{% endfor %}</ul>
-</section>
-{% endif %}

@@ -18,10 +18,11 @@
 {% if vazio %}
 <section class="cartao" aria-labelledby="h-vazio"><h2 id="h-vazio" data-ic="robot" data-tom="violeta">Ainda não há triagem de escopo</h2>
   <p class="vazio">Nenhum item foi avaliado pelo modelo neste banco. A primeira rodada é um <strong>piloto</strong> pequeno (cerca de 100 itens: 60 artigos e 40 resultados web), para conferir se o formato
-    da resposta funciona, quantos itens o modelo manda para exclusão e se você concorda com eles, antes de ampliar para todos.
+    da resposta funciona, quantos itens o modelo manda para exclusão e se você concorda com eles, antes de ampliar para todos.{% if ver_custos %}
     Comece estimando o custo, sem nenhuma chamada:</p>
   <pre class="comando">{{ comando_estimar }}</pre>
   <p class="explica">Depois, com a sua autorização do custo estimado, o mesmo comando sem <code>--estimar</code> grava os vereditos e esta página passa a mostrar os resultados.</p>
+  {% else %}</p>{% endif %}
 </section>
 {% else %}
 
@@ -31,8 +32,8 @@
 
 <p class="contagem">{% if run %}Mostrando só as respostas da execução {% if pode_seguir("/execucoes/" ~ run) %}<a href="/execucoes/{{ run }}"><code>{{ run }}</code></a>{% else %}<code>{{ run }}</code>{% endif %}. <a href="{{ url(run=none) }}">Voltar à avaliação mais recente de cada item</a>.
   {% else %}Mostrando a avaliação <strong>mais recente de cada item</strong>, de qualquer execução.{% endif %}
-  Custo das chamadas que produziram estas respostas: <strong>{% if resumo.custo_usd is none %}não registrado{% else %}{{ fmt.moeda_usd(resumo.custo_usd) }}{% endif %}</strong>
-  ({{ fmt.numero(resumo.n_chamadas) }} chamada(s)).</p>
+  {% if ver_custos %}Custo das chamadas que produziram estas respostas: <strong>{% if resumo.custo_usd is none %}não registrado{% else %}{{ fmt.moeda_usd(resumo.custo_usd) }}{% endif %}</strong>
+  ({{ fmt.numero(resumo.n_chamadas) }} chamada(s)).{% endif %}</p>
 
 {% if not resumo.n_total %}
 <p class="vazio">Esta fonte ainda não tem itens avaliados{% if run %} nesta execução{% endif %}. Use a outra aba ou rode <code>python main.py triar-escopo --fonte {{ "artigos" if fonte == "artigo" else "web" }} --amostra 40 --estimar</code>.</p>
@@ -146,10 +147,10 @@
 
 <section class="cartao" aria-labelledby="h-execs"><h2 id="h-execs" data-ic="play-circle" data-tom="ambar">Execuções que gravaram vereditos</h2>
   <div class="tabela-rolavel"><table>
-    <thead><tr><th scope="col">Execução</th><th scope="col">Fonte</th><th scope="col">Prompt</th><th scope="col" class="num">Linhas</th><th scope="col" class="num">Conferência falhou</th><th scope="col" class="num">Custo</th><th scope="col">Quando</th><th scope="col">Ver</th></tr></thead>
+    <thead><tr><th scope="col">Execução</th><th scope="col">Fonte</th><th scope="col">Prompt</th><th scope="col" class="num">Linhas</th><th scope="col" class="num">Conferência falhou</th>{% if ver_custos %}<th scope="col" class="num">Custo</th>{% endif %}<th scope="col">Quando</th><th scope="col">Ver</th></tr></thead>
     <tbody>{% for e in execucoes %}
       <tr><th scope="row">{% if pode_seguir("/execucoes/" ~ e.run_id) %}<a href="/execucoes/{{ e.run_id }}"><code>{{ e.run_id }}</code></a>{% else %}<code>{{ e.run_id }}</code>{% endif %}</th><td>{{ e.fontes or "—" }}</td><td>{{ e.prompt_versao or "—" }}</td><td class="num">{{ fmt.numero(e.n_linhas) }}</td>
-        <td class="num">{{ fmt.numero(e.n_invalidos) }}</td><td class="num">{% if e.custo_usd is none %}—{% else %}{{ fmt.moeda_usd(e.custo_usd) }}{% endif %}</td>
+        <td class="num">{{ fmt.numero(e.n_invalidos) }}</td>{% if ver_custos %}<td class="num">{% if e.custo_usd is none %}—{% else %}{{ fmt.moeda_usd(e.custo_usd) }}{% endif %}</td>{% endif %}
         <td>{{ fmt.data_hora(e.criado_em) }}</td><td>{% if e.run_id == run %}<span class="selo neutro">em exibição</span>{% else %}<a href="{{ url(run=e.run_id, status=none, categoria_motivo=none, termo=none, dominio_tematico=none, escopo_geografico=none, confianca=none, valido=none) }}">só esta execução</a>{% endif %}</td></tr>
     {% endfor %}</tbody></table></div>
 </section>

@@ -87,8 +87,9 @@
 </div></section>
 {% endif %}
 
-<section class="cartao" aria-labelledby="h-qual"><h2 id="h-qual">{{ "3" if r.pares.ambas else "1" }}. Qualidade e custo de cada execução</h2>
-<p class="explica">Estes números olham cada execução inteira, não só as páginas em comum, por isso o custo por página compara execuções de tamanhos diferentes. “Evidência confere” é a parcela de achados cujo trecho citado existe de fato no texto enviado ao modelo. “JSON válido” é a parcela de respostas que o programa conseguiu ler. O custo só aparece quando todas as chamadas da execução têm custo registrado; os preços dos modelos são preenchidos pelo pesquisador na configuração.</p>
+<section class="cartao" aria-labelledby="h-qual"><h2 id="h-qual">{{ "3" if r.pares.ambas else "1" }}. Qualidade{% if ver_custos %} e custo{% endif %} de cada execução</h2>
+{% if ver_custos %}<p class="explica">Estes números olham cada execução inteira, não só as páginas em comum, por isso o custo por página compara execuções de tamanhos diferentes. “Evidência confere” é a parcela de achados cujo trecho citado existe de fato no texto enviado ao modelo. “JSON válido” é a parcela de respostas que o programa conseguiu ler. O custo só aparece quando todas as chamadas da execução têm custo registrado; os preços dos modelos são preenchidos pelo pesquisador na configuração.</p>
+{% else %}<p class="explica">Estes números olham cada execução inteira, não só as páginas em comum. “Evidência confere” é a parcela de achados cujo trecho citado existe de fato no texto enviado ao modelo. “JSON válido” é a parcela de respostas que o programa conseguiu ler.</p>{% endif %}
 <div class="tabela-rolavel"><table>
   <thead><tr><th scope="col">Medida</th><th scope="col" class="num">A</th><th scope="col" class="num">B</th></tr></thead>
   <tbody>
@@ -99,9 +100,11 @@
     <tr><th scope="row">Evidência confere (execução inteira)</th><td class="num">{{ fmt.pct(ea_m.n_evidencia_confere, ea_m.n_evidencia_avaliada) }} <small>({{ fmt.numero(ea_m.n_evidencia_confere) }} de {{ fmt.numero(ea_m.n_evidencia_avaliada) }})</small></td><td class="num">{{ fmt.pct(eb_m.n_evidencia_confere, eb_m.n_evidencia_avaliada) }} <small>({{ fmt.numero(eb_m.n_evidencia_confere) }} de {{ fmt.numero(eb_m.n_evidencia_avaliada) }})</small></td></tr>
     {% if r.pares.ambas %}{% set ca = r.evidencia_em_comum.a %}{% set cb = r.evidencia_em_comum.b %}
     <tr><th scope="row">Evidência confere (só páginas em comum)</th><td class="num">{{ fmt.pct(ca.n_evidencia_confere, ca.n_evidencia_avaliada) }} <small>({{ fmt.numero(ca.n_evidencia_confere) }} de {{ fmt.numero(ca.n_evidencia_avaliada) }})</small></td><td class="num">{{ fmt.pct(cb.n_evidencia_confere, cb.n_evidencia_avaliada) }} <small>({{ fmt.numero(cb.n_evidencia_confere) }} de {{ fmt.numero(cb.n_evidencia_avaliada) }})</small></td></tr>{% endif %}
+    {% if ver_custos %}
     <tr><th scope="row">Custo total</th><td class="num">{{ nd(ea_m.custo_total, fmt.moeda_usd) }}</td><td class="num">{{ nd(eb_m.custo_total, fmt.moeda_usd) }}</td></tr>
     <tr><th scope="row">Custo por página</th><td class="num">{{ nd(ea_m.custo_por_pagina, fmt.moeda_usd) }}</td><td class="num">{{ nd(eb_m.custo_por_pagina, fmt.moeda_usd) }}</td></tr>
     <tr><th scope="row">Custo por achado</th><td class="num">{{ nd(ea_m.custo_por_achado, fmt.moeda_usd) }}</td><td class="num">{{ nd(eb_m.custo_por_achado, fmt.moeda_usd) }}</td></tr>
+    {% endif %}
     <tr><th scope="row">Tokens por página (entrada + saída)</th><td class="num">{{ nd(ea_m.tokens_por_pagina, fmt.numero) }}</td><td class="num">{{ nd(eb_m.tokens_por_pagina, fmt.numero) }}</td></tr>
   </tbody></table></div>
 </section>

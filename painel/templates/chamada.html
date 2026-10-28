@@ -20,7 +20,11 @@
   <dt>Quando</dt><dd>{{ fmt.data_hora(c.requisitado_em) }}</dd>
   <dt>Alvo</dt><dd>{{ c.alvo_tipo or "—" }}: {{ c.alvo_id or "—" }}{% if c.uf %} ({{ c.uf }}){% endif %}{% if c.pagina %} · página {{ c.pagina }}{% endif %}</dd>
   <dt>Latência</dt><dd>{{ fmt.numero(c.latencia_ms) }} ms</dd>
+  {% if ver_custos %}
   <dt>Custo</dt><dd>{{ fmt.moeda_usd(c.custo_usd) if c.custo_usd is not none else "não informado" }}{% if c.tokens_entrada is not none %} · {{ fmt.numero(c.tokens_entrada) }} tokens de entrada, {{ fmt.numero(c.tokens_saida) }} de saída{% endif %}</dd>
+  {% elif c.tokens_entrada is not none %}
+  <dt>Tokens</dt><dd>{{ fmt.numero(c.tokens_entrada) }} tokens de entrada, {{ fmt.numero(c.tokens_saida) }} de saída</dd>
+  {% endif %}
   {% if c.id_externo %}<dt>Id no provedor</dt><dd><code>{{ c.id_externo }}</code></dd>{% endif %}
   {% if c.n_retornados is not none %}<dt>Retornados</dt><dd>{{ fmt.numero(c.n_retornados) }}{% if c.n_novos is not none %} · {{ fmt.numero(c.n_novos) }} novos{% endif %}{% if c.total_reportado %} · total aproximado {{ fmt.numero(c.total_reportado) }}{% endif %}</dd>{% endif %}
   <dt>Chave de idempotência</dt><dd><code>{{ c.chave_idempotencia }}</code></dd>

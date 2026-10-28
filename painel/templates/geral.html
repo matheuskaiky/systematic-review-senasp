@@ -18,7 +18,7 @@
   <div class="kpi" data-ic="seal-check" data-tom="violeta"><span class="kpi-valor">{{ fmt.pct(r.evidencia_ok, r.achados) }}</span><span class="kpi-rotulo">Evidência confere</span></div>
   <div class="kpi" data-ic="check-circle" data-tom="cobalto"><span class="kpi-valor">{{ fmt.pct(r.verificados, r.achados) }}</span><span class="kpi-rotulo">Verificados</span></div>
   <div class="kpi" data-ic="map-pin" data-tom="petroleo"><span class="kpi-valor">{{ r.ufs_confirmadas }} <small>de {{ n_ufs }}</small></span><span class="kpi-rotulo">UFs com achado confirmado</span></div>
-  <div class="kpi" data-ic="coins" data-tom="ambar"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}</span><span class="kpi-rotulo">Gasto real (todas as execuções)</span></div>
+  {% if ver_custos %}<div class="kpi" data-ic="coins" data-tom="ambar"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}</span><span class="kpi-rotulo">Gasto real (todas as execuções)</span></div>{% endif %}
 </section>
 
 <div class="duas-colunas funil-progresso">

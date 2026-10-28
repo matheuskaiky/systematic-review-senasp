@@ -16,6 +16,7 @@ ETAPAS = rotulos.ETAPAS
 ETAPAS_COM_PRECO = ("busca_academica", "busca_web", "busca_literatura", "classificacao")   # download nao tem preco: nao conta como custo faltando
 PROVA_LITERATURA = "/literatura/prisma"
 ROTULOS_DE_LINK = ("Comece a revisão.", "Ver pendentes.", "Ver o PRISMA.", "Ver execuções.", "Ver as chamadas.", "Ver classificadores.")
+AVISO_SEM_CUSTOS = "Os custos das chamadas externas não aparecem neste nível de acesso ao painel."
 
 
 # ---------------------------------------------------------------- utilidades
@@ -482,7 +483,7 @@ def _reprodutibilidade(x):
 
 
 # ---------------------------------------------------------------- ressalvas
-def _ressalvas(x):
+def _ressalvas(x, custos=True):
     r = []
 
     def add(*segmentos):
@@ -532,15 +533,16 @@ def _ressalvas(x):
     if semtermo:
         add(("O texto do termo não foi encontrado na configuração gravada para: " + ", ".join(semtermo) + ".", None))
     # custos
-    etapas = x.custos.get("por_etapa") or []
-    sem_preco = [f"{ETAPAS.get(e['etapa'], e['etapa'])} ({e['provedor']})" for e in etapas
-                 if e["etapa"] in ETAPAS_COM_PRECO and _g(e, "n_ok") and not _g(e, "n_com_custo")]
-    if sem_preco:
-        add(("Custo não calculado: preços não informados para " + ", ".join(sem_preco) + ". O total em dólares acima não inclui essas etapas.", None))
-    parcial = [f"{ETAPAS.get(e['etapa'], e['etapa'])} ({e['provedor']}): {fmt.numero(e['n_ok_sem_custo'])}" for e in etapas
-               if _g(e, "n_com_custo") and _g(e, "n_ok_sem_custo")]
-    if parcial:
-        add(("Há chamadas bem-sucedidas sem custo gravado (" + "; ".join(parcial) + "): o custo total está subestimado.", None))
+    if custos:
+        etapas = x.custos.get("por_etapa") or []
+        sem_preco = [f"{ETAPAS.get(e['etapa'], e['etapa'])} ({e['provedor']})" for e in etapas
+                     if e["etapa"] in ETAPAS_COM_PRECO and _g(e, "n_ok") and not _g(e, "n_com_custo")]
+        if sem_preco:
+            add(("Custo não calculado: preços não informados para " + ", ".join(sem_preco) + ". O total em dólares acima não inclui essas etapas.", None))
+        parcial = [f"{ETAPAS.get(e['etapa'], e['etapa'])} ({e['provedor']}): {fmt.numero(e['n_ok_sem_custo'])}" for e in etapas
+                   if _g(e, "n_com_custo") and _g(e, "n_ok_sem_custo")]
+        if parcial:
+            add(("Há chamadas bem-sucedidas sem custo gravado (" + "; ".join(parcial) + "): o custo total está subestimado.", None))
     # reprodutibilidade
     sujas = [e["run_id"] for e in x.no_relatorio if "+sujo" in (e.get("commit_git") or "")]
     if sujas:
@@ -560,9 +562,14 @@ def _ressalvas(x):
         p = _P().runs([e["run_id"] for e in x.retomadas])
         add(("Execuções retomadas (--retomar), cujo código e ambiente podem diferir dos da execução original: ", None), *p.seg, (".", None))
     if x.fora:
-        add((f"{fmt.numero(len(x.fora))} {_pl(len(x.fora), 'execução está fora', 'execuções estão fora')} do relatório e não "
-             f"{_pl(len(x.fora), 'entra', 'entram')} nos números; {_pl(len(x.fora), 'seu custo entra', 'seus custos entram')} apenas no gasto real total. ", None),
-            ("Ver execuções.", "/execucoes"))
+        if custos:
+            add((f"{fmt.numero(len(x.fora))} {_pl(len(x.fora), 'execução está fora', 'execuções estão fora')} do relatório e não "
+                 f"{_pl(len(x.fora), 'entra', 'entram')} nos números; {_pl(len(x.fora), 'seu custo entra', 'seus custos entram')} apenas no gasto real total. ", None),
+                ("Ver execuções.", "/execucoes"))
+        else:
+            add((f"{fmt.numero(len(x.fora))} {_pl(len(x.fora), 'execução está fora', 'execuções estão fora')} do relatório e não "
+                 f"{_pl(len(x.fora), 'entra', 'entram')} nos números. ", None),
+                ("Ver execuções.", "/execucoes"))
     pares = x.cl.get("classificadores") or []
     if len(pares) > 1:
         add((f"Há {len(pares)} combinações de classificador e versão do prompt no relatório; os achados de modelos diferentes foram somados.", None))
@@ -578,21 +585,26 @@ def _ressalvas(x):
     if _g(x.cl, "n_invalidas"):
         add((f"{fmt.numero(x.cl['n_invalidas'])} {_pl(x.cl['n_invalidas'], 'classificação', 'classificações')} sem JSON válido e sem outra válida para a mesma página: esses pares não podem ser lidos como “sem achados”. ", None),
             ("Ver classificadores.", "/classificadores"))
+    if not custos:
+        add((AVISO_SEM_CUSTOS, None))
     return r
 
 
 # ---------------------------------------------------------------- ponto de entrada
-def gerar_metodologia(fatos, ufs=None):
+def gerar_metodologia(fatos, ufs=None, custos=True):
     """Devolve {"secoes": [...], "ressalvas": [...], "vazio": bool, "texto": str}.
     secao = {"id", "titulo", "blocos": [{"tipo": "p", "seg": [(texto, href)]} | {"tipo": "ul", "itens": [[(texto, href)]]}]}.
     `ufs` (sigla -> nome) so serve para saber o total de UFs quando os fatos nao o trazem."""
     x = _Fatos(fatos)
-    ressalvas = _ressalvas(x)
+    ressalvas = _ressalvas(x, custos=custos)
     if x.vazio:
         secoes = [_secao("situacao", "Situação dos dados", [_p(("Nada foi coletado ainda: não há execuções, artigos nem achados no banco, "
                                                                "então não há método a descrever.", None))])]
     else:
-        secoes = [_literatura(x), _web(x), _classificacao(x), _verificacao(x), _ufs(x, ufs), _custos(x), _reprodutibilidade(x)]
+        secoes = [_literatura(x), _web(x), _classificacao(x), _verificacao(x), _ufs(x, ufs)]
+        if custos:
+            secoes.append(_custos(x))
+        secoes.append(_reprodutibilidade(x))
     return {"secoes": secoes, "ressalvas": ressalvas, "vazio": x.vazio, "texto": _texto_puro(secoes, ressalvas)}
 
 

@@ -267,6 +267,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                                                           "tema": tema_do_cookie(request),
                                                           "usuario": usuario, "ver_nomes": ver_nomes,
                                                           "pode_estatisticas": pode_estatisticas,
+                                                          "ver_custos": "ver_custos" in _perms(request),
                                                           "perms": _perms(request),
                                                           "pode_rota": pode_rota,
                                                           "pode_abrir": lambda c: pode_rota("GET", c),
@@ -664,7 +665,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                   ("Achados verificados", f.get("achados_verificados"))]
         etapas = [(r, v) for r, v in etapas if v]
         funil = barras_horizontais(etapas, f"Funil da execução {run_id}", "Quantidade em cada etapa desta execução", fmt.numero)
-        return pagina(request, "execucao.html", e=e, funil=funil, metricas=_arredondar(_json(e["metricas_json"])),
+        metricas = _arredondar(_json(e["metricas_json"]))
+        # Custo da execução só é entregue a quem tem permissão ver_custos
+        if "ver_custos" not in _perms(request):
+            metricas.pop("custo_usd", None)
+        return pagina(request, "execucao.html", e=e, funil=funil, metricas=metricas,
                       abrir_configuracao=request.query_params.get("configuracao") == "1",
                       cfg=mascarar_segredos(_json(e["config_json"])), ambiente=mascarar_segredos(_json(e["ambiente_json"])),
                       custo_total=sum((c["custo_usd"] or 0) for c in e["custos"]))
@@ -1301,5 +1306,5 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos, entidades=entidades,
                                                  pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita, contas=contas,
                                                  contas_ocupadas=contas_ocupadas, novo_repositorio=repositorio_fabrica, escrever=_escrever,
-                                                 pode_seguir=_pode_seguir))
+                                                 pode_seguir=_pode_seguir, perms=_perms))
     return app

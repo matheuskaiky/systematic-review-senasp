@@ -17,7 +17,7 @@
   <div class="kpi" data-ic="star" data-tom="cobalto"><span class="kpi-valor">{{ fmt.numero(resumo.n_alta) }}</span><span class="kpi-rotulo">Relevância alta</span></div>
   <div class="kpi" data-ic="prohibit" data-tom="rosa"><span class="kpi-valor">{{ fmt.numero(resumo.n_fora) }}</span><span class="kpi-rotulo">Fora do escopo</span></div>
   <div class="kpi" data-ic="user-check" data-tom="petroleo"><span class="kpi-valor">{{ fmt.numero(tri.incluidos + tri.excluidos) }} <small>de {{ fmt.numero(tri.total) }}</small></span><span class="kpi-rotulo">Artigos com triagem humana</span></div>
-  <div class="kpi" data-ic="coins" data-tom="ambar"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}</span><span class="kpi-rotulo">Gasto real (todas as execuções)</span></div>
+  {% if ver_custos %}<div class="kpi" data-ic="coins" data-tom="ambar"><span class="kpi-valor">{{ fmt.moeda_usd(r.custo_total_usd) }}</span><span class="kpi-rotulo">Gasto real (todas as execuções)</span></div>{% endif %}
 </section>
 
 <div class="duas-colunas funil-progresso">

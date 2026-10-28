@@ -15,6 +15,7 @@ def registrar(c):
         fatos = leitura.fatos_metodologia(len(contexto.ufs) or 27)
         fatos["bases_esperadas"] = list(contexto.bases)
         fatos["banco"] = contexto.banco
+        custos = "ver_custos" in c.perms(request)
         return c.pagina(request, "metodologia.html",
-                        m=metodologia_texto.filtrar_links(metodologia_texto.gerar_metodologia(fatos, contexto.ufs),
+                        m=metodologia_texto.filtrar_links(metodologia_texto.gerar_metodologia(fatos, contexto.ufs, custos=custos),
                                                          c.pode_seguir(request)))

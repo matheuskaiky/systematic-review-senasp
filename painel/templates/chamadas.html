@@ -3,7 +3,7 @@
 {% block titulo %}Chamadas{% endblock %}
 {% block conteudo %}
 <h1>Chamadas</h1>
-<p class="sub">Cada chamada externa (busca, download, classificação): o que foi enviado, o que voltou, quanto custou e quanto demorou.</p>
+<p class="sub">Cada chamada externa (busca, download, classificação): o que foi enviado, o que voltou{% if ver_custos %}, quanto custou{% endif %} e quanto demorou.</p>
 <form class="filtros" method="get" action="/chamadas">
   <label>Execução <select name="run"><option value="">todas</option>{% for r in opcoes.runs %}<option value="{{ r }}"{% if filtros.run == r %} selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
   <label>Etapa <select name="etapa"><option value="">todas</option>{% for r in opcoes.etapas %}<option value="{{ r }}"{% if filtros.etapa == r %} selected{% endif %}>{{ r }}</option>{% endfor %}</select></label>
@@ -25,14 +25,14 @@
 {% else %}
 <p class="dica-ordenar" data-dica-ordenar hidden>Clique no título de uma coluna para ordenar. A ordenação vale só para as linhas desta página: não reordena as demais páginas da lista.</p>
 <div class="tabela-rolavel"><table data-ordenavel>
-  <thead><tr><th>Nº</th><th>Quando</th><th>Etapa</th><th>Provedor</th><th>Alvo</th><th>Resultado</th><th class="num">Latência</th><th class="num">Custo</th></tr></thead>
+  <thead><tr><th>Nº</th><th>Quando</th><th>Etapa</th><th>Provedor</th><th>Alvo</th><th>Resultado</th><th class="num">Latência</th>{% if ver_custos %}<th class="num">Custo</th>{% endif %}</tr></thead>
   <tbody>{% for c in res.itens %}
     <tr><td><a href="/chamadas/{{ c.chamada_id }}">{{ c.chamada_id }}</a></td><td data-valor="{{ c.requisitado_em or '' }}">{{ fmt.data_hora(c.requisitado_em) }}</td><td>{{ c.etapa }}</td><td>{{ c.provedor }}</td>
       <td>{{ c.alvo_id or "—" }}{% if c.uf %} <small>({{ c.uf }})</small>{% endif %}</td>
       {% set mr = rotulos.motivo_robots(c.erro) if not c.sucesso else none %}
       <td>{% if c.sucesso %}<span class="selo ok">✔ ok</span>{% elif mr %}{{ s.robots(c.erro) }}{% if mr.apos_redirecionamento %}<br><small>{{ (c.erro or "")[:100] }}</small>{% endif %}{% else %}<span class="selo st-descartado">✕ falha</span><br><small>{{ (c.erro or "")[:80] }}</small>{% endif %}
         {% if c.tentativas and c.tentativas > 1 %}<br><small>{{ c.tentativas }} tentativas</small>{% endif %}</td>
-      <td class="num" data-valor="{{ c.latencia_ms if c.latencia_ms is not none else '' }}">{{ fmt.numero(c.latencia_ms) }} ms</td><td class="num" data-valor="{{ c.custo_usd if c.custo_usd is not none else '' }}">{{ fmt.moeda_usd(c.custo_usd) if c.custo_usd is not none else "—" }}</td></tr>
+      <td class="num" data-valor="{{ c.latencia_ms if c.latencia_ms is not none else '' }}">{{ fmt.numero(c.latencia_ms) }} ms</td>{% if ver_custos %}<td class="num" data-valor="{{ c.custo_usd if c.custo_usd is not none else '' }}">{{ fmt.moeda_usd(c.custo_usd) if c.custo_usd is not none else "—" }}</td>{% endif %}</tr>
   {% endfor %}</tbody></table></div>
 <nav class="paginacao" aria-label="Páginas">
   {% if n > 1 %}<a href="/chamadas?{{ base }}{{ '&' if base }}p={{ n - 1 }}">← Anterior</a>{% endif %}

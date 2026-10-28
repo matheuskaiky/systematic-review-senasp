@@ -2,9 +2,16 @@
 {% block titulo %}Permissões — {{ nome }}{% endblock %}
 {% block conteudo %}
 <h1>{{ nome }}</h1>
+{% if gravado == "1" %}
+<p class="aviso ok" role="status">Permissões gravadas.</p>
+{% elif gravado == "0" %}
+<p class="aviso" role="status">Nenhuma alteração.</p>
+{% endif %}
 <p class="perm-resumo">{{ usuarios_ativos }} usuários ativos · {{ resumo.habilitadas|length }} de {{ resumo.total }} capacidades · {{ resumo.modulos_com_acesso|length }} módulos com acesso · Sensíveis habilitadas: {{ resumo.sensiveis_habilitadas|length }}</p>
 {% if nome == "Administrador" %}
 <p>O Administrador tem todas as capacidades e não pode ser alterado.</p>
+{% else %}
+<p><a class="botao" href="/admin/grupos/{{ grupo_id }}/editar">Editar permissões</a></p>
 {% endif %}
 <form class="perm-filtros" method="get">
   <label for="perm-q">Buscar</label>

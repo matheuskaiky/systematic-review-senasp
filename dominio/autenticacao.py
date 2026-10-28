@@ -177,6 +177,7 @@ REGRAS_ROTAS = (
     ("GET", "/admin/usuarios/{usuario_id}", SO_ADMIN),
     ("GET", "/admin/grupos", SO_ADMIN),
     ("GET", "/admin/grupos/{grupo_id:digitos}", SO_ADMIN),
+    ("GET", "/admin/grupos/{grupo_id}/editar", SO_ADMIN),
     ("GET", "/admin/auditoria", SO_ADMIN),
     ("POST", "/literatura/artigos/{artigo_id}/triar", "triar_artigos"),
     ("POST", "/literatura/artigos/{artigo_id}/sugerir", "triar_artigos"),
@@ -192,9 +193,10 @@ REGRAS_ROTAS = (
     ("POST", "/conta/token/revogar", LOGADO),
     ("POST", "/admin/usuarios", SO_ADMIN),
     ("POST", "/admin/usuarios/{usuario_id}", SO_ADMIN),
-    ("POST", "/admin/grupos", SO_ADMIN),
     ("POST", "/admin/grupos/novo", SO_ADMIN),
     ("POST", "/admin/grupos/{grupo_id}/renomear", SO_ADMIN),
+    ("POST", "/admin/grupos/{grupo_id}/revisar", SO_ADMIN),
+    ("POST", "/admin/grupos/{grupo_id}/permissoes", SO_ADMIN),
     ("GET", "/api/coletas", SO_ADMIN),
     ("POST", "/api/coletas", SO_ADMIN),
     ("PUT", "/api/coletas", SO_ADMIN),
@@ -675,3 +677,32 @@ def detalhe_auditoria(revisao: dict, justificativa: str, origem: str = "edicao")
         "origem": origem,
     }
     return json.dumps(dados, ensure_ascii=False)
+
+
+def resumo_detalhe_auditoria(texto: str | None) -> str | None:
+    """Gera um resumo legível do detalhe JSON de auditoria da alteração de permissões."""
+    if not isinstance(texto, str):
+        return None
+    try:
+        dados = json.loads(texto)
+    except (ValueError, RecursionError, TypeError):
+        return None
+    if not isinstance(dados, dict):
+        return None
+    if set(dados.keys()) != {"antes", "depois", "concedidas", "retiradas", "justificativa", "origem"}:
+        return None
+    for k in ("antes", "depois", "concedidas", "retiradas"):
+        v = dados[k]
+        if not isinstance(v, list) or any(type(x) is not str for x in v):
+            return None
+    if type(dados["justificativa"]) is not str or type(dados["origem"]) is not str:
+        return None
+
+    concedidas_str = ", ".join(dados["concedidas"]) or "nenhuma"
+    retiradas_str = ", ".join(dados["retiradas"]) or "nenhuma"
+    resumo = f"Concedidas: {concedidas_str}. Retiradas: {retiradas_str}."
+    justificativa = dados["justificativa"]
+    if justificativa:
+        resumo += f" Justificativa: {justificativa}"
+    return resumo
+

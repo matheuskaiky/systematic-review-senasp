@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titulo %}Editar permissões — {{ nome }}{% endblock %}
+{% block conteudo %}
+<h1>Editar permissões: {{ nome }}</h1>
+{% if nome == "Administrador" %}
+<p>O grupo Administrador tem acesso integral e não pode ser alterado.</p>
+{% else %}
+<form method="post" action="/admin/grupos/{{ grupo_id }}/revisar" class="perm-edicao">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="versao" value="{{ versao }}">
+  {% for m in modulos %}
+  <fieldset class="modulo"><legend>{{ m.rotulo }}</legend>
+    <ul>
+      {% for item in m.itens %}
+      <li class="perm" data-chave="{{ item.chave }}">
+        {%- if item.editavel -%}
+        <input type="hidden" name="exibida" value="{{ item.chave }}">
+        <input type="checkbox" id="p-{{ item.chave }}" name="marcada" value="{{ item.chave }}"{% if item.marcada %} checked{% endif %}>
+        <label for="p-{{ item.chave }}">{{ item.descricao }}</label>
+        {%- else -%}
+        <span class="perm-descricao">{{ item.descricao }}</span><span class="perm-estado">{{ item.estado_texto }}</span>
+        {%- endif -%}
+        {%- if item.sensivel -%}
+        <span class="perm-sensivel">◆ {{ item.sensivel }}</span>
+        {%- endif -%}
+        {%- for dep in item.dependencias -%}
+        <span class="perm-depende">precisa de: {{ dep }}</span>
+        {%- endfor -%}
+      </li>
+      {% endfor %}
+    </ul>
+  </fieldset>
+  {% endfor %}
+  <button class="botao" type="submit">Revisar alterações</button>
+</form>
+{% endif %}
+<p><a href="/admin/grupos/{{ grupo_id }}">Voltar ao grupo</a></p>
+{% endblock %}

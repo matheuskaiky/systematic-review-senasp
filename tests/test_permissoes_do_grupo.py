@@ -354,7 +354,7 @@ def test_lista_de_grupos_liga_a_cada_pagina(adm):
     for g in contas.grupos():
         assert h.count(f'<a href="/admin/grupos/{g["grupo_id"]}">Ver as permissões</a>') == 1, g["nome"]
         assert f'<th scope="col">{g["nome"]} <a href="/admin/grupos/{g["grupo_id"]}">Ver as permissões</a></th>' in h
-    assert '<button class="botao" type="submit">Salvar permissões</button>' in h          # a matriz continua
+    assert '<th scope="col">Permissão</th>' in h and "Salvar permissões" not in h      # a matriz continua, so de leitura
 
 
 def test_pagina_so_de_leitura(adm):

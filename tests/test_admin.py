@@ -214,47 +214,6 @@ def _dados_matriz(cli, contas):
     return dados
 
 
-def test_matriz_travas_e_marcacao(adm):
-    cli, _, contas_db, _ = adm
-    h = cli.get("/admin/grupos").text
-    a, v = _gid(contas_db, "Administrador"), _gid(contas_db, "Visitante")
-    for p in A.PERMISSOES:
-        tag = re.search(rf'<input[^>]*name="p-{a}-{p}"[^>]*>', h).group(0)
-        assert "checked" in tag and "disabled" in tag and f'id="p-{a}-{p}"' in tag and "aria-label=" in tag
-    for p in A.PERMISSOES_PROIBIDAS_VISITANTE:
-        tag = re.search(rf'<input[^>]*name="p-{v}-{p}"[^>]*>', h).group(0)
-        assert "disabled" in tag and "checked" not in tag
-
-
-def test_matriz_salva_ignora_forjados_e_e_idempotente(adm):
-    cli, contas, contas_db, _ = adm
-    v, l = _gid(contas_db, "Visitante"), _gid(contas_db, "Leitor")
-    dados = _dados_matriz(cli, contas)
-    dados[f"p-{v}-ver_nomes_revisores"] = "on"
-    dados[f"p-{v}-verificar_achados"] = "on"
-    dados[f"p-{v}-ver_estatisticas_usuarios"] = "on"
-    dados[f"p-{_gid(contas_db, 'Administrador')}-ver_painel"] = "on"
-    dados["p-999-ver_painel"] = "on"
-    dados[f"p-{l}-inexistente"] = "on"
-    dados["lixo"] = "on"
-    del dados[f"p-{l}-ver_nomes_revisores"]
-    r = cli.post("/admin/grupos", data=dados, follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/admin/grupos?ok=1"
-    assert contas.permissoes_do_grupo("Visitante") == {"ver_painel", "ver_nomes_revisores"}
-    assert contas.permissoes_do_grupo("Leitor") == {"ver_painel", "ver_registros_revisao", "ver_custos"}
-    assert _auditoria(contas_db) == [("salvar_permissoes", "Visitante", "+ver_nomes_revisores"),
-                                     ("salvar_permissoes", "Leitor", "-ver_nomes_revisores")]
-    r = cli.post("/admin/grupos", data={**dados, "csrf": _csrf(cli, "/admin/grupos"), **_ocultos_da_matriz(cli)}, follow_redirects=False)
-    assert r.status_code == 303 and len(_auditoria(contas_db)) == 2         # reenviar o mesmo estado nao grava nada
-
-
-def test_grupo_sem_caixas_fica_vazio(adm):
-    cli, contas, contas_db, _ = adm
-    dados = {k: v for k, v in _dados_matriz(cli, contas).items() if not k.startswith(f"p-{_gid(contas_db, 'Leitor')}-")}
-    cli.post("/admin/grupos", data=dados)
-    assert contas.permissoes_do_grupo("Leitor") == set()
-
-
 @pytest.mark.parametrize("grupo,permissoes,mensagem", [
     ("Administrador", set(), "As permissões do Administrador não podem ser alteradas."),
     ("Visitante", {"ver_painel", "triar_artigos"}, "O grupo Visitante não pode receber essa permissão: triar_artigos"),

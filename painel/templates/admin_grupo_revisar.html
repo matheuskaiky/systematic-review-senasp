@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}Revisar alterações — {{ nome }}{% endblock %}
+{% block conteudo %}
+<h1>Revisar alterações: {{ nome }}</h1>
+{% if mensagens_erro %}
+<ul class="aviso erro" role="alert">
+  {% for e in mensagens_erro %}
+  <li>{{ e }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if not revisao.erros %}
+{% if not revisao.concedidas and not revisao.retiradas %}
+<p class="aviso" role="status">Nenhuma alteração.</p>
+{% else %}
+{% if revisao.concedidas %}
+<h2>Serão concedidas ({{ revisao.concedidas|length }})</h2>
+<ul>
+{% for p in revisao.concedidas -%}
+<li>{{ permissoes[p] }}{% if rotulos_sensibilidade.get(catalogo[p].sensibilidade) %} <span class="perm-sensivel">◆ {{ rotulos_sensibilidade[catalogo[p].sensibilidade] }}</span>{% endif %}</li>
+{% endfor -%}
+</ul>
+{% endif %}
+{% if revisao.retiradas %}
+<h2>Serão retiradas ({{ revisao.retiradas|length }})</h2>
+<ul>
+{% for p in revisao.retiradas -%}
+<li>{{ permissoes[p] }}</li>
+{% endfor -%}
+</ul>
+{% endif %}
+<p class="perm-efeito">{{ frase }}</p>
+<form method="post" action="/admin/grupos/{{ grupo_id }}/permissoes">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="versao" value="{{ versao }}">
+  {% for p in exibidas %}
+  <input type="hidden" name="exibida" value="{{ p }}">
+  {% endfor %}
+  {% for p in marcadas %}
+  <input type="hidden" name="marcada" value="{{ p }}">
+  {% endfor %}
+  {% if revisao.sensiveis %}
+  <input type="checkbox" id="confirmo" name="confirmo" value="1">
+  {% if revisao.sensiveis|length == 1 %}
+  <label for="confirmo">Confirmo a concessão de 1 permissão sensível a este grupo.</label>
+  {% else %}
+  <label for="confirmo">Confirmo a concessão de {{ revisao.sensiveis|length }} permissões sensíveis a este grupo.</label>
+  {% endif %}
+  {% endif %}
+  <label for="justificativa">Justificativa {% if revisao.exige_justificativa %}(obrigatória){% else %}(opcional){% endif %}</label>
+  <textarea id="justificativa" name="justificativa" maxlength="500">{{ justificativa }}</textarea>
+  <button class="botao" type="submit">Confirmar</button>
+</form>
+{% endif %}
+{% endif %}
+<p><a href="/admin/grupos/{{ grupo_id }}/editar">Voltar e editar</a></p>
+{% endblock %}

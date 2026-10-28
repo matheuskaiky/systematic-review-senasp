@@ -1,5 +1,6 @@
-"""Salvar a matriz de permissoes so altera os grupos que a pagina exibiu, e so se nada mudou desde que ela foi aberta: um grupo
-ausente do envio, ou criado depois, fica como esta; uma alteracao feita por outra pessoa no meio recusa o envio inteiro.
+"""Gravacao da matriz de permissoes pelo adaptador (usada pelo comando atribuir-permissoes): so altera os grupos pedidos e so
+se a versao deles nao mudou, conferida na mesma transacao; a formula da versao; o conversor de id do painel. A tela grava
+um grupo por vez (test_edicao_por_grupo.py).
 """
 import hashlib
 import re
@@ -11,25 +12,8 @@ from dominio import autenticacao as A
 from test_admin import _auditoria, _csrf, _gid, adm  # noqa: F401
 from test_painel import demo  # noqa: F401
 
-RECUSA = "As permissões mudaram depois que esta página foi aberta. Nada foi gravado: recarregue a página e refaça as alterações."
-
-
-# o Leitor padrao de um banco de contas novo, e o mesmo sem `ver_nomes_revisores` (a caixa que os testes desmarcam)
+# o Leitor padrao de um banco de contas novo
 LEITOR_PADRAO = {"ver_painel", "ver_nomes_revisores", "ver_registros_revisao", "ver_custos"}
-LEITOR_SEM_NOMES = {"ver_painel", "ver_registros_revisao", "ver_custos"}
-
-def _formulario(cli):
-    """O formulario exatamente como a pagina o entrega: csrf, grupos exibidos, versao e as caixas marcadas habilitadas."""
-    h = cli.get("/admin/grupos").text
-    form = h[h.index('<form method="post" action="/admin/grupos">'):]
-    form = form[:form.index("</form>")]
-    dados = [("csrf", re.search(r'name="csrf" value="([^"]+)"', form).group(1))]
-    dados += [("grupos", v) for v in re.findall(r'<input type="hidden" name="grupos" value="([^"]*)">', form)]
-    dados += [("versao", v) for v in re.findall(r'<input type="hidden" name="versao" value="([^"]*)">', form)]
-    for tag in re.findall(r"<input type=\"checkbox\"[^>]*>", form):
-        if " checked" in tag and " disabled" not in tag:
-            dados.append((re.search(r'name="([^"]+)"', tag).group(1), "on"))
-    return dados
 
 
 def _perms(contas_db):
@@ -41,14 +25,6 @@ def _perms(contas_db):
         if p:
             saida[nome].add(p)
     return saida
-
-
-def _post(cli, dados):
-    """Envia os pares como formulario (campos repetidos viram lista, na ordem dos pares)."""
-    corpo = {}
-    for k, v in dados:
-        corpo.setdefault(k, []).append(v)
-    return cli.post("/admin/grupos", data=corpo, follow_redirects=False)
 
 
 # ---------------- versao ----------------
@@ -79,139 +55,6 @@ def test_versao_distingue_estados_que_se_confundiriam():
     assert re.fullmatch(r"[0-9a-f]{64}", v({}))
 
 
-# ---------------- pagina ----------------
-def test_pagina_lista_os_grupos_exibidos_e_a_versao(adm):
-    cli, contas, contas_db, _ = adm
-    dados = _formulario(cli)
-    exibidos = [int(v) for k, v in dados if k == "grupos"]
-    assert exibidos == [g["grupo_id"] for g in contas.grupos() if g["nome"] != "Administrador"]
-    versoes = [v for k, v in dados if k == "versao"]
-    assert versoes == [A.versao_permissoes({g["grupo_id"]: g["permissoes"] for g in contas.grupos() if g["nome"] != "Administrador"})]
-
-
-# ---------------- grupo ausente e grupo novo ----------------
-def test_grupo_ausente_do_envio_fica_inalterado(adm):
-    """O defeito: antes, todo grupo cujas caixas nao vinham no envio ficava sem nenhuma permissao."""
-    cli, _, contas_db, _ = adm
-    l = str(_gid(contas_db, "Leitor"))
-    dados = [(k, v) for k, v in _formulario(cli) if not (k == "grupos" and v == l) and not k.startswith(f"p-{l}-")]
-    antes = _perms(contas_db)
-    r = _post(cli, dados)
-    assert r.status_code == 409 and RECUSA in r.text                     # a versao cobre os grupos listados: outro conjunto
-    assert _perms(contas_db) == antes
-
-
-def test_grupo_ausente_com_versao_dos_listados_fica_inalterado(adm):
-    cli, contas, contas_db, _ = adm
-    l, v = _gid(contas_db, "Leitor"), _gid(contas_db, "Visitante")
-    listados = {g["grupo_id"]: g["permissoes"] for g in contas.grupos() if g["nome"] not in ("Administrador", "Leitor")}
-    dados = [("csrf", _csrf(cli, "/admin/grupos")), ("versao", A.versao_permissoes(listados))]
-    dados += [("grupos", str(gid)) for gid in listados]
-    dados += [(f"p-{gid}-{p}", "on") for gid, ps in listados.items() for p in ps if gid != v]   # Visitante desmarcado
-    dados.append((f"p-{l}-ver_chamadas", "on"))                          # caixa de grupo nao listado: ignorada
-    antes = _perms(contas_db)
-    r = _post(cli, dados)
-    assert r.status_code == 303 and r.headers["location"] == "/admin/grupos?ok=1"
-    depois = _perms(contas_db)
-    assert depois["Leitor"] == antes["Leitor"] and depois["Visitante"] == set() and depois["Revisor"] == antes["Revisor"]
-    assert _auditoria(contas_db) == [("salvar_permissoes", "Visitante", "-ver_painel")]
-
-
-def test_grupo_criado_depois_de_abrir_a_pagina_fica_inalterado(adm):
-    cli, contas, contas_db, _ = adm
-    dados = _formulario(cli)
-    gid_novo = contas.criar_grupo("Bolsistas", "2026-10-27T00:00:00+00:00")
-    contas.definir_permissoes(gid_novo, {"ver_painel", "ver_nomes_revisores"})
-    l = _gid(contas_db, "Leitor")
-    dados = [(k, v) for k, v in dados if k != f"p-{l}-ver_nomes_revisores"]
-    r = _post(cli, dados)
-    assert r.status_code == 303
-    depois = _perms(contas_db)
-    assert depois["Bolsistas"] == {"ver_painel", "ver_nomes_revisores"} and depois["Leitor"] == LEITOR_SEM_NOMES
-
-
-# ---------------- concorrencia ----------------
-def test_alteracao_de_outra_pessoa_no_meio_recusa_o_envio_inteiro(adm):
-    cli, contas, contas_db, _ = adm
-    dados = _formulario(cli)
-    contas.definir_permissoes(_gid(contas_db, "Leitor"), {"ver_painel"})        # outra pessoa, depois de a pagina abrir
-    antes = _perms(contas_db)
-    n_aud = len(_auditoria(contas_db))
-    r = _post(cli, [(k, v) for k, v in dados if k != f"p-{_gid(contas_db, 'Revisor')}-ver_chamadas"])
-    assert r.status_code == 409 and RECUSA in r.text and "Permissões alteradas" in r.text
-    assert _perms(contas_db) == antes and len(_auditoria(contas_db)) == n_aud
-
-
-def test_alteracao_concorrente_em_grupo_nao_listado_nao_recusa(adm):
-    cli, contas, contas_db, _ = adm
-    dados = _formulario(cli)
-    gid_novo = contas.criar_grupo("Bolsistas", "2026-10-27T00:00:00+00:00")
-    contas.definir_permissoes(gid_novo, {"ver_painel"})
-    assert _post(cli, dados).status_code == 303 and _perms(contas_db)["Bolsistas"] == {"ver_painel"}
-
-
-@pytest.mark.parametrize("versao", [None, "", " ", "x", "0" * 64, "A" * 64])
-def test_versao_ausente_ou_invalida_recusa_sem_gravar(adm, versao):
-    cli, _, contas_db, _ = adm
-    dados = [(k, v) for k, v in _formulario(cli) if k != "versao"]
-    dados = [(k, v) for k, v in dados if not k.startswith(f"p-{_gid(contas_db, 'Leitor')}-")]
-    if versao is not None:
-        dados.append(("versao", versao))
-    antes = _perms(contas_db)
-    r = _post(cli, dados)
-    assert r.status_code == 409 and RECUSA in r.text and _perms(contas_db) == antes
-
-
-def test_versao_repetida_vale_a_primeira(adm):
-    cli, _, contas_db, _ = adm
-    dados = _formulario(cli)
-    dados.append(("versao", "0" * 64))
-    l = _gid(contas_db, "Leitor")
-    r = _post(cli, [(k, v) for k, v in dados if k != f"p-{l}-ver_nomes_revisores"])
-    assert r.status_code == 303 and _perms(contas_db)["Leitor"] == LEITOR_SEM_NOMES
-
-
-# ---------------- lista de grupos forjada ----------------
-@pytest.mark.parametrize("valor", ["", " ", "x", "-1", "0", "999", "1.0", "01" * 20, "9" * 30, "١"])
-def test_grupo_listado_invalido_ou_inexistente_e_ignorado(adm, valor):
-    cli, _, contas_db, _ = adm
-    dados = _formulario(cli) + [("grupos", valor), (f"p-{valor.strip() or 'v'}-ver_painel", "on")]
-    antes = _perms(contas_db)
-    r = _post(cli, dados)
-    assert r.status_code == 303 and _perms(contas_db) == antes
-
-
-def test_administrador_listado_e_ignorado(adm):
-    cli, _, contas_db, _ = adm
-    a = str(_gid(contas_db, "Administrador"))
-    antes = _perms(contas_db)
-    r = _post(cli, _formulario(cli) + [("grupos", a)])
-    assert r.status_code == 303 and _perms(contas_db) == antes
-
-
-def test_grupo_listado_duas_vezes_conta_uma(adm):
-    cli, _, contas_db, _ = adm
-    l = str(_gid(contas_db, "Leitor"))
-    dados = [(k, v) for k, v in _formulario(cli) if k != f"p-{l}-ver_nomes_revisores"] + [("grupos", l)]
-    r = _post(cli, dados)
-    assert r.status_code == 303 and _perms(contas_db)["Leitor"] == LEITOR_SEM_NOMES
-
-
-def test_sem_grupo_listado_nada_muda(adm):
-    cli, _, contas_db, _ = adm
-    dados = [(k, v) for k, v in _formulario(cli) if k != "grupos"]
-    antes = _perms(contas_db)
-    r = _post(cli, dados)
-    assert r.status_code == 409 and _perms(contas_db) == antes            # a versao foi calculada sobre os grupos exibidos
-
-
-def test_visitante_continua_sem_permissoes_proibidas(adm):
-    cli, _, contas_db, _ = adm
-    v = _gid(contas_db, "Visitante")
-    r = _post(cli, _formulario(cli) + [(f"p-{v}-verificar_achados", "on"), (f"p-{v}-ver_estatisticas_usuarios", "on")])
-    assert r.status_code == 303 and _perms(contas_db)["Visitante"] == {"ver_painel"}
-
-
 # ---------------- adaptador ----------------
 def test_adaptador_confere_a_versao_na_mesma_transacao(adm):
     _, contas, contas_db, _ = adm
@@ -236,49 +79,6 @@ def test_recusa_deixa_a_conexao_livre(adm):
     with pytest.raises(A.PermissoesAlteradas):
         contas.definir_matriz({l: set()}, None, versao_esperada="0" * 64)
     assert contas.definir_permissoes(l, {"ver_painel"}) == 3                # nenhuma transacao ficou aberta
-
-
-def _form_sem_leitor(cli, contas, contas_db, extra):
-    """Formulario que lista todos os grupos menos o Leitor, com a versao so dos listados, mais os campos de `extra`."""
-    l = _gid(contas_db, "Leitor")
-    listados = {g["grupo_id"]: g["permissoes"] for g in contas.grupos() if g["nome"] not in ("Administrador", "Leitor")}
-    dados = [("csrf", _csrf(cli, "/admin/grupos")), ("versao", A.versao_permissoes(listados))]
-    dados += [("grupos", str(gid)) for gid in listados]
-    dados += [(f"p-{gid}-{p}", "on") for gid, ps in listados.items() for p in ps]
-    return dados + [(k, v.replace("{L}", str(l))) for k, v in extra]
-
-
-def _digitos_arabes(n):
-    return "".join(chr(0x0660 + int(c)) for c in str(n))
-
-
-def test_valor_que_um_conversor_frouxo_tomaria_pelo_leitor_e_ignorado(adm):
-    """O conversor do painel so aceita algarismos ASCII: um id em algarismos arabe-indicos nao lista o Leitor."""
-    cli, contas, contas_db, _ = adm
-    l = _gid(contas_db, "Leitor")
-    antes = _perms(contas_db)
-    r = _post(cli, _form_sem_leitor(cli, contas, contas_db, [("grupos", _digitos_arabes(l))]))
-    assert r.status_code == 303 and _perms(contas_db) == antes
-
-
-@pytest.mark.parametrize("valor", ["{L}", " {L} ", "000{L}", pytest.param("0" * 5000 + "{L}", id="5000-zeros-e-o-id")])
-def test_id_do_leitor_aceito_pelo_conversor_entra_na_lista(adm, valor):
-    """Com espacos ou zeros a esquerda o id continua valido (a mesma regra do resto do painel): o Leitor passa a ser listado,
-    a versao enviada nao o inclui e o envio inteiro e recusado."""
-    cli, contas, contas_db, _ = adm
-    antes = _perms(contas_db)
-    r = _post(cli, _form_sem_leitor(cli, contas, contas_db, [("grupos", valor)]))
-    assert r.status_code == 409 and RECUSA in r.text and _perms(contas_db) == antes
-
-
-def test_a_rota_usa_o_conversor_do_painel(adm, monkeypatch):
-    from painel.rotas_extras import admin
-    cli, _, contas_db, _ = adm
-    dados = _formulario(cli)
-    monkeypatch.setattr(admin, "_converter_id", lambda texto: None)        # nenhum grupo passa: nada listado
-    antes = _perms(contas_db)
-    r = _post(cli, dados)
-    assert r.status_code == 409 and _perms(contas_db) == antes
 
 
 def test_versao_conferida_depois_do_begin_immediate_na_mesma_conexao(adm, monkeypatch):
@@ -316,16 +116,6 @@ def test_adaptador_com_dicionario_vazio_e_grupo_inexistente(adm):
     assert _perms(contas_db) == antes
 
 
-def test_reenvio_da_mesma_pagina_e_recusado(adm):
-    """Um segundo clique em Salvar leva a versao antiga: e recusado, mesmo que o estado ja seja o pedido."""
-    cli, _, contas_db, _ = adm
-    l = _gid(contas_db, "Leitor")
-    dados = [(k, v) for k, v in _formulario(cli) if k != f"p-{l}-ver_nomes_revisores"]
-    assert _post(cli, dados).status_code == 303
-    r = _post(cli, dados)
-    assert r.status_code == 409 and _perms(contas_db)["Leitor"] == LEITOR_SEM_NOMES
-
-
 @pytest.mark.parametrize("texto,esperado", [
     ("3", 3), (" 3 ", 3), ("0003", 3), pytest.param("0" * 5000 + "3", 3, id="5000-zeros-e-3"),
     pytest.param("0" * 4301, 0, id="4301-zeros"), ("0", 0),
@@ -338,10 +128,3 @@ def test_conversor_de_id_do_painel(texto, esperado):
     assert _converter_id(texto) == esperado
 
 
-def test_segundo_clique_depois_de_salvar_sem_mudanca_nao_grava_nada(adm):
-    """Se o primeiro envio nao mudou nada, a versao continua a mesma: o segundo tambem passa e tambem nao grava nada."""
-    cli, _, contas_db, _ = adm
-    dados = _formulario(cli)
-    antes, n_aud = _perms(contas_db), len(_auditoria(contas_db))
-    assert _post(cli, dados).status_code == 303 and _post(cli, dados).status_code == 303
-    assert _perms(contas_db) == antes and len(_auditoria(contas_db)) == n_aud

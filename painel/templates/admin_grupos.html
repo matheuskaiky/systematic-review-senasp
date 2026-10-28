@@ -6,40 +6,32 @@
 <ul class="aviso erro" role="alert">
   {% for e in erros %}<li>{{ e }}</li>{% endfor %}
 </ul>
-{% elif ok %}
-<p class="aviso ok" role="status">Alteração gravada.</p>
 {% endif %}
 
-<form method="post" action="/admin/grupos">
-  <input type="hidden" name="csrf" value="{{ csrf }}">
-  {% for g in grupos %}{% if g.nome != "Administrador" %}<input type="hidden" name="grupos" value="{{ g.grupo_id }}">
-  {% endif %}{% endfor %}<input type="hidden" name="versao" value="{{ versao }}">
-  <div class="tabela-rolavel">
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">Permissão</th>
-          {% for g in grupos %}
-          <th scope="col">{{ g.nome }} <a href="/admin/grupos/{{ g.grupo_id }}">Ver as permissões</a></th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for p, desc in permissoes.items() %}
-        <tr>
-          <th scope="row">{{ desc }}</th>
-          {% for g in grupos %}
-          {% set checado = (g.nome == "Administrador") or (p in g.permissoes and not (g.nome == "Visitante" and p in proibidas_visitante)) %}
-          {% set desabilitado = (g.nome == "Administrador") or (g.nome == "Visitante" and p in proibidas_visitante) %}
-          <td><input type="checkbox" id="p-{{ g.grupo_id }}-{{ p }}" name="p-{{ g.grupo_id }}-{{ p }}" aria-label="{{ desc }} — {{ g.nome }}"{% if checado %} checked{% endif %}{% if desabilitado %} disabled{% endif %}></td>
-          {% endfor %}
-        </tr>
+<p>Para alterar as permissões de um grupo, abra o grupo e use «Editar permissões».</p>
+
+<div class="tabela-rolavel">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Permissão</th>
+        {% for g in grupos %}
+        <th scope="col">{{ g.nome }} <a href="/admin/grupos/{{ g.grupo_id }}">Ver as permissões</a></th>
         {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <button class="botao" type="submit">Salvar permissões</button>
-</form>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p, desc in permissoes.items() %}
+      <tr>
+        <th scope="row">{{ desc }}</th>
+        {% for g in grupos %}
+        <td>{% if g.nome == "Administrador" %}Sim{% elif g.nome == "Visitante" and p in proibidas_visitante %}Não permitida{% elif p in g.permissoes %}Sim{% else %}Não{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 <p><small>Visitante é quem não entrou no painel. O Administrador tem tudo e não pode ser alterado; os visitantes nunca recebem permissões de escrita.</small></p>
 
 <section class="cartao"><h2 data-ic="users" data-tom="cobalto">Novo grupo</h2>

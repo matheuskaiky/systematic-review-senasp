@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import re
 from starlette.convertors import Convertor, register_url_convertor
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, Response
 from fastapi import Form, Request
 
 from dominio import autenticacao
@@ -33,6 +33,53 @@ def _converter_id(texto: str | None) -> int | None:
     ):
         return int(t.lstrip("0") or "0")
     return None
+
+
+def _resolver_grupo(
+    c, request: Request, grupo_id: str, edicao: bool = False
+) -> tuple[dict | None, Response | None]:
+    """Resolve o grupo pelo ID na URL, tratando concorrência, validação e integridade das permissões."""
+    try:
+        grupos = c.contas.grupos()
+    except autenticacao.ContasOcupadas:
+        return None, c.contas_ocupadas(request)
+
+    gid = _converter_id(grupo_id)
+    if gid is None:
+        return None, c.erro(
+            request,
+            404,
+            "Endereço inválido",
+            "Algum número ou parâmetro do endereço não é válido.",
+        )
+
+    grupo = next((g for g in grupos if g["grupo_id"] == gid), None)
+    if grupo is None:
+        return None, c.erro(
+            request,
+            404,
+            "Grupo não encontrado",
+            f"Não existe o grupo nº {gid}.",
+        )
+
+    if edicao and any(type(p) is not str for p in grupo.get("permissoes", ())):
+        return None, c.erro(
+            request,
+            409,
+            "Permissões gravadas inválidas",
+            "As permissões gravadas deste grupo têm um valor inválido. Nada foi alterado.",
+        )
+
+    return grupo, None
+
+
+def _usuarios_ativos(c, gid: int) -> int:
+    """Conta os usuários ativos vinculados a um grupo."""
+    return sum(
+        1
+        for u in c.contas.listar_usuarios()
+        if u.get("grupo_id") == gid and u.get("ativo") == 1
+    )
 
 
 def registrar(c) -> None:
@@ -384,9 +431,6 @@ def registrar(c) -> None:
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
         form = {"novo": "", "renomear": {}}
-        versao = autenticacao.versao_permissoes(
-            {g["grupo_id"]: g["permissoes"] for g in grupos if g["nome"] != autenticacao.GRUPO_ADMIN}
-        )
         return c.pagina(
             request,
             "admin_grupos.html",
@@ -395,43 +439,22 @@ def registrar(c) -> None:
             proibidas_visitante=autenticacao.PERMISSOES_PROIBIDAS_VISITANTE,
             grupos_padrao=autenticacao.GRUPOS_PADRAO,
             form=form,
-            versao=versao,
-            ok=(request.query_params.get("ok") == "1"),
         )
 
     @app.get("/admin/grupos/{grupo_id:digitos}")
     def grupo_permissoes_view(request: Request, grupo_id: str):
+        grupo, erro = _resolver_grupo(c, request, grupo_id, edicao=False)
+        if erro:
+            return erro
+
+        gid = grupo["grupo_id"]
         try:
-            grupos = c.contas.grupos()
-        except autenticacao.ContasOcupadas:
-            return _erro_contas_ocupadas(request)
-
-        gid = _converter_id(grupo_id)
-        if gid is None:
-            return c.erro(
-                request,
-                404,
-                "Endereço inválido",
-                "Algum número ou parâmetro do endereço não é válido.",
-            )
-
-        grupo = next((g for g in grupos if g["grupo_id"] == gid), None)
-        if grupo is None:
-            return c.erro(
-                request,
-                404,
-                "Grupo não encontrado",
-                f"Não existe o grupo nº {gid}.",
-            )
-
-        try:
-            usuarios = c.contas.listar_usuarios()
+            usuarios_ativos = _usuarios_ativos(c, gid)
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
 
         nome = grupo["nome"]
         permissoes = grupo["permissoes"]
-        usuarios_ativos = sum(1 for u in usuarios if u.get("grupo_id") == gid and u.get("ativo") == 1)
 
         q = request.query_params.get("q", "")
         filtro = request.query_params.get("filtro", "")
@@ -496,6 +519,8 @@ def registrar(c) -> None:
             request,
             "admin_grupo.html",
             nome=nome,
+            grupo_id=gid,
+            gravado=request.query_params.get("gravado"),
             usuarios_ativos=usuarios_ativos,
             resumo=resumo,
             q=q,
@@ -506,66 +531,202 @@ def registrar(c) -> None:
             previa_menu=previa_menu,
         )
 
-    @app.post("/admin/grupos")
-    async def salvar_matriz_view(request: Request):
+    def _calcular_frase_efeito(nome: str, gid: int, r: dict) -> str:
+        if r.get("erros") or (not r.get("concedidas") and not r.get("retiradas")):
+            return ""
+        if nome == autenticacao.GRUPO_VISITANTE:
+            return "Efeito imediato: vale para qualquer pessoa que abrir o painel sem entrar."
+        n = _usuarios_ativos(c, gid)
+        if n == 0:
+            return "Efeito imediato: este grupo não tem usuários ativos agora; a mudança vale para quem entrar nele."
+        elif n == 1:
+            return "Efeito imediato: vale a partir do próximo pedido do 1 usuário ativo deste grupo."
+        else:
+            return f"Efeito imediato: vale a partir do próximo pedido dos {n} usuários ativos deste grupo."
+
+    @app.get("/admin/grupos/{grupo_id}/editar")
+    def editar_grupo_view(request: Request, grupo_id: str):
+        grupo, erro = _resolver_grupo(c, request, grupo_id, edicao=True)
+        if erro:
+            return erro
+
+        gid = grupo["grupo_id"]
+        nome = grupo["nome"]
+        atuais = set(grupo["permissoes"])
+        versao = autenticacao.versao_permissoes({gid: atuais})
+
+        modulos = []
+        for m_chave, m_rotulo in autenticacao.MODULOS_PERMISSAO.items():
+            itens_modulo = [
+                k for k in autenticacao.PERMISSOES if autenticacao.CATALOGO_PERMISSOES[k]["modulo"] == m_chave
+            ]
+            if not itens_modulo:
+                continue
+
+            itens = []
+            for k in itens_modulo:
+                meta = autenticacao.CATALOGO_PERMISSOES[k]
+                desc = autenticacao.PERMISSOES[k]
+                sensivel = autenticacao.ROTULOS_SENSIBILIDADE.get(meta["sensibilidade"])
+                dependencias = [autenticacao.PERMISSOES[d] for d in meta["depende_de"]]
+
+                bloqueado = False
+                estado_texto = ""
+                if nome == autenticacao.GRUPO_VISITANTE and k not in atuais:
+                    if k in autenticacao.PERMISSOES_PROIBIDAS_VISITANTE:
+                        bloqueado = True
+                        estado_texto = "Não permitida a quem não entrou"
+                    elif meta["sensibilidade"] in autenticacao.ROTULOS_SENSIBILIDADE:
+                        bloqueado = True
+                        estado_texto = "Só com a política de divulgação pública"
+
+                itens.append({
+                    "chave": k,
+                    "descricao": desc,
+                    "editavel": not bloqueado,
+                    "marcada": k in atuais,
+                    "estado_texto": estado_texto,
+                    "sensivel": sensivel,
+                    "dependencias": dependencias,
+                })
+
+            modulos.append({
+                "chave": m_chave,
+                "rotulo": m_rotulo,
+                "itens": itens,
+            })
+
+        return c.pagina(
+            request,
+            "admin_grupo_editar.html",
+            nome=nome,
+            grupo_id=gid,
+            atuais=atuais,
+            versao=versao,
+            modulos=modulos,
+        )
+
+    @app.post("/admin/grupos/{grupo_id}/revisar")
+    async def revisar_grupo_view(request: Request, grupo_id: str):
         form = await request.form()
         csrf = form.get("csrf", "")
         bloqueio = c.checar_escrita(request, csrf)
         if bloqueio:
             return bloqueio
 
+        grupo, erro = _resolver_grupo(c, request, grupo_id, edicao=True)
+        if erro:
+            return erro
+
+        gid = grupo["grupo_id"]
+        nome = grupo["nome"]
+        atuais = set(grupo["permissoes"])
+
+        marcadas = list(form.getlist("marcada"))
+        exibidas = list(form.getlist("exibida"))
+        v_list = form.getlist("versao")
+        versao = v_list[0] if v_list and isinstance(v_list[0], str) else ""
+        j_list = form.getlist("justificativa")
+        justificativa = j_list[0] if j_list and isinstance(j_list[0], str) else ""
+
+        r = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
+
         try:
-            grupos_existentes = c.contas.grupos()
+            frase = _calcular_frase_efeito(nome, gid, r)
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
 
-        grupos_validos = {
-            g["grupo_id"]: g
-            for g in grupos_existentes
-            if g["nome"] != autenticacao.GRUPO_ADMIN
-        }
-        grupos_listados = []
-        vistos = set()
-        for v in form.getlist("grupos"):
-            gid = _converter_id(v)
-            if gid is not None and gid in grupos_validos and gid not in vistos:
-                vistos.add(gid)
-                grupos_listados.append(gid)
-        matriz = {gid: set() for gid in grupos_listados}
+        return c.pagina(
+            request,
+            "admin_grupo_revisar.html",
+            nome=nome,
+            grupo_id=gid,
+            revisao=r,
+            marcadas=marcadas,
+            exibidas=exibidas,
+            versao=versao,
+            justificativa=justificativa,
+            mensagens_erro=r["erros"],
+            frase=frase,
+            permissoes=autenticacao.PERMISSOES,
+            catalogo=autenticacao.CATALOGO_PERMISSOES,
+            rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
+        )
 
-        for k in form.keys():
-            m = re.fullmatch(r"p-([0-9]+)-([a-z_]+)", k)
-            if not m:
-                continue
-            gid_str, perm = m.group(1), m.group(2)
-            gid = _converter_id(gid_str)
-            if gid is None or gid not in matriz:
-                continue
-            if perm not in autenticacao.PERMISSOES:
-                continue
-            g_info = grupos_validos[gid]
-            if g_info["nome"] == autenticacao.GRUPO_VISITANTE and perm in autenticacao.PERMISSOES_PROIBIDAS_VISITANTE:
-                continue
-            matriz[gid].add(perm)
+    @app.post("/admin/grupos/{grupo_id}/permissoes")
+    async def salvar_permissoes_grupo_view(request: Request, grupo_id: str):
+        form = await request.form()
+        csrf = form.get("csrf", "")
+        bloqueio = c.checar_escrita(request, csrf)
+        if bloqueio:
+            return bloqueio
 
-        versao_valores = form.getlist("versao")
-        versao = versao_valores[0] if versao_valores and isinstance(versao_valores[0], str) else ""
+        grupo, erro = _resolver_grupo(c, request, grupo_id, edicao=True)
+        if erro:
+            return erro
+
+        gid = grupo["grupo_id"]
+        nome = grupo["nome"]
+        atuais = set(grupo["permissoes"])
+
+        marcadas = list(form.getlist("marcada"))
+        exibidas = list(form.getlist("exibida"))
+        v_list = form.getlist("versao")
+        versao = v_list[0] if v_list and isinstance(v_list[0], str) else ""
+        j_list = form.getlist("justificativa")
+        justificativa = j_list[0] if j_list and isinstance(j_list[0], str) else ""
+        confirmado = "1" in form.getlist("confirmo")
 
         admin_login = request.state.usuario["login"]
         agora = datetime.now(timezone.utc).isoformat()
+
         try:
-            c.contas.definir_matriz(matriz, (admin_login, agora), versao_esperada=versao)
+            r = c.contas.definir_permissoes_do_grupo(
+                gid,
+                marcadas,
+                exibidas,
+                versao,
+                confirmado,
+                justificativa,
+                (admin_login, agora),
+            )
         except autenticacao.PermissoesAlteradas:
             return c.erro(
                 request,
                 409,
                 "Permissões alteradas",
-                "As permissões mudaram depois que esta página foi aberta. Nada foi gravado: recarregue a página e refaça as alterações.",
+                "As permissões deste grupo mudaram desde que você abriu a página. Nada foi gravado: abra o grupo de novo e refaça as alterações.",
+            )
+        except autenticacao.AlteracaoRecusada as e:
+            r_rec = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
+            try:
+                frase = _calcular_frase_efeito(nome, gid, r_rec)
+            except autenticacao.ContasOcupadas:
+                return _erro_contas_ocupadas(request)
+
+            return c.pagina(
+                request,
+                "admin_grupo_revisar.html",
+                status=400,
+                nome=nome,
+                grupo_id=gid,
+                revisao=r_rec,
+                marcadas=marcadas,
+                exibidas=exibidas,
+                versao=versao,
+                justificativa=justificativa,
+                mensagens_erro=e.erros,
+                frase=frase,
+                permissoes=autenticacao.PERMISSOES,
+                catalogo=autenticacao.CATALOGO_PERMISSOES,
+                rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
             )
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
 
-        return RedirectResponse("/admin/grupos?ok=1", status_code=303)
+        mudancas = bool(r.get("concedidas") or r.get("retiradas"))
+        param = "1" if mudancas else "0"
+        return RedirectResponse(f"/admin/grupos/{gid}?gravado={param}", status_code=303)
 
     @app.post("/admin/grupos/novo")
     def criar_grupo_view(request: Request, nome: str = Form(""), csrf: str = Form("")):
@@ -704,6 +865,13 @@ def registrar(c) -> None:
             linhas = c.contas.auditoria(limite=200)
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
+
+        for l in linhas:
+            l["resumo"] = (
+                autenticacao.resumo_detalhe_auditoria(l.get("detalhe"))
+                if l.get("acao") == "salvar_permissoes"
+                else None
+            )
 
         return c.pagina(
             request,

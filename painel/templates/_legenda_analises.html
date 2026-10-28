@@ -23,7 +23,7 @@
     <dt>No escopo</dt><dd>Relevância alta, média ou baixa segundo o modelo (saem o que ficou fora do escopo e o que não tem triagem válida).</dd>
     <dt>Obra distinta</dt><dd>A referência da web que é a mesma obra de um artigo do Scholar (mesma URL ou mesmo título normalizado) conta uma vez.</dd>
     <dt>Grupos de literatura</dt><dd>Pelo sufixo do tipo de fonte: "/ literatura cinzenta", "/ fonte primária" (normas e regulação) ou nenhum (literatura científica).</dd>
-    <dt>Créditos</dt><dd>Unidade de cobrança do provedor da busca no Scholar: o saldo no início menos o do fim de cada execução.</dd>
+    {% if ver_custos %}<dt>Créditos do provedor</dt><dd>Na coluna Créditos das tabelas de ferramentas: consumo da conta do provedor de busca, o saldo no início menos o do fim de cada execução que registrou os dois. É informação de cobrança; não são dólares.</dd>{% endif %}
   </dl>
   {% else %}
   {% if ctx.termos %}<details class="an-memoria"><summary>Códigos dos termos de busca ({{ ctx.termos|length }})</summary>
@@ -33,7 +33,8 @@
   </table></div></details>{% endif %}
   <dl class="an-pares">
     <dt>UF</dt><dd>Sigla da unidade da federação.</dd>
-    <dt>Créditos</dt><dd>Unidade de cobrança do provedor da busca no Scholar: o saldo no início menos o do fim de cada execução.</dd>
+    <dt>Créditos de consulta</dt><dd>Nos blocos dos termos de busca: páginas de resultados consultadas no Google Scholar, 1 crédito por chamada bem-sucedida. É a unidade de esforço da busca (por exemplo, em elegíveis por crédito), não um saldo nem um valor em dinheiro.</dd>
+    {% if ver_custos %}<dt>Créditos do provedor</dt><dd>Na coluna Créditos das tabelas de ferramentas: consumo da conta do provedor de busca, o saldo no início menos o do fim de cada execução que registrou os dois. É informação de cobrança; não são dólares.</dd>{% endif %}
   </dl>
   {% endif %}
 </section>

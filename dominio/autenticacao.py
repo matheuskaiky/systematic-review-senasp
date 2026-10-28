@@ -47,10 +47,12 @@ PERMISSOES = {
     "triar_texto_completo": "Triar artigos por texto completo",
     "ver_estatisticas_usuarios": "Ver as estatísticas por usuário",
     "enviar_coletas": "Gerar o próprio token e enviar coletas do computador local para a nuvem",
+    "ver_registros_revisao": "Ver observações e motivos das decisões",
+    "ver_custos": "Ver custos das execuções",
 }
 
 PERMISSOES_ESCRITA = frozenset({"verificar_achados", "revogar_verificacao", "triar_artigos", "triar_texto_completo"})
-PERMISSOES_PROIBIDAS_VISITANTE = PERMISSOES_ESCRITA | {"ver_estatisticas_usuarios", "enviar_coletas"}
+PERMISSOES_PROIBIDAS_VISITANTE = PERMISSOES_ESCRITA | {"ver_estatisticas_usuarios", "enviar_coletas", "ver_custos", "ver_registros_revisao"}
 
 ACOES_AUDITORIA = (
     "criar_usuario",
@@ -76,8 +78,8 @@ CARACTERES_DO_INICIO = 12           # o que a tela mostra para reconhecer o toke
 GRUPOS_PADRAO = {
     "Administrador": set(PERMISSOES),
     "Visitante": {"ver_painel"},
-    "Revisor": {"ver_painel", "ver_nomes_revisores", "ver_chamadas", "verificar_achados", "triar_artigos", "triar_texto_completo"},
-    "Leitor": {"ver_painel", "ver_nomes_revisores"},
+    "Revisor": {"ver_painel", "ver_nomes_revisores", "ver_chamadas", "verificar_achados", "triar_artigos", "triar_texto_completo", "ver_registros_revisao", "ver_custos"},
+    "Leitor": {"ver_painel", "ver_nomes_revisores", "ver_registros_revisao", "ver_custos"},
 }
 
 MODULOS_PERMISSAO = {
@@ -87,7 +89,7 @@ MODULOS_PERMISSAO = {
     "tecnico": "Dados técnicos",
 }
 
-SENSIBILIDADES = (None, "escrita", "supervisao", "dados_pessoais", "tecnica_restrita", "escrita_externa")
+SENSIBILIDADES = (None, "escrita", "supervisao", "dados_pessoais", "tecnica_restrita", "escrita_externa", "dados_revisao", "financeira")
 
 CATALOGO_PERMISSOES = {
     "ver_painel": {"modulo": "consulta", "sensibilidade": None, "depende_de": ()},
@@ -99,6 +101,8 @@ CATALOGO_PERMISSOES = {
     "triar_texto_completo": {"modulo": "revisao", "sensibilidade": "escrita", "depende_de": ("triar_artigos",)},
     "ver_estatisticas_usuarios": {"modulo": "acompanhamento", "sensibilidade": "dados_pessoais", "depende_de": ("ver_painel",)},
     "enviar_coletas": {"modulo": "tecnico", "sensibilidade": "escrita_externa", "depende_de": ()},
+    "ver_registros_revisao": {"modulo": "consulta", "sensibilidade": "dados_revisao", "depende_de": ("ver_painel",)},
+    "ver_custos": {"modulo": "tecnico", "sensibilidade": "financeira", "depende_de": ("ver_painel",)},
 }
 
 ROTULOS_SENSIBILIDADE = {
@@ -106,6 +110,14 @@ ROTULOS_SENSIBILIDADE = {
     "dados_pessoais": "dados pessoais",
     "tecnica_restrita": "técnica restrita",
     "escrita_externa": "escrita externa",
+    "dados_revisao": "dados de revisão",
+    "financeira": "financeira",
+}
+
+EXIGENCIAS_EXPORTACOES = {
+    "/execucoes/resultado.xlsx": ("ver_chamadas", "ver_nomes_revisores", "ver_custos", "ver_registros_revisao"),
+    "/literatura/catalogo.xlsx": ("triar_artigos", "ver_registros_revisao"),
+    "/achados/casos.xlsx": ("verificar_achados", "ver_registros_revisao"),
 }
 
 REGRAS_ROTAS = (
@@ -340,7 +352,12 @@ def pode(grupo: str, permissoes: set[str] | list[str], exigida: str | None) -> b
 
 def pode_acessar(grupo: str, permissoes: set[str] | list[str], metodo: str, caminho: str) -> bool:
     """Verifica se um grupo com dadas permissões tem acesso para executar o método no caminho."""
-    return pode(grupo, permissoes, permissao_exigida(metodo, caminho))
+    if not pode(grupo, permissoes, permissao_exigida(metodo, caminho)):
+        return False
+    # Planilhas restritas: protege chamadas, nomes, custos, triagem, verificação e registros de revisão
+    if metodo in ("GET", "HEAD") and caminho in EXIGENCIAS_EXPORTACOES:
+        return all(pode(grupo, permissoes, p) for p in EXIGENCIAS_EXPORTACOES[caminho])
+    return True
 
 
 def resumo_do_grupo(grupo: str, permissoes: set[str] | frozenset[str]) -> dict:

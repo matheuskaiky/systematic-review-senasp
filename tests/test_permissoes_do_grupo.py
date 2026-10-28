@@ -13,7 +13,7 @@ from test_admin import _csrf, _gid, adm  # noqa: F401
 from test_painel import demo  # noqa: F401
 
 SENSIVEIS_TEXTO = {"supervisao": "supervisão", "dados_pessoais": "dados pessoais", "tecnica_restrita": "técnica restrita",
-                   "escrita_externa": "escrita externa"}
+                   "escrita_externa": "escrita externa", "dados_revisao": "dados de revisão", "financeira": "financeira"}
 TODAS = list(A.PERMISSOES)
 ORDEM_DA_PAGINA = [p for m in A.MODULOS_PERMISSAO for p in TODAS if A.CATALOGO_PERMISSOES[p]["modulo"] == m]
 
@@ -73,7 +73,7 @@ LEITOR = {"ver_painel", "ver_nomes_revisores"}
     ("", "habilitadas", "", ["ver_painel", "ver_nomes_revisores"]),
     ("", "desabilitadas", "", [p for p in TODAS if p not in LEITOR]),
     ("", "sensiveis", "", ["ver_nomes_revisores", "ver_chamadas", "revogar_verificacao", "ver_estatisticas_usuarios",
-                            "enviar_coletas"]),
+                            "enviar_coletas", "ver_registros_revisao", "ver_custos"]),
     ("", "", "acompanhamento", ["ver_nomes_revisores", "ver_estatisticas_usuarios"]),
     ("ver", "habilitadas", "acompanhamento", ["ver_nomes_revisores"]),
     ("", "desabilitadas", "acompanhamento", ["ver_estatisticas_usuarios"]),
@@ -198,7 +198,8 @@ def test_busca_e_filtros_pela_url(adm):
     assert _itens(h)[1] == ["triar_artigos", "triar_texto_completo"] and [m for m, _ in _modulos(h)] == ["revisao"]
     assert 'name="q" value="triar"' in h
     h = _pagina(cli, gid, filtro="habilitadas")
-    assert _itens(h)[1] == ["ver_painel", "ver_nomes_revisores"] and [m for m, _ in _modulos(h)] == ["consulta", "acompanhamento"]
+    assert _itens(h)[1] == ["ver_painel", "ver_registros_revisao", "ver_nomes_revisores", "ver_custos"]   # o Leitor padrao, na ordem
+    assert [m for m, _ in _modulos(h)] == ["consulta", "acompanhamento", "tecnico"]                       # da pagina (por modulo)
     assert _modulos(h)[1][1] == "Acompanhamento — 1 de 2"                    # contagem do modulo inteiro, nao do filtro
     assert '<option value="habilitadas" selected>Habilitadas</option>' in h
     h = _pagina(cli, gid, modulo="tecnico", filtro="desabilitadas")
@@ -220,8 +221,9 @@ def test_parametro_repetido_vale_o_ultimo(adm):
     cli, _, contas_db, _ = adm
     gid = _gid(contas_db, "Leitor")
     assert _itens(cli.get(f"/admin/grupos/{gid}?q=triar&q=chamadas").text)[1] == ["ver_chamadas"]
-    assert _itens(cli.get(f"/admin/grupos/{gid}?filtro=sensiveis&filtro=habilitadas").text)[1] == ["ver_painel", "ver_nomes_revisores"]
-    assert _itens(cli.get(f"/admin/grupos/{gid}?modulo=revisao&modulo=tecnico").text)[1] == ["ver_chamadas", "enviar_coletas"]
+    assert _itens(cli.get(f"/admin/grupos/{gid}?filtro=sensiveis&filtro=habilitadas").text)[1] == [
+        "ver_painel", "ver_registros_revisao", "ver_nomes_revisores", "ver_custos"]
+    assert _itens(cli.get(f"/admin/grupos/{gid}?modulo=revisao&modulo=tecnico").text)[1] == ["ver_chamadas", "enviar_coletas", "ver_custos"]
 
 
 def test_tres_filtros_juntos_na_rota(adm):

@@ -103,6 +103,8 @@ CATALOGO = {
     "triar_texto_completo": {"modulo": "revisao", "sensibilidade": "escrita", "depende_de": ("triar_artigos",)},
     "ver_estatisticas_usuarios": {"modulo": "acompanhamento", "sensibilidade": "dados_pessoais", "depende_de": ("ver_painel",)},
     "enviar_coletas": {"modulo": "tecnico", "sensibilidade": "escrita_externa", "depende_de": ()},
+    "ver_registros_revisao": {"modulo": "consulta", "sensibilidade": "dados_revisao", "depende_de": ("ver_painel",)},
+    "ver_custos": {"modulo": "tecnico", "sensibilidade": "financeira", "depende_de": ("ver_painel",)},
 }
 
 
@@ -127,12 +129,13 @@ def test_catalogo_de_permissoes_exato():
         assert meta["modulo"] in A.MODULOS_PERMISSAO
         assert meta["sensibilidade"] in A.SENSIBILIDADES
         assert all(d in A.PERMISSOES and d != chave for d in meta["depende_de"])
-    assert A.SENSIBILIDADES == (None, "escrita", "supervisao", "dados_pessoais", "tecnica_restrita", "escrita_externa")
+    assert A.SENSIBILIDADES == (None, "escrita", "supervisao", "dados_pessoais", "tecnica_restrita", "escrita_externa", "dados_revisao",
+                                "financeira")
 
 
-def test_permissoes_e_grupos_padrao_inalterados():
-    """Esta etapa nao muda texto nem conjunto nenhum: descricoes, grupos padrao, listas de escrita, de proibidas ao visitante e de
-    acoes auditadas continuam exatamente como estavam."""
+def test_permissoes_e_grupos_padrao_exatos():
+    """Descricoes, grupos padrao, listas de escrita, de proibidas ao visitante e de acoes auditadas, exatamente. As duas permissoes
+    de leitura de registros de revisao e de custos entram no fim, proibidas ao visitante e semeadas no Leitor e no Revisor novos."""
     assert list(A.PERMISSOES.items()) == [
         ("ver_painel", "Ver as páginas de leitura (visão geral, estados, achados, literatura, análises, soluções, metodologia, "
                        "triagem de escopo)"),
@@ -143,12 +146,17 @@ def test_permissoes_e_grupos_padrao_inalterados():
         ("triar_artigos", "Triar artigos por título e resumo"),
         ("triar_texto_completo", "Triar artigos por texto completo"),
         ("ver_estatisticas_usuarios", "Ver as estatísticas por usuário"),
-        ("enviar_coletas", "Gerar o próprio token e enviar coletas do computador local para a nuvem")]
+        ("enviar_coletas", "Gerar o próprio token e enviar coletas do computador local para a nuvem"),
+        ("ver_registros_revisao", "Ver observações e motivos das decisões"),
+        ("ver_custos", "Ver custos das execuções")]
     assert A.PERMISSOES_ESCRITA == {"verificar_achados", "revogar_verificacao", "triar_artigos", "triar_texto_completo"}
-    assert A.PERMISSOES_PROIBIDAS_VISITANTE == A.PERMISSOES_ESCRITA | {"ver_estatisticas_usuarios", "enviar_coletas"}
+    assert A.PERMISSOES_PROIBIDAS_VISITANTE == A.PERMISSOES_ESCRITA | {"ver_estatisticas_usuarios", "enviar_coletas", "ver_custos",
+                                                                      "ver_registros_revisao"}
     assert A.GRUPOS_PADRAO == {
-        "Administrador": set(A.PERMISSOES), "Visitante": {"ver_painel"}, "Leitor": {"ver_painel", "ver_nomes_revisores"},
-        "Revisor": {"ver_painel", "ver_nomes_revisores", "ver_chamadas", "verificar_achados", "triar_artigos", "triar_texto_completo"}}
+        "Administrador": set(A.PERMISSOES), "Visitante": {"ver_painel"},
+        "Leitor": {"ver_painel", "ver_nomes_revisores", "ver_registros_revisao", "ver_custos"},
+        "Revisor": {"ver_painel", "ver_nomes_revisores", "ver_chamadas", "verificar_achados", "triar_artigos", "triar_texto_completo",
+                    "ver_registros_revisao", "ver_custos"}}
     assert A.ACOES_AUDITORIA == ("criar_usuario", "editar_usuario", "redefinir_senha", "desativar_usuario", "reativar_usuario",
                                  "salvar_permissoes", "criar_grupo", "renomear_grupo", "gerar_token", "revogar_token")
 

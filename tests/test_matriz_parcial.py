@@ -14,6 +14,10 @@ from test_painel import demo  # noqa: F401
 RECUSA = "As permissões mudaram depois que esta página foi aberta. Nada foi gravado: recarregue a página e refaça as alterações."
 
 
+# o Leitor padrao de um banco de contas novo, e o mesmo sem `ver_nomes_revisores` (a caixa que os testes desmarcam)
+LEITOR_PADRAO = {"ver_painel", "ver_nomes_revisores", "ver_registros_revisao", "ver_custos"}
+LEITOR_SEM_NOMES = {"ver_painel", "ver_registros_revisao", "ver_custos"}
+
 def _formulario(cli):
     """O formulario exatamente como a pagina o entrega: csrf, grupos exibidos, versao e as caixas marcadas habilitadas."""
     h = cli.get("/admin/grupos").text
@@ -123,7 +127,7 @@ def test_grupo_criado_depois_de_abrir_a_pagina_fica_inalterado(adm):
     r = _post(cli, dados)
     assert r.status_code == 303
     depois = _perms(contas_db)
-    assert depois["Bolsistas"] == {"ver_painel", "ver_nomes_revisores"} and depois["Leitor"] == {"ver_painel"}
+    assert depois["Bolsistas"] == {"ver_painel", "ver_nomes_revisores"} and depois["Leitor"] == LEITOR_SEM_NOMES
 
 
 # ---------------- concorrencia ----------------
@@ -164,7 +168,7 @@ def test_versao_repetida_vale_a_primeira(adm):
     dados.append(("versao", "0" * 64))
     l = _gid(contas_db, "Leitor")
     r = _post(cli, [(k, v) for k, v in dados if k != f"p-{l}-ver_nomes_revisores"])
-    assert r.status_code == 303 and _perms(contas_db)["Leitor"] == {"ver_painel"}
+    assert r.status_code == 303 and _perms(contas_db)["Leitor"] == LEITOR_SEM_NOMES
 
 
 # ---------------- lista de grupos forjada ----------------
@@ -190,7 +194,7 @@ def test_grupo_listado_duas_vezes_conta_uma(adm):
     l = str(_gid(contas_db, "Leitor"))
     dados = [(k, v) for k, v in _formulario(cli) if k != f"p-{l}-ver_nomes_revisores"] + [("grupos", l)]
     r = _post(cli, dados)
-    assert r.status_code == 303 and _perms(contas_db)["Leitor"] == {"ver_painel"}
+    assert r.status_code == 303 and _perms(contas_db)["Leitor"] == LEITOR_SEM_NOMES
 
 
 def test_sem_grupo_listado_nada_muda(adm):
@@ -212,18 +216,18 @@ def test_visitante_continua_sem_permissoes_proibidas(adm):
 def test_adaptador_confere_a_versao_na_mesma_transacao(adm):
     _, contas, contas_db, _ = adm
     l = _gid(contas_db, "Leitor")
-    atual = {l: {"ver_painel", "ver_nomes_revisores"}}
+    atual = {l: LEITOR_PADRAO}
     with pytest.raises(A.PermissoesAlteradas):
         contas.definir_matriz({l: {"ver_painel"}}, None, versao_esperada=A.versao_permissoes({l: {"ver_painel"}}))
     assert _perms(contas_db)["Leitor"] == atual[l]
-    assert contas.definir_matriz({l: {"ver_painel"}}, None, versao_esperada=A.versao_permissoes(atual)) == 1
+    assert contas.definir_matriz({l: {"ver_painel"}}, None, versao_esperada=A.versao_permissoes(atual)) == 3
     assert _perms(contas_db)["Leitor"] == {"ver_painel"}
 
 
 def test_adaptador_sem_versao_continua_como_antes(adm):
     _, contas, contas_db, _ = adm
     l = _gid(contas_db, "Leitor")
-    assert contas.definir_matriz({l: set()}) == 2 and _perms(contas_db)["Leitor"] == set()
+    assert contas.definir_matriz({l: set()}) == 4 and _perms(contas_db)["Leitor"] == set()
 
 
 def test_recusa_deixa_a_conexao_livre(adm):
@@ -231,7 +235,7 @@ def test_recusa_deixa_a_conexao_livre(adm):
     l = _gid(contas_db, "Leitor")
     with pytest.raises(A.PermissoesAlteradas):
         contas.definir_matriz({l: set()}, None, versao_esperada="0" * 64)
-    assert contas.definir_permissoes(l, {"ver_painel"}) == 1                # nenhuma transacao ficou aberta
+    assert contas.definir_permissoes(l, {"ver_painel"}) == 3                # nenhuma transacao ficou aberta
 
 
 def _form_sem_leitor(cli, contas, contas_db, extra):
@@ -319,7 +323,7 @@ def test_reenvio_da_mesma_pagina_e_recusado(adm):
     dados = [(k, v) for k, v in _formulario(cli) if k != f"p-{l}-ver_nomes_revisores"]
     assert _post(cli, dados).status_code == 303
     r = _post(cli, dados)
-    assert r.status_code == 409 and _perms(contas_db)["Leitor"] == {"ver_painel"}
+    assert r.status_code == 409 and _perms(contas_db)["Leitor"] == LEITOR_SEM_NOMES
 
 
 @pytest.mark.parametrize("texto,esperado", [

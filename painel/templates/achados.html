@@ -4,7 +4,7 @@
 {% block conteudo %}
 <h1>Achados</h1>
 <p class="sub">Só a classificação vigente de cada página (ver o glossário). Em ordem de revisão: não verificados primeiro, depois evidência não localizada, texto só de snippet, confiança baixa e fonte não oficial.</p>
-{% if "verificar_achados" in perms %}<p><a class="botao" href="/achados/casos.xlsx">Baixar no modelo de casos estaduais</a> <small>os achados que a verificação não descartou, uma linha por achado, e o resumo por UF</small></p>{% endif %}
+{# protege verificação e registros de revisão #}{% if pode_seguir("/achados/casos.xlsx") %}<p><a class="botao" href="/achados/casos.xlsx">Baixar no modelo de casos estaduais</a> <small>os achados que a verificação não descartou, uma linha por achado, e o resumo por UF</small></p>{% endif %}
 <form class="filtros" method="get" action="/achados">
   <label>UF <select name="uf"><option value="">todas</option>{% for sigla, nome in ctx.ufs.items() %}<option value="{{ sigla }}"{% if filtros.uf == sigla %} selected{% endif %}>{{ sigla }}</option>{% endfor %}</select></label>
   <label>Esfera <select name="esfera"><option value="">todas</option><option value="estadual"{% if filtros.esfera == "estadual" %} selected{% endif %}>estadual</option><option value="municipal"{% if filtros.esfera == "municipal" %} selected{% endif %}>municipal</option></select></label>

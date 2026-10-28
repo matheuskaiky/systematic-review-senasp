@@ -241,7 +241,7 @@ def test_matriz_salva_ignora_forjados_e_e_idempotente(adm):
     r = cli.post("/admin/grupos", data=dados, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/admin/grupos?ok=1"
     assert contas.permissoes_do_grupo("Visitante") == {"ver_painel", "ver_nomes_revisores"}
-    assert contas.permissoes_do_grupo("Leitor") == {"ver_painel"}
+    assert contas.permissoes_do_grupo("Leitor") == {"ver_painel", "ver_registros_revisao", "ver_custos"}
     assert _auditoria(contas_db) == [("salvar_permissoes", "Visitante", "+ver_nomes_revisores"),
                                      ("salvar_permissoes", "Leitor", "-ver_nomes_revisores")]
     r = cli.post("/admin/grupos", data={**dados, "csrf": _csrf(cli, "/admin/grupos"), **_ocultos_da_matriz(cli)}, follow_redirects=False)
@@ -264,7 +264,8 @@ def test_definir_permissoes_regras_do_adaptador(adm, grupo, permissoes, mensagem
     _, contas, contas_db, _ = adm
     with pytest.raises(ValueError, match=re.escape(mensagem)):
         contas.definir_permissoes(_gid(contas_db, grupo), permissoes)
-    assert contas.definir_permissoes(_gid(contas_db, "Leitor"), {"ver_painel", "ver_nomes_revisores"}) == 0
+    assert contas.definir_permissoes(_gid(contas_db, "Leitor"),
+                                     {"ver_painel", "ver_nomes_revisores", "ver_registros_revisao", "ver_custos"}) == 0
 
 
 # ====================== grupos ======================

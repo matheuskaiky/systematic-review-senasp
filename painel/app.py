@@ -610,7 +610,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     @app.get("/execucoes/resultado.xlsx")
     def resultado_xlsx(request: Request):
         """A planilha completa de resultados (as mesmas abas do comando `exportar`), lida do banco do painel."""
-        if not {"ver_chamadas", "ver_nomes_revisores"} <= _perms(request):     # leva as chamadas e os nomes de quem decidiu
+        if not set(autenticacao.EXIGENCIAS_EXPORTACOES["/execucoes/resultado.xlsx"]) <= _perms(request):  # protege chamadas, nomes, custos e registros de revisão
             return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
         if not leitura.existe():
             return sem_banco(request)
@@ -752,7 +752,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     @app.get("/literatura/catalogo.xlsx")
     def catalogo_xlsx(request: Request, modelo: str = ""):
         """Catalogo de referencias num modelo de planilha (o mesmo arquivo de `python main.py exportar-referencias`)."""
-        if "triar_artigos" not in _perms(request):           # alem do middleware: o catalogo leva as notas de leitura
+        if not set(autenticacao.EXIGENCIAS_EXPORTACOES["/literatura/catalogo.xlsx"]) <= _perms(request):  # protege triagem e registros de revisão
             return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
         if not leitura.existe():
             return sem_banco(request)
@@ -870,8 +870,17 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         else:
             opcoes = [("incluir", "Incluir"), ("excluir", "Excluir")]
             rotulo_de = {"incluir": "Incluir", "excluir": "Excluir"}.get
-        lista = [{**sg, "rotulo": rotulo_de(sg["valor"]) or sg["valor"], "vencida": sg["estado_alvo"] != ficha,
-                  "minha": pode_escrever and eu == chave_autor(sg["autor"])} for sg in leitura.sugestoes_abertas(alvo_tipo, alvo_id)]
+        # Protege os registros de revisão: o motivo da sugestão só sai para quem pode sugerir ou tem permissão
+        ve_motivo = pode_escrever or "ver_registros_revisao" in _perms(request)
+        lista = []
+        for sg in leitura.sugestoes_abertas(alvo_tipo, alvo_id):
+            item = dict(sg)
+            if not ve_motivo:
+                item["motivo"] = None
+            item["rotulo"] = rotulo_de(sg["valor"]) or sg["valor"]
+            item["vencida"] = sg["estado_alvo"] != ficha
+            item["minha"] = pode_escrever and eu == chave_autor(sg["autor"])
+            lista.append(item)
         return {"sugestoes": lista,
                 "pode_sugerir": pode_escrever and decidido and not do_autor,
                 "pode_resolver": pode_escrever and (usuario["grupo"] == autenticacao.GRUPO_ADMIN or do_autor) if usuario else False,
@@ -894,10 +903,21 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             janela = _janela(ids, artigo_id)
             t = leitura.titulos_artigos(janela)
             fila_itens = [{"id": i, "titulo": (t.get(i) or "").strip() or f"Artigo nº {i}", "estado": "pendente"} for i in janela]
-        return pagina(request, "artigo.html", a=a, em_fila=em_fila, restantes=len(ids), proximo=proximo, tri=leitura.contagem_triagem(),
+        sug_ctx = _sugestoes_ctx(request, "artigo", artigo_id, a["decisao"] in ("incluir", "excluir") and a["decisao_texto_completo"] == "pendente",
+                                 a["decisao"], a["revisor"], leitura.estado_decisao("artigo", artigo_id))
+        # Motivos de triagem só chegam ao modelo para quem tem a permissão ou pode decidir o item
+        pode_ver_registros = "ver_registros_revisao" in _perms(request) or _pode_rota(request)("POST", f"/literatura/artigos/{artigo_id}/triar")
+        if not pode_ver_registros:
+            a_exibir = dict(a)
+            a_exibir["motivo"] = None
+            a_exibir["motivo_texto_completo"] = None
+            if "historico" in a:
+                a_exibir["historico"] = [{**h, "motivo": None, "motivo_texto_completo": None} for h in a["historico"]]
+        else:
+            a_exibir = a
+        return pagina(request, "artigo.html", a=a_exibir, em_fila=em_fila, restantes=len(ids), proximo=proximo, tri=leitura.contagem_triagem(),
                       query=_query_triagem(request), ok=ok if 0 <= ok <= MAX_PAGINA * 1000 else 0, fila_itens=fila_itens,
-                      **_sugestoes_ctx(request, "artigo", artigo_id, a["decisao"] in ("incluir", "excluir") and a["decisao_texto_completo"] == "pendente",
-                                       a["decisao"], a["revisor"], leitura.estado_decisao("artigo", artigo_id)))
+                      **sug_ctx)
 
     @app.get("/literatura/triagem", response_class=HTMLResponse)
     def fila_triagem(request: Request):
@@ -1032,7 +1052,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     @app.get("/achados/casos.xlsx")
     def casos_xlsx(request: Request):
         """Os achados no modelo de planilha "Casos Estaduais" (D112), o mesmo arquivo de `python main.py exportar-casos`."""
-        if "verificar_achados" not in _perms(request):     # alem do middleware: a planilha leva as observacoes da verificacao
+        if not set(autenticacao.EXIGENCIAS_EXPORTACOES["/achados/casos.xlsx"]) <= _perms(request):  # protege verificação e registros de revisão
             return erro(request, 403, "Sem permissão", "Seu grupo não tem permissão para esta página ou ação.")
         if not leitura.existe():
             return sem_banco(request)
@@ -1070,12 +1090,22 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         pode_desfazer_ok = False
         if ok and ok > 0:
             pode_desfazer_ok = pode_desfazer if ok == achado_id else _pode_desfazer(request, ok, leitura.historico_achado(ok))
-        return pagina(request, "achado.html", a=a, ev=_contexto_evidencia(a, bool(completo)), completo=bool(completo), ent=ent,
-                      historico=historico, em_fila=em_fila, rev=rev, proximo=proximo,
+        sug_ctx = _sugestoes_ctx(request, "achado", achado_id, bool(a["verificado"]), a["status_final"], a["verificado_por"],
+                                 ficha_da_decisao(tuple(a[c] for c in CAMPOS_ACHADO)))
+        # Observações só chegam ao modelo para quem tem a permissão ou pode decidir o item
+        pode_ver_registros = "ver_registros_revisao" in _perms(request) or _pode_rota(request)("POST", f"/achados/{achado_id}/verificar")
+        if not pode_ver_registros:
+            a_exibir = dict(a)
+            a_exibir["observacao"] = None
+            hist_exibir = [{**h, "observacao": None} for h in historico]
+        else:
+            a_exibir = a
+            hist_exibir = historico
+        return pagina(request, "achado.html", a=a_exibir, ev=_contexto_evidencia(a, bool(completo)), completo=bool(completo), ent=ent,
+                      historico=hist_exibir, em_fila=em_fila, rev=rev, proximo=proximo,
                       query=_query_fila(request), ok=ok, restantes=len(ids),
                       pode_desfazer=pode_desfazer, pode_desfazer_ok=pode_desfazer_ok, fila_itens=fila_itens,
-                      **_sugestoes_ctx(request, "achado", achado_id, bool(a["verificado"]), a["status_final"], a["verificado_por"],
-                                       ficha_da_decisao(tuple(a[c] for c in CAMPOS_ACHADO))),
+                      **sug_ctx,
                       status_opcoes=[(k, contexto.status_definicoes[k]) for k in contexto.status_definicoes])
 
     @app.get("/revisao/achados", response_class=HTMLResponse)

@@ -539,6 +539,7 @@ class ContasSQLite:
         permissoes_por_grupo: dict[int, set[str]],
         auditoria: tuple[str, str] | None = None,
         versao_esperada: str | None = None,
+        detalhes: dict[int, str] | None = None,
     ) -> int:
         """Atualiza a matriz de permissões para todos os grupos em uma única transação."""
         with self._conexao(escrita=True) as conn:
@@ -574,7 +575,10 @@ class ContasSQLite:
                 adicionadas, removidas = self._aplicar_permissoes(conn, gid, novas, atuais)
                 if adicionadas or removidas:
                     total_alteracoes += len(adicionadas) + len(removidas)
-                    detalhe = ", ".join(["+" + p for p in sorted(adicionadas)] + ["-" + p for p in sorted(removidas)])
+                    if detalhes and gid in detalhes:
+                        detalhe = detalhes[gid]
+                    else:
+                        detalhe = ", ".join(["+" + p for p in sorted(adicionadas)] + ["-" + p for p in sorted(removidas)])
                     if auditoria:
                         admin_login, agora = auditoria
                         self._gravar_auditoria(conn, (admin_login, "salvar_permissoes", g_nome, detalhe, agora))

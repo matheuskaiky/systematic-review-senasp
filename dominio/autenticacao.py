@@ -120,6 +120,9 @@ EXIGENCIAS_EXPORTACOES = {
     "/achados/casos.xlsx": ("verificar_achados", "ver_registros_revisao"),
 }
 
+PERMISSOES_NOVAS = ("ver_registros_revisao", "ver_custos")
+GRUPOS_EQUIVALENTES = ("Leitor", "Revisor")
+
 REGRAS_ROTAS = (
     ("GET", "/entrar", None),
     ("POST", "/entrar", None),
@@ -465,3 +468,76 @@ def resumir_atividade(linhas: list[dict], hoje: str) -> tuple[list[dict], list[d
     totais = list(totais_map.values())
     totais.sort(key=lambda t: (-(t["achados"] + t["artigos"]), t["revisor"]))
     return totais, janela
+
+
+def plano_permissoes_novas(grupos: list[dict] | tuple[dict, ...], aprovados: tuple[str, ...] | list[str] = ()) -> dict:
+    """Calcula o plano de concessão das permissões novas aos grupos existentes."""
+    mapa_grupos = {g["nome"]: g for g in grupos}
+
+    # Validação de aprovados na ordem informada
+    for nome in aprovados:
+        if nome not in mapa_grupos:
+            raise ValueError(f"Grupo não encontrado: {nome}")
+        if nome in (GRUPO_ADMIN, GRUPO_VISITANTE):
+            raise ValueError(f"O grupo {nome} não recebe permissões por este comando.")
+        if "ver_painel" not in mapa_grupos[nome]["permissoes"]:
+            raise ValueError(f"O grupo {nome} não tem ver_painel: não via esses dados e não recebe as permissões novas.")
+
+    conceder = []
+    incertos = []
+    completos = []
+    fora = []
+
+    aprovados_set = set(aprovados)
+    conjunto_permissoes = set(PERMISSOES)
+
+    for g in grupos:
+        nome = g["nome"]
+        perms = g["permissoes"]
+        gid = g["grupo_id"]
+
+        if nome == GRUPO_ADMIN:
+            fora.append((nome, "tem todas pelo nome"))
+        elif nome == GRUPO_VISITANTE:
+            fora.append((nome, "proibidas ao visitante"))
+        elif "ver_painel" not in perms:
+            fora.append((nome, "sem ver_painel"))
+        else:
+            faltam = [p for p in PERMISSOES_NOVAS if p not in perms]
+            if not faltam:
+                completos.append(nome)
+            elif nome in GRUPOS_EQUIVALENTES or nome in aprovados_set:
+                desconhecidas = sorted(perms - conjunto_permissoes)
+                if desconhecidas:
+                    raise ValueError(
+                        f"O grupo {nome} tem permissões desconhecidas gravadas ({', '.join(desconhecidas)}): "
+                        "corrija antes de atribuir."
+                    )
+                motivo = "equivalente" if nome in GRUPOS_EQUIVALENTES else "aprovado"
+                conceder.append({
+                    "grupo_id": gid,
+                    "nome": nome,
+                    "atuais": sorted(perms),
+                    "adicionar": faltam,
+                    "motivo": motivo,
+                })
+            else:
+                incertos.append({
+                    "grupo_id": gid,
+                    "nome": nome,
+                    "adicionar": faltam,
+                })
+
+    if conceder:
+        linhas = [f"{c['grupo_id']}\t{c['nome']}\t{','.join(c['atuais'])}\t{','.join(c['adicionar'])}" for c in conceder]
+        codigo = hashlib.sha256("\n".join(linhas).encode("utf-8")).hexdigest()[:12]
+    else:
+        codigo = None
+
+    return {
+        "conceder": conceder,
+        "incertos": incertos,
+        "completos": completos,
+        "fora": fora,
+        "codigo": codigo,
+    }

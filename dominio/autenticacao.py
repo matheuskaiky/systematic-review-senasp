@@ -3,6 +3,7 @@ from datetime import datetime
 from functools import lru_cache
 import hashlib
 import hmac
+import json
 import re
 import secrets
 import sys
@@ -15,6 +16,14 @@ class ContasOcupadas(Exception):
 
 class PermissoesAlteradas(Exception):
     """As permissões de algum grupo mudaram desde que a página foi aberta."""
+
+
+class AlteracaoRecusada(Exception):
+    """Uma alteração de permissões foi recusada por inconsistência ou regra de negócio."""
+
+    def __init__(self, erros: list[str]):
+        super().__init__(erros)
+        self.erros = list(erros)
 
 
 def versao_permissoes(estado: dict[int, set[str] | list[str] | tuple[str, ...]]) -> str:
@@ -541,3 +550,128 @@ def plano_permissoes_novas(grupos: list[dict] | tuple[dict, ...], aprovados: tup
         "fora": fora,
         "codigo": codigo,
     }
+
+
+JUSTIFICATIVA_MAX = 500
+
+
+def revisar_alteracao(grupo: str, atuais, marcadas, exibidas) -> dict:
+    """Revisa a alteração de permissões de um grupo, calculando diferenças e inconsistências."""
+    if grupo == GRUPO_ADMIN:
+        return {
+            "antes": sorted(atuais),
+            "depois": sorted(atuais),
+            "concedidas": [],
+            "retiradas": [],
+            "sensiveis": [],
+            "exige_justificativa": False,
+            "erros": ["O grupo Administrador tem acesso integral e não pode ser alterado."],
+        }
+
+    if (
+        not isinstance(marcadas, (list, tuple))
+        or not isinstance(exibidas, (list, tuple))
+        or any(type(x) is not str for x in marcadas)
+        or any(type(x) is not str for x in exibidas)
+        or not any(x in CATALOGO_PERMISSOES for x in exibidas)
+    ):
+        return {
+            "antes": sorted(atuais),
+            "depois": sorted(atuais),
+            "concedidas": [],
+            "retiradas": [],
+            "sensiveis": [],
+            "exige_justificativa": False,
+            "erros": ["O formulário veio incompleto. Abra o grupo de novo e refaça as alterações."],
+        }
+
+    atuais_set = set(atuais)
+    E = {p for p in exibidas if p in CATALOGO_PERMISSOES}
+    M = set(marcadas)
+    depois_set = (atuais_set - E) | (M & E)
+    depois = sorted(depois_set)
+    concedidas_set = depois_set - atuais_set
+    retiradas_set = atuais_set - depois_set
+
+    concedidas = [p for p in CATALOGO_PERMISSOES if p in concedidas_set]
+    retiradas = [p for p in CATALOGO_PERMISSOES if p in retiradas_set]
+    sensiveis = [
+        p for p in concedidas
+        if CATALOGO_PERMISSOES[p].get("sensibilidade") in ROTULOS_SENSIBILIDADE
+    ]
+    exige_justificativa = bool(
+        sensiveis
+        or any(CATALOGO_PERMISSOES[p].get("sensibilidade") == "supervisao" for p in retiradas)
+    )
+
+    erros: list[str] = []
+
+    # 1. Chaves desconhecidas contadas sem ecoar
+    desconhecidas = (set(exibidas) | M) - set(CATALOGO_PERMISSOES)
+    n_desc = len(desconhecidas)
+    if n_desc == 1:
+        erros.append("O formulário trouxe 1 permissão desconhecida.")
+    elif n_desc > 1:
+        erros.append(f"O formulário trouxe {n_desc} permissões desconhecidas.")
+
+    # 2. Marcadas fora da lista exibida
+    for p in CATALOGO_PERMISSOES:
+        if p in M and p not in E:
+            erros.append(f"«{PERMISSOES[p]}» foi marcada, mas não fazia parte do formulário.")
+
+    # 3. Recusas de quem não entrou (Visitante)
+    if grupo == GRUPO_VISITANTE:
+        for p in concedidas:
+            desc = PERMISSOES[p]
+            if p in PERMISSOES_PROIBIDAS_VISITANTE:
+                erros.append(f"«{desc}» não pode ser dada a quem não entrou.")
+            elif p in sensiveis:
+                erros.append(
+                    f"«{desc}» não pode ser dada a quem não entrou enquanto não houver política de divulgação pública."
+                )
+
+    # 4. Dependências no estado final
+    for p in CATALOGO_PERMISSOES:
+        if p in depois_set:
+            for d in CATALOGO_PERMISSOES[p].get("depende_de", ()):
+                if d not in depois_set:
+                    erros.append(
+                        f"«{PERMISSOES[p]}» precisa de «{PERMISSOES[d]}»: marque as duas ou desmarque «{PERMISSOES[p]}»."
+                    )
+
+    return {
+        "antes": sorted(atuais),
+        "depois": depois,
+        "concedidas": concedidas,
+        "retiradas": retiradas,
+        "sensiveis": sensiveis,
+        "exige_justificativa": exige_justificativa,
+        "erros": erros,
+    }
+
+
+def pendencias_da_gravacao(revisao: dict, confirmado: bool, justificativa: str) -> list[str]:
+    """Verifica pendências que impedem a gravação das permissões revisadas."""
+    pendencias: list[str] = []
+    if revisao.get("sensiveis") and not confirmado:
+        pendencias.append("Marque a confirmação das permissões sensíveis antes de gravar.")
+    if revisao.get("exige_justificativa") and not justificativa.strip():
+        pendencias.append(
+            "Escreva a justificativa: ela é obrigatória ao conceder permissões sensíveis ou retirar uma permissão de supervisão."
+        )
+    if len(justificativa) > JUSTIFICATIVA_MAX:
+        pendencias.append(f"A justificativa tem {len(justificativa)} caracteres; o máximo é {JUSTIFICATIVA_MAX}.")
+    return pendencias
+
+
+def detalhe_auditoria(revisao: dict, justificativa: str, origem: str = "edicao") -> str:
+    """Gera o detalhe JSON para a linha de auditoria da alteração de permissões."""
+    dados = {
+        "antes": sorted(revisao["antes"]),
+        "depois": sorted(revisao["depois"]),
+        "concedidas": sorted(revisao["concedidas"]),
+        "retiradas": sorted(revisao["retiradas"]),
+        "justificativa": justificativa if justificativa.strip() else "",
+        "origem": origem,
+    }
+    return json.dumps(dados, ensure_ascii=False)

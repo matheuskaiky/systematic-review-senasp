@@ -534,6 +534,57 @@ class ContasSQLite:
                 self._gravar_auditoria(conn, auditoria)
             return diff_count
 
+    def definir_permissoes_do_grupo(
+        self,
+        grupo_id: int,
+        marcadas: list[str],
+        exibidas: list[str],
+        versao_esperada: str | None,
+        confirmado: bool,
+        justificativa: str,
+        auditoria: tuple[str, str],
+    ) -> dict:
+        """Altera com segurança as permissões de um grupo com conferência de versão e auditoria."""
+        if type(grupo_id) is not int or not (1 <= grupo_id <= 9223372036854775807):
+            raise autenticacao.AlteracaoRecusada(["Este grupo não existe mais."])
+
+        with self._conexao(escrita=True) as conn:
+            row = conn.execute("SELECT nome FROM grupos WHERE grupo_id = ?", (grupo_id,)).fetchone()
+            if not row:
+                raise autenticacao.AlteracaoRecusada(["Este grupo não existe mais."])
+            nome = row[0]
+
+            rows = conn.execute("SELECT permissao FROM grupo_permissoes WHERE grupo_id = ?", (grupo_id,)).fetchall()
+            if any(type(r[0]) is not str for r in rows):
+                raise autenticacao.AlteracaoRecusada(
+                    ["As permissões gravadas deste grupo têm um valor inválido. Nada foi alterado."]
+                )
+            atuais = {r[0] for r in rows}
+
+            if autenticacao.versao_permissoes({grupo_id: atuais}) != versao_esperada:
+                raise autenticacao.PermissoesAlteradas(
+                    "As permissões deste grupo mudaram desde que a página foi aberta."
+                )
+
+            r = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
+            if r["erros"]:
+                raise autenticacao.AlteracaoRecusada(r["erros"])
+
+            p = autenticacao.pendencias_da_gravacao(r, confirmado, justificativa)
+            if p:
+                raise autenticacao.AlteracaoRecusada(p)
+
+            if not r["concedidas"] and not r["retiradas"]:
+                return r
+
+            self._aplicar_permissoes(conn, grupo_id, set(r["depois"]), atuais)
+
+            admin_login, agora = auditoria
+            detalhe = autenticacao.detalhe_auditoria(r, justificativa)
+            self._gravar_auditoria(conn, (admin_login, "salvar_permissoes", nome, detalhe, agora))
+
+            return r
+
     def definir_matriz(
         self,
         permissoes_por_grupo: dict[int, set[str]],

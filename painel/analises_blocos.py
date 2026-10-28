@@ -160,7 +160,7 @@ def bloco_fornecedores(d):
 
 
 # ---------------------------------------------------------------- busca
-def bloco_funil(d):
+def bloco_funil(d, custos=True):
     # achados e confirmados ficam fora da sequencia: um achado e por tecnologia e uma pagina gera varios, entao o numero
     # pode passar do degrau anterior e a conversao "mais de 100%" enganaria
     degraus = ("resultados", "urls_unicas", "paginas_com_texto", "classificacoes_relevantes")
@@ -177,11 +177,13 @@ def bloco_funil(d):
              f"e {fmt.numero(p0['confirmados'])} estão confirmados por humano."]
     if unico:
         texto.append("Só um buscador tem dados. A comparação entre buscadores precisa de uma coleta real com o segundo.")
+    pares = [(f"{p['provedor']}: consultas / custo", f"{fmt.numero(p['n_consultas'])} / {fmt.moeda_usd(p['custo_usd'])}")
+             if custos else (f"{p['provedor']}: consultas", fmt.numero(p["n_consultas"]))
+             for p in d["provedores"]]
     return _bloco("funil", titulo, g.funil_comparativo(funis, titulo, "Resultados, URLs únicas, páginas com texto, relevantes, achados e confirmados"),
                   "contagens por etapa; um mesmo endereço achado por dois buscadores conta para cada um", texto,
                   aviso=None if d.get("tem_dados_humanos") else "Nenhum achado está confirmado porque ainda não há verificação humana.",
-                  pares=[(f"{p['provedor']}: consultas / custo", f"{fmt.numero(p['n_consultas'])} / {fmt.moeda_usd(p['custo_usd'])}")
-                         for p in d["provedores"]])
+                  pares=pares)
 
 
 def bloco_posicao_web(d):

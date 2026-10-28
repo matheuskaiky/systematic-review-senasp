@@ -149,7 +149,7 @@ def bloco_identidade(itens, recortes):
 
 
 # ---------------------------------------------------------------- ferramentas
-def bloco_ferramentas_relevancia(linhas):
+def bloco_ferramentas_relevancia(linhas, custos=True):
     """Cada ferramenta de busca: a parte elegivel dos itens que trouxe e o custo por item elegivel."""
     if not linhas:
         return _bloco("vies-ferramentas", "Nenhuma busca registrada nas execuções do relatório")
@@ -168,10 +168,16 @@ def bloco_ferramentas_relevancia(linhas):
         if l["creditos_por_elegivel"]:
             return f"{l['creditos_por_elegivel']:.2f} crédito".replace(".", ",")
         return "—"
-    tabela = {"cabecalho": ["Ferramenta", "Fonte", "Itens", "Alta", "Alta ou média", "Fora do escopo",
-                            "Custo por item de relevância alta ou média"],
-              "linhas": [[l["ferramenta"], l["fonte"], fmt.numero(l["itens"] or 0), fmt.numero(l["alta"]), fmt.numero(l["elegiveis"]),
-                          fmt.numero(l["fora"]), custo(l)] for l in linhas]}
+    if custos:
+        cabecalho = ["Ferramenta", "Fonte", "Itens", "Alta", "Alta ou média", "Fora do escopo",
+                     "Custo por item de relevância alta ou média"]
+        linhas_tab = [[l["ferramenta"], l["fonte"], fmt.numero(l["itens"] or 0), fmt.numero(l["alta"]), fmt.numero(l["elegiveis"]),
+                       fmt.numero(l["fora"]), custo(l)] for l in linhas]
+    else:
+        cabecalho = ["Ferramenta", "Fonte", "Itens", "Alta", "Alta ou média", "Fora do escopo"]
+        linhas_tab = [[l["ferramenta"], l["fonte"], fmt.numero(l["itens"] or 0), fmt.numero(l["alta"]), fmt.numero(l["elegiveis"]),
+                       fmt.numero(l["fora"])] for l in linhas]
+    tabela = {"cabecalho": cabecalho, "linhas": linhas_tab}
     fontes = [l["fonte"] for l in linhas]
     repetidas = sorted({f for f in fontes if fontes.count(f) > 1})
     texto = [f"A fonte {', '.join(repetidas)} tem mais de uma ferramenta: os resultados não são atribuídos a cada uma, os "

@@ -40,7 +40,7 @@ def anonimizar_revisores(d):
     return d_novo
 
 
-def montar(leitura, secao, ver_nomes=True, ferramentas=None, seguir=None):
+def montar(leitura, secao, ver_nomes=True, ferramentas=None, seguir=None, custos=True):
     """Devolve (blocos, resumo). `resumo` so e lido nas abas que precisam dele (e a leitura mais cara). `ferramentas`: as
     linhas de `dominio.analises_ferramentas.linhas`, se quem chama ja as leu."""
     resumo = leitura.analise_resumo() if secao in ("visao", "auditoria") else None
@@ -53,8 +53,8 @@ def montar(leitura, secao, ver_nomes=True, ferramentas=None, seguir=None):
                 b.bloco_fornecedores(leitura.analise_fornecedores())], resumo
     if secao == "busca":
         ferramentas = ferramentas if ferramentas is not None else AF.linhas(leitura.analise_ferramentas())
-        return [bf.bloco_ferramentas_busca(ferramentas), bf.bloco_custos(ferramentas),
-                b.bloco_funil(leitura.analise_funil_por_provedor()),
+        return [bf.bloco_ferramentas_busca(ferramentas, custos=custos), bf.bloco_custos(ferramentas, custos=custos),
+                b.bloco_funil(leitura.analise_funil_por_provedor(), custos=custos),
                 b.bloco_posicao_web(leitura.analise_retorno_por_posicao("web")),
                 b.bloco_posicao_scholar(leitura.analise_retorno_por_posicao("scholar")),
                 b.bloco_saturacao(leitura.analise_saturacao())], resumo
@@ -67,7 +67,7 @@ def montar(leitura, secao, ver_nomes=True, ferramentas=None, seguir=None):
                 + br.blocos_ruido_termos(leitura.analise_ruido_por_termo())
                 + br.blocos_simulacao(leitura.analise_simulacao_contexto())), resumo
     if secao == "web":
-        return (bc.blocos_cobertura_web(leitura.analise_cobertura_web())
+        return (bc.blocos_cobertura_web(leitura.analise_cobertura_web(), custos=custos)
                 + br.blocos_prefiltro(leitura.analise_prefiltro_web())), resumo
     if secao == "auditoria":
         d = leitura.analise_concordancia_achados()
@@ -82,7 +82,7 @@ def montar(leitura, secao, ver_nomes=True, ferramentas=None, seguir=None):
             b.bloco_tamanho(leitura.analise_tamanho_texto_achados())], resumo
 
 
-def montar_vies(leitura, contexto, secao, ferramentas):
+def montar_vies(leitura, contexto, secao, ferramentas, custos=True):
     """Os blocos do banco `vies` (busca de vies algoritmico) e os numeros do panorama: so as analises do tipo de informacao
     desta busca (fonte, relevancia, ferramentas, tipo de fonte, eixo, topicos, ano, pais, consultas, conjuntos e sites)."""
     conjunto = contexto.conjunto_da_consulta
@@ -94,8 +94,8 @@ def montar_vies(leitura, contexto, secao, ferramentas):
     resumo = AV.resumo(itens)
     blocos = {"panorama": lambda: [bv.bloco_relevancia(itens), bv.bloco_sobreposicao(resumo),
                                    bv.bloco_identidade(itens, contexto.recortes_vies)],
-              "ferramentas": lambda: [bv.bloco_ferramentas_relevancia(AV.relevancia_por_ferramenta(ferramentas, itens)),
-                                      bf.bloco_ferramentas_busca(ferramentas), bf.bloco_custos(ferramentas)],
+              "ferramentas": lambda: [bv.bloco_ferramentas_relevancia(AV.relevancia_por_ferramenta(ferramentas, itens), custos=custos),
+                                      bf.bloco_ferramentas_busca(ferramentas, custos=custos), bf.bloco_custos(ferramentas, custos=custos)],
               "tipos": lambda: [bv.bloco_grupos(itens), bv.bloco_relevancia_por_grupo(itens), bv.bloco_tipos(itens)],
               "temas": lambda: [bv.bloco_eixos(itens, tuple(contexto.eixos_exploracao)), bv.bloco_eixo_relevancia(itens),
                                 bv.bloco_topicos(itens, list(textos.values()))],
@@ -118,13 +118,14 @@ def registrar(c):
         secao = (request.query_params.get("secao") or abas[0][0]).strip().lower()
         if secao not in {chave for chave, _ in abas}:
             return c.erro(request, 404, "Aba inválida", "Escolha uma das abas da página de análises.")
+        custos = "ver_custos" in c.perms(request)
         if vies:
             with leitura.instantaneo() as l:
                 ferramentas = AF.linhas(l.analise_ferramentas())
-                blocos, resumo_vies = montar_vies(l, c.contexto, secao, ferramentas)
+                blocos, resumo_vies = montar_vies(l, c.contexto, secao, ferramentas, custos=custos)
             return c.pagina(request, "analises.html", secao=secao, abas=abas, blocos=blocos, resumo=None, resumo_vies=resumo_vies,
                             ferramentas=ferramentas)
         ferramentas = AF.linhas(leitura.analise_ferramentas())      # tambem para a legenda do fim da pagina
         ver_nomes = getattr(request.state, "ver_nomes", True)
-        blocos, resumo = montar(leitura, secao, ver_nomes=ver_nomes, ferramentas=ferramentas, seguir=c.pode_seguir(request))
+        blocos, resumo = montar(leitura, secao, ver_nomes=ver_nomes, ferramentas=ferramentas, seguir=c.pode_seguir(request), custos=custos)
         return c.pagina(request, "analises.html", secao=secao, abas=abas, blocos=blocos, resumo=resumo, ferramentas=ferramentas)

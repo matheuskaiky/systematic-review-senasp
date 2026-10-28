@@ -369,17 +369,17 @@ def _rot_celula(l):
     return f"{_tec(l['tecnologia'])} · {l['modelo_id']}"
 
 
-def blocos_cobertura_web(dados):
+def blocos_cobertura_web(dados, custos=True):
     """Blocos da coleta web (tecnologia x modelo de consulta). `dados` = `analise_cobertura_web()`."""
     dados = dados or {}
     if not dados.get("tem_dados"):
         return [_vazio("web_precisao", "Cobertura da busca web: ainda não há resultados web", "Nenhuma busca web registrada.")]
     if not dados.get("tem_triagem"):
         return [_vazio("web_precisao", "Cobertura da busca web: sem triagem de escopo para medir", "Rode `triar-escopo --fonte web`.")]
-    return [bloco_precisao_web(dados), bloco_sobreposicao_modelos(dados), bloco_curva_web(dados)]
+    return [bloco_precisao_web(dados, custos=custos), bloco_sobreposicao_modelos(dados), bloco_curva_web(dados, custos=custos)]
 
 
-def bloco_precisao_web(d):
+def bloco_precisao_web(d, custos=True):
     celulas = [c for c in d.get("por_celula") or [] if c.get("n_triados")]
     modelos = [m for m in d.get("por_modelo") or [] if m.get("n_triados")]
     ordenados = sorted(celulas, key=lambda c: (-(c["precisao"] or 0), c["tecnologia"], c["modelo_id"]))
@@ -394,17 +394,28 @@ def bloco_precisao_web(d):
                               rotulo_parte="Elegíveis", rotulo_resto="Não elegíveis")
     perfis = ", ".join(f"{m['modelo_id']} = {m.get('perfil') or '—'}" for m in d.get("por_modelo") or [])
     texto = ["Cada barra é uma combinação de tecnologia e modelo de consulta (M01 busca só sites .gov.br; M02 busca sem esse filtro). "
-             "Mostra onde cada consulta rende mais páginas dentro do escopo.",
-             f"Perfis: {perfis}. O custo é o da busca (US$ {fmt.decimal(d.get('custo_total_usd'), 2)} no total), não o da triagem."]
-    tabela = {"cabecalho": ["Tecnologia", "Modelo", "Perfil", "Resultados", "Elegíveis", "Quarentena", "Precisão", "Intervalo 95%", "Só deste par",
-                            "Custo da busca", "Elegíveis por US$"],
-              "linhas": [[_tec(c["tecnologia"]), c["modelo_id"], c.get("perfil") or "—", fmt.numero(c["n_triados"]), fmt.numero(c["n_elegiveis"]),
-                          fmt.numero(c["n_quarentena"]), _p(c["precisao"], 1), _ic(c), fmt.numero(c["n_elegiveis_unicos"]),
-                          _usd(c["custo_usd"]), fmt.numero(c["elegiveis_por_usd"]) if c.get("elegiveis_por_usd") is not None else "—"]
-                         for c in ordenados]}
-    pares = [("Resultados distintos (URL e UF)", fmt.numero(d.get("n_resultados"))), ("Com veredito válido", fmt.numero(d.get("n_triados"))),
-             ("Elegíveis", fmt.numero(d.get("n_elegiveis"))), ("Custo total das buscas", _usd(d.get("custo_total_usd"))),
-             ("Item", "par (URL, UF) de secretaria estadual; resultado municipal fica de fora")]
+             "Mostra onde cada consulta rende mais páginas dentro do escopo."]
+    if custos:
+        texto.append(f"Perfis: {perfis}. O custo é o da busca (US$ {fmt.decimal(d.get('custo_total_usd'), 2)} no total), não o da triagem.")
+        cabecalho = ["Tecnologia", "Modelo", "Perfil", "Resultados", "Elegíveis", "Quarentena", "Precisão", "Intervalo 95%", "Só deste par",
+                     "Custo da busca", "Elegíveis por US$"]
+        linhas_tab = [[_tec(c["tecnologia"]), c["modelo_id"], c.get("perfil") or "—", fmt.numero(c["n_triados"]), fmt.numero(c["n_elegiveis"]),
+                       fmt.numero(c["n_quarentena"]), _p(c["precisao"], 1), _ic(c), fmt.numero(c["n_elegiveis_unicos"]),
+                       _usd(c["custo_usd"]), fmt.numero(c["elegiveis_por_usd"]) if c.get("elegiveis_por_usd") is not None else "—"]
+                      for c in ordenados]
+        pares = [("Resultados distintos (URL e UF)", fmt.numero(d.get("n_resultados"))), ("Com veredito válido", fmt.numero(d.get("n_triados"))),
+                 ("Elegíveis", fmt.numero(d.get("n_elegiveis"))), ("Custo total das buscas", _usd(d.get("custo_total_usd"))),
+                 ("Item", "par (URL, UF) de secretaria estadual; resultado municipal fica de fora")]
+    else:
+        texto.append(f"Perfis: {perfis}.")
+        cabecalho = ["Tecnologia", "Modelo", "Perfil", "Resultados", "Elegíveis", "Quarentena", "Precisão", "Intervalo 95%", "Só deste par"]
+        linhas_tab = [[_tec(c["tecnologia"]), c["modelo_id"], c.get("perfil") or "—", fmt.numero(c["n_triados"]), fmt.numero(c["n_elegiveis"]),
+                       fmt.numero(c["n_quarentena"]), _p(c["precisao"], 1), _ic(c), fmt.numero(c["n_elegiveis_unicos"])]
+                      for c in ordenados]
+        pares = [("Resultados distintos (URL e UF)", fmt.numero(d.get("n_resultados"))), ("Com veredito válido", fmt.numero(d.get("n_triados"))),
+                 ("Elegíveis", fmt.numero(d.get("n_elegiveis"))),
+                 ("Item", "par (URL, UF) de secretaria estadual; resultado municipal fica de fora")]
+    tabela = {"cabecalho": cabecalho, "linhas": linhas_tab}
     return _bloco("web_precisao", titulo, graf, f"{fmt.numero(d.get('n_triados'))} resultados triados; elegível = opinião do modelo", texto,
                   aviso=AVISO_RELATIVO_WEB, pares=pares, tabela=tabela)
 
@@ -432,7 +443,7 @@ def bloco_sobreposicao_modelos(d):
                   aviso=AVISO_RELATIVO_WEB, tabela=tabela)
 
 
-def bloco_curva_web(d):
+def bloco_curva_web(d, custos=True):
     inc = d.get("incremental") or {}
     passos, universo = inc.get("passos") or [], inc.get("universo") or 0
     if not passos or not universo:
@@ -453,17 +464,29 @@ def bloco_curva_web(d):
     disp = inc.get("dispensaveis") or []
     texto = ["Cada ponto soma mais um par (uma tecnologia com um modelo de consulta), sempre o que traz mais páginas elegíveis novas. UFs não entram: "
              "uma UF não substitui outra."]
-    if m95 and m95["atingido"]:
+    if custos and m95 and m95["atingido"]:
         texto.append(f"Esses {fmt.numero(m95['n_chaves'])} pares custaram {_usd(m95['creditos_acumulados'])} de {_usd(inc.get('custo_total'))} em buscas.")
     texto.append("Nenhum par é dispensável: todos trazem páginas elegíveis exclusivas." if not disp else
                  f"{fmt.numero(len(disp))} pares não acrescentam nenhuma página elegível ao que os outros trazem.")
-    pares = [("Universo (páginas elegíveis)", fmt.numero(universo)), ("Pares considerados", fmt.numero(n)), ("Custo total das buscas", _usd(inc.get("custo_total")))]
+    pares = [("Universo (páginas elegíveis)", fmt.numero(universo)), ("Pares considerados", fmt.numero(n))]
+    if custos:
+        pares.append(("Custo total das buscas", _usd(inc.get("custo_total"))))
     for m in inc.get("marcos") or []:
-        pares.append((f"Menor prefixo que alcança {m['percentual']}%", f"{fmt.numero(m['n_chaves'])} pares, {_usd(m['creditos_acumulados'])}, "
-                      f"{fmt.numero(m['acumulado'])} páginas" if m["atingido"] else "não alcançado"))
+        if m["atingido"]:
+            val = (f"{fmt.numero(m['n_chaves'])} pares, {_usd(m['creditos_acumulados'])}, {fmt.numero(m['acumulado'])} páginas"
+                   if custos else f"{fmt.numero(m['n_chaves'])} pares, {fmt.numero(m['acumulado'])} páginas")
+        else:
+            val = "não alcançado"
+        pares.append((f"Menor prefixo que alcança {m['percentual']}%", val))
     pares.append(("Critério de desempate", inc.get("criterio_desempate") or "—"))
-    tabela = {"cabecalho": ["Ordem", "Tecnologia", "Modelo", "Elegíveis do par", "Novas que ele acrescenta", "Acumulado", "% acumulada", "Custo acumulado"],
-              "linhas": [[p["ordem"], _tec(p["tecnologia"]), p["modelo_id"], fmt.numero(p["n_elegiveis"]), fmt.numero(p["ganho"]),
-                          fmt.numero(p["acumulado"]), _pc(p["pct_acumulado"], 1), _usd(p["custo_acumulado_usd"])] for p in passos]}
+    if custos:
+        cabecalho = ["Ordem", "Tecnologia", "Modelo", "Elegíveis do par", "Novas que ele acrescenta", "Acumulado", "% acumulada", "Custo acumulado"]
+        linhas_tab = [[p["ordem"], _tec(p["tecnologia"]), p["modelo_id"], fmt.numero(p["n_elegiveis"]), fmt.numero(p["ganho"]),
+                       fmt.numero(p["acumulado"]), _pc(p["pct_acumulado"], 1), _usd(p["custo_acumulado_usd"])] for p in passos]
+    else:
+        cabecalho = ["Ordem", "Tecnologia", "Modelo", "Elegíveis do par", "Novas que ele acrescenta", "Acumulado", "% acumulada"]
+        linhas_tab = [[p["ordem"], _tec(p["tecnologia"]), p["modelo_id"], fmt.numero(p["n_elegiveis"]), fmt.numero(p["ganho"]),
+                       fmt.numero(p["acumulado"]), _pc(p["pct_acumulado"], 1)] for p in passos]
+    tabela = {"cabecalho": cabecalho, "linhas": linhas_tab}
     return _bloco("web_curva", titulo, graf, f"{fmt.numero(universo)} páginas elegíveis; método guloso por par tecnologia × modelo", texto,
                   aviso=AVISO_RELATIVO_WEB, pares=pares, tabela=tabela)

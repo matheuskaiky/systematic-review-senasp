@@ -61,6 +61,18 @@ EXPLICACAO_MOTIVOS_DOWNLOAD = {
 }
 APOS_REDIRECIONAMENTO = "após redirecionamento"
 VERIFICACAO = {"pendente": "Não verificado", "confirmado": "Verificado", "descartado": "Descartado"}
+ACOES_AUDITORIA = {
+    "criar_usuario": "Criação de usuário",
+    "editar_usuario": "Edição de usuário",
+    "redefinir_senha": "Redefinição de senha",
+    "desativar_usuario": "Desativação",
+    "reativar_usuario": "Reativação",
+    "salvar_permissoes": "Permissões salvas",
+    "criar_grupo": "Criação de grupo",
+    "renomear_grupo": "Renomeação de grupo",
+    "gerar_token": "Geração de token de envio",
+    "revogar_token": "Revogação de token de envio",
+}
 
 # rotulos do fluxo PRISMA: a view v_prisma guarda a chave sem acento (usada no SQL e nos testes); a tela mostra o texto abaixo
 PRISMA = {

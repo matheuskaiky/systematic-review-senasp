@@ -31,10 +31,10 @@ TEXTOS_DA_TELA = [
     '<nav class="menu menu-entrada" aria-label="Principal">',
     '<aside class="entrada-apresentacao" aria-label="Sobre o levantamento">',
     '<p class="entrada-chamada">Cada achado passa por uma pessoa antes de virar resultado.</p>',
-    '<p class="entrada-texto">O levantamento reúne onde a inteligência artificial já é usada na segurança pública brasileira. '
-    "Entre para revisar os achados e triar os artigos da literatura.</p>",
+    '<p class="entrada-texto">O levantamento reúne evidências públicas sobre o uso, a contratação e o estudo de inteligência '
+    "artificial na segurança pública brasileira, além da literatura sobre o tema.</p>",
     '<div><strong>Triagem de artigos</strong><span>Leia o título e o resumo e decida o que entra na revisão sistemática.</span></div>',
-    '<div><strong>Revisão de achados</strong><span>Confirme ou descarte cada achado a partir do trecho da notícia.</span></div>',
+    '<div><strong>Revisão de achados</strong><span>Confirme ou descarte cada achado a partir do trecho da página.</span></div>',
     '<div><strong>Decisão com autoria</strong><span>Cada decisão guarda o nome de quem decidiu, para a pesquisa poder ser auditada.</span></div>',
     '<section class="entrada-cartao" aria-labelledby="t-entrar">',
     '<h1 id="t-entrar">Entrar</h1>',

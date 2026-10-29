@@ -254,7 +254,7 @@ def test_pagina_de_auditoria(adm):
     assert "Nenhuma ação registrada." in cli.get("/admin/auditoria").text
     _criar(cli, contas_db)
     h = cli.get("/admin/auditoria").text
-    assert "criar_usuario" in h and "chefe" in h and verificar(h) == []
+    assert "<td>Criação de usuário</td>" in h and "chefe" in h and verificar(h) == []
 
 
 # ====================== atividade dos revisores ======================
@@ -291,7 +291,7 @@ def test_atividade_conta_eventos_do_historico(adm):
     cli, _, _, copia = adm
     _historico(copia)
     h = cli.get("/estatisticas-usuarios").text
-    assert re.findall(r"<th[^>]*>([^<]+)</th>", h)[:5] == ["Revisor", "Decisões em achados", "Decisões em artigos", "Hoje (UTC)",
+    assert re.findall(r"<th[^>]*>([^<]+)</th>", h)[:5] == ["Revisor", "Decisões em achados", "Decisões em artigos", "Hoje (horário UTC)",
                                                           "Último dia com decisão"]
     assert "Ana" in h and "Bruno" in h and verificar(h) == []
 

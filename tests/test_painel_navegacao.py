@@ -15,7 +15,7 @@ from test_painel_acessibilidade import _blocos, _declaracoes, _ids, _sem_comenta
 from painel import navegacao  # noqa: E402
 
 ESTATICOS = Path(__file__).resolve().parent.parent / "painel" / "static"
-GRUPOS = {"Revisão sistemática": ["/", "/literatura/prisma", "/estados", "/achados", "/revisao/achados", "/literatura/artigos", "/literatura/referencias", "/literatura", "/literatura/triagem"],
+GRUPOS = {"Levantamento e revisão": ["/", "/literatura/prisma", "/estados", "/achados", "/revisao/achados", "/literatura/artigos", "/literatura/referencias", "/literatura", "/literatura/triagem"],
           "Análises e qualidade": ["/observatorio", "/analises", "/triagem-escopo", "/validacao", "/classificadores", "/execucoes/comparar", "/solucoes"],
           "Auditoria e operação": ["/buscar-texto", "/execucoes", "/chamadas", "/metodologia", "/sobre"]}
 TODOS_OS_LINKS = [h for hs in GRUPOS.values() for h in hs]
@@ -73,12 +73,12 @@ def test_comparar_execucoes_sem_parametros_e_a_pagina_de_escolha(cliente):
 
 
 def _rotas_com_grupo(ids):
-    return [("/", "Revisão sistemática", "/"), ("/estados", "Revisão sistemática", "/estados"), ("/estados/SP", "Revisão sistemática", "/estados"),
-            ("/achados", "Revisão sistemática", "/achados"), (f"/achados/{ids['achado']}", "Revisão sistemática", "/achados"),
-            ("/revisao/achados", "Revisão sistemática", None),
-            ("/literatura", "Revisão sistemática", "/literatura"), ("/literatura/artigos", "Revisão sistemática", "/literatura/artigos"),
-            (f"/literatura/artigos/{ids['artigo']}", "Revisão sistemática", "/literatura/artigos"),
-            ("/literatura/prisma", "Revisão sistemática", "/literatura/prisma"),
+    return [("/", "Levantamento e revisão", "/"), ("/estados", "Levantamento e revisão", "/estados"), ("/estados/SP", "Levantamento e revisão", "/estados"),
+            ("/achados", "Levantamento e revisão", "/achados"), (f"/achados/{ids['achado']}", "Levantamento e revisão", "/achados"),
+            ("/revisao/achados", "Levantamento e revisão", None),
+            ("/literatura", "Levantamento e revisão", "/literatura"), ("/literatura/artigos", "Levantamento e revisão", "/literatura/artigos"),
+            (f"/literatura/artigos/{ids['artigo']}", "Levantamento e revisão", "/literatura/artigos"),
+            ("/literatura/prisma", "Levantamento e revisão", "/literatura/prisma"),
             ("/analises", "Análises e qualidade", "/analises"), ("/analises?secao=termos", "Análises e qualidade", "/analises"),
             ("/triagem-escopo", "Análises e qualidade", "/triagem-escopo"), ("/classificadores", "Análises e qualidade", "/classificadores"),
             ("/solucoes", "Análises e qualidade", "/solucoes"),
@@ -157,7 +157,7 @@ def test_paginas_sem_script_nem_estilo_embutido_e_estruturalmente_acessiveis(cli
 def test_ordem_do_foco_e_a_ordem_do_menu_marca_depois_grupos_depois_conteudo(cliente):
     cli, _ = cliente
     html = cli.get("/estados").text
-    ordem = [html.index(t) for t in ('class="pular"', 'class="marca"', "<summary>Revisão sistemática", "<summary>Análises e qualidade",
+    ordem = [html.index(t) for t in ('class="pular"', 'class="marca"', "<summary>Levantamento e revisão", "<summary>Análises e qualidade",
                                       "<summary>Auditoria e operação", '<main id="conteudo"')]
     assert ordem == sorted(ordem)
     assert "tabindex" not in re.search(r'<nav class="menu".*?</nav>', html, re.S).group(0)      # nenhum tabindex positivo bagunçando o foco

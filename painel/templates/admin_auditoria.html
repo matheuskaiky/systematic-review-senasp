@@ -25,7 +25,7 @@
       <tr>
         <td>{{ fmt.data_hora(l.quando) }}</td>
         <td>{{ l.admin_login }}</td>
-        <td>{{ l.acao }}</td>
+        <td>{{ rotulos.rotulo(rotulos.ACOES_AUDITORIA, l.acao) }}</td>
         <td>{{ l.alvo or "—" }}</td>
         <td>{{ l.resumo or l.detalhe or "—" }}</td>
       </tr>

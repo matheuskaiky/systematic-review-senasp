@@ -8,7 +8,7 @@ from urllib.parse import unquote, urlsplit
 
 # (endereço, texto, prefixo que também marca o link como atual, prefixos de outro link que NÃO contam)
 _GRUPOS = (
-    ("revisao", "Revisão sistemática", (
+    ("revisao", "Levantamento e revisão", (
         ("/", "Visão geral", None, ()),
         ("/literatura/prisma", "PRISMA", "/literatura/prisma", ()),
         ("/estados", "Estados", "/estados", ()),

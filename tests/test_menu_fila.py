@@ -42,4 +42,4 @@ def test_pagina_do_item_marca_a_fila_so_quando_aberta_pela_fila(cliente, rota, c
     assert r.status_code == 200
     menu = _menu(r.text)
     assert [h for _, _, links in menu for h, marcado, _ in links if marcado] == [atual]
-    assert [nome for nome, aberto, _ in menu if aberto] == ["Revisão sistemática"]
+    assert [nome for nome, aberto, _ in menu if aberto] == ["Levantamento e revisão"]

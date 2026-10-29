@@ -63,7 +63,8 @@ def _exemplo(cli, chave):
 @pytest.mark.parametrize("grupo", SEM_CUSTOS)
 def test_nenhum_valor_em_dolar_sem_a_permissao(clis, grupo):
     com_dolar, vistas = _paginas_com_dolar(clis[grupo])
-    assert len(vistas) >= 15 and com_dolar == set(), grupo
+    minimo = 2 if grupo == "Visitante" else 15                # quem nao entrou so abre as paginas publicas (D145)
+    assert len(vistas) >= minimo and com_dolar == set(), grupo
 
 
 def test_quem_ve_custos_continua_vendo(clis):
@@ -184,6 +185,9 @@ def test_ressalva_das_execucoes_fora_sem_o_custo(n, esperado):
 
 def test_rota_da_metodologia_respeita_a_permissao(clis):
     for grupo, cli in clis.items():
+        if grupo == "Visitante":                                 # fechada ate a retirada dos numeros do modelo (D145)
+            assert cli.get("/metodologia", follow_redirects=False).status_code == 303
+            continue
         h = cli.get("/metodologia").text
         ve = grupo in ("Administrador", "TecnicoComCustos")
         assert ('id="custos"' in h) is ve, grupo

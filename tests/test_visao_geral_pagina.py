@@ -4,6 +4,7 @@ administrador, painel sem login, somente leitura) x bancos (real e vies) x estad
 import dataclasses
 import re
 import sqlite3
+from apoio_divulgacao import gravar_politica
 from pathlib import Path
 
 import pytest
@@ -50,6 +51,7 @@ def vies_grupos(banco, tmp_path):  # noqa: F811
     ctx = dataclasses.replace(_contexto("vies", False, tmp_path), autenticacao=True, hosts_permitidos=("testserver",))
     contas_db = tmp_path / "contas_vies.db"
     contas = ContasSQLite(contas_db)
+    gravar_politica(contas, "vies")
     app = criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(tmp_path), ctx, contas=contas)
     saida = {"Visitante": TestClient(app)}
     for nome, perms in (("TecnicoSemCustos", {"ver_painel", "ver_chamadas"}), ("TecnicoComCustos", {"ver_painel", "ver_chamadas", "ver_custos"})):

@@ -7,6 +7,7 @@ import re
 import shutil
 import sqlite3
 import sys
+from apoio_divulgacao import gravar_politica
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -189,6 +190,7 @@ def painel(demo, tmp_path):
                    status_definicoes=dict(V.STATUS), hosts_permitidos=("testserver",), autenticacao=True)
     contas_db = tmp_path / "contas.db"
     contas = ContasSQLite(contas_db)
+    gravar_politica(contas, "real")                   # pesquisa divulgada, como o Visitante via antes do controle (D145)
     app = criar_app(LeituraPainelSQLite(copia), lambda: RepositorioSQLite(copia), BrutoLocal(raw), ctx, contas=contas)
     return TestClient(app), contas, copia, contas_db
 
@@ -368,17 +370,19 @@ def test_sair_encerra_e_aceita_sem_cookie(painel):
     assert r.status_code == 303 and r.headers["location"] == "/entrar?aviso=saiu"
 
 
-def test_nomes_dos_revisores_ocultos_para_visitante(painel):
-    cli, _, copia, contas_db = painel
+def test_nomes_dos_revisores_ocultos_sem_a_permissao(painel):
+    """Quem nao entrou nem abre o achado (D145); quem entrou sem ver_nomes_revisores ve o achado sem o nome de quem decidiu."""
+    from apoio_divulgacao import cliente_so_painel
+    cli, contas, copia, _ = painel
     nome = sqlite3.connect(copia).execute("SELECT verificado_por FROM achados WHERE verificado=1 AND verificado_por<>'' LIMIT 1").fetchone()
     assert nome, "a demonstracao precisa de um achado verificado"
     achado = sqlite3.connect(copia).execute("SELECT achado_id FROM achados WHERE verificado_por=? LIMIT 1", nome).fetchone()[0]
-    h = cli.get(f"/achados/{achado}").text
+    assert cli.get(f"/achados/{achado}", follow_redirects=False).status_code == 303
+    so, gid = cliente_so_painel(painel)
+    h = so.get(f"/achados/{achado}").text
     assert nome[0] not in h and "Revisor" in h
-    c = sqlite3.connect(contas_db)
-    c.execute("INSERT INTO grupo_permissoes SELECT grupo_id, 'ver_nomes_revisores' FROM grupos WHERE nome='Visitante'")
-    c.commit()
-    assert nome[0] in cli.get(f"/achados/{achado}").text
+    contas.definir_permissoes(gid, {"ver_painel", "ver_nomes_revisores"})
+    assert nome[0] in so.get(f"/achados/{achado}").text
 
 
 def test_faixa_da_conta_e_dica_de_admin(painel):

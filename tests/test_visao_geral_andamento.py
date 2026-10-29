@@ -419,9 +419,9 @@ def _selects(cli, monkeypatch):
 def test_consultas_por_leitor(clientes, cliente_demo, monkeypatch):  # noqa: F811
     """Linha de base medida em 8423928 (com login conta tambem as consultas das contas): Visitante 12, Leitor 13, Revisor 13,
     Administrador 13, painel sem login 11. A fila de artigos do banco real soma 4 (contagem_triagem, medida) a quem pode triar;
-    o andamento soma 1 (atividade_por_revisor) a quem o ve; a administracao soma 2 ao Administrador (contas). Limites maximos: quem nao ve um bloco nao paga a leitura dele (uma
+    o andamento soma 1 (atividade_por_revisor) a quem o ve; a administracao soma 2 ao Administrador (contas); quem nao entrou soma 1 (a politica de divulgacao, D145). Limites maximos: quem nao ve um bloco nao paga a leitura dele (uma
     leitura indevida da triagem somaria 4 e passaria do limite)."""
-    limites = {"Visitante": 12, "Leitor": 13, "Revisor": 17, "Administrador": 20, "sem_login": 16}
+    limites = {"Visitante": 13, "Leitor": 13, "Revisor": 17, "Administrador": 20, "sem_login": 16}
     contagens = {g: _selects(clientes[g], monkeypatch) for g in ("Visitante", "Leitor", "Revisor", "Administrador")}
     contagens["sem_login"] = _selects(cliente_demo[0], monkeypatch)
     excedidos = {g: (n, limites[g]) for g, n in contagens.items() if n > limites[g]}

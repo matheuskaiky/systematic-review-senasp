@@ -5,6 +5,7 @@ na rota; no modo somente leitura nenhuma acao de escrita e oferecida.
 import dataclasses
 import re
 import shutil
+from apoio_divulgacao import gravar_politica
 from urllib.parse import urlsplit
 
 import pytest
@@ -129,7 +130,8 @@ def test_nenhum_item_do_menu_leva_a_recusa(clientes, grupo):
 
 
 @pytest.mark.parametrize("grupo,ausentes,presentes", [
-    ("Visitante", {"/execucoes", "/chamadas", "/execucoes/comparar", "/revisao/achados", "/literatura/triagem"}, {"/", "/estados"}),
+    ("Visitante", {"/execucoes", "/chamadas", "/execucoes/comparar", "/revisao/achados", "/literatura/triagem", "/estados",
+                   "/achados", "/analises", "/literatura/prisma", "/metodologia"}, {"/", "/sobre"}),
     ("Leitor", {"/execucoes", "/chamadas", "/execucoes/comparar", "/revisao/achados", "/literatura/triagem"}, {"/", "/estados"}),
     ("Revisor", {"/admin/usuarios"}, {"/execucoes", "/chamadas", "/revisao/achados", "/literatura/triagem"}),
     ("Administrador", set(), {"/execucoes", "/revisao/achados", "/admin/usuarios", "/admin/grupos"}),
@@ -163,6 +165,9 @@ def test_continuar_a_revisao_e_o_link_do_alerta(clientes):
 
 def test_continuar_a_triagem_na_literatura(clientes):
     for grupo in GRUPOS:
+        if grupo == "Visitante":                                 # fechada para quem nao entrou (D145)
+            assert clientes[grupo].get("/literatura", follow_redirects=False).status_code == 303
+            continue
         h = clientes[grupo].get("/literatura").text
         assert ('href="/literatura/triagem">Continuar a triagem' in h) is _pode(grupo, *DECIDE_ARTIGO), grupo
     assert 'href="/literatura/triagem">Continuar a triagem' in clientes["Administrador"].get("/literatura").text
@@ -234,6 +239,7 @@ def vies(banco, tmp_path):  # noqa: F811
     ctx = dataclasses.replace(_contexto("vies", False, tmp_path), autenticacao=True, hosts_permitidos=("testserver",))
     contas_db = tmp_path / "contas_vies.db"
     contas = ContasSQLite(contas_db)
+    gravar_politica(contas, "vies")
     app = criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(tmp_path), ctx, contas=contas)
     saida = {"Visitante": TestClient(app)}
     for grupo in GRUPOS[1:]:
@@ -246,6 +252,9 @@ def vies(banco, tmp_path):  # noqa: F811
 
 def test_sortear_a_amostra_so_para_quem_o_servidor_aceita(vies):
     for grupo, cli in vies.items():
+        if grupo == "Visitante":                                 # a validacao fecha para quem nao entrou (D145)
+            assert cli.get("/validacao", follow_redirects=False).status_code == 303
+            continue
         h = cli.get("/validacao").text
         pode = _pode(grupo, "POST", "/validacao/sortear")
         assert ('action="/validacao/sortear"' in h) is pode, grupo

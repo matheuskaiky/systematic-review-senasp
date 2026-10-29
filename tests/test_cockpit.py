@@ -214,14 +214,12 @@ def _sair(cli):
     cli.cookies.clear()
 
 
-def test_anonimo_ve_o_cockpit_sem_formularios(painel):
+def test_anonimo_nao_abre_o_cockpit(painel):
+    """O artigo e o achado mostram resultados do modelo: quem nao entrou vai para a entrada (D145)."""
     cli, _, copia, _ = painel
-    h = cli.get(f"/literatura/artigos/{_artigo_id(copia)}").text
-    assert 'id="form-decisao"' not in h and h.count(MSG_ENTRAR) == 1
-    assert 'class="cartao apoio-pos-decisao"' in h and 'action="/literatura/artigos/' not in h
-    h = cli.get(f"/achados/{_achado_nao_verificado(copia)}").text
-    assert 'id="form-decisao"' not in h and h.count(MSG_ENTRAR) == 1
-    assert "/desfazer" not in h and "/revogar" not in h
+    for caminho in (f"/literatura/artigos/{_artigo_id(copia)}", f"/achados/{_achado_nao_verificado(copia)}"):
+        r = cli.get(caminho, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"].startswith("/entrar"), caminho
 
 
 def test_visitante_com_permissao_de_escrita_no_banco_continua_sem_formulario(painel):
@@ -230,8 +228,9 @@ def test_visitante_com_permissao_de_escrita_no_banco_continua_sem_formulario(pai
     c.execute("INSERT INTO grupo_permissoes SELECT grupo_id, 'verificar_achados' FROM grupos WHERE nome='Visitante'")
     c.execute("INSERT INTO grupo_permissoes SELECT grupo_id, 'triar_artigos' FROM grupos WHERE nome='Visitante'")
     c.commit()
-    assert 'id="form-decisao"' not in cli.get(f"/achados/{_achado_nao_verificado(copia)}").text
-    assert 'id="form-decisao"' not in cli.get(f"/literatura/artigos/{_artigo_id(copia)}").text
+    for u in (f"/achados/{_achado_nao_verificado(copia)}", f"/literatura/artigos/{_artigo_id(copia)}"):
+        r = cli.get(u, follow_redirects=False)                   # a permissao gravada nao abre nada a quem nao entrou
+        assert r.status_code == 303 and 'id="form-decisao"' not in r.text, u
 
 
 def test_leitor_logado_ve_a_mensagem_do_grupo(painel):
@@ -290,11 +289,13 @@ def test_texto_completo_exige_as_duas_permissoes(painel):
     assert "<h2>Texto completo</h2>" not in h and 'id="form-decisao"' in h
 
 
-def test_nomes_dos_revisores_ocultos_no_cockpit_para_anonimo(painel):
-    cli, _, copia, _ = painel
+def test_nomes_dos_revisores_ocultos_no_cockpit_sem_a_permissao(painel):
+    from apoio_divulgacao import cliente_so_painel
+    _, _, copia, _ = painel
+    so, _ = cliente_so_painel(painel)
     i, nome = sqlite3.connect(copia).execute(
         "SELECT artigo_id, revisor FROM triagem WHERE revisor IS NOT NULL AND TRIM(revisor) <> '' ORDER BY artigo_id LIMIT 1").fetchone()
-    h = cli.get(f"/literatura/artigos/{i}").text
+    h = so.get(f"/literatura/artigos/{i}").text
     assert nome not in h and "Última decisão por Revisor" in h
 
 

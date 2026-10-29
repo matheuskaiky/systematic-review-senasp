@@ -191,8 +191,8 @@ def test_leitor_e_anonimo_nao_sugerem_e_nomes_mascarados(equipe):
     r = cli.post(f"/achados/{a}/sugerir", data={"valor": "descartado", "estado": "x", "csrf": _csrf(cli)}, follow_redirects=False)
     assert r.status_code == 403
     _sair(cli)
-    h = cli.get(f"/achados/{a}").text
-    assert "sugerido por Revisor em" in h and "Bia Lima" not in h and "<summary>Sugerir outra decisão</summary>" not in h
+    r = cli.get(f"/achados/{a}", follow_redirects=False)                # quem nao entrou nem abre o achado (D145)
+    assert r.status_code == 303 and "Bia Lima" not in r.text
 
 
 def test_artigo_sugerir_excluir_e_aceitar(equipe):

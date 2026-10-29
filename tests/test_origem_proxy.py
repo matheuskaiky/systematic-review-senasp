@@ -322,7 +322,8 @@ def test_toda_resposta_que_grava_o_cookie_sai_sem_cache(servidor, monkeypatch):
     """O CDN do Firebase guarda respostas 404 por 10 minutos e usa `__session` na chave: quem chega sem o cookie nunca pode
     receber de cache o token de outra pessoa. Com o cookie ja gravado, so a pagina de entrada continua sem cache."""
     app = _app(servidor, monkeypatch)
-    for caminho, status in (("/", 200), ("/nao-existe", 404), ("/achados/0", 404), ("/entrar", 200), ("/chamadas", 303)):
+    # painel novo, sem politica de divulgacao gravada: fechado ao publico (D145); toda resposta continua sem cache
+    for caminho, status in (("/", 303), ("/nao-existe", 303), ("/achados/0", 303), ("/entrar", 200), ("/chamadas", 303)):
         r = TestClient(app, base_url=f"https://{RUN}").get(caminho, follow_redirects=False)
         assert r.status_code == status and _set_cookies(r) and r.headers["cache-control"] == "no-store", caminho
     cli = TestClient(app, base_url=f"https://{RUN}")

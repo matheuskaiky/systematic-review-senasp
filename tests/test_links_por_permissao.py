@@ -53,6 +53,12 @@ def _segue(aceita, href):
 
 
 def _aceita_do_grupo(grupo):
+    """A regra do servidor; para quem nao entrou, tambem a politica de divulgacao da pesquisa divulgada (D145)."""
+    from dominio import divulgacao
+    if grupo == "Visitante":
+        aberta = {"publica": True, "preliminares": False}
+        return lambda m, c: (A.pode_acessar(grupo, A.GRUPOS_PADRAO[grupo], m, c)
+                             and divulgacao.decisao_publico(m, c, aberta) == "liberada")
     return lambda m, c: A.pode_acessar(grupo, A.GRUPOS_PADRAO[grupo], m, c)
 
 
@@ -83,8 +89,8 @@ def _percorrer(cli, extras, limite=90):
     return paginas
 
 
-def _conferir(paginas, aceita, com_restritos, com_fila):
-    assert len(paginas) >= 15
+def _conferir(paginas, aceita, com_restritos, com_fila, minimo=15):
+    assert len(paginas) >= minimo
     ruins = {k: sorted({_caminho(x) for x in ls if not _segue(aceita, x)}) for k, ls in paginas.items()}
     assert {k: v for k, v in ruins.items() if v} == {}
     restritos = {k for k, ls in paginas.items() if any(_caminho(x).startswith(RESTRITOS) for x in ls)}
@@ -138,12 +144,22 @@ def test_menu_usa_pode_seguir(monkeypatch):
 # ---------------- o painel inteiro, por grupo ----------------
 @pytest.mark.parametrize("grupo", GRUPOS)
 def test_nenhum_link_do_corpo_leva_a_recusa_no_real(clientes, grupo):
-    _conferir(_percorrer(clientes[grupo], SEMENTES_REAL), _aceita_do_grupo(grupo), COM_RESTRITOS_REAL, COM_FILA_REAL)
+    paginas = _percorrer(clientes[grupo], SEMENTES_REAL)
+    if grupo == "Visitante":                                   # quem nao entrou so abre as paginas publicas (D145)
+        assert set(paginas) == {"/", "/sobre"}
+        _conferir(paginas, _aceita_do_grupo(grupo), set(), set(), minimo=2)
+        return
+    _conferir(paginas, _aceita_do_grupo(grupo), COM_RESTRITOS_REAL, COM_FILA_REAL)
 
 
 @pytest.mark.parametrize("grupo", GRUPOS)
 def test_nenhum_link_do_corpo_leva_a_recusa_no_vies(vies, grupo):
-    _conferir(_percorrer(vies[grupo], SEMENTES_VIES), _aceita_do_grupo(grupo), COM_RESTRITOS_VIES, COM_FILA_VIES)
+    paginas = _percorrer(vies[grupo], SEMENTES_VIES)
+    if grupo == "Visitante":
+        assert set(paginas) == {"/", "/sobre"}
+        _conferir(paginas, _aceita_do_grupo(grupo), set(), set(), minimo=2)
+        return
+    _conferir(paginas, _aceita_do_grupo(grupo), COM_RESTRITOS_VIES, COM_FILA_VIES)
 
 
 def test_somente_leitura_mostra_execucoes_e_nenhuma_fila(somente_leitura):
@@ -218,6 +234,9 @@ def test_metodologia_mantem_os_numeros_e_tira_os_rotulos(clientes):
 
 def test_cartoes_de_prontidao_e_rotulos_das_analises(clientes):
     for grupo, cli in clientes.items():
+        if grupo == "Visitante":                                # as analises fecham para quem nao entrou (D145)
+            assert cli.get("/analises?secao=visao", follow_redirects=False).status_code == 303
+            continue
         decide = all(_aceita_do_grupo(grupo)(*FILAS[f]) for f in FILAS)
         ve = _aceita_do_grupo(grupo)("GET", "/chamadas")
         h = _corpo(cli.get("/analises?secao=visao").text)
@@ -230,6 +249,10 @@ def test_cartoes_de_prontidao_e_rotulos_das_analises(clientes):
 
 def test_entradas_das_filas_no_corpo(clientes):
     for grupo, cli in clientes.items():
+        if grupo == "Visitante":                                # achados e artigos fecham para quem nao entrou (D145)
+            assert cli.get("/achados", follow_redirects=False).status_code == 303
+            assert cli.get("/literatura/artigos", follow_redirects=False).status_code == 303
+            continue
         decide = all(_aceita_do_grupo(grupo)(*FILAS[f]) for f in FILAS)
         h = _corpo(cli.get("/achados").text)
         assert ("revisar esta fila" in h) is decide, grupo
@@ -251,6 +274,9 @@ def test_entradas_das_filas_no_corpo(clientes):
 def test_conferir_o_proximo_item_so_para_quem_decide(vies, banco, tmp_path, monkeypatch):  # noqa: F811
     assert _post(_cli_sem_login(banco, tmp_path), "/validacao/sortear").status_code == 303
     for grupo, cli in vies.items():
+        if grupo == "Visitante":                                 # fechada para quem nao entrou (D145)
+            assert cli.get("/validacao", follow_redirects=False).status_code == 303
+            continue
         decide = _aceita_do_grupo(grupo)("POST", "/validacao/1/triar")
         assert ('href="/validacao/1">Conferir o próximo item</a>' in cli.get("/validacao").text) is decide, grupo
     original = A.pode_acessar

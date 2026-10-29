@@ -7,6 +7,7 @@ import shutil
 import sqlite3
 
 import pytest
+from apoio_divulgacao import gravar_politica
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 
@@ -126,6 +127,7 @@ def painel_modelos(demo, tmp_path):  # noqa: F811
                    modelos_referencias=dict(MODELOS_REFERENCIAS))
     contas_db = tmp_path / "contas.db"
     contas = ContasSQLite(contas_db)
+    gravar_politica(contas, "real")
     app = criar_app(LeituraPainelSQLite(copia), lambda: RepositorioSQLite(copia), BrutoLocal(raw), ctx, contas=contas)
     return TestClient(app), contas, copia, contas_db
 
@@ -177,6 +179,10 @@ VE_REGISTROS = {"Administrador": True, "Revisor": True, "Leitor": True, "Consult
 def test_paginas_do_item_so_com_a_permissao_ou_quem_decide(cenario):
     c = cenario
     for grupo, cli in c["clis"].items():
+        if grupo == "Visitante":                                 # fechadas para quem nao entrou (D145)
+            for u in (f"/achados/{c['a1']}", f"/achados/{c['a2']}", f"/literatura/artigos/{c['art']}"):
+                assert cli.get(u, follow_redirects=False).status_code == 303, u
+            continue
         a1, a2, art = (_corpo(cli.get(u).text) for u in (f"/achados/{c['a1']}", f"/achados/{c['a2']}", f"/literatura/artigos/{c['art']}"))
         ve = VE_REGISTROS[grupo]
         assert (OBS in a1) is ve and (SUG in a1) is ve, grupo
@@ -189,8 +195,14 @@ def test_quem_so_consulta_nao_recebe_registro_em_pagina_nenhuma(cenario):
     extras = [f"/achados/{c['a1']}", f"/achados/{c['a2']}", f"/literatura/artigos/{c['art']}", f"/literatura/artigos/{c['art']}?ok=1"]
     for grupo in ("Visitante", "Consulta"):
         paginas = _percorrer(c["clis"][grupo], extras + SEMENTES_REAL, limite=120)
-        assert len(paginas) >= 15
+        if grupo == "Visitante":                           # quem nao entrou so abre as paginas publicas (D145)
+            assert set(paginas) <= {"/", "/sobre"} and paginas
+        else:
+            assert len(paginas) >= 15
         cli = c["clis"][grupo]
+        if grupo == "Visitante":                                 # so as paginas publicas abrem; o resto vai para a entrada
+            for url in extras + ["/achados", "/literatura/artigos", "/literatura", "/buscar-texto?q=reconhecimento"]:
+                assert cli.get(url, follow_redirects=False).status_code == 303, url
         vazados = []
         for url in extras + ["/", "/achados", "/literatura/artigos", "/literatura", "/buscar-texto?q=reconhecimento"]:
             h = cli.get(url).text
@@ -205,8 +217,10 @@ def test_quem_so_consulta_nao_recebe_registro_em_pagina_nenhuma(cenario):
 
 
 def test_prisma_continua_mostrando_os_motivos_de_exclusao(cenario):
-    for grupo in ("Visitante", "Consulta", "Administrador"):
+    for grupo in ("Consulta", "Administrador"):
         assert MOT in cenario["clis"][grupo].get("/literatura/prisma").text, grupo
+    # quem nao entrou: o PRISMA fica fechado so ate a retirada dos numeros do modelo (fatia seguinte da D145)
+    assert cenario["clis"]["Visitante"].get("/literatura/prisma", follow_redirects=False).status_code == 303
 
 
 def test_formulario_de_quem_decide_traz_o_valor_atual(cenario):

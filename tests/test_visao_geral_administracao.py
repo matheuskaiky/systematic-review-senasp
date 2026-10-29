@@ -340,7 +340,7 @@ def test_consultas_por_leitor(clientes, cliente_demo, monkeypatch):  # noqa: F81
     """Tetos depois da P7-02 (Visitante 12, Leitor 13, Revisor 17, Administrador 18, sem login 16); a administracao soma 2
     (listar_usuarios e auditoria, no banco de contas) so ao Administrador."""
     from test_visao_geral_andamento import _selects
-    limites = {"Visitante": 12, "Leitor": 13, "Revisor": 17, "Administrador": 20, "sem_login": 16}
+    limites = {"Visitante": 13, "Leitor": 13, "Revisor": 17, "Administrador": 20, "sem_login": 16}   # visitante: +1, a politica (D145)
     contagens = {g: _selects(clientes[g], monkeypatch) for g in ("Visitante", "Leitor", "Revisor", "Administrador")}
     contagens["sem_login"] = _selects(cliente_demo[0], monkeypatch)
     assert {g: (n, limites[g]) for g, n in contagens.items() if n > limites[g]} == {}

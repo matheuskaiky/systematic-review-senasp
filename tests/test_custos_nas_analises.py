@@ -6,6 +6,7 @@ import re
 
 import pytest
 
+from apoio_divulgacao import gravar_politica
 from dominio import analises_ferramentas as AF, analises_vies as AV
 from painel import analises_blocos as b, analises_blocos_cobertura as bc, analises_blocos_ferramentas as bf
 from painel import analises_blocos_vies as bv
@@ -156,7 +157,14 @@ from test_custos_nas_paginas import clis  # noqa: E402,F401
 from painel.rotas_extras.analises import ABAS  # noqa: E402
 
 
-@pytest.mark.parametrize("grupo", ["Visitante", "Consulta", "TecnicoSemCustos"])
+def test_visitante_nao_abre_as_analises(clis):  # noqa: F811
+    """As analises tem resultados do modelo: quem nao entrou vai para a entrada em toda aba (D145)."""
+    for chave, _ in ABAS:
+        r = clis["Visitante"].get(f"/analises?secao={chave}", follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"].startswith("/entrar"), chave
+
+
+@pytest.mark.parametrize("grupo", ["Consulta", "TecnicoSemCustos"])
 def test_nenhuma_aba_de_analises_mostra_dolar_sem_a_permissao(clis, grupo):  # noqa: F811
     for chave, _ in ABAS:
         r = clis[grupo].get(f"/analises?secao={chave}")
@@ -237,11 +245,12 @@ def test_aba_de_ferramentas_do_vies_sem_custos(banco, tmp_path):  # noqa: F811
     from painel.app import criar_app
     from test_validacao_vies import _contexto
     ctx = dataclasses.replace(_contexto("vies", False, tmp_path), autenticacao=True, hosts_permitidos=("testserver",))
+    contas_vies = ContasSQLite(tmp_path / "contas_vies.db")
+    gravar_politica(contas_vies, "vies")
     app = criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(tmp_path), ctx,
-                    contas=ContasSQLite(tmp_path / "contas_vies.db"))
-    h = TestClient(app).get("/analises?secao=ferramentas").text
-    assert "ferramentas-chamadas" in h and "ferramentas-custos" not in h and not DOLAR.search(h)
-    assert "Custo por item de relevância alta ou média" not in h and "Créditos são o saldo do provedor" not in h
+                    contas=contas_vies)
+    r = TestClient(app).get("/analises?secao=ferramentas", follow_redirects=False)     # quem nao entrou: entrada (D145)
+    assert r.status_code == 303 and r.headers["location"].startswith("/entrar") and not DOLAR.search(r.text)
     from test_validacao_vies import _cli as _cli_sem_login
     todas = _cli_sem_login(banco, tmp_path).get("/analises?secao=ferramentas").text      # sem login: todas as permissoes
     assert "ferramentas-custos" in todas and "ferramentas-chamadas" not in todas            # a rota repassa a permissao, nao fixa

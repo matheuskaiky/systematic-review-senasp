@@ -1,6 +1,7 @@
 """Legenda de /analises: os creditos de consulta (paginas do Scholar, unidade do metodo) ficam separados dos creditos do
 provedor (diferenca de saldo da conta, informacao de cobranca, so para quem ve custos). Nenhum calculo muda."""
 import dataclasses
+from apoio_divulgacao import gravar_politica
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -32,7 +33,7 @@ def test_modelo_sem_a_definicao_antiga():
 
 
 def test_banco_real_sem_ver_custos_so_creditos_de_consulta(clis):  # noqa: F811
-    for grupo in ("Visitante", "Consulta", "TecnicoSemCustos"):
+    for grupo in ("Consulta", "TecnicoSemCustos"):                      # quem nao entrou nao abre as analises (D145)
         leg = _legenda(clis[grupo].get("/analises?secao=termos").text)
         assert CONSULTA in leg, grupo
         assert "Créditos do provedor" not in leg and ANTIGO not in leg, grupo
@@ -49,7 +50,7 @@ def test_legenda_igual_em_todas_as_abas(clis):  # noqa: F811
     from painel.rotas_extras.analises import ABAS
     for chave, _ in ABAS:
         com = _legenda(clis["TecnicoComCustos"].get(f"/analises?secao={chave}").text)
-        sem = _legenda(clis["Visitante"].get(f"/analises?secao={chave}").text)
+        sem = _legenda(clis["Consulta"].get(f"/analises?secao={chave}").text)
         assert PROVEDOR in com and CONSULTA in com, chave
         assert PROVEDOR not in sem and CONSULTA in sem, chave
 
@@ -62,9 +63,11 @@ def test_banco_vies_so_creditos_do_provedor_e_so_com_ver_custos(banco, tmp_path)
     from painel.app import criar_app
     from test_validacao_vies import _cli as _cli_sem_login, _contexto
     ctx = dataclasses.replace(_contexto("vies", False, tmp_path), autenticacao=True, hosts_permitidos=("testserver",))
+    contas_vies = ContasSQLite(tmp_path / "contas_vies.db")
+    gravar_politica(contas_vies, "vies")
     app = criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(tmp_path), ctx,
-                    contas=ContasSQLite(tmp_path / "contas_vies.db"))
-    visitante = _legenda(TestClient(app).get("/analises?secao=ferramentas").text)
-    assert "Créditos do provedor" not in visitante and "Créditos de consulta" not in visitante and ANTIGO not in visitante
+                    contas=contas_vies)
+    r = TestClient(app).get("/analises?secao=ferramentas", follow_redirects=False)     # quem nao entrou: entrada (D145)
+    assert r.status_code == 303 and r.headers["location"].startswith("/entrar") and "Créditos" not in r.text
     todas = _legenda(_cli_sem_login(banco, tmp_path).get("/analises?secao=ferramentas").text)     # sem login: todas as permissoes
     assert PROVEDOR in todas and "Créditos de consulta" not in todas and ANTIGO not in todas

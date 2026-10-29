@@ -24,7 +24,7 @@ from fastapi.templating import Jinja2Templates
 
 from aplicacao import catalogo as catalogo_uc, exportacao, revisao, sugestoes as sugestoes_uc
 from dominio.sugestoes import CAMPOS_ACHADO, chave_autor, ficha_da_decisao
-from dominio import autenticacao, referencias_busca, relevancia as relev
+from dominio import autenticacao, divulgacao, referencias_busca, relevancia as relev
 from dominio.erros import BancoIndisponivel
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import (
@@ -226,6 +226,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             return autenticacao.pode(usuario["grupo"], usuario["permissoes"], "ver_estatisticas_usuarios")
         return False
 
+    def _publico_libera(request, metodo: str, caminho: str) -> bool:
+        if not contexto.autenticacao or getattr(request.state, "usuario", None):
+            return True
+        return divulgacao.decisao_publico(metodo, caminho, getattr(request.state, "politica_publica", None)) == "liberada"
+
     def _pode_rota(request):
         def pode_rota(metodo: str, caminho: str) -> bool:
             if metodo == "POST" and contexto.somente_leitura:
@@ -237,6 +242,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             grupo = getattr(request.state, "grupo_acesso", None)
             permissoes = getattr(request.state, "permissoes_acesso", None)
             if grupo is None or permissoes is None:
+                return False
+            if not _publico_libera(request, metodo, caminho):
                 return False
             return autenticacao.pode_acessar(grupo, permissoes, metodo, caminho)
 
@@ -339,6 +346,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 else:
                     grupo = autenticacao.GRUPO_VISITANTE
                     permissoes = contas.permissoes_do_grupo(autenticacao.GRUPO_VISITANTE)
+                    if divulgacao.decisao_publico(request.method, request.url.path, None) != "liberada":
+                        request.state.politica_publica = contas.politica_divulgacao(contexto.banco)[0]
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
 
@@ -347,7 +356,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             request.state.ver_nomes = autenticacao.pode(grupo, permissoes, "ver_nomes_revisores")
             request.state.perms = frozenset(p for p in autenticacao.PERMISSOES if autenticacao.pode(grupo, permissoes, p))
 
-            if autenticacao.pode_acessar(grupo, permissoes, request.method, request.url.path):
+            if _publico_libera(request, request.method, request.url.path) and autenticacao.pode_acessar(grupo, permissoes, request.method, request.url.path):
                 return await call_next(request)
             elif not usuario:
                 if request.method == "GET":
@@ -449,6 +458,14 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 visitante = contas.permissoes_do_grupo(autenticacao.GRUPO_VISITANTE)
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
+            try:
+                politica = contas.politica_divulgacao(contexto.banco)[0]
+            except Exception:
+                politica = None
+            acesso_publico = (
+                autenticacao.pode(autenticacao.GRUPO_VISITANTE, visitante, autenticacao.permissao_exigida("GET", "/"))
+                and divulgacao.decisao_publico("GET", "/", politica) == "liberada"
+            )
             return pagina(
                 request,
                 "entrar.html",
@@ -459,7 +476,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 login_digitado=login_digitado,
                 sem_admin=sem_admin,
                 simulado=(contexto.banco == "simulado"),
-                acesso_publico=autenticacao.pode(autenticacao.GRUPO_VISITANTE, visitante, autenticacao.permissao_exigida("GET", "/")),
+                acesso_publico=acesso_publico,
                 minutos_bloqueio=autenticacao.MINUTOS_DE_BLOQUEIO,
                 falhas_bloqueio=autenticacao.FALHAS_ATE_BLOQUEIO,
             )

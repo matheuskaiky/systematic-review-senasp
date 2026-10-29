@@ -350,13 +350,18 @@ def montar(dados: dict, quem: dict) -> list[dict]:
         ver_rev = revisao.get("verificados", 0)
         pend_rev = tot_rev - ver_rev
         rotulo_barra = f"{conf_rev} confirmados, {desc_rev} descartados, {pend_rev} pendentes"
-        grafico_humanas = graficos.barra_empilhada(
-            [(conf_rev, "be-conf", "Confirmados"), (desc_rev, "be-desc", "Descartados")],
-            tot_rev,
-            rotulo_barra,
-        )
+        if logado:
+            grafico_humanas = graficos.barra_empilhada(
+                [(conf_rev, "be-conf", "Confirmados"), (desc_rev, "be-desc", "Descartados")],
+                tot_rev,
+                rotulo_barra,
+            )
+            den_verificados = revisao.get("total")
+        else:
+            grafico_humanas = None
+            den_verificados = None
         inds_humanas = [
-            _indicador("verificados", "humana", "Achados verificados", revisao.get("verificados"), revisao.get("total"), REL, "Achados que uma pessoa leu e classificou.", "C1"),
+            _indicador("verificados", "humana", "Achados verificados", revisao.get("verificados"), den_verificados, REL, "Achados que uma pessoa leu e classificou.", "C1"),
             _indicador("confirmados", "humana", "Confirmados", revisao.get("confirmados"), revisao.get("verificados"), REL, "Achados verificados que a pessoa manteve como menção válida.", "C1"),
             _indicador("descartados", "humana", "Descartados", revisao.get("descartados"), revisao.get("verificados"), REL, "Achados verificados que a pessoa descartou.", "C1"),
             _indicador("ufs_confirmadas", "humana", "UFs com achado confirmado", resumo.get("ufs_confirmadas"), dados.get("n_ufs", 27), REL, "Unidades da federação com pelo menos um achado confirmado por uma pessoa.", "C1"),
@@ -392,13 +397,18 @@ def montar(dados: dict, quem: dict) -> list[dict]:
         pend_tri = triagem.get("pendentes", 0)
         triados_humana = inc_tri + exc_tri
         rotulo_barra = f"{inc_tri} incluídos, {exc_tri} excluídos, {pend_tri} pendentes"
-        grafico_humanas = graficos.barra_empilhada(
-            [(inc_tri, "be-conf", "Incluídos"), (exc_tri, "be-desc", "Excluídos")],
-            tot_tri,
-            rotulo_barra,
-        )
+        if logado:
+            grafico_humanas = graficos.barra_empilhada(
+                [(inc_tri, "be-conf", "Incluídos"), (exc_tri, "be-desc", "Excluídos")],
+                tot_tri,
+                rotulo_barra,
+            )
+            den_triagem = tot_tri
+        else:
+            grafico_humanas = None
+            den_triagem = None
         inds_humanas = [
-            _indicador("com_triagem_humana", "humana", "Artigos com triagem humana", triados_humana, tot_tri, ART, "Artigos que uma pessoa incluiu ou excluiu.", "C1"),
+            _indicador("com_triagem_humana", "humana", "Artigos com triagem humana", triados_humana, den_triagem, ART, "Artigos que uma pessoa incluiu ou excluiu.", "C1"),
             _indicador("incluidos", "humana", "Incluídos", inc_tri, triados_humana, ART, "Artigos que a pessoa incluiu.", "C1"),
             _indicador("excluidos", "humana", "Excluídos", exc_tri, triados_humana, ART, "Artigos que a pessoa excluiu.", "C1"),
         ]

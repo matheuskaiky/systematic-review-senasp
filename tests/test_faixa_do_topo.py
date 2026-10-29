@@ -5,6 +5,7 @@ import re
 import shutil
 
 import pytest
+from apoio_divulgacao import gravar_politica
 from fastapi.testclient import TestClient
 
 from adaptadores.bruto_local import BrutoLocal
@@ -36,6 +37,8 @@ def _painel(demo, tmp_path, banco="real", somente_leitura=False, autenticacao=Tr
                    ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
                    status_definicoes=dict(V.STATUS), hosts_permitidos=("testserver",), autenticacao=autenticacao)
     contas = ContasSQLite(tmp_path / "contas.db") if autenticacao else None
+    if contas is not None:
+        gravar_politica(contas, banco)
     leitura = LeituraPainelSQLite(tmp_path / "nao-existe.db" if sem_banco else copia)
     app = criar_app(leitura, lambda: RepositorioSQLite(copia), BrutoLocal(raw), ctx, contas=contas)
     return app, contas, tmp_path / "contas.db"
@@ -170,7 +173,6 @@ def test_demonstracao_e_simulacao_mantem_o_rotulo(demo, tmp_path, nome_banco, ro
 
 # ---------------- paginas de erro ----------------
 @pytest.mark.parametrize("quem,caminho,status", [
-    ("anonimo", "/nao-existe", 404),
     ("administrador", "/nao-existe", 404),
     ("leitor", "/chamadas", 403),
     ("revisor", "/admin/usuarios", 403),

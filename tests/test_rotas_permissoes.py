@@ -1,6 +1,7 @@
 """Regra explicita de permissao para cada rota do painel: a tabela de rotas, o catalogo de permissoes, a cobertura de todas as
 rotas registradas, HEAD tratado como GET so na autorizacao e o acesso positivo e negativo de cada grupo padrao.
 """
+from apoio_divulgacao import gravar_politica
 from urllib.parse import urlsplit
 
 import pytest
@@ -255,8 +256,9 @@ def app_completo(demo, tmp_path):
     ctx = Contexto(banco="real", nome_banco=banco.name, somente_leitura=False, pasta_backup=tmp_path / "backups",
                    ufs=dict(C.UFS), status_permitidos=set(V.STATUS) | set(V.STATUS_FINAL_EXTRA),
                    status_definicoes=dict(V.STATUS), hosts_permitidos=("testserver",), autenticacao=True, aceita_envios=True)
-    return criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(raw), ctx,
-                     contas=ContasSQLite(tmp_path / "contas.db"))
+    contas = ContasSQLite(tmp_path / "contas.db")
+    gravar_politica(contas, "real")
+    return criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(raw), ctx, contas=contas)
 
 
 def _pares_registrados(app):
@@ -313,6 +315,14 @@ def _negado(resposta, grupo):
     return resposta.status_code == 403
 
 
+def _publico(grupo, metodo, caminho):
+    """Para quem nao entrou, a politica da pesquisa divulgada tambem decide (D145); para quem entrou, nao muda nada."""
+    from dominio import divulgacao
+    if grupo != "Visitante":
+        return True
+    return divulgacao.decisao_publico(metodo, caminho, {"publica": True, "preliminares": False}) == "liberada"
+
+
 def _concedido(resposta):
     """Passou pelo controle de acesso: sem 401 nem 403, sem ida para a entrada e sem erro do servidor. Um 404 de registro que nao
     existe, um 405 do roteador ou um redirecionamento para outra pagina do painel contam como acesso concedido."""
@@ -331,7 +341,7 @@ def test_acesso_de_cada_grupo_em_cada_rota_de_leitura(clientes, metodo):
             continue
         caminho = _exemplo(padrao)
         for grupo in GRUPOS:
-            pode = A.pode(grupo, A.GRUPOS_PADRAO[grupo], permissao)
+            pode = A.pode(grupo, A.GRUPOS_PADRAO[grupo], permissao) and _publico(grupo, metodo, caminho)
             r = clientes[grupo].request(metodo, caminho, follow_redirects=False)
             if (pode and not _concedido(r)) or (not pode and not _negado(r, grupo)):
                 erros.append((metodo, caminho, grupo, pode, r.status_code))
@@ -356,7 +366,8 @@ def test_exportacoes_positivas_e_negativas(clientes):
     """As planilhas: o grupo sem a permissao e recusado; o grupo com ela passa pelo controle de acesso (o conteudo de cada
     planilha tem os testes proprios: test_catalogo_painel, test_casos_estaduais, test_resultado_painel)."""
     casos = {"/literatura/catalogo.xlsx": {"Revisor", "Administrador"}, "/achados/casos.xlsx": {"Revisor", "Administrador"},
-             "/execucoes/resultado.xlsx": {"Revisor", "Administrador"}, "/literatura/referencias.xlsx": set(GRUPOS)}
+             "/execucoes/resultado.xlsx": {"Revisor", "Administrador"},
+             "/literatura/referencias.xlsx": set(GRUPOS) - {"Visitante"}}          # a planilha tem C2: fechada ao publico
     planilha = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     for caminho, autorizados in casos.items():
         for grupo in GRUPOS:

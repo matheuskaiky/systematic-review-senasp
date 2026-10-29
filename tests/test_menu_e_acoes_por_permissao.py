@@ -131,7 +131,7 @@ def test_nenhum_item_do_menu_leva_a_recusa(clientes, grupo):
 
 @pytest.mark.parametrize("grupo,ausentes,presentes", [
     ("Visitante", {"/execucoes", "/chamadas", "/execucoes/comparar", "/revisao/achados", "/literatura/triagem", "/estados",
-                   "/achados", "/analises", "/literatura/prisma", "/metodologia"}, {"/", "/sobre"}),
+                   "/achados", "/analises", "/metodologia"}, {"/", "/sobre", "/literatura/prisma"}),
     ("Leitor", {"/execucoes", "/chamadas", "/execucoes/comparar", "/revisao/achados", "/literatura/triagem"}, {"/", "/estados"}),
     ("Revisor", {"/admin/usuarios"}, {"/execucoes", "/chamadas", "/revisao/achados", "/literatura/triagem"}),
     ("Administrador", set(), {"/execucoes", "/revisao/achados", "/admin/usuarios", "/admin/grupos"}),

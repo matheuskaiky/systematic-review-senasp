@@ -196,7 +196,7 @@ def test_quem_so_consulta_nao_recebe_registro_em_pagina_nenhuma(cenario):
     for grupo in ("Visitante", "Consulta"):
         paginas = _percorrer(c["clis"][grupo], extras + SEMENTES_REAL, limite=120)
         if grupo == "Visitante":                           # quem nao entrou so abre as paginas publicas (D145)
-            assert set(paginas) <= {"/", "/sobre"} and paginas
+            assert set(paginas) <= {"/", "/sobre", "/literatura/prisma"} and paginas
         else:
             assert len(paginas) >= 15
         cli = c["clis"][grupo]
@@ -219,8 +219,9 @@ def test_quem_so_consulta_nao_recebe_registro_em_pagina_nenhuma(cenario):
 def test_prisma_continua_mostrando_os_motivos_de_exclusao(cenario):
     for grupo in ("Consulta", "Administrador"):
         assert MOT in cenario["clis"][grupo].get("/literatura/prisma").text, grupo
-    # quem nao entrou: o PRISMA fica fechado so ate a retirada dos numeros do modelo (fatia seguinte da D145)
-    assert cenario["clis"]["Visitante"].get("/literatura/prisma", follow_redirects=False).status_code == 303
+    # quem nao entrou tambem ve os motivos agregados (D137): o PRISMA e publico sem os numeros do modelo (D145)
+    r = cenario["clis"]["Visitante"].get("/literatura/prisma", follow_redirects=False)
+    assert r.status_code == 200 and MOT in r.text
 
 
 def test_formulario_de_quem_decide_traz_o_valor_atual(cenario):

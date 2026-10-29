@@ -178,6 +178,8 @@ def _filtros_sql(filtros, ent):
 
 
 CONFERENCIAS_SIMULTANEAS = 4   # conferencias de senha (scrypt) ao mesmo tempo no login
+PRISMA_DO_MODELO = frozenset({"removidos por ferramenta automatica (triagem de escopo do modelo, sem decisao humana)",
+                              "artigos unicos para triagem", "pendentes de titulo e resumo"})
 
 
 def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
@@ -1016,7 +1018,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         aviso_manual = None
         if d["n_buscas_manuais"] and informados is not None and importados is not None and informados != importados:
             aviso_manual = (informados, importados)
-        return pagina(request, "prisma.html", d=d, fases=fases, aviso_manual=aviso_manual)
+        ocultos = PRISMA_DO_MODELO if (contexto.autenticacao and not getattr(request.state, "usuario", None)) else frozenset()
+        return pagina(request, "prisma.html", d=d, fases=fases, aviso_manual=aviso_manual, ocultos=ocultos)
 
     # ---------- achados ----------
     @app.get("/achados", response_class=HTMLResponse)

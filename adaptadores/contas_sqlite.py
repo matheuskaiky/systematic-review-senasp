@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sqlite3
 
-from dominio import autenticacao
+from dominio import autenticacao, divulgacao
 from infra.sqlite_wal import ligar_wal
 
 DDL_STATEMENTS = (
@@ -707,3 +707,13 @@ class ContasSQLite:
                 conn.execute("DELETE FROM sessoes WHERE usuario_id = ?", (usuario_id,))
                 conn.execute("DELETE FROM tokens_api WHERE usuario_id = ?", (usuario_id,))   # senha nova: token tambem
                 return "atualizado"
+
+    def politica_divulgacao(self, banco: str) -> tuple[dict, str]:
+        """Lê a política de divulgação para a pesquisa no banco de contas."""
+        with self._conexao() as conn:
+            row = conn.execute(
+                "SELECT valor FROM configuracoes WHERE chave = ?",
+                (divulgacao.chave(banco),),
+            ).fetchone()
+        valor = row[0] if row is not None else None
+        return divulgacao.ler_politica(valor)

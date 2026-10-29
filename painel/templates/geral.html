@@ -12,6 +12,7 @@
   "fila": ("list-checks", "cobalto"),
   "fila_artigos": ("list-checks", "cobalto"),
   "andamento": ("users", "cobalto"),
+  "administracao": ("user-check", "cobalto"),
   "decisoes_humanas": ("check-circle", "cobalto"),
   "segundo_o_modelo": ("robot", "violeta"),
   "conferencia": ("seal-check", "violeta"),
@@ -84,6 +85,16 @@
       {% elif b.comando_inicial %}
     <p class="vazio">Nenhuma execução registrada ainda. Rode <code>{{ b.comando_inicial }}</code>.</p>
       {% endif %}
+    {% endif %}
+    {% if b.id == "administracao" and b.alteracoes %}
+    <div class="tabela-rolavel"><table>
+      <thead><tr><th>Quando</th><th>Quem</th><th>Grupo</th><th>Alteração</th></tr></thead>
+      <tbody>
+      {% for alt in b.alteracoes %}
+        <tr><td>{{ fmt.data_hora(alt.quando) }}</td><td>{{ alt.admin_login }}</td><td>{{ alt.alvo or "—" }}</td><td>{{ alt.resumo }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
     {% endif %}
     {% for a in b.acoes %}
     <a class="botao" href="{{ a.href }}">{{ a.texto }}</a>

@@ -22,6 +22,7 @@ PRELIMINAR = ("Resultado preliminar: produzido por processamento automatizado e 
 NAO_DIVULGADO = "Resultados automatizados ainda não divulgados."
 ICONES = {"identificacao": ("binoculars", "petroleo"), "cobertura": ("magnifying-glass", "cobalto"), "fila": ("list-checks", "cobalto"),
           "fila_artigos": ("list-checks", "cobalto"), "andamento": ("users", "cobalto"),
+          "administracao": ("user-check", "cobalto"),
           "decisoes_humanas": ("check-circle", "cobalto"), "segundo_o_modelo": ("robot", "violeta"),
           "conferencia": ("seal-check", "violeta"), "prontidao": ("gauge", "violeta"), "ocultos": ("prohibit", "rosa"),
           "execucoes": ("play-circle", "ambar"), "links": ("link", "petroleo")}
@@ -29,10 +30,10 @@ MODELOS = Path(__file__).resolve().parents[1] / "painel" / "templates"
 CSS = (MODELOS.parent / "static" / "painel.css").read_text(encoding="utf-8")
 IDS_REAL = ["consultas_web", "urls_unicas", "paginas_com_texto", "pendentes", "artigos_pendentes", "verificados", "confirmados",
             "descartados", "ufs_confirmadas", "classificacoes", "achados", "evidencia", "sem_evidencia", "decisoes", "decisoes_achados",
-            "decisoes_artigos", "decisoes_recentes", "nao_concluidas", "falhas", "gasto"]
+            "decisoes_artigos", "decisoes_recentes", "nao_concluidas", "falhas", "gasto", "contas_ativas", "contas_inativas"]
 IDS_VIES = ["n_obras", "n_web", "n_scholar", "n_em_ambas_fontes", "pendentes", "com_triagem_humana", "incluidos", "excluidos",
             "n_triados", "n_alta", "n_fora", "ocultos_llm", "decisoes", "decisoes_achados", "decisoes_artigos", "decisoes_recentes",
-            "nao_concluidas", "falhas", "gasto"]
+            "nao_concluidas", "falhas", "gasto", "contas_ativas", "contas_inativas"]
 
 
 @pytest.fixture
@@ -80,13 +81,13 @@ def _bloco(h, bid):
     ("Visitante", ["pesquisa", "resultados", "qualidade", "aprofundar"]),
     ("Leitor", ["pesquisa", "resultados", "qualidade", "aprofundar"]),
     ("Revisor", ["pesquisa", "revisao", "resultados", "qualidade", "operacao", "aprofundar"]),
-    ("Administrador", ["pesquisa", "revisao", "resultados", "qualidade", "andamento", "operacao", "aprofundar"]),
+    ("Administrador", ["pesquisa", "revisao", "resultados", "qualidade", "andamento", "operacao", "administracao", "aprofundar"]),
 ])
 def test_secoes_por_leitor(clientes, grupo, secoes):  # noqa: F811
     h = clientes[grupo].get("/").text
     assert [s for s, _ in _secoes(h)] == secoes
     titulos = {"pesquisa": "A pesquisa", "revisao": "Sua revisão", "resultados": "Resultados", "qualidade": "Qualidade dos dados",
-               "andamento": "Andamento da equipe", "operacao": "Operação técnica", "aprofundar": "Para aprofundar"}
+               "andamento": "Andamento da equipe", "operacao": "Operação técnica", "administracao": "Administração", "aprofundar": "Para aprofundar"}
     assert _secoes(h) == [(s, titulos[s]) for s in secoes]
     assert h.count("<h1>") == 1 and "<h1>Visão geral</h1>" in h
 
@@ -94,7 +95,7 @@ def test_secoes_por_leitor(clientes, grupo, secoes):  # noqa: F811
 def test_cada_bloco_com_titulo_e_icone(clientes):  # noqa: F811
     h = clientes["Administrador"].get("/").text
     assert _blocos(h) == ["identificacao", "cobertura", "fila", "fila_artigos", "decisoes_humanas", "segundo_o_modelo", "conferencia",
-                          "prontidao", "andamento", "execucoes", "links"]
+                          "prontidao", "andamento", "execucoes", "administracao", "links"]
     for bid in _blocos(h):
         ic, tom = ICONES[bid]
         assert re.search(rf'<h3 id="t-vg-bloco-{bid}" data-ic="{ic}" data-tom="{tom}">[^<]+</h3>', h), bid

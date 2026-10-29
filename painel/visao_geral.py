@@ -31,6 +31,7 @@ ORIGENS = {
     "calculada": ("Calculado", "Calculado por regra a partir de decisões humanas."),
     "coleta": ("Coleta", "Contagem do que a busca recuperou; não envolve julgamento."),
     "operacao": ("Operação", "Registro técnico das execuções."),
+    "administracao": ("Administração", "Registro do banco de contas do painel."),
 }
 
 REL = "Execuções marcadas para o relatório."
@@ -135,6 +136,61 @@ def ve_andamento(quem) -> bool:
     if grupo is None or permissoes is None:
         return False
     return bool(autenticacao.pode(grupo, permissoes, "ver_estatisticas_usuarios"))
+
+
+def ve_administracao(quem) -> bool:
+    """Verifica se o usuário pode ver a seção de administração."""
+    if not isinstance(quem, dict):
+        return False
+    if not quem.get("logado"):
+        return False
+    grupo = quem.get("grupo")
+    permissoes = quem.get("permissoes")
+    if grupo is None or permissoes is None:
+        return False
+    return bool(autenticacao.pode(grupo, permissoes, autenticacao.SO_ADMIN))
+
+
+def ler_contas(contas, quem) -> dict | None:
+    """Lê resumo de contas e auditoria para o administrador."""
+    if not ve_administracao(quem) or contas is None:
+        return None
+    try:
+        usuarios = contas.listar_usuarios()
+        auditoria = contas.auditoria(limite=200)
+    except autenticacao.ContasOcupadas:
+        return {"indisponivel": True}
+
+    total = len(usuarios)
+    ativas = sum(1 for u in usuarios if u.get("ativo") == 1)
+    inativas = total - ativas
+
+    alteracoes = []
+    for row in auditoria:
+        if row.get("acao") == "salvar_permissoes":
+            detalhe = row.get("detalhe")
+            res = autenticacao.resumo_detalhe_auditoria(detalhe)
+            if res is not None:
+                resumo = res
+            elif isinstance(detalhe, str) and len(detalhe) > 0:
+                resumo = detalhe
+            else:
+                resumo = "—"
+            alteracoes.append({
+                "quando": row.get("quando"),
+                "admin_login": row.get("admin_login"),
+                "alvo": row.get("alvo"),
+                "resumo": resumo,
+            })
+            if len(alteracoes) == 5:
+                break
+
+    return {
+        "ativas": ativas,
+        "inativas": inativas,
+        "total": total,
+        "alteracoes": alteracoes,
+    }
 
 
 def ler_dados(leitura, contexto, quem=None) -> dict:
@@ -553,7 +609,75 @@ def montar(dados: dict, quem: dict) -> list[dict]:
             vazio=vazio_andamento,
         )
 
-    # ---------------- 6. APROFUNDAR (C1) ----------------
+    # ---------------- 6. ADMINISTRAÇÃO (C3) ----------------
+    bloco_administracao = None
+    if ve_administracao(quem) and dados.get("contas_resumo"):
+        resumo_contas = dados["contas_resumo"]
+        texto_admin = ["A divulgação pública dos resultados ainda não tem controle no painel: nada é publicado por aqui."]
+        if resumo_contas.get("indisponivel"):
+            bloco_administracao = _bloco_base(
+                "administracao",
+                "Contas e permissões",
+                "C3",
+                texto=texto_admin,
+                aviso="O banco de contas está ocupado. Tente de novo em alguns segundos.",
+                indicadores=[],
+                vazio=None,
+                acoes=[],
+            )
+            bloco_administracao["alteracoes"] = []
+        else:
+            ativas = resumo_contas.get("ativas", 0)
+            inativas = resumo_contas.get("inativas", 0)
+            total = resumo_contas.get("total", 0)
+            alteracoes = list(resumo_contas.get("alteracoes", []))
+
+            inds_admin = [
+                _indicador(
+                    "contas_ativas",
+                    "administracao",
+                    "Contas ativas",
+                    ativas,
+                    total,
+                    "Contas do painel.",
+                    "Contas que podem entrar no painel.",
+                    "C3",
+                ),
+                _indicador(
+                    "contas_inativas",
+                    "administracao",
+                    "Contas desativadas",
+                    inativas,
+                    total,
+                    "Contas do painel.",
+                    "Contas desativadas por um administrador; não entram no painel.",
+                    "C3",
+                ),
+            ]
+
+            acoes_admin = []
+            for t, h in [
+                ("Gerenciar contas", "/admin/usuarios"),
+                ("Ver o registro de administração", "/admin/auditoria"),
+            ]:
+                if navegacao.pode_seguir(h, pred):
+                    acoes_admin.append({"texto": t, "href": h})
+
+            vazio_admin = "Nenhuma alteração de permissões registrada." if not alteracoes else None
+
+            bloco_administracao = _bloco_base(
+                "administracao",
+                "Contas e permissões",
+                "C3",
+                texto=texto_admin,
+                aviso=None,
+                indicadores=inds_admin,
+                vazio=vazio_admin,
+                acoes=acoes_admin,
+            )
+            bloco_administracao["alteracoes"] = alteracoes
+
+    # ---------------- 7. APROFUNDAR (C1) ----------------
     if banco == "real":
         candidatos_links = [
             ("PRISMA", "/literatura/prisma"),
@@ -589,6 +713,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
         {"id": "qualidade", "titulo": "Qualidade dos dados", "blocos": blocos_qualidade},
         {"id": "andamento", "titulo": "Andamento da equipe", "blocos": [bloco_andamento] if bloco_andamento else []},
         {"id": "operacao", "titulo": "Operação técnica", "blocos": [bloco_operacao] if bloco_operacao else []},
+        {"id": "administracao", "titulo": "Administração", "blocos": [bloco_administracao] if bloco_administracao else []},
         {"id": "aprofundar", "titulo": "Para aprofundar", "blocos": [bloco_links]},
     ]
 

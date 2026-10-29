@@ -364,6 +364,13 @@ def pode(grupo: str, permissoes: set[str] | list[str], exigida: str | None) -> b
     return exigida in (permissoes or ())
 
 
+def ve_detalhes_tecnicos(logado: bool, grupo: str, permissoes) -> bool:
+    """Indica se o usuário autenticado pode ver detalhes operacionais e técnicos."""
+    if not logado:
+        return False
+    return bool(pode(grupo, permissoes, "ver_chamadas"))
+
+
 def pode_acessar(grupo: str, permissoes: set[str] | list[str], metodo: str, caminho: str) -> bool:
     """Verifica se um grupo com dadas permissões tem acesso para executar o método no caminho."""
     if not pode(grupo, permissoes, permissao_exigida(metodo, caminho)):

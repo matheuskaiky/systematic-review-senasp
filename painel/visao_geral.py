@@ -13,6 +13,7 @@ from painel import (
     formatacao as fmt,
     graficos,
     navegacao,
+    rotulos,
     visao_geral_vies,
 )
 
@@ -159,7 +160,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
     if banco == "real":
         bloco_identificacao = _bloco_base(
             "identificacao",
-            "Secretarias Estaduais de Segurança Pública",
+            rotulos.NOMES_PESQUISA["real"],
             "C1",
             texto=[
                 "Levantamento nas secretarias estaduais de segurança pública. Os números consideram só as execuções marcadas para o relatório."
@@ -174,7 +175,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
     else:
         bloco_identificacao = _bloco_base(
             "identificacao",
-            "Viés Algorítmico e Inteligência Artificial na Segurança Pública",
+            rotulos.NOMES_PESQUISA["vies"],
             "C1",
             texto=[
                 "Busca de literatura científica e cinzenta sobre viés algorítmico: referências da web e artigos do Google Scholar, com a triagem do modelo e a triagem humana."
@@ -385,7 +386,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
 
         # Prontidao (C1)
         cartoes_prontidao = []
-        pode_chamadas = logado and autenticacao.pode(grupo, permissoes, "ver_chamadas")
+        pode_chamadas = autenticacao.ve_detalhes_tecnicos(logado, grupo, permissoes)
         for c in dados.get("prontidao", []):
             card = dict(c)
             card["href"] = card["href"] if (card.get("href") and navegacao.pode_seguir(card["href"], pred)) else None
@@ -435,7 +436,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
 
     # ---------------- 5. OPERAÇÃO (C3) ----------------
     bloco_operacao = None
-    if logado and autenticacao.pode(grupo, permissoes, "ver_chamadas"):
+    if autenticacao.ve_detalhes_tecnicos(logado, grupo, permissoes):
         mostrar_custo = bool(autenticacao.pode(grupo, permissoes, "ver_custos"))
         execucoes_raw = dados.get("execucoes", [])
         lista_exec = []

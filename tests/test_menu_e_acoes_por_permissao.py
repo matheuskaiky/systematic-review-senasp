@@ -169,11 +169,10 @@ def test_continuar_a_triagem_na_literatura(clientes):
 
 
 def test_partes_que_nao_oferecem_acao_continuam_iguais(clientes, painel):  # noqa: F811
-    """O nome do banco na faixa continua para todos (muda na faixa do topo, depois); as execucoes saem da Visao Geral de quem
-    nao tem ver_chamadas."""
+    """Quem nao entrou nao ve o arquivo do banco na faixa nem as execucoes na Visao Geral (as duas pela mesma regra)."""
     _, _, copia, _ = painel
     h = clientes["Visitante"].get("/").text
-    assert f'<span class="banner-detalhe">{copia.name}</span>' in h and "Execuções e chamadas" not in h
+    assert '<span class="banner-detalhe"></span>' in h and copia.name not in h and "Execuções e chamadas" not in h
 
 
 # ---------------- desfazer ----------------

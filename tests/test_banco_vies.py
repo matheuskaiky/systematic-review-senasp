@@ -277,7 +277,7 @@ def test_painel_do_vies_abre_o_banco_do_vies_com_o_rotulo_proprio(ambiente, monk
     assert ctx.comando_criar_banco == "python main.py buscar-literatura --conjunto A --limite 5 --banco vies"
     assert capturado["bruto"].raiz == ambiente / "data" / "vies" / "raw"
     html = TestClient(capturado["app"], base_url="http://127.0.0.1").get("/").text
-    assert 'class="banner banner-vies"' in html and "BANCO VIÉS ALGORÍTMICO" in html
+    assert 'class="banner banner-vies"' in html and "<strong>Viés Algorítmico e Inteligência Artificial na Segurança Pública</strong>" in html
     assert _caminhos()[0] == ambiente / "data"                       # ao fim do comando as pastas voltaram
 
 

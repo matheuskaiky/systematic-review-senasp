@@ -82,7 +82,7 @@ def test_as_outras_paginas_continuam_com_menu_conta_detalhe_e_sem_no_store(paine
     h = r.text
     assert '<div class="layout">\n  <nav class="menu" aria-label="Principal">' in h and '</nav>\n  <main id="conteudo"' in h
     assert '<div class="layout">' in h and 'class="menu-lista"' in h and '<a class="conta-entrar" href="/entrar">Entrar</a>' in h
-    assert f'<span class="banner-detalhe">{copia.name}</span>' in h
+    assert '<span class="banner-detalhe"></span>' in h and copia.name not in h   # quem nao entrou nao ve o arquivo do banco
     assert "no-store" not in r.headers.get("cache-control", "")
 
 

@@ -1,4 +1,6 @@
 """Rotulos em portugues para toda chave que aparece na tela. As definicoes dos status vem de config/vocabulario."""
+NOMES_PESQUISA = {"real": "Secretarias Estaduais de Segurança Pública",
+                  "vies": "Viés Algorítmico e Inteligência Artificial na Segurança Pública"}
 TECNOLOGIAS = {
     "reconhecimento_facial": "Reconhecimento facial",
     "leitura_placas": "Leitura de placas de veículos",

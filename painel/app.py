@@ -271,6 +271,17 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         pode_estatisticas = _pode_estatisticas(request)
         pode_rota = _pode_rota(request)
         pode_seguir = _pode_seguir(request)
+        if not contexto.autenticacao:
+            ver_detalhes_tecnicos = True
+        elif getattr(request.state, "contas_indisponiveis", False):
+            ver_detalhes_tecnicos = False
+        else:
+            grupo_acesso = getattr(request.state, "grupo_acesso", None)
+            permissoes_acesso = getattr(request.state, "permissoes_acesso", None)
+            if grupo_acesso is None or permissoes_acesso is None:
+                ver_detalhes_tecnicos = False
+            else:
+                ver_detalhes_tecnicos = autenticacao.ve_detalhes_tecnicos(usuario is not None, grupo_acesso, permissoes_acesso)
         return modelos.TemplateResponse(request, modelo, {"revisor": revisor, "csrf": getattr(request.state, "csrf", ""),
                                                           "tema": tema_do_cookie(request),
                                                           "usuario": usuario, "ver_nomes": ver_nomes,
@@ -281,7 +292,9 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                                                           "pode_abrir": lambda c: pode_rota("GET", c),
                                                           "pode_enviar": lambda c: pode_rota("POST", c),
                                                           "pode_seguir": pode_seguir,
-                                                          "caminho": request.url.path, **dados}, status_code=status)
+                                                          "caminho": request.url.path, **dados,
+                                                          "ver_detalhes_tecnicos": ver_detalhes_tecnicos,
+                                                          "nome_pesquisa": rotulos.NOMES_PESQUISA.get(contexto.banco)}, status_code=status)
 
     def erro(request, status, titulo, texto):
         return pagina(request, "erro.html", status=status, titulo=titulo, texto=texto)

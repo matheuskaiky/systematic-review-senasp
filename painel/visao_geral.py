@@ -4,6 +4,7 @@ Função pura que constrói as seções e blocos da Visão Geral para os bancos 
 com metadados rigorosos por indicador, controle de visibilidade baseado nas funções do servidor
 e supressão de dados preliminares automatizados (C2) e operacionais (C3) para quem não entrou.
 """
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 from dominio import analises_vies as AV, autenticacao
@@ -110,12 +111,38 @@ def _bloco_base(
     }
 
 
-def ler_dados(leitura, contexto) -> dict:
+def ve_fila_artigos(quem) -> bool:
+    """Verifica se o usuário pode ver a fila de triagem de artigos."""
+    if not isinstance(quem, dict):
+        return False
+    if not quem.get("logado"):
+        return False
+    grupo = quem.get("grupo")
+    permissoes = quem.get("permissoes")
+    if grupo is None or permissoes is None:
+        return False
+    return bool(autenticacao.pode(grupo, permissoes, "triar_artigos"))
+
+
+def ve_andamento(quem) -> bool:
+    """Verifica se o usuário pode ver o bloco de andamento da equipe."""
+    if not isinstance(quem, dict):
+        return False
+    if not quem.get("logado"):
+        return False
+    grupo = quem.get("grupo")
+    permissoes = quem.get("permissoes")
+    if grupo is None or permissoes is None:
+        return False
+    return bool(autenticacao.pode(grupo, permissoes, "ver_estatisticas_usuarios"))
+
+
+def ler_dados(leitura, contexto, quem=None) -> dict:
     """Lê os dados necessários para montar a Visão Geral de acordo com o banco configurado."""
     banco = getattr(contexto, "banco", "real")
     if banco == "vies":
         lista = visao_geral_vies.itens(leitura, contexto)
-        return {
+        dados = {
             "banco": "vies",
             "resumo": leitura.resumo_geral(),
             "av": AV.resumo(lista),
@@ -124,15 +151,46 @@ def ler_dados(leitura, contexto) -> dict:
             "execucoes": leitura.execucoes_recentes(5),
             "ultima_coleta": leitura.ultima_coleta_concluida(),
         }
-    return {
-        "banco": "real",
-        "resumo": leitura.resumo_geral(),
-        "revisao": leitura.contagem_revisao(),
-        "prontidao": analises_blocos.bloco_prontidao(leitura.analise_prontidao())["cartoes"],
-        "execucoes": leitura.execucoes_recentes(5),
-        "ultima_coleta": leitura.ultima_coleta_concluida(),
-        "n_ufs": len(contexto.ufs),
-    }
+    else:
+        dados = {
+            "banco": "real",
+            "resumo": leitura.resumo_geral(),
+            "revisao": leitura.contagem_revisao(),
+            "prontidao": analises_blocos.bloco_prontidao(leitura.analise_prontidao())["cartoes"],
+            "execucoes": leitura.execucoes_recentes(5),
+            "ultima_coleta": leitura.ultima_coleta_concluida(),
+            "n_ufs": len(contexto.ufs),
+        }
+        if ve_fila_artigos(quem):
+            dados["triagem"] = leitura.contagem_triagem()
+    if ve_andamento(quem):
+        dados["atividade"] = leitura.atividade_por_revisor()
+        dados["hoje"] = datetime.now(timezone.utc).date().isoformat()
+    return dados
+
+
+def _bloco_fila_artigos(triagem: dict, pred, bid: str, iid: str) -> dict:
+    """Constrói o bloco da fila de triagem de artigos."""
+    total_tri = triagem.get("total", 0)
+    pendentes_tri = triagem.get("pendentes", 0)
+    acoes_fila = []
+    aviso_fila = None
+    if pendentes_tri > 0:
+        href_fila = "/literatura/triagem"
+        if navegacao.pode_seguir(href_fila, pred):
+            acoes_fila.append({"texto": f"Continuar a triagem ({pendentes_tri})", "href": href_fila})
+    else:
+        aviso_fila = "Nada pendente."
+    return _bloco_base(
+        bid,
+        "Artigos para triar",
+        "C1",
+        indicadores=[
+            _indicador(iid, "humana", "Artigos aguardando triagem humana", pendentes_tri, total_tri, ART, "Artigos exibidos na triagem que ainda não têm decisão de uma pessoa.", "C1")
+        ],
+        acoes=acoes_fila,
+        aviso=aviso_fila,
+    )
 
 
 def montar(dados: dict, quem: dict) -> list[dict]:
@@ -197,53 +255,36 @@ def montar(dados: dict, quem: dict) -> list[dict]:
     )
 
     # ---------------- 2. REVISÃO ----------------
-    bloco_fila = None
-    if logado:
-        if banco == "real":
-            if autenticacao.pode(grupo, permissoes, "verificar_achados"):
-                total_rev = revisao.get("total", 0)
-                verificados_rev = revisao.get("verificados", 0)
-                pendentes_rev = total_rev - verificados_rev
-                acoes_fila = []
-                aviso_fila = None
-                if pendentes_rev > 0:
-                    href_fila = "/revisao/achados"
-                    if navegacao.pode_seguir(href_fila, pred):
-                        acoes_fila.append({"texto": f"Continuar a revisão ({pendentes_rev})", "href": href_fila})
-                else:
-                    aviso_fila = "Nada pendente."
-                bloco_fila = _bloco_base(
-                    "fila",
-                    "Achados para verificar",
-                    "C2",
-                    indicadores=[
-                        _indicador("pendentes", "modelo", "Achados aguardando verificação humana", pendentes_rev, total_rev, REL, "Achados apontados pelo modelo que ainda não foram lidos por uma pessoa.", "C2")
-                    ],
-                    acoes=acoes_fila,
-                    aviso=aviso_fila,
-                )
-        else:
-            if autenticacao.pode(grupo, permissoes, "triar_artigos"):
-                total_tri = triagem.get("total", 0)
-                pendentes_tri = triagem.get("pendentes", 0)
-                acoes_fila = []
-                aviso_fila = None
-                if pendentes_tri > 0:
-                    href_fila = "/literatura/triagem"
-                    if navegacao.pode_seguir(href_fila, pred):
-                        acoes_fila.append({"texto": f"Continuar a triagem ({pendentes_tri})", "href": href_fila})
-                else:
-                    aviso_fila = "Nada pendente."
-                bloco_fila = _bloco_base(
-                    "fila",
-                    "Artigos para triar",
-                    "C1",
-                    indicadores=[
-                        _indicador("pendentes", "humana", "Artigos aguardando triagem humana", pendentes_tri, total_tri, ART, "Artigos exibidos na triagem que ainda não têm decisão de uma pessoa.", "C1")
-                    ],
-                    acoes=acoes_fila,
-                    aviso=aviso_fila,
-                )
+    blocos_revisao = []
+    if banco == "real":
+        if logado and autenticacao.pode(grupo, permissoes, "verificar_achados"):
+            total_rev = revisao.get("total", 0)
+            verificados_rev = revisao.get("verificados", 0)
+            pendentes_rev = total_rev - verificados_rev
+            acoes_fila = []
+            aviso_fila = None
+            if pendentes_rev > 0:
+                href_fila = "/revisao/achados"
+                if navegacao.pode_seguir(href_fila, pred):
+                    acoes_fila.append({"texto": f"Continuar a revisão ({pendentes_rev})", "href": href_fila})
+            else:
+                aviso_fila = "Nada pendente."
+            bloco_fila = _bloco_base(
+                "fila",
+                "Achados para verificar",
+                "C2",
+                indicadores=[
+                    _indicador("pendentes", "modelo", "Achados aguardando verificação humana", pendentes_rev, total_rev, REL, "Achados apontados pelo modelo que ainda não foram lidos por uma pessoa.", "C2")
+                ],
+                acoes=acoes_fila,
+                aviso=aviso_fila,
+            )
+            blocos_revisao.append(bloco_fila)
+        if ve_fila_artigos(quem) and "triagem" in dados:
+            blocos_revisao.append(_bloco_fila_artigos(dados["triagem"], pred, "fila_artigos", "artigos_pendentes"))
+    else:
+        if ve_fila_artigos(quem):
+            blocos_revisao.append(_bloco_fila_artigos(triagem, pred, "fila", "pendentes"))
 
     # ---------------- 3. RESULTADOS ----------------
     if banco == "real":
@@ -482,6 +523,36 @@ def montar(dados: dict, quem: dict) -> list[dict]:
             comando_inicial=comando_ini,
         )
 
+    # ---------------- 5. ANDAMENTO DA EQUIPE (C3) ----------------
+    bloco_andamento = None
+    if ve_andamento(quem) and "atividade" in dados:
+        totais, janela = autenticacao.resumir_atividade(dados["atividade"], dados.get("hoje", ""))
+        soma_achados = sum(t["achados"] for t in totais)
+        soma_artigos = sum(t["artigos"] for t in totais)
+        decisoes = soma_achados + soma_artigos
+        soma_janela = sum(j["achados"] + j["artigos"] for j in janela)
+        universo_and = "Decisões de revisores registradas no painel, em achados (sem as desfeitas) e em artigos."
+        inds_andamento = [
+            _indicador("decisoes", "humana", "Decisões registradas", decisoes, None, universo_and, "Decisões em achados e em artigos, somadas.", "C3"),
+            _indicador("decisoes_achados", "humana", "Em achados", soma_achados, decisoes, universo_and, "Decisões de verificação de achados que não foram desfeitas.", "C3"),
+            _indicador("decisoes_artigos", "humana", "Em artigos", soma_artigos, decisoes, universo_and, "Decisões de triagem de artigos.", "C3"),
+            _indicador("decisoes_recentes", "humana", "Nos últimos 30 dias", soma_janela, decisoes, universo_and, "Decisões com data entre hoje e 29 dias atrás (UTC).", "C3"),
+        ]
+        acoes_andamento = []
+        href_estat = "/estatisticas-usuarios"
+        if navegacao.pode_seguir(href_estat, pred):
+            acoes_andamento.append({"texto": "Ver a atividade por revisor", "href": href_estat})
+        vazio_andamento = "Ainda não há decisões de revisores." if decisoes == 0 else None
+        bloco_andamento = _bloco_base(
+            "andamento",
+            "Atividade da equipe",
+            "C3",
+            texto=["Totais da equipe, sem identificar quem decidiu."],
+            indicadores=inds_andamento,
+            acoes=acoes_andamento,
+            vazio=vazio_andamento,
+        )
+
     # ---------------- 6. APROFUNDAR (C1) ----------------
     if banco == "real":
         candidatos_links = [
@@ -513,9 +584,10 @@ def montar(dados: dict, quem: dict) -> list[dict]:
     # ---------------- MONTAGEM FINAL DAS SEÇÕES ----------------
     secoes_candidatas = [
         {"id": "pesquisa", "titulo": "A pesquisa", "blocos": [bloco_identificacao, bloco_cobertura]},
-        {"id": "revisao", "titulo": "Sua revisão", "blocos": [bloco_fila] if bloco_fila else []},
+        {"id": "revisao", "titulo": "Sua revisão", "blocos": blocos_revisao},
         {"id": "resultados", "titulo": "Resultados", "blocos": [bloco_decisoes_humanas, bloco_segundo_modelo]},
         {"id": "qualidade", "titulo": "Qualidade dos dados", "blocos": blocos_qualidade},
+        {"id": "andamento", "titulo": "Andamento da equipe", "blocos": [bloco_andamento] if bloco_andamento else []},
         {"id": "operacao", "titulo": "Operação técnica", "blocos": [bloco_operacao] if bloco_operacao else []},
         {"id": "aprofundar", "titulo": "Para aprofundar", "blocos": [bloco_links]},
     ]

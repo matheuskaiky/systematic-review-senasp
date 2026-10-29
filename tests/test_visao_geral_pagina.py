@@ -21,15 +21,18 @@ PRELIMINAR = ("Resultado preliminar: produzido por processamento automatizado e 
               "Interprete como exploratório.")
 NAO_DIVULGADO = "Resultados automatizados ainda não divulgados."
 ICONES = {"identificacao": ("binoculars", "petroleo"), "cobertura": ("magnifying-glass", "cobalto"), "fila": ("list-checks", "cobalto"),
+          "fila_artigos": ("list-checks", "cobalto"), "andamento": ("users", "cobalto"),
           "decisoes_humanas": ("check-circle", "cobalto"), "segundo_o_modelo": ("robot", "violeta"),
           "conferencia": ("seal-check", "violeta"), "prontidao": ("gauge", "violeta"), "ocultos": ("prohibit", "rosa"),
           "execucoes": ("play-circle", "ambar"), "links": ("link", "petroleo")}
 MODELOS = Path(__file__).resolve().parents[1] / "painel" / "templates"
 CSS = (MODELOS.parent / "static" / "painel.css").read_text(encoding="utf-8")
-IDS_REAL = ["consultas_web", "urls_unicas", "paginas_com_texto", "pendentes", "verificados", "confirmados", "descartados",
-            "ufs_confirmadas", "classificacoes", "achados", "evidencia", "sem_evidencia", "nao_concluidas", "falhas", "gasto"]
+IDS_REAL = ["consultas_web", "urls_unicas", "paginas_com_texto", "pendentes", "artigos_pendentes", "verificados", "confirmados",
+            "descartados", "ufs_confirmadas", "classificacoes", "achados", "evidencia", "sem_evidencia", "decisoes", "decisoes_achados",
+            "decisoes_artigos", "decisoes_recentes", "nao_concluidas", "falhas", "gasto"]
 IDS_VIES = ["n_obras", "n_web", "n_scholar", "n_em_ambas_fontes", "pendentes", "com_triagem_humana", "incluidos", "excluidos",
-            "n_triados", "n_alta", "n_fora", "ocultos_llm", "nao_concluidas", "falhas", "gasto"]
+            "n_triados", "n_alta", "n_fora", "ocultos_llm", "decisoes", "decisoes_achados", "decisoes_artigos", "decisoes_recentes",
+            "nao_concluidas", "falhas", "gasto"]
 
 
 @pytest.fixture
@@ -77,21 +80,21 @@ def _bloco(h, bid):
     ("Visitante", ["pesquisa", "resultados", "qualidade", "aprofundar"]),
     ("Leitor", ["pesquisa", "resultados", "qualidade", "aprofundar"]),
     ("Revisor", ["pesquisa", "revisao", "resultados", "qualidade", "operacao", "aprofundar"]),
-    ("Administrador", ["pesquisa", "revisao", "resultados", "qualidade", "operacao", "aprofundar"]),
+    ("Administrador", ["pesquisa", "revisao", "resultados", "qualidade", "andamento", "operacao", "aprofundar"]),
 ])
 def test_secoes_por_leitor(clientes, grupo, secoes):  # noqa: F811
     h = clientes[grupo].get("/").text
     assert [s for s, _ in _secoes(h)] == secoes
     titulos = {"pesquisa": "A pesquisa", "revisao": "Sua revisão", "resultados": "Resultados", "qualidade": "Qualidade dos dados",
-               "operacao": "Operação técnica", "aprofundar": "Para aprofundar"}
+               "andamento": "Andamento da equipe", "operacao": "Operação técnica", "aprofundar": "Para aprofundar"}
     assert _secoes(h) == [(s, titulos[s]) for s in secoes]
     assert h.count("<h1>") == 1 and "<h1>Visão geral</h1>" in h
 
 
 def test_cada_bloco_com_titulo_e_icone(clientes):  # noqa: F811
     h = clientes["Administrador"].get("/").text
-    assert _blocos(h) == ["identificacao", "cobertura", "fila", "decisoes_humanas", "segundo_o_modelo", "conferencia", "prontidao",
-                          "execucoes", "links"]
+    assert _blocos(h) == ["identificacao", "cobertura", "fila", "fila_artigos", "decisoes_humanas", "segundo_o_modelo", "conferencia",
+                          "prontidao", "andamento", "execucoes", "links"]
     for bid in _blocos(h):
         ic, tom = ICONES[bid]
         assert re.search(rf'<h3 id="t-vg-bloco-{bid}" data-ic="{ic}" data-tom="{tom}">[^<]+</h3>', h), bid
@@ -228,9 +231,10 @@ def test_rota_usa_ler_dados_e_montar_com_a_regra_das_rotas(clientes, monkeypatch
     vistos = {}
     original_ler, original_montar = VG.ler_dados, VG.montar
 
-    def ler(leitura, contexto):
+    def ler(leitura, contexto, quem=None):
         vistos["ler"] = vistos.get("ler", 0) + 1
-        return original_ler(leitura, contexto)
+        vistos["quem_ler"] = quem
+        return original_ler(leitura, contexto, quem)
 
     def montar(dados, quem):
         vistos["quem"] = quem
@@ -239,7 +243,7 @@ def test_rota_usa_ler_dados_e_montar_com_a_regra_das_rotas(clientes, monkeypatch
     monkeypatch.setattr(VG, "montar", montar)
     clientes["Revisor"].get("/")
     q = vistos["quem"]
-    assert vistos["ler"] == 1 and q["logado"] is True and q["grupo"] == "Revisor"
+    assert vistos["ler"] == 1 and q["logado"] is True and q["grupo"] == "Revisor" and vistos["quem_ler"] is q
     assert q["pode_rota"]("GET", "/execucoes") is True and q["pode_rota"]("POST", "/achados/1/verificar") is True
     clientes["Visitante"].get("/")
     assert vistos["quem"]["logado"] is False and vistos["quem"]["grupo"] == "Visitante"
@@ -255,7 +259,8 @@ def test_painel_sem_login_ve_tudo(cliente_demo, monkeypatch):  # noqa: F811
 
 
 def test_pagina_com_um_comando_select_por_leitura_no_maximo_da_linha_de_base(cliente_demo, monkeypatch):  # noqa: F811
-    """Linha de base medida antes da P7: 11 SELECTs por visita no banco real (a repeticao de funil sai, a ultima coleta entra)."""
+    """Linha de base medida antes da P7: 11 SELECTs por visita no banco real (a repeticao de funil sai, a ultima coleta entra).
+    O painel sem login ve tudo: mais 4 da fila de artigos (contagem_triagem) e 1 do andamento (atividade_por_revisor)."""
     from adaptadores import leitura_sqlite
     cli = cliente_demo[0]
     cli.get("/")
@@ -268,7 +273,7 @@ def test_pagina_com_um_comando_select_por_leitura_no_maximo_da_linha_de_base(cli
         return c
     monkeypatch.setattr(leitura_sqlite.sqlite3, "connect", conectar)
     cli.get("/")
-    assert sum(1 for c in cmds if c in ("SELECT", "WITH")) <= 11
+    assert sum(1 for c in cmds if c in ("SELECT", "WITH")) <= 16
 
 
 # ======================== limpeza: o que saiu ========================

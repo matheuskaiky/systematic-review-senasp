@@ -558,9 +558,9 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         }
         if contexto.banco == "vies":
             with leitura.instantaneo() as l:
-                dados = visao_geral.ler_dados(l, contexto)
+                dados = visao_geral.ler_dados(l, contexto, quem)
         else:
-            dados = visao_geral.ler_dados(leitura, contexto)
+            dados = visao_geral.ler_dados(leitura, contexto, quem)
         secoes = visao_geral.montar(dados, quem)
         return pagina(request, "geral.html", secoes=secoes, banco=contexto.banco)
 

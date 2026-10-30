@@ -125,7 +125,8 @@ def registrar(c):
         uf = (request.query_params.get("uf") or "").strip().upper()
         inteira = (request.query_params.get("inteira") or "") in ("1", "on", "true")
         base = {"q": q, "uf": uf, "inteira": inteira, "ufs": ufs_validas, "resultados": None, "aviso": None,
-                "q_min": Q_MIN, "q_max": Q_MAX, "max_resultados": MAX_RESULTADOS}
+                "q_min": Q_MIN, "q_max": Q_MAX, "max_resultados": MAX_RESULTADOS,
+                "mostrar_achados": not c.anonimo(request)}
         if uf and uf not in ufs_validas:
             return c.pagina(request, "buscar_texto.html", status=400, **{**base, "aviso": "A UF escolhida não existe. Escolha uma da lista.", "uf": ""})
         if not q:
@@ -149,7 +150,7 @@ def registrar(c):
                 achadas.append((_ocorrencias(t[1], termo), p, t))
         achadas.sort(key=lambda x: (-x[0], x[1]["uf"], x[1]["url_id"]))
         mostradas = achadas[:MAX_RESULTADOS]
-        achados = leitura.achados_das_urls({(p["url_id"], p["uf"]) for _, p, _ in mostradas})
+        achados = leitura.achados_das_urls({(p["url_id"], p["uf"]) for _, p, _ in mostradas}) if base["mostrar_achados"] else {}
         resultados = [{
             "uf": p["uf"], "url": p["url"], "dominio": p["dominio_final"], "run_id": p["run_id"], "n_ocorrencias": n,
             "link_externo": p["url_final"] if _so_http(p["url_final"]) else p["url"], "no_relatorio": p["no_relatorio"],

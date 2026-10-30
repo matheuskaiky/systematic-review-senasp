@@ -86,9 +86,8 @@ def test_chave_por_pesquisa():
 
 
 # ======================== o que quem nao entrou pode abrir ========================
-PUBLICAS = ["/", "/sobre", "/literatura/prisma", "/metodologia"]
-# a busca no texto entra na lista so junto com a retirada do C2 dela (fatia seguinte): ate la, fechada
-AINDA_FECHADAS = ["/buscar-texto"]
+PUBLICAS = ["/", "/sobre", "/literatura/prisma", "/metodologia", "/buscar-texto"]
+AINDA_FECHADAS = []
 METODOS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 SEMPRE = ["/entrar", "/sair", "/static/painel.css", "/static/x/y.svg", "/api/coletas"]
 FECHADAS_AO_PUBLICO = ["/estados", "/estados/SP", "/achados", "/achados/1", "/revisao/achados", "/analises", "/classificadores",

@@ -146,7 +146,7 @@ def test_menu_usa_pode_seguir(monkeypatch):
 def test_nenhum_link_do_corpo_leva_a_recusa_no_real(clientes, grupo):
     paginas = _percorrer(clientes[grupo], SEMENTES_REAL)
     if grupo == "Visitante":                                   # quem nao entrou so abre as paginas publicas (D145)
-        assert set(paginas) == {"/", "/sobre", "/literatura/prisma", "/metodologia"}
+        assert set(paginas) == {"/", "/sobre", "/literatura/prisma", "/metodologia", "/buscar-texto"}
         _conferir(paginas, _aceita_do_grupo(grupo), set(), set(), minimo=2)
         return
     _conferir(paginas, _aceita_do_grupo(grupo), COM_RESTRITOS_REAL, COM_FILA_REAL)

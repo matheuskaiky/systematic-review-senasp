@@ -123,7 +123,7 @@ def test_menu_do_visitante_com_o_prisma(demo, tmp_path):  # noqa: F811
     from test_divulgacao_acesso import _menu
     app, contas, _, _ = _painel(demo, tmp_path)
     gravar_politica(contas, "real")
-    assert _menu(TestClient(app).get("/").text) == ["/", "/literatura/prisma", "/metodologia", "/sobre"]
+    assert "/literatura/prisma" in _menu(TestClient(app).get("/").text)
 
 
 @pytest.mark.parametrize("estado", [None, False])

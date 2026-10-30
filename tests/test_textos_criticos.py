@@ -28,7 +28,8 @@ NOVOS = {
     "_legenda_referencias.html": ['<dt>Baixar</dt><dd><strong>Planilha de referências ampliada</strong>: a planilha com as abas '
                                   '"Referências ampliadas" e "Esquema de exploração". <strong>Colunas selecionadas</strong>:'],
     "buscar_texto.html": ['<strong>não prova</strong> que a solução não é usada: a busca na web é incompleta e só uma parte das '
-                          'páginas foi baixada.\n      Veja a conferência por solução em <a href="/solucoes">Soluções conhecidas</a>.</li>'],
+                          'páginas foi baixada.\n      Veja a conferência por solução em {% if pode_seguir("/solucoes") %}<a href="/solucoes">'
+                          'Soluções conhecidas</a>{% else %}Soluções conhecidas{% endif %}.</li>'],
     "solucoes.html": ['ranking muda a cada execução e só parte das\n  páginas foi baixada. A lista fica em '
                       '<code>config/solucoes_conhecidas.py</code>; para acrescentar uma solução, edite esse arquivo.'],
 }

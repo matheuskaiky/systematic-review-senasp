@@ -196,13 +196,14 @@ def test_quem_so_consulta_nao_recebe_registro_em_pagina_nenhuma(cenario):
     for grupo in ("Visitante", "Consulta"):
         paginas = _percorrer(c["clis"][grupo], extras + SEMENTES_REAL, limite=120)
         if grupo == "Visitante":                           # quem nao entrou so abre as paginas publicas (D145)
-            assert set(paginas) <= {"/", "/sobre", "/literatura/prisma", "/metodologia"} and paginas
+            assert set(paginas) <= {"/", "/sobre", "/literatura/prisma", "/metodologia", "/buscar-texto"} and paginas
         else:
             assert len(paginas) >= 15
         cli = c["clis"][grupo]
         if grupo == "Visitante":                                 # so as paginas publicas abrem; o resto vai para a entrada
-            for url in extras + ["/achados", "/literatura/artigos", "/literatura", "/buscar-texto?q=reconhecimento"]:
+            for url in extras + ["/achados", "/literatura/artigos", "/literatura"]:
                 assert cli.get(url, follow_redirects=False).status_code == 303, url
+            assert cli.get("/buscar-texto?q=reconhecimento", follow_redirects=False).status_code == 200   # publica sem achados (D145)
         vazados = []
         for url in extras + ["/", "/achados", "/literatura/artigos", "/literatura", "/buscar-texto?q=reconhecimento"]:
             h = cli.get(url).text

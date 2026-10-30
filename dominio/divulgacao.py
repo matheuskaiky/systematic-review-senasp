@@ -1,7 +1,7 @@
 """Regras de domínio da política de divulgação pública por pesquisa (D145)."""
 import json
 
-ROTAS_PUBLICAS = frozenset({"/", "/sobre", "/literatura/prisma", "/metodologia"})
+ROTAS_PUBLICAS = frozenset({"/", "/sobre", "/literatura/prisma", "/metodologia", "/buscar-texto"})
 
 
 def chave(banco: str) -> str:

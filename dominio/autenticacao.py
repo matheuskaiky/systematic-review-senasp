@@ -74,6 +74,7 @@ ACOES_AUDITORIA = (
     "renomear_grupo",
     "gerar_token",
     "revogar_token",
+    "alterar_divulgacao",
 )
 
 GRUPO_ADMIN = "Administrador"

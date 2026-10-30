@@ -21,6 +21,7 @@ ROTULOS_ACOES = {
     "renomear_grupo": "Renomeação de grupo",
     "gerar_token": "Geração de token de envio",
     "revogar_token": "Revogação de token de envio",
+    "alterar_divulgacao": "Alteração da divulgação pública",
 }
 
 

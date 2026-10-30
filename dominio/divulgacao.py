@@ -1,7 +1,15 @@
 """Regras de domínio da política de divulgação pública por pesquisa (D145)."""
+import hashlib
 import json
 
 ROTAS_PUBLICAS = frozenset({"/", "/sobre", "/literatura/prisma", "/metodologia", "/buscar-texto"})
+INVALIDA = "Configuração de divulgação inválida."
+PRELIMINARES = "A divulgação de resultados preliminares ainda não está disponível."
+PESQUISAS = frozenset({"real", "vies", "demo", "simulado"})
+
+
+class DivulgacaoAlterada(Exception):
+    """A linha de configuração gravada mudou desde a leitura."""
 
 
 def chave(banco: str) -> str:
@@ -9,17 +17,74 @@ def chave(banco: str) -> str:
     return f"divulgacao:{banco}"
 
 
+def versao(valor) -> str:
+    """Calcula a versão SHA-256 do valor bruto gravado."""
+    return hashlib.sha256(repr(valor).encode("utf-8", "surrogatepass")).hexdigest()
+
+
 def validar_nova(nova) -> list[str]:
     """Valida uma nova configuração de divulgação para gravação."""
     if not isinstance(nova, dict):
-        return ["Configuração de divulgação inválida."]
+        return [INVALIDA]
     if set(nova.keys()) != {"publica", "preliminares"}:
-        return ["Configuração de divulgação inválida."]
+        return [INVALIDA]
     if type(nova["publica"]) is not bool or type(nova["preliminares"]) is not bool:
-        return ["Configuração de divulgação inválida."]
+        return [INVALIDA]
     if nova["preliminares"] is True:
-        return ["A divulgação de resultados preliminares ainda não está disponível."]
+        return [PRELIMINARES]
     return []
+
+
+def nova_do_formulario(publica: list[str], preliminares: list[str]) -> tuple[dict | None, list[str]]:
+    """Lê os campos da política enviados pelo formulário com validação estrita."""
+    erros: list[str] = []
+    pub_val = None
+    if not isinstance(publica, list):
+        erros.append(INVALIDA)
+    elif len(publica) == 1 and publica[0] in ("0", "1"):
+        pub_val = publica[0] == "1"
+    else:
+        erros.append(INVALIDA)
+
+    if not isinstance(preliminares, list):
+        erros.append(INVALIDA)
+    elif preliminares in ([], ["0"]):
+        pass
+    elif preliminares == ["1"]:
+        erros.append(PRELIMINARES)
+    else:
+        erros.append(INVALIDA)
+
+    if erros:
+        return (None, erros)
+    return ({"publica": pub_val, "preliminares": False}, [])
+
+
+def revisar(antes: dict, nova: dict) -> dict:
+    """Resume o efeito da alteração de política e define frases e confirmação."""
+    muda = antes["publica"] != nova["publica"]
+    amplia = muda and nova["publica"]
+    if muda:
+        if amplia:
+            frase = ("Quem não entrou passará a ver a Visão Geral, Sobre os dados, o PRISMA, a Metodologia e "
+                     "a busca no texto, sem resultados automatizados.")
+            confirmacao = ("Entendo que qualquer pessoa na internet passará a ver: a Visão Geral, Sobre os dados, "
+                           "o PRISMA, a Metodologia e a busca no texto, sem resultados automatizados.")
+        else:
+            frase = ("Quem não entrou passará a ser levado à tela de entrada em todas as páginas desta "
+                     "pesquisa.")
+            confirmacao = "Entendo que quem não entrou deixará de ver as páginas desta pesquisa."
+    else:
+        frase = "Nada muda: a divulgação já está assim."
+        confirmacao = None
+    return {
+        "antes": antes,
+        "depois": nova,
+        "muda": muda,
+        "amplia": amplia,
+        "confirmacao": confirmacao,
+        "frase": frase,
+    }
 
 
 def valor(politica: dict) -> str:

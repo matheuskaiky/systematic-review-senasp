@@ -1,6 +1,7 @@
 """Adaptador SQLite para contas, grupos, permissões e sessões de usuários do painel."""
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+import json
 from pathlib import Path
 import sqlite3
 
@@ -717,3 +718,70 @@ class ContasSQLite:
             ).fetchone()
         valor = row[0] if row is not None else None
         return divulgacao.ler_politica(valor)
+
+    def estado_divulgacao(self, banco: str) -> dict:
+        """Lê a política, situação e versão do registro bruto no banco de contas."""
+        with self._conexao() as conn:
+            row = conn.execute(
+                "SELECT valor FROM configuracoes WHERE chave = ?",
+                (divulgacao.chave(banco),),
+            ).fetchone()
+        raw = row[0] if row is not None else None
+        politica, situacao = divulgacao.ler_politica(raw)
+        return {"politica": politica, "situacao": situacao, "versao": divulgacao.versao(raw)}
+
+    def alterar_divulgacao(
+        self, banco: str, nova: dict, versao_esperada: str, confirmado: bool, auditoria: tuple[str, str]
+    ) -> dict:
+        """Altera a política de divulgação de uma pesquisa em transação única com trava e auditoria."""
+        if not isinstance(banco, str) or banco not in divulgacao.PESQUISAS:
+            raise autenticacao.AlteracaoRecusada(["Pesquisa inválida."])
+        erros = divulgacao.validar_nova(nova)
+        if erros:
+            raise autenticacao.AlteracaoRecusada(erros)
+        if (
+            not isinstance(auditoria, tuple)
+            or len(auditoria) != 2
+            or not isinstance(auditoria[0], str)
+            or not auditoria[0].strip()
+            or not isinstance(auditoria[1], str)
+            or not auditoria[1].strip()
+        ):
+            raise ValueError("Auditoria inválida.")
+        login, agora = auditoria
+
+        with self._conexao(escrita=True) as conn:
+            chave = divulgacao.chave(banco)
+            row = conn.execute(
+                "SELECT valor FROM configuracoes WHERE chave = ?",
+                (chave,),
+            ).fetchone()
+            raw = row[0] if row is not None else None
+            if divulgacao.versao(raw) != versao_esperada:
+                raise divulgacao.DivulgacaoAlterada()
+
+            antes, situacao = divulgacao.ler_politica(raw)
+            r = divulgacao.revisar(antes, nova)
+            if not r["muda"]:
+                return r
+
+            if confirmado is not True:
+                raise autenticacao.AlteracaoRecusada(["Marque a confirmação para gravar a alteração."])
+
+            conn.execute("DELETE FROM configuracoes WHERE chave = ?", (chave,))
+            conn.execute(
+                "INSERT INTO configuracoes (chave, valor) VALUES (?, ?)",
+                (chave, divulgacao.valor(nova)),
+            )
+            detalhe = json.dumps(
+                {
+                    "antes": antes,
+                    "depois": nova,
+                    "situacao_antes": situacao,
+                    "versao_antes": divulgacao.versao(raw),
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            self._gravar_auditoria(conn, (login, "alterar_divulgacao", banco, detalhe, agora))
+            return r

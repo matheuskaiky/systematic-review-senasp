@@ -161,7 +161,8 @@ def test_permissoes_e_grupos_padrao_exatos():
         "Revisor": {"ver_painel", "ver_nomes_revisores", "ver_chamadas", "verificar_achados", "triar_artigos", "triar_texto_completo",
                     "ver_registros_revisao", "ver_custos"}}
     assert A.ACOES_AUDITORIA == ("criar_usuario", "editar_usuario", "redefinir_senha", "desativar_usuario", "reativar_usuario",
-                                 "salvar_permissoes", "criar_grupo", "renomear_grupo", "gerar_token", "revogar_token")
+                                 "salvar_permissoes", "criar_grupo", "renomear_grupo", "gerar_token", "revogar_token",
+                                 "alterar_divulgacao")
 
 
 # ---------------- regra explicita e permissao exigida ----------------

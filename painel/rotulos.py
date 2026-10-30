@@ -72,6 +72,7 @@ ACOES_AUDITORIA = {
     "renomear_grupo": "Renomeação de grupo",
     "gerar_token": "Geração de token de envio",
     "revogar_token": "Revogação de token de envio",
+    "alterar_divulgacao": "Alteração da divulgação pública",
 }
 
 # rotulos do fluxo PRISMA: a view v_prisma guarda a chave sem acento (usada no SQL e nos testes); a tela mostra o texto abaixo

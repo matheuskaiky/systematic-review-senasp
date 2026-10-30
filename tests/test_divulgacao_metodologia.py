@@ -269,3 +269,30 @@ def test_sem_divulgacao_a_metodologia_vai_para_a_entrada(demo, tmp_path, estado)
         gravar_politica(contas, "real", publica=estado)
     r = TestClient(app).get("/metodologia", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/entrar?proximo=%2Fmetodologia"
+
+
+# ---------------- leitura consistente ----------------
+@pytest.mark.parametrize("quem", ["visitante", "leitor", "sem_login"])
+def test_a_metodologia_le_os_fatos_num_so_retrato_do_banco(demo, tmp_path, monkeypatch, quem):  # noqa: F811
+    """Os fatos vem de varias consultas: todas numa so transacao de leitura (`instantaneo`), para que uma execucao que comeca no
+    meio do pedido nunca junte "nenhuma execucao" com "ha achados"."""
+    from adaptadores.leitura_sqlite import LeituraPainelSQLite
+    original = LeituraPainelSQLite.fatos_metodologia
+    retratos = []
+
+    def espia(self, n=27):
+        retratos.append("_consulta" in vars(self))           # a copia do instantaneo troca _consulta pela conexao unica
+        return original(self, n)
+    monkeypatch.setattr(LeituraPainelSQLite, "fatos_metodologia", espia)
+    if quem == "sem_login":
+        app, _, _, _ = _painel(demo, tmp_path, autenticacao=False)
+        cli = TestClient(app)
+    else:
+        app, contas, contas_db, _ = _painel(demo, tmp_path)
+        gravar_politica(contas, "real")
+        cli = TestClient(app)
+        if quem == "leitor":
+            _criar((TestClient(app), contas, None, contas_db), "leo", "Leitor")
+            assert _entrar(cli, "leo").status_code == 303
+    assert cli.get("/metodologia", follow_redirects=False).status_code == 200
+    assert retratos == [True]

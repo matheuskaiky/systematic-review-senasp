@@ -12,7 +12,8 @@ def registrar(c):
     def metodologia(request: Request):
         if not leitura.existe():
             return c.sem_banco(request)
-        fatos = leitura.fatos_metodologia(len(contexto.ufs) or 27)
+        with leitura.instantaneo() as l:
+            fatos = l.fatos_metodologia(len(contexto.ufs) or 27)
         fatos["bases_esperadas"] = list(contexto.bases)
         fatos["banco"] = contexto.banco
         custos = "ver_custos" in c.perms(request)

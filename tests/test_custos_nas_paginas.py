@@ -185,8 +185,9 @@ def test_ressalva_das_execucoes_fora_sem_o_custo(n, esperado):
 
 def test_rota_da_metodologia_respeita_a_permissao(clis):
     for grupo, cli in clis.items():
-        if grupo == "Visitante":                                 # fechada ate a retirada dos numeros do modelo (D145)
-            assert cli.get("/metodologia", follow_redirects=False).status_code == 303
+        if grupo == "Visitante":                                 # aberta sem os numeros do modelo e sem custos (D145)
+            r = cli.get("/metodologia", follow_redirects=False)
+            assert r.status_code == 200 and 'id="custos"' not in r.text and not DOLAR.search(r.text)
             continue
         h = cli.get("/metodologia").text
         ve = grupo in ("Administrador", "TecnicoComCustos")

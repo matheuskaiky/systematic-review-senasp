@@ -19,7 +19,7 @@ from test_autenticacao import _criar, _entrar
 from test_painel import demo  # noqa: F401
 from test_validacao_vies import banco  # noqa: F401
 
-PUBLICAS = ["/", "/sobre", "/literatura/prisma"]
+PUBLICAS = ["/", "/sobre", "/literatura/prisma", "/metodologia"]
 
 
 def _painel(demo, tmp_path, autenticacao=True, banco="real"):  # noqa: F811
@@ -141,10 +141,10 @@ def test_menu_do_visitante_so_com_as_paginas_publicas(demo, tmp_path):  # noqa: 
     app, contas, _, _ = _painel(demo, tmp_path)
     gravar_politica(contas, "real")
     h = TestClient(app).get("/").text
-    assert _menu(h) == ["/", "/literatura/prisma", "/sobre"]
+    assert _menu(h) == ["/", "/literatura/prisma", "/metodologia", "/sobre"]
     corpo = h[h.index('<main id="conteudo"'):]
     links = {re.sub(r"[?#].*", "", x) for x in re.findall(r'href="(/[^"]*)"', corpo)}
-    assert links <= {"/", "/sobre", "/literatura/prisma", "/entrar"}, links
+    assert links <= {"/", "/sobre", "/literatura/prisma", "/metodologia", "/entrar"}, links
 
 
 def test_servidor_e_menu_usam_a_mesma_decisao(demo, tmp_path, monkeypatch):  # noqa: F811
@@ -267,10 +267,10 @@ def test_menu_e_links_do_visitante_no_banco_vies(banco, tmp_path):  # noqa: F811
     gravar_politica(contas, "vies")
     app = criar_app(LeituraPainelSQLite(banco), lambda: RepositorioSQLite(banco), BrutoLocal(tmp_path), ctx, contas=contas)
     h = TestClient(app).get("/").text
-    assert _menu(h) == ["/", "/literatura/prisma", "/sobre"]
+    assert _menu(h) == ["/", "/literatura/prisma", "/metodologia", "/sobre"]
     corpo = h[h.index('<main id="conteudo"'):]
     links = {re.sub(r"[?#].*", "", x) for x in re.findall(r'href="(/[^"]*)"', corpo)}
-    assert links <= {"/", "/sobre", "/literatura/prisma", "/entrar"}, links
+    assert links <= {"/", "/sobre", "/literatura/prisma", "/metodologia", "/entrar"}, links
 
 
 # ======================== a visao geral publica sem numeros que dependem do modelo ========================

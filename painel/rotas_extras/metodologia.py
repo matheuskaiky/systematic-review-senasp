@@ -17,5 +17,5 @@ def registrar(c):
         fatos["banco"] = contexto.banco
         custos = "ver_custos" in c.perms(request)
         return c.pagina(request, "metodologia.html",
-                        m=metodologia_texto.filtrar_links(metodologia_texto.gerar_metodologia(fatos, contexto.ufs, custos=custos),
+                        m=metodologia_texto.filtrar_links(metodologia_texto.gerar_metodologia(fatos, contexto.ufs, custos=custos, modelo=not c.anonimo(request)),
                                                          c.pode_seguir(request)))

@@ -161,9 +161,14 @@ class _Fatos:
     def vazio(self):
         return not (self.execucoes or _g(self.lit, "n_artigos") or self.manuais or _g(self.ach, "total"))
 
+    def esta_vazio(self, modelo=True):
+        if modelo:
+            return self.vazio
+        return not (self.execucoes or _g(self.lit, "n_artigos") or self.manuais)
+
 
 # ---------------------------------------------------------------- secoes
-def _literatura(x):
+def _literatura(x, modelo=True):
     ac, blocos = x.ac, []
     n_req = _g(ac, "n_requisicoes")
     if n_req:
@@ -231,22 +236,30 @@ def _literatura(x):
     p.n(_g(ac, "n_artigos_scholar"), "/literatura/artigos").t(" do Scholar; ").n(_g(x.lit, "n_artigos_manuais"), "/literatura/artigos").t(
         " das bases manuais; os dois conjuntos podem se sobrepor).")
     if n_art:
-        # PRISMA 2020: registros removidos por ferramenta de automação antes da triagem (linhas 11 e 12 de `v_prisma`)
-        removidos = x.prisma.get(11)
-        if removidos:
-            p.t(" Antes da triagem humana, ").n(removidos, PROVA_LITERATURA).t(
-                " foram removidos por uma ferramenta automática (a triagem de escopo feita pelo modelo, sem decisão humana; os registros "
-                "continuam no banco e uma decisão humana sobre eles sempre prevalece), e ").n(
-                x.prisma.get(12, n_art - removidos), PROVA_LITERATURA).t(" seguiram para a triagem por título e resumo.")
-        elif removidos == 0:
-            p.t(" Todos seguiram para a triagem por título e resumo.")
-        avaliados = _g(x.tri, "incluidos") + _g(x.tri, "excluidos")
-        p.t(" Na triagem por título e resumo, ").n(avaliados, PROVA_LITERATURA).t(" foram avaliados: ")
-        p.n(_g(x.tri, "incluidos"), _url("/literatura/artigos", decisao="incluir")).t(" incluídos e ")
-        p.n(_g(x.tri, "excluidos"), _url("/literatura/artigos", decisao="excluir")).t(" excluídos; ")
-        p.n(_g(x.tri, "pendentes"), _url("/literatura/artigos", decisao="pendente")).t(" aguardam decisão.")
-        if 20 in x.prisma:
-            p.t(" Incluídos no estudo após a leitura do texto completo: ").n(x.prisma[20], PROVA_LITERATURA).t(".")
+        if modelo:
+            # PRISMA 2020: registros removidos por ferramenta de automação antes da triagem (linhas 11 e 12 de `v_prisma`)
+            removidos = x.prisma.get(11)
+            if removidos:
+                p.t(" Antes da triagem humana, ").n(removidos, PROVA_LITERATURA).t(
+                    " foram removidos por uma ferramenta automática (a triagem de escopo feita pelo modelo, sem decisão humana; os registros "
+                    "continuam no banco e uma decisão humana sobre eles sempre prevalece), e ").n(
+                    x.prisma.get(12, n_art - removidos), PROVA_LITERATURA).t(" seguiram para a triagem por título e resumo.")
+            elif removidos == 0:
+                p.t(" Todos seguiram para a triagem por título e resumo.")
+            avaliados = _g(x.tri, "incluidos") + _g(x.tri, "excluidos")
+            p.t(" Na triagem por título e resumo, ").n(avaliados, PROVA_LITERATURA).t(" foram avaliados: ")
+            p.n(_g(x.tri, "incluidos"), _url("/literatura/artigos", decisao="incluir")).t(" incluídos e ")
+            p.n(_g(x.tri, "excluidos"), _url("/literatura/artigos", decisao="excluir")).t(" excluídos; ")
+            p.n(_g(x.tri, "pendentes"), _url("/literatura/artigos", decisao="pendente")).t(" aguardam decisão.")
+            if 20 in x.prisma:
+                p.t(" Incluídos no estudo após a leitura do texto completo: ").n(x.prisma[20], PROVA_LITERATURA).t(".")
+        else:
+            avaliados = _g(x.tri, "incluidos") + _g(x.tri, "excluidos")
+            p.t(" Na triagem por título e resumo, ").n(avaliados, PROVA_LITERATURA).t(" foram avaliados: ")
+            p.n(_g(x.tri, "incluidos"), _url("/literatura/artigos", decisao="incluir")).t(" incluídos e ")
+            p.n(_g(x.tri, "excluidos"), _url("/literatura/artigos", decisao="excluir")).t(" excluídos.")
+            if 20 in x.prisma:
+                p.t(" Incluídos no estudo após a leitura do texto completo: ").n(x.prisma[20], PROVA_LITERATURA).t(".")
     blocos.append(_bloco_p(p))
     return _secao("literatura", "Busca na literatura acadêmica", blocos)
 
@@ -359,7 +372,23 @@ def _classificacao(x):
     return _secao("classificacao", "Classificação automática", blocos)
 
 
-def _verificacao(x):
+def _verificacao_publica(x):
+    ach = x.ach
+    ver, conf, desc = _g(ach, "verificados"), _g(ach, "confirmados"), _g(ach, "descartados")
+    p = _P().n(ver, _url("/achados")).t(" " + _pl(ver, "achado foi verificado por humano", "achados foram verificados por humano"))
+    if _g(ach, "n_revisores"):
+        p.t(" (").n(ach["n_revisores"]).t(" " + _pl(ach["n_revisores"], "revisor", "revisores") + ")")
+    p.t(": ").n(conf, _url("/achados", verificacao="confirmado")).t(" confirmados e ").n(desc, _url("/achados", verificacao="descartado")).t(" descartados como incorretos.")
+    if ver:
+        p.t(" Entre os verificados, a taxa de confirmação foi de " + _pct(conf, ver) + ".")
+    blocos = [_bloco_p(p), _p(("Somente achados verificados e não descartados contam como achado confirmado; o status final é o decidido pela pessoa que verificou, "
+                               "que pode diferir do status reportado pelo modelo.", None))]
+    return _secao("verificacao", "Verificação humana", blocos)
+
+
+def _verificacao(x, modelo=True):
+    if not modelo:
+        return _verificacao_publica(x)
     ach = x.ach
     total = _g(ach, "total")
     if not total:
@@ -380,7 +409,7 @@ def _verificacao(x):
     return _secao("verificacao", "Verificação humana", blocos)
 
 
-def _ufs(x, nomes_ufs):
+def _ufs(x, nomes_ufs, modelo=True):
     u, ach, blocos = x.ufs, x.ach, []
     n_ufs = _g(u, "n_ufs", len(nomes_ufs or {}) or 27)
     conf = x.ufs.get("confirmadas") or []
@@ -391,8 +420,11 @@ def _ufs(x, nomes_ufs):
         for i, uf in enumerate(conf[:MAX_UFS_NO_TEXTO]):
             p.t(", " if i else "").l(uf, f"/estados/{quote(uf, safe='')}")
         p.t(")")
-    p.t("; ").n(_g(u, "uf_so_classificado"), "/estados").t(" só têm achados classificados pelo modelo, ainda sem confirmação humana, e ").n(
-        _g(u, "uf_sem_achados"), "/estados").t(" não têm nenhum achado. “Nenhum achado encontrado” significa que nenhum achado foi classificado nas páginas coletadas, não que a UF não use a tecnologia.")
+    if modelo:
+        p.t("; ").n(_g(u, "uf_so_classificado"), "/estados").t(" só têm achados classificados pelo modelo, ainda sem confirmação humana, e ").n(
+            _g(u, "uf_sem_achados"), "/estados").t(" não têm nenhum achado. “Nenhum achado encontrado” significa que nenhum achado foi classificado nas páginas coletadas, não que a UF não use a tecnologia.")
+    else:
+        p.t(".")
     blocos.append(_bloco_p(p))
 
     por_tec = ach.get("confirmados_por_tecnologia") or []
@@ -405,12 +437,17 @@ def _ufs(x, nomes_ufs):
         blocos.append(_bloco_p(p))
 
     m = x.mun
-    if _g(m, "n_achados"):
-        p = _P().t("Escopo municipal: ").n(m["n_achados"], _url("/achados", esfera="municipal")).t(" achados em secretarias municipais de ").n(
-            _g(m, "n_cidades"), _url("/achados", esfera="municipal")).t(" " + _pl(_g(m, "n_cidades"), "cidade", "cidades") + ", dos quais ").n(
-            _g(m, "n_confirmados"), _url("/achados", esfera="municipal", verificacao="confirmado")).t(" confirmados.")
+    if modelo:
+        if _g(m, "n_achados"):
+            p = _P().t("Escopo municipal: ").n(m["n_achados"], _url("/achados", esfera="municipal")).t(" achados em secretarias municipais de ").n(
+                _g(m, "n_cidades"), _url("/achados", esfera="municipal")).t(" " + _pl(_g(m, "n_cidades"), "cidade", "cidades") + ", dos quais ").n(
+                _g(m, "n_confirmados"), _url("/achados", esfera="municipal", verificacao="confirmado")).t(" confirmados.")
+        else:
+            p = _P().t("Não há achados de secretarias municipais no banco; o levantamento descrito aqui cobre as secretarias estaduais.")
     else:
-        p = _P().t("Não há achados de secretarias municipais no banco; o levantamento descrito aqui cobre as secretarias estaduais.")
+        n_conf = _g(m, "n_confirmados")
+        p = _P().t("Escopo municipal: ").n(n_conf, _url("/achados", esfera="municipal", verificacao="confirmado")).t(
+            " " + _pl(n_conf, "achado confirmado em secretarias municipais.", "achados confirmados em secretarias municipais."))
     blocos.append(_bloco_p(p))
     return _secao("ufs", "Resultados confirmados por UF", blocos)
 
@@ -483,7 +520,7 @@ def _reprodutibilidade(x):
 
 
 # ---------------------------------------------------------------- ressalvas
-def _ressalvas(x, custos=True):
+def _ressalvas(x, custos=True, modelo=True):
     r = []
 
     def add(*segmentos):
@@ -495,25 +532,26 @@ def _ressalvas(x, custos=True):
     if x.banco == "vies":
         add(("Estes dados são do banco da busca de viés algorítmico na segurança pública, separado do banco da pesquisa: "
              "os números abaixo não são os das secretarias estaduais nem os da busca de artigos.", None))
-    if x.vazio:
+    if x.esta_vazio(modelo=modelo):
         add(("Nada foi coletado ainda: o banco não tem execuções, artigos nem achados. Rode o pipeline (por exemplo, python main.py pipeline-uf --ufs PI --limite 5) e volte aqui.", None))
         add(("Nenhuma busca acadêmica, busca web ou classificação registrada; nenhuma verificação humana feita.", None))
         return r
     ach, total = x.ach, _g(x.ach, "total")
     ver = _g(ach, "verificados")
-    if total and not ver:
-        add(("Nenhum achado foi verificado por humano ainda: todos os achados são hipóteses do classificador e não podem ser apresentados como resultado. ", None),
-            ("Comece a revisão.", "/revisao/achados"))
-    elif total and total - ver:
-        add((f"{fmt.numero(total - ver)} {_pl(total - ver, 'achado ainda não foi verificado', 'achados ainda não foram verificados')} por humano; os resultados por UF podem mudar com a revisão. ", None),
-            ("Ver pendentes.", _url("/achados", verificacao="pendente")))
-    if not total and (_g(x.web, "n_requisicoes") or _g(x.cl, "classificadores")):
-        add(("Não há nenhum achado nas execuções do relatório.", None))
+    if modelo:
+        if total and not ver:
+            add(("Nenhum achado foi verificado por humano ainda: todos os achados são hipóteses do classificador e não podem ser apresentados como resultado. ", None),
+                ("Comece a revisão.", "/revisao/achados"))
+        elif total and total - ver:
+            add((f"{fmt.numero(total - ver)} {_pl(total - ver, 'achado ainda não foi verificado', 'achados ainda não foram verificados')} por humano; os resultados por UF podem mudar com a revisão. ", None),
+                ("Ver pendentes.", _url("/achados", verificacao="pendente")))
+        if not total and (_g(x.web, "n_requisicoes") or _g(x.cl, "classificadores")):
+            add(("Não há nenhum achado nas execuções do relatório.", None))
     if not x.ac.get("n_requisicoes"):
         add(("Nenhuma busca no Google Scholar nas execuções do relatório: a seção de literatura acadêmica não tem números do Scholar.", None))
     if not _g(x.web, "n_requisicoes"):
         add(("Nenhuma consulta web nas execuções do relatório: não há levantamento nas secretarias descrito.", None))
-    if not x.cl.get("classificadores"):
+    if modelo and not x.cl.get("classificadores"):
         add(("Nenhuma classificação nas execuções do relatório.", None))
     feitas = {m["base"] for m in x.manuais if _g(m, "n_buscas")}
     if not x.manuais:
@@ -526,7 +564,7 @@ def _ressalvas(x, custos=True):
         incompletas = [m["base"] for m in x.manuais if _g(m, "n_buscas") and any(m.get(c) is None for c in ("total_resultados", "total_apos_filtro", "total_selecionados"))]
         if incompletas:
             add(("Contagens das buscas manuais incompletas (não informadas) em: " + ", ".join(incompletas) + ".", None))
-    if _g(x.lit, "n_artigos") and _g(x.tri, "pendentes"):
+    if modelo and _g(x.lit, "n_artigos") and _g(x.tri, "pendentes"):
         add((f"A triagem está incompleta: {fmt.numero(x.tri['pendentes'])} de {fmt.numero(x.lit['n_artigos'])} artigos aguardam decisão. ", None),
             ("Ver o PRISMA.", PROVA_LITERATURA))
     semtermo = [t["termo_id"] for t in (x.ac.get("termos") or []) if not t.get("query")]
@@ -571,18 +609,19 @@ def _ressalvas(x, custos=True):
                  f"{_pl(len(x.fora), 'entra', 'entram')} nos números. ", None),
                 ("Ver execuções.", "/execucoes"))
     pares = x.cl.get("classificadores") or []
-    if len(pares) > 1:
-        add((f"Há {len(pares)} combinações de classificador e versão do prompt no relatório; os achados de modelos diferentes foram somados.", None))
-    if any(not c.get("prompt_versao") for c in pares):
-        add(("A versão do prompt não está registrada em parte das classificações.", None))
-    if _g(x.cl, "n_so_snippet"):
-        add((f"{fmt.numero(x.cl['n_so_snippet'])} {_pl(x.cl['n_so_snippet'], 'classificação usou', 'classificações usaram')} só o snippet da busca; achados assim têm menos base e merecem atenção na verificação.", None))
+    if modelo:
+        if len(pares) > 1:
+            add((f"Há {len(pares)} combinações de classificador e versão do prompt no relatório; os achados de modelos diferentes foram somados.", None))
+        if any(not c.get("prompt_versao") for c in pares):
+            add(("A versão do prompt não está registrada em parte das classificações.", None))
+        if _g(x.cl, "n_so_snippet"):
+            add((f"{fmt.numero(x.cl['n_so_snippet'])} {_pl(x.cl['n_so_snippet'], 'classificação usou', 'classificações usaram')} só o snippet da busca; achados assim têm menos base e merecem atenção na verificação.", None))
     n_nv = _g(x.web.get("nao_verificaveis"), "nao_verificavel_robots")
     if n_nv:
         add((f"{fmt.numero(n_nv)} {_pl(n_nv, 'página não pôde', 'páginas não puderam')} ser verificadas porque o robots.txt do site seguiu inacessível; "
              "isso não é o mesmo que o site proibir a leitura. Elas ficaram fora da coleta e o levantamento pode ter deixado de ver conteúdo nelas. ", None),
             ("Ver as chamadas.", _url("/chamadas", etapa="download", q="robots_inacessivel")))
-    if _g(x.cl, "n_invalidas"):
+    if modelo and _g(x.cl, "n_invalidas"):
         add((f"{fmt.numero(x.cl['n_invalidas'])} {_pl(x.cl['n_invalidas'], 'classificação', 'classificações')} sem JSON válido e sem outra válida para a mesma página: esses pares não podem ser lidos como “sem achados”. ", None),
             ("Ver classificadores.", "/classificadores"))
     if not custos:
@@ -591,21 +630,24 @@ def _ressalvas(x, custos=True):
 
 
 # ---------------------------------------------------------------- ponto de entrada
-def gerar_metodologia(fatos, ufs=None, custos=True):
+def gerar_metodologia(fatos, ufs=None, custos=True, modelo=True):
     """Devolve {"secoes": [...], "ressalvas": [...], "vazio": bool, "texto": str}.
     secao = {"id", "titulo", "blocos": [{"tipo": "p", "seg": [(texto, href)]} | {"tipo": "ul", "itens": [[(texto, href)]]}]}.
     `ufs` (sigla -> nome) so serve para saber o total de UFs quando os fatos nao o trazem."""
     x = _Fatos(fatos)
-    ressalvas = _ressalvas(x, custos=custos)
-    if x.vazio:
+    vazio = x.esta_vazio(modelo=modelo)
+    ressalvas = _ressalvas(x, custos=custos, modelo=modelo)
+    if vazio:
         secoes = [_secao("situacao", "Situação dos dados", [_p(("Nada foi coletado ainda: não há execuções, artigos nem achados no banco, "
                                                                "então não há método a descrever.", None))])]
     else:
-        secoes = [_literatura(x), _web(x), _classificacao(x), _verificacao(x), _ufs(x, ufs)]
+        secoes_classificacao = _classificacao(x) if modelo else _secao("classificacao", "Classificação automática",
+                                                                       [_p(("Resultados automatizados ainda não divulgados.", None))])
+        secoes = [_literatura(x, modelo=modelo), _web(x), secoes_classificacao, _verificacao(x, modelo=modelo), _ufs(x, ufs, modelo=modelo)]
         if custos:
             secoes.append(_custos(x))
         secoes.append(_reprodutibilidade(x))
-    return {"secoes": secoes, "ressalvas": ressalvas, "vazio": x.vazio, "texto": _texto_puro(secoes, ressalvas)}
+    return {"secoes": secoes, "ressalvas": ressalvas, "vazio": vazio, "texto": _texto_puro(secoes, ressalvas)}
 
 
 def filtrar_links(m, seguir):

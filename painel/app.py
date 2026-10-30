@@ -228,10 +228,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             return autenticacao.pode(usuario["grupo"], usuario["permissoes"], "ver_estatisticas_usuarios")
         return False
 
+    def _anonimo(request) -> bool:
+        return bool(contexto.autenticacao and not getattr(request.state, "usuario", None))
+
     def _publico_libera(request, metodo: str, caminho: str) -> bool:
-        if not contexto.autenticacao or getattr(request.state, "usuario", None):
-            return True
-        return divulgacao.decisao_publico(metodo, caminho, getattr(request.state, "politica_publica", None)) == "liberada"
+        return not _anonimo(request) or divulgacao.decisao_publico(metodo, caminho, getattr(request.state, "politica_publica", None)) == "liberada"
 
     def _pode_rota(request):
         def pode_rota(metodo: str, caminho: str) -> bool:
@@ -1018,7 +1019,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         aviso_manual = None
         if d["n_buscas_manuais"] and informados is not None and importados is not None and informados != importados:
             aviso_manual = (informados, importados)
-        ocultos = PRISMA_DO_MODELO if (contexto.autenticacao and not getattr(request.state, "usuario", None)) else frozenset()
+        ocultos = PRISMA_DO_MODELO if _anonimo(request) else frozenset()
         return pagina(request, "prisma.html", d=d, fases=fases, aviso_manual=aviso_manual, ocultos=ocultos)
 
     # ---------- achados ----------
@@ -1338,5 +1339,5 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     rotas_extras.registrar_todas(SimpleNamespace(app=app, leitura=leitura, bruto=bruto, contexto=contexto, modelos=modelos, entidades=entidades,
                                                  pagina=pagina, erro=erro, sem_banco=sem_banco, checar_escrita=checar_escrita, contas=contas,
                                                  contas_ocupadas=contas_ocupadas, novo_repositorio=repositorio_fabrica, escrever=_escrever,
-                                                 pode_seguir=_pode_seguir, perms=_perms))
+                                                 pode_seguir=_pode_seguir, perms=_perms, anonimo=_anonimo))
     return app

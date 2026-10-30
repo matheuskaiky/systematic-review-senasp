@@ -57,7 +57,7 @@ def _leitor(app, contas, contas_db):
 
 
 def test_prisma_entra_na_lista_publica():
-    assert divulgacao.ROTAS_PUBLICAS == frozenset({"/", "/sobre", "/literatura/prisma"})
+    assert "/literatura/prisma" in divulgacao.ROTAS_PUBLICAS
 
 
 @pytest.mark.parametrize("banco", ["real", "vies"])
@@ -115,7 +115,7 @@ def test_os_links_do_prisma_do_visitante_so_levam_a_paginas_abertas(demo, tmp_pa
     gravar_politica(contas, "real")
     h = TestClient(app).get("/literatura/prisma").text
     links = {re.sub(r"[?#].*", "", x) for x in re.findall(r'href="(/[^"]*)"', _conteudo(h))}
-    assert links <= {"/", "/sobre", "/literatura/prisma", "/entrar"}, links
+    assert links <= {"/", "/sobre", "/literatura/prisma", "/metodologia", "/entrar"}, links
     assert '<p class="trilha">Literatura › PRISMA</p>' in h                 # a trilha fica, sem o link para a pagina fechada
 
 
@@ -123,7 +123,7 @@ def test_menu_do_visitante_com_o_prisma(demo, tmp_path):  # noqa: F811
     from test_divulgacao_acesso import _menu
     app, contas, _, _ = _painel(demo, tmp_path)
     gravar_politica(contas, "real")
-    assert _menu(TestClient(app).get("/").text) == ["/", "/literatura/prisma", "/sobre"]
+    assert _menu(TestClient(app).get("/").text) == ["/", "/literatura/prisma", "/metodologia", "/sobre"]
 
 
 @pytest.mark.parametrize("estado", [None, False])

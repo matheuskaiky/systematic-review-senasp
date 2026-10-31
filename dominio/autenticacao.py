@@ -717,3 +717,211 @@ def resumo_detalhe_auditoria(texto: str | None) -> str | None:
         resumo += f" Justificativa: {justificativa}"
     return resumo
 
+
+# --- Configurações de referência dos perfis e comparação de regras (P6-03, D151) ---
+
+PERFIS_REFERENCIA = (
+    "administrador",
+    "professor_direito",
+    "professor_computacao",
+    "estudante_direito",
+    "estudante_computacao",
+    "publico",
+)
+
+ROTULOS_PERFIL_REFERENCIA = {
+    "administrador": "Administrador",
+    "professor_direito": "Professor de Direito",
+    "professor_computacao": "Professor de Computação",
+    "estudante_direito": "Estudante de Direito",
+    "estudante_computacao": "Estudante de Computação",
+    "publico": "Público",
+}
+
+REFERENCIAS_PERFIS = {
+    "administrador": frozenset(PERMISSOES),
+    "professor_direito": frozenset({
+        "ver_painel",
+        "ver_registros_revisao",
+        "triar_artigos",
+        "triar_texto_completo",
+        "verificar_achados",
+        "revogar_verificacao",
+        "ver_nomes_revisores",
+        "ver_estatisticas_usuarios",
+    }),
+    "professor_computacao": frozenset({
+        "ver_painel",
+        "ver_registros_revisao",
+        "triar_artigos",
+        "triar_texto_completo",
+        "verificar_achados",
+        "revogar_verificacao",
+        "ver_nomes_revisores",
+        "ver_estatisticas_usuarios",
+        "ver_chamadas",
+        "ver_custos",
+    }),
+    "estudante_direito": frozenset({
+        "ver_painel",
+        "ver_registros_revisao",
+        "triar_artigos",
+        "triar_texto_completo",
+        "verificar_achados",
+    }),
+    "estudante_computacao": frozenset({
+        "ver_painel",
+        "ver_registros_revisao",
+        "triar_artigos",
+        "triar_texto_completo",
+        "verificar_achados",
+    }),
+    "publico": frozenset({"ver_painel"}),
+}
+
+
+def comparar_com_referencia(grupo: str, atuais, perfil: str) -> dict:
+    """Compara as permissões de um grupo com um perfil de referência, sem marcar nenhuma."""
+    if grupo == GRUPO_ADMIN:
+        return {
+            "perfil": None,
+            "rotulo": None,
+            "conceder": [],
+            "retirar": [],
+            "erros": ["O grupo Administrador tem acesso integral e não pode ser alterado."],
+        }
+
+    if type(perfil) is not str or perfil not in PERFIS_REFERENCIA:
+        return {
+            "perfil": None,
+            "rotulo": None,
+            "conceder": [],
+            "retirar": [],
+            "erros": ["Escolha um dos perfis de referência da lista."],
+        }
+
+    if grupo == GRUPO_VISITANTE and perfil != "publico":
+        return {
+            "perfil": None,
+            "rotulo": None,
+            "conceder": [],
+            "retirar": [],
+            "erros": ["O grupo Visitante só pode ser comparado com a referência do Público."],
+        }
+
+    rotulo = ROTULOS_PERFIL_REFERENCIA.get(perfil)
+    ref = REFERENCIAS_PERFIS.get(perfil, frozenset())
+    atuais_set = set(atuais) if atuais else set()
+
+    conceder = []
+    retirar = []
+
+    for p in PERMISSOES:
+        if p not in CATALOGO_PERMISSOES:
+            continue
+        sensivel = bool(CATALOGO_PERMISSOES[p].get("sensibilidade") in ROTULOS_SENSIBILIDADE)
+        item = {
+            "permissao": p,
+            "descricao": PERMISSOES[p],
+            "sensivel": sensivel,
+            "marcada": False,
+        }
+        if p in ref and p not in atuais_set:
+            conceder.append(item)
+        elif p in atuais_set and p not in ref:
+            retirar.append(item)
+
+    return {
+        "perfil": perfil,
+        "rotulo": rotulo,
+        "conceder": conceder,
+        "retirar": retirar,
+        "erros": [],
+    }
+
+
+def montar_escolhas_da_referencia(grupo: str, atuais, perfil: str, escolhidas) -> dict:
+    """Transforma as diferenças escolhidas pelo administrador nos conjuntos exibidas/marcadas para revisão."""
+    comp = comparar_com_referencia(grupo, atuais, perfil)
+    if comp.get("erros"):
+        return {
+            "exibidas": [],
+            "marcadas": [],
+            "escolhidas": [],
+            "erros": list(comp["erros"]),
+        }
+
+    if not isinstance(escolhidas, (list, tuple)) or any(type(x) is not str for x in escolhidas):
+        return {
+            "exibidas": [],
+            "marcadas": [],
+            "escolhidas": [],
+            "erros": ["O formulário veio incompleto. Abra o grupo de novo e refaça as alterações."],
+        }
+
+    if len(escolhidas) == 0:
+        return {
+            "exibidas": [],
+            "marcadas": [],
+            "escolhidas": [],
+            "erros": ["Marque ao menos uma diferença para revisar."],
+        }
+
+    erros = []
+
+    # 1. Chaves desconhecidas (não estão no CATALOGO_PERMISSOES), contadas como valores distintos
+    desconhecidas = set()
+    for x in escolhidas:
+        if x not in CATALOGO_PERMISSOES:
+            desconhecidas.add(x)
+    n_desc = len(desconhecidas)
+    if n_desc == 1:
+        erros.append("O formulário trouxe 1 permissão desconhecida.")
+    elif n_desc > 1:
+        erros.append(f"O formulário trouxe {n_desc} permissões desconhecidas.")
+
+    # 2. Chaves do catálogo que não são diferença, na ordem da primeira aparição
+    conceder_chaves = {item["permissao"] for item in comp["conceder"]}
+    retirar_chaves = {item["permissao"] for item in comp["retirar"]}
+    difs = conceder_chaves | retirar_chaves
+
+    nao_difs_vistas = set()
+    for x in escolhidas:
+        if x in CATALOGO_PERMISSOES and x not in difs and x not in nao_difs_vistas:
+            nao_difs_vistas.add(x)
+            desc = PERMISSOES.get(x, x)
+            erros.append(f"«{desc}» não é uma diferença entre o grupo e a referência escolhida. Compare de novo.")
+
+    # 3. Diferenças escolhidas mais de uma vez, na ordem da primeira aparição
+    contagem_difs = {}
+    primeira_aparicao_difs = []
+    for x in escolhidas:
+        if x in difs:
+            if x not in contagem_difs:
+                contagem_difs[x] = 0
+                primeira_aparicao_difs.append(x)
+            contagem_difs[x] += 1
+
+    for x in primeira_aparicao_difs:
+        if contagem_difs[x] > 1:
+            desc = PERMISSOES.get(x, x)
+            erros.append(f"«{desc}» foi escolhida mais de uma vez.")
+
+    if erros:
+        return {
+            "exibidas": [],
+            "marcadas": [],
+            "escolhidas": [],
+            "erros": erros,
+        }
+
+    escolhidas_set = set(escolhidas)
+    ordenadas = [p for p in PERMISSOES if p in escolhidas_set]
+
+    return {
+        "exibidas": list(ordenadas),
+        "marcadas": [p for p in ordenadas if p in conceder_chaves],
+        "escolhidas": list(ordenadas),
+        "erros": [],
+    }
+

@@ -671,6 +671,47 @@ def atribuir_permissoes(a):
         print(cmd)
 
 
+def divulgacao_inicial(a):
+    """Grava o estado inicial da divulgação pública só quando ainda não existe."""
+    from datetime import datetime, timezone
+    from aplicacao import divulgacao_inicial as DI
+
+    if a.simulado and a.demo:
+        raise SystemExit("Use --simulado ou --demo, não os dois.")
+
+    fab = Fabrica(simulado=a.simulado, demo=a.demo)
+    caminho = None
+    if not fab.postgres:
+        caminho = _caminho_contas(fab, a.simulado, a.demo)
+        if not caminho.exists():
+            raise SystemExit(f"O banco de contas {caminho.name} ainda não existe: não há política a gravar.")
+    contas = fab.contas(caminho)
+
+    banco = "simulado" if a.simulado else ("demo" if a.demo else a.banco)
+
+    try:
+        if a.confirmar is None:
+            linhas = DI.prever(contas, banco)
+        else:
+            agora = datetime.now(timezone.utc).isoformat()
+            linhas = DI.confirmar(contas, banco, a.confirmar, agora)
+    except ValueError as e:
+        raise SystemExit("Nada foi gravado.\n" + str(e))
+
+    for l in linhas:
+        print(l)
+
+    if a.confirmar is None and linhas and linhas[-1].startswith("Nada foi gravado. Código desta prévia: "):
+        codigo = linhas[-1].split("Código desta prévia: ")[1].strip()
+        cmd = f"Para gravar exatamente isto: python main.py divulgacao-inicial --confirmar {codigo}"
+        cmd += _sufixo_banco(a)
+        if a.simulado:
+            cmd += " --simulado"
+        elif a.demo:
+            cmd += " --demo"
+        print(cmd)
+
+
 def gerar_relatorio(a, fab):
     """Gera UM arquivo HTML autocontido (CSS e SVG embutidos, sem scripts) com os resultados do banco escolhido.
     Importa o painel so aqui: as demais etapas nao precisam dele."""
@@ -877,7 +918,7 @@ def enviar_execucoes(a, fab):
 
 
 # com DB_BACKEND=postgres (o painel na nuvem, D96) so estes comandos rodam; a coleta e o resto ficam no SQLite local
-COMANDOS_NO_POSTGRES = ("painel", "usuario-admin", "atribuir-permissoes", "pg-migrar", "pg-demo", "pg-importar")
+COMANDOS_NO_POSTGRES = ("painel", "usuario-admin", "atribuir-permissoes", "divulgacao-inicial", "pg-migrar", "pg-demo", "pg-importar")
 
 
 def main():
@@ -1015,6 +1056,11 @@ def main():
     s.add_argument("--confirmar", metavar="CODIGO", help="grava as permissões previstas com o código informado")
     s.add_argument("--simulado", action="store_true", help="fake adapters, no cost")
     s.add_argument("--demo", action="store_true", help="banco de demonstração")
+    s = sub.add_parser("divulgacao-inicial",
+                       help="grava o estado inicial da divulgação pública só quando ainda não existe; sem --confirmar só mostra a prévia")
+    s.add_argument("--confirmar", metavar="CODIGO", help="grava o estado previsto com o código informado")
+    s.add_argument("--simulado", action="store_true", help="fake adapters, no cost")
+    s.add_argument("--demo", action="store_true", help="banco de demonstração")
 
     # --banco em todo comando que abre o banco da pesquisa (D111) e nos do PostgreSQL que escolhem o esquema; a demonstracao tem banco proprio
     for nome, s in sub.choices.items():
@@ -1137,6 +1183,8 @@ def _executar_comando(a):
         usuario_admin(a)
     elif a.cmd == "atribuir-permissoes":
         atribuir_permissoes(a)
+    elif a.cmd == "divulgacao-inicial":
+        divulgacao_inicial(a)
 
 
 if __name__ == "__main__":

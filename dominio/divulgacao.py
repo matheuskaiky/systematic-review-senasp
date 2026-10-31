@@ -175,3 +175,18 @@ def decisao_publico(metodo: str, caminho: str, politica) -> str:
     if metodo in ("GET", "HEAD") and caminho in ROTAS_PUBLICAS:
         return "liberada"
     return "entrada"
+
+
+def plano_inicial(banco: str, estado: dict, visitante_ve_painel: bool) -> dict:
+    """Calcula o plano para inicialização da política de divulgação de uma pesquisa."""
+    if estado["situacao"] != "ausente":
+        return {"acao": "nada", "motivo": "configurada", "nova": None, "codigo": None}
+    if not visitante_ve_painel:
+        return {"acao": "nada", "motivo": "fechada", "nova": None, "codigo": None}
+    codigo = hashlib.sha256(f"divulgacao-inicial|{banco}|{estado['versao']}|1".encode("utf-8")).hexdigest()[:12]
+    return {
+        "acao": "gravar",
+        "motivo": "proposta",
+        "nova": {"publica": True, "preliminares": False},
+        "codigo": codigo,
+    }

@@ -11,7 +11,7 @@
 {% if nome == "Administrador" %}
 <p>O Administrador tem todas as capacidades e não pode ser alterado.</p>
 {% else %}
-<p><a class="botao" href="/admin/grupos/{{ grupo_id }}/editar">Editar permissões</a></p>
+<p><a class="botao" href="/admin/grupos/{{ grupo_id }}/editar">Editar permissões</a> <a class="botao" href="/admin/grupos/{{ grupo_id }}/comparar">Comparar com uma referência</a></p>
 {% endif %}
 <form class="perm-filtros" method="get">
   <label for="perm-q">Buscar</label>

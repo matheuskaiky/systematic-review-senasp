@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Comparar com uma referência — {{ nome }}{% endblock %}
+{% block conteudo %}
+<h1>Comparar com uma referência: {{ nome }}</h1>
+{% if administrador %}
+<p>O grupo Administrador tem acesso integral e não pode ser alterado.</p>
+{% else %}
+<form class="perm-filtros" method="get">
+  <label for="perm-perfil">Referência</label>
+  <select id="perm-perfil" name="perfil">
+    {% if perfil_ativo == "" %}<option value="" selected>Nenhuma</option>{% else %}<option value="">Nenhuma</option>{% endif %}
+    {% for p_chave, p_rotulo in perfis_opcoes %}
+    {% if perfil_ativo == p_chave %}<option value="{{ p_chave }}" selected>{{ p_rotulo }}</option>{% else %}<option value="{{ p_chave }}">{{ p_rotulo }}</option>{% endif %}
+    {% endfor %}
+  </select>
+  <button class="botao" type="submit">Comparar</button>
+</form>
+{% if aviso %}
+<p class="aviso" role="status">{{ aviso }}</p>
+{% endif %}
+{% if comp %}
+{% if not comp.conceder and not comp.retirar %}
+<p class="vazio">Este grupo já está igual à referência de {{ comp.rotulo }}.</p>
+{% else %}
+<form method="post" action="/admin/grupos/{{ grupo_id }}/revisar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="versao" value="{{ versao }}">
+  <input type="hidden" name="perfil" value="{{ comp.perfil }}">
+  <p>Nada vem marcado. Marque uma a uma as diferenças que quer levar para a revisão; as não marcadas ficam como estão.</p>
+  {% if comp.conceder %}
+  <h2>A referência tem e o grupo não ({{ comp.conceder|length }})</h2>
+  <ul>
+    {% for item in comp.conceder %}
+    <li><input type="checkbox" id="e-{{ item.permissao }}" name="escolhida" value="{{ item.permissao }}"> <label for="e-{{ item.permissao }}">{{ item.descricao }}</label>{% if item.sensivel and rotulos_sensibilidade.get(catalogo[item.permissao].sensibilidade) %} <span class="perm-sensivel">◆ {{ rotulos_sensibilidade[catalogo[item.permissao].sensibilidade] }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if comp.retirar %}
+  <h2>O grupo tem e a referência não ({{ comp.retirar|length }})</h2>
+  <ul>
+    {% for item in comp.retirar %}
+    <li><input type="checkbox" id="e-{{ item.permissao }}" name="escolhida" value="{{ item.permissao }}"> <label for="e-{{ item.permissao }}">{{ item.descricao }}</label>{% if item.sensivel and rotulos_sensibilidade.get(catalogo[item.permissao].sensibilidade) %} <span class="perm-sensivel">◆ {{ rotulos_sensibilidade[catalogo[item.permissao].sensibilidade] }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <button class="botao" type="submit">Revisar as escolhidas</button>
+</form>
+{% endif %}
+{% endif %}
+{% endif %}
+<p><a href="/admin/grupos/{{ grupo_id }}">Voltar ao grupo</a></p>
+{% endblock %}

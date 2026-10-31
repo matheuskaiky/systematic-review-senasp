@@ -123,6 +123,76 @@ def _previas_do_menu(c, nome: str, permissoes, titulo: str) -> list[dict]:
     return previas
 
 
+def _revisao_do_formulario(nome: str, atuais: set[str], form) -> dict:
+    """Processa o formulário de alteração de permissões tanto no modo de edição quanto no de referência."""
+    tem_perfil = "perfil" in form
+    perfis = list(form.getlist("perfil"))
+    tem_marcada = "marcada" in form
+    tem_exibida = "exibida" in form
+    escolhidas = list(form.getlist("escolhida"))
+    marcadas_edit = list(form.getlist("marcada"))
+    exibidas_edit = list(form.getlist("exibida"))
+
+    incompleto = "O formulário veio incompleto. Abra o grupo de novo e refaça as alterações."
+
+    if not tem_perfil:
+        # Modo de edição
+        r = autenticacao.revisar_alteracao(nome, atuais, marcadas_edit, exibidas_edit)
+        return {
+            "revisao": r,
+            "marcadas": marcadas_edit,
+            "exibidas": exibidas_edit,
+            "perfil": None,
+            "escolhidas": [],
+        }
+
+    # Modo de referência
+    if len(perfis) != 1 or tem_marcada or tem_exibida:
+        return {
+            "revisao": {
+                "antes": sorted(atuais),
+                "depois": sorted(atuais),
+                "concedidas": [],
+                "retiradas": [],
+                "sensiveis": [],
+                "exige_justificativa": False,
+                "erros": [incompleto],
+            },
+            "marcadas": [],
+            "exibidas": [],
+            "perfil": None,
+            "escolhidas": [],
+        }
+
+    perfil = perfis[0]
+    m = autenticacao.montar_escolhas_da_referencia(nome, atuais, perfil, escolhidas)
+    if m.get("erros"):
+        return {
+            "revisao": {
+                "antes": sorted(atuais),
+                "depois": sorted(atuais),
+                "concedidas": [],
+                "retiradas": [],
+                "sensiveis": [],
+                "exige_justificativa": False,
+                "erros": list(m["erros"]),
+            },
+            "marcadas": [],
+            "exibidas": [],
+            "perfil": None,
+            "escolhidas": [],
+        }
+
+    r = autenticacao.revisar_alteracao(nome, atuais, m["marcadas"], m["exibidas"])
+    return {
+        "revisao": r,
+        "marcadas": m["marcadas"],
+        "exibidas": m["exibidas"],
+        "perfil": perfil,
+        "escolhidas": m["escolhidas"],
+    }
+
+
 def registrar(c) -> None:
     """Registra rotas de administração e atividade dos revisores."""
     if not c.contexto.autenticacao:
@@ -671,6 +741,69 @@ def registrar(c) -> None:
             modulos=modulos,
         )
 
+    @app.get("/admin/grupos/{grupo_id}/comparar")
+    def comparar_grupo_view(request: Request, grupo_id: str):
+        grupo, erro = _resolver_grupo(c, request, grupo_id, edicao=True)
+        if erro:
+            return erro
+
+        gid = grupo["grupo_id"]
+        nome = grupo["nome"]
+        atuais = set(grupo["permissoes"])
+
+        if nome == autenticacao.GRUPO_ADMIN:
+            return c.pagina(
+                request,
+                "admin_grupo_comparar.html",
+                nome=nome,
+                grupo_id=gid,
+                administrador=True,
+            )
+
+        if nome == autenticacao.GRUPO_VISITANTE:
+            perfis_opcoes = [("publico", autenticacao.ROTULOS_PERFIL_REFERENCIA["publico"])]
+            opcoes_validas = {"publico"}
+        else:
+            perfis_opcoes = [(p, autenticacao.ROTULOS_PERFIL_REFERENCIA[p]) for p in autenticacao.PERFIS_REFERENCIA]
+            opcoes_validas = set(autenticacao.PERFIS_REFERENCIA)
+
+        perfis_req = request.query_params.getlist("perfil")
+        comp = None
+        aviso = None
+        perfil_ativo = ""
+
+        if not perfis_req or perfis_req == [""]:
+            # Nenhum valor ou exatamente um valor vazio: não mostra nada além do formulário de seleção
+            pass
+        else:
+            if len(perfis_req) == 1 and perfis_req[0] in opcoes_validas:
+                perfil_ativo = perfis_req[0]
+            else:
+                perfil_ativo = ""
+
+            comp = autenticacao.comparar_com_referencia(nome, atuais, perfil_ativo)
+            if comp.get("erros"):
+                aviso = comp["erros"][0]
+                comp = None
+                perfil_ativo = ""
+
+        versao = autenticacao.versao_permissoes({gid: atuais})
+
+        return c.pagina(
+            request,
+            "admin_grupo_comparar.html",
+            nome=nome,
+            grupo_id=gid,
+            administrador=False,
+            perfis_opcoes=perfis_opcoes,
+            perfil_ativo=perfil_ativo,
+            comp=comp,
+            aviso=aviso,
+            versao=versao,
+            catalogo=autenticacao.CATALOGO_PERMISSOES,
+            rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
+        )
+
     @app.post("/admin/grupos/{grupo_id}/revisar")
     async def revisar_grupo_view(request: Request, grupo_id: str):
         form = await request.form()
@@ -687,14 +820,18 @@ def registrar(c) -> None:
         nome = grupo["nome"]
         atuais = set(grupo["permissoes"])
 
-        marcadas = list(form.getlist("marcada"))
-        exibidas = list(form.getlist("exibida"))
+        res = _revisao_do_formulario(nome, atuais, form)
+        r = res["revisao"]
+        marcadas = res["marcadas"]
+        exibidas = res["exibidas"]
+        perfil = res["perfil"]
+        escolhidas = res["escolhidas"]
+
         v_list = form.getlist("versao")
         versao = v_list[0] if v_list and isinstance(v_list[0], str) else ""
         j_list = form.getlist("justificativa")
         justificativa = j_list[0] if j_list and isinstance(j_list[0], str) else ""
 
-        r = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
         previas = []
         try:
             frase = _calcular_frase_efeito(nome, gid, r)
@@ -702,6 +839,8 @@ def registrar(c) -> None:
                 previas = _previas_do_menu(c, nome, set(r["depois"]), "Prévia do menu com estas alterações")
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
+
+        rotulo_perfil = autenticacao.ROTULOS_PERFIL_REFERENCIA.get(perfil, "") if perfil else ""
 
         return c.pagina(
             request,
@@ -719,6 +858,9 @@ def registrar(c) -> None:
             catalogo=autenticacao.CATALOGO_PERMISSOES,
             rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
             previas=previas,
+            perfil=perfil,
+            escolhidas=escolhidas,
+            rotulo_perfil=rotulo_perfil,
         )
 
     @app.post("/admin/grupos/{grupo_id}/permissoes")
@@ -737,27 +879,69 @@ def registrar(c) -> None:
         nome = grupo["nome"]
         atuais = set(grupo["permissoes"])
 
-        marcadas = list(form.getlist("marcada"))
-        exibidas = list(form.getlist("exibida"))
+        res = _revisao_do_formulario(nome, atuais, form)
+        r = res["revisao"]
+        marcadas = res["marcadas"]
+        exibidas = res["exibidas"]
+        perfil = res["perfil"]
+        escolhidas = res["escolhidas"]
+
         v_list = form.getlist("versao")
         versao = v_list[0] if v_list and isinstance(v_list[0], str) else ""
         j_list = form.getlist("justificativa")
         justificativa = j_list[0] if j_list and isinstance(j_list[0], str) else ""
         confirmado = "1" in form.getlist("confirmo")
 
+        rotulo_perfil = autenticacao.ROTULOS_PERFIL_REFERENCIA.get(perfil, "") if perfil else ""
+
+        if "perfil" in form and r.get("erros"):
+            return c.pagina(
+                request,
+                "admin_grupo_revisar.html",
+                status=400,
+                nome=nome,
+                grupo_id=gid,
+                revisao=r,
+                marcadas=[],
+                exibidas=[],
+                versao=versao,
+                justificativa=justificativa,
+                mensagens_erro=r["erros"],
+                frase="",
+                permissoes=autenticacao.PERMISSOES,
+                catalogo=autenticacao.CATALOGO_PERMISSOES,
+                rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
+                previas=[],
+                perfil=perfil,
+                escolhidas=escolhidas,
+                rotulo_perfil=rotulo_perfil,
+            )
+
         admin_login = request.state.usuario["login"]
         agora = datetime.now(timezone.utc).isoformat()
 
         try:
-            r = c.contas.definir_permissoes_do_grupo(
-                gid,
-                marcadas,
-                exibidas,
-                versao,
-                confirmado,
-                justificativa,
-                (admin_login, agora),
-            )
+            if perfil is not None:
+                r_adapter = c.contas.definir_permissoes_do_grupo(
+                    gid,
+                    marcadas,
+                    exibidas,
+                    versao,
+                    confirmado,
+                    justificativa,
+                    (admin_login, agora),
+                    referencia=(perfil, escolhidas),
+                )
+            else:
+                r_adapter = c.contas.definir_permissoes_do_grupo(
+                    gid,
+                    marcadas,
+                    exibidas,
+                    versao,
+                    confirmado,
+                    justificativa,
+                    (admin_login, agora),
+                )
         except autenticacao.PermissoesAlteradas:
             return c.erro(
                 request,
@@ -766,12 +950,11 @@ def registrar(c) -> None:
                 "As permissões deste grupo mudaram desde que você abriu a página. Nada foi gravado: abra o grupo de novo e refaça as alterações.",
             )
         except autenticacao.AlteracaoRecusada as e:
-            r_rec = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
             previas = []
             try:
-                frase = _calcular_frase_efeito(nome, gid, r_rec)
-                if not r_rec.get("erros") and (r_rec.get("concedidas") or r_rec.get("retiradas")):
-                    previas = _previas_do_menu(c, nome, set(r_rec["depois"]), "Prévia do menu com estas alterações")
+                frase = _calcular_frase_efeito(nome, gid, r)
+                if not r.get("erros") and (r.get("concedidas") or r.get("retiradas")):
+                    previas = _previas_do_menu(c, nome, set(r["depois"]), "Prévia do menu com estas alterações")
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
 
@@ -781,7 +964,7 @@ def registrar(c) -> None:
                 status=400,
                 nome=nome,
                 grupo_id=gid,
-                revisao=r_rec,
+                revisao=r,
                 marcadas=marcadas,
                 exibidas=exibidas,
                 versao=versao,
@@ -792,11 +975,14 @@ def registrar(c) -> None:
                 catalogo=autenticacao.CATALOGO_PERMISSOES,
                 rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
                 previas=previas,
+                perfil=perfil,
+                escolhidas=escolhidas,
+                rotulo_perfil=rotulo_perfil,
             )
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
 
-        mudancas = bool(r.get("concedidas") or r.get("retiradas"))
+        mudancas = bool(r_adapter.get("concedidas") or r_adapter.get("retiradas"))
         param = "1" if mudancas else "0"
         return RedirectResponse(f"/admin/grupos/{gid}?gravado={param}", status_code=303)
 

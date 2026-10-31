@@ -66,6 +66,7 @@ REGRAS = (
     ("GET", "/admin/grupos", ADM),
     ("GET", "/admin/grupos/{grupo_id:digitos}", ADM),
     ("GET", "/admin/grupos/{grupo_id}/editar", ADM),
+    ("GET", "/admin/grupos/{grupo_id}/comparar", ADM),
     ("GET", "/admin/auditoria", ADM),
     ("GET", "/admin/divulgacao", ADM),
     ("POST", "/literatura/artigos/{artigo_id}/triar", "triar_artigos"),
@@ -276,7 +277,7 @@ def _pares_registrados(app):
 
 def test_toda_rota_registrada_tem_regra_explicita(app_completo):
     pares = _pares_registrados(app_completo)
-    assert len(pares) == 74                       # os 73 pares da tabela e o HEAD que a rota de envios declara
+    assert len(pares) == 75                       # os 74 pares da tabela e o HEAD que a rota de envios declara
     sem_regra = sorted((m, p) for m, p in pares if A.regra_explicita("GET" if m == "HEAD" else m, _exemplo(p)) is None)
     assert sem_regra == []
 

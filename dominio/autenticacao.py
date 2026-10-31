@@ -179,6 +179,7 @@ REGRAS_ROTAS = (
     ("GET", "/admin/grupos", SO_ADMIN),
     ("GET", "/admin/grupos/{grupo_id:digitos}", SO_ADMIN),
     ("GET", "/admin/grupos/{grupo_id}/editar", SO_ADMIN),
+    ("GET", "/admin/grupos/{grupo_id}/comparar", SO_ADMIN),
     ("GET", "/admin/auditoria", SO_ADMIN),
     ("GET", "/admin/divulgacao", SO_ADMIN),
     ("POST", "/literatura/artigos/{artigo_id}/triar", "triar_artigos"),
@@ -693,7 +694,12 @@ def pendencias_da_gravacao(revisao: dict, confirmado: bool, justificativa: str) 
     return pendencias
 
 
-def detalhe_auditoria(revisao: dict, justificativa: str, origem: str = "edicao") -> str:
+def detalhe_auditoria(
+    revisao: dict,
+    justificativa: str,
+    origem: str = "edicao",
+    escolhidas: list[str] | None = None,
+) -> str:
     """Gera o detalhe JSON para a linha de auditoria da alteração de permissões."""
     dados = {
         "antes": sorted(revisao["antes"]),
@@ -703,6 +709,8 @@ def detalhe_auditoria(revisao: dict, justificativa: str, origem: str = "edicao")
         "justificativa": justificativa if justificativa.strip() else "",
         "origem": origem,
     }
+    if escolhidas is not None:
+        dados["escolhidas"] = list(escolhidas)
     return json.dumps(dados, ensure_ascii=False)
 
 
@@ -716,8 +724,16 @@ def resumo_detalhe_auditoria(texto: str | None) -> str | None:
         return None
     if not isinstance(dados, dict):
         return None
-    if set(dados.keys()) != {"antes", "depois", "concedidas", "retiradas", "justificativa", "origem"}:
+    chaves = set(dados.keys())
+    if chaves == {"antes", "depois", "concedidas", "retiradas", "justificativa", "origem"}:
+        pass
+    elif chaves == {"antes", "depois", "concedidas", "retiradas", "justificativa", "origem", "escolhidas"}:
+        v = dados["escolhidas"]
+        if not isinstance(v, list) or any(type(x) is not str for x in v):
+            return None
+    else:
         return None
+
     for k in ("antes", "depois", "concedidas", "retiradas"):
         v = dados[k]
         if not isinstance(v, list) or any(type(x) is not str for x in v):
@@ -725,9 +741,16 @@ def resumo_detalhe_auditoria(texto: str | None) -> str | None:
     if type(dados["justificativa"]) is not str or type(dados["origem"]) is not str:
         return None
 
+    origem = dados["origem"]
+    origem_str = ""
+    if origem.startswith("referencia:"):
+        perfil = origem[len("referencia:"):]
+        if perfil in PERFIS_REFERENCIA:
+            origem_str = f" Origem: comparação com a referência de {ROTULOS_PERFIL_REFERENCIA[perfil]}."
+
     concedidas_str = ", ".join(dados["concedidas"]) or "nenhuma"
     retiradas_str = ", ".join(dados["retiradas"]) or "nenhuma"
-    resumo = f"Concedidas: {concedidas_str}. Retiradas: {retiradas_str}."
+    resumo = f"Concedidas: {concedidas_str}. Retiradas: {retiradas_str}.{origem_str}"
     justificativa = dados["justificativa"]
     if justificativa:
         resumo += f" Justificativa: {justificativa}"

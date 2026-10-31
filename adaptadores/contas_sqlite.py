@@ -544,10 +544,13 @@ class ContasSQLite:
         confirmado: bool,
         justificativa: str,
         auditoria: tuple[str, str],
+        referencia: tuple | None = None,
     ) -> dict:
         """Altera com segurança as permissões de um grupo com conferência de versão e auditoria."""
         if type(grupo_id) is not int or not (1 <= grupo_id <= 9223372036854775807):
             raise autenticacao.AlteracaoRecusada(["Este grupo não existe mais."])
+
+        incompleto = ["O formulário veio incompleto. Abra o grupo de novo e refaça as alterações."]
 
         with self._conexao(escrita=True) as conn:
             row = conn.execute("SELECT nome FROM grupos WHERE grupo_id = ?", (grupo_id,)).fetchone()
@@ -567,6 +570,26 @@ class ContasSQLite:
                     "As permissões deste grupo mudaram desde que a página foi aberta."
                 )
 
+            m = None
+            perfil = None
+            if referencia is not None:
+                if not isinstance(referencia, tuple) or len(referencia) != 2:
+                    raise autenticacao.AlteracaoRecusada(incompleto)
+                if (
+                    not isinstance(marcadas, (list, tuple))
+                    or any(type(x) is not str for x in marcadas)
+                    or not isinstance(exibidas, (list, tuple))
+                    or any(type(x) is not str for x in exibidas)
+                ):
+                    raise autenticacao.AlteracaoRecusada(incompleto)
+
+                perfil, escolhidas = referencia
+                m = autenticacao.montar_escolhas_da_referencia(nome, atuais, perfil, escolhidas)
+                if m.get("erros"):
+                    raise autenticacao.AlteracaoRecusada(m["erros"])
+                if list(marcadas) != m["marcadas"] or list(exibidas) != m["exibidas"]:
+                    raise autenticacao.AlteracaoRecusada(incompleto)
+
             r = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
             if r["erros"]:
                 raise autenticacao.AlteracaoRecusada(r["erros"])
@@ -581,7 +604,12 @@ class ContasSQLite:
             self._aplicar_permissoes(conn, grupo_id, set(r["depois"]), atuais)
 
             admin_login, agora = auditoria
-            detalhe = autenticacao.detalhe_auditoria(r, justificativa)
+            if referencia is not None and m is not None:
+                detalhe = autenticacao.detalhe_auditoria(
+                    r, justificativa, origem=f"referencia:{perfil}", escolhidas=m["escolhidas"]
+                )
+            else:
+                detalhe = autenticacao.detalhe_auditoria(r, justificativa)
             self._gravar_auditoria(conn, (admin_login, "salvar_permissoes", nome, detalhe, agora))
 
             return r

@@ -13,6 +13,9 @@
 {% if not revisao.concedidas and not revisao.retiradas %}
 <p class="aviso" role="status">Nenhuma alteração.</p>
 {% else %}
+{% if perfil and rotulo_perfil %}
+<p>Origem: comparação com a referência de {{ rotulo_perfil }}. Só as diferenças marcadas estão abaixo.</p>
+{% endif %}
 {% if revisao.concedidas %}
 <h2>Serão concedidas ({{ revisao.concedidas|length }})</h2>
 <ul>
@@ -33,12 +36,19 @@
 <form method="post" action="/admin/grupos/{{ grupo_id }}/permissoes">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="versao" value="{{ versao }}">
+  {% if perfil %}
+  <input type="hidden" name="perfil" value="{{ perfil }}">
+  {% for p in escolhidas %}
+  <input type="hidden" name="escolhida" value="{{ p }}">
+  {% endfor %}
+  {% else %}
   {% for p in exibidas %}
   <input type="hidden" name="exibida" value="{{ p }}">
   {% endfor %}
   {% for p in marcadas %}
   <input type="hidden" name="marcada" value="{{ p }}">
   {% endfor %}
+  {% endif %}
   {% if revisao.sensiveis %}
   <input type="checkbox" id="confirmo" name="confirmo" value="1">
   {% if revisao.sensiveis|length == 1 %}
@@ -70,5 +80,9 @@
 {% endif %}
 {% endif %}
 {% endif %}
+{% if perfil %}
+<p><a href="/admin/grupos/{{ grupo_id }}/comparar?perfil={{ perfil }}">Voltar à comparação</a></p>
+{% else %}
 <p><a href="/admin/grupos/{{ grupo_id }}/editar">Voltar e editar</a></p>
+{% endif %}
 {% endblock %}

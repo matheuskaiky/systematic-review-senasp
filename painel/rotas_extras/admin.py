@@ -86,6 +86,43 @@ def _usuarios_ativos(c, gid: int) -> int:
     )
 
 
+def _previas_do_menu(c, nome: str, permissoes, titulo: str) -> list[dict]:
+    """Gera a lista de prévias do menu para o grupo informado."""
+    banco = c.contexto.banco
+    is_admin = (nome == autenticacao.GRUPO_ADMIN)
+
+    if nome != autenticacao.GRUPO_VISITANTE:
+        grupos = navegacao.grupos(
+            "/",
+            admin=is_admin,
+            banco=banco,
+            pode=lambda m, cam: autenticacao.pode_acessar(nome, permissoes, m, cam),
+        )
+        return [{"rotulo": titulo, "grupos": grupos}]
+
+    pol_atual, _ = c.contas.politica_divulgacao(banco)
+    publica_atual = bool(pol_atual.get("publica"))
+
+    previas = []
+    for nome_estado, pol_estado in divulgacao.ESTADOS_DA_PREVIA:
+        rotulo = f"{titulo}: {nome_estado}"
+        if bool(pol_estado.get("publica")) == publica_atual:
+            rotulo += " (estado atual)"
+
+        grupos = navegacao.grupos(
+            "/",
+            admin=is_admin,
+            banco=banco,
+            pode=lambda m, cam, p=pol_estado: (
+                divulgacao.decisao_publico(m, cam, p) == "liberada"
+                and autenticacao.pode_acessar(nome, permissoes, m, cam)
+            ),
+        )
+        previas.append({"rotulo": rotulo, "grupos": grupos})
+
+    return previas
+
+
 def registrar(c) -> None:
     """Registra rotas de administração e atividade dos revisores."""
     if not c.contexto.autenticacao:
@@ -534,12 +571,10 @@ def registrar(c) -> None:
                 "itens": itens,
             })
 
-        previa_menu = navegacao.grupos(
-            "/",
-            admin=(nome == autenticacao.GRUPO_ADMIN),
-            banco=c.contexto.banco,
-            pode=lambda m, cam: autenticacao.pode_acessar(nome, permissoes, m, cam),
-        )
+        try:
+            previas = _previas_do_menu(c, nome, permissoes, "Prévia do menu")
+        except autenticacao.ContasOcupadas:
+            return _erro_contas_ocupadas(request)
 
         return c.pagina(
             request,
@@ -554,7 +589,7 @@ def registrar(c) -> None:
             modulo_ativo=modulo_ativo,
             modulos_opcoes=list(autenticacao.MODULOS_PERMISSAO.items()),
             modulos_exibidos=modulos_exibidos,
-            previa_menu=previa_menu,
+            previas=previas,
             perfis_opcoes=perfis_opcoes,
             perfil_ativo=perfil_ativo,
             aviso_referencia=aviso_referencia,
@@ -660,9 +695,11 @@ def registrar(c) -> None:
         justificativa = j_list[0] if j_list and isinstance(j_list[0], str) else ""
 
         r = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
-
+        previas = []
         try:
             frase = _calcular_frase_efeito(nome, gid, r)
+            if not r.get("erros") and (r.get("concedidas") or r.get("retiradas")):
+                previas = _previas_do_menu(c, nome, set(r["depois"]), "Prévia do menu com estas alterações")
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
 
@@ -681,6 +718,7 @@ def registrar(c) -> None:
             permissoes=autenticacao.PERMISSOES,
             catalogo=autenticacao.CATALOGO_PERMISSOES,
             rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
+            previas=previas,
         )
 
     @app.post("/admin/grupos/{grupo_id}/permissoes")
@@ -729,8 +767,11 @@ def registrar(c) -> None:
             )
         except autenticacao.AlteracaoRecusada as e:
             r_rec = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
+            previas = []
             try:
                 frase = _calcular_frase_efeito(nome, gid, r_rec)
+                if not r_rec.get("erros") and (r_rec.get("concedidas") or r_rec.get("retiradas")):
+                    previas = _previas_do_menu(c, nome, set(r_rec["depois"]), "Prévia do menu com estas alterações")
             except autenticacao.ContasOcupadas:
                 return _erro_contas_ocupadas(request)
 
@@ -750,6 +791,7 @@ def registrar(c) -> None:
                 permissoes=autenticacao.PERMISSOES,
                 catalogo=autenticacao.CATALOGO_PERMISSOES,
                 rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
+                previas=previas,
             )
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)

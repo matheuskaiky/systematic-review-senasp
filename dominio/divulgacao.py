@@ -6,6 +6,10 @@ ROTAS_PUBLICAS = frozenset({"/", "/sobre", "/literatura/prisma", "/metodologia",
 INVALIDA = "Configuração de divulgação inválida."
 PRELIMINARES = "A divulgação de resultados preliminares ainda não está disponível."
 PESQUISAS = frozenset({"real", "vies", "demo", "simulado"})
+ESTADOS_DA_PREVIA = (
+    ("pesquisa não divulgada", {"publica": False, "preliminares": False}),
+    ("pesquisa divulgada, sem resultados preliminares", {"publica": True, "preliminares": False}),
+)
 
 
 class DivulgacaoAlterada(Exception):

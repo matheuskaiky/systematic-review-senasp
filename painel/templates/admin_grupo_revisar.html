@@ -51,6 +51,23 @@
   <textarea id="justificativa" name="justificativa" maxlength="500">{{ justificativa }}</textarea>
   <button class="botao" type="submit">Confirmar</button>
 </form>
+{% for p in previas %}
+<section class="perm-previa" aria-label="{{ p.rotulo }}">
+  <h2>{{ p.rotulo }}</h2>
+  {% if p.grupos %}
+  <ul>
+    {% for g in p.grupos %}
+    <li class="previa-grupo"><span>{{ g.nome }}</span><ul>{% for item in g.itens %}<li>{{ item.texto }}</li>{% endfor %}</ul></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="vazio">Nenhum item no menu.</p>
+  {% endif %}
+</section>
+{% endfor %}
+{% if previas %}
+<p>A prévia mostra só o menu. O acesso a cada página continua sendo decidido pelo servidor a cada pedido.</p>
+{% endif %}
 {% endif %}
 {% endif %}
 <p><a href="/admin/grupos/{{ grupo_id }}/editar">Voltar e editar</a></p>

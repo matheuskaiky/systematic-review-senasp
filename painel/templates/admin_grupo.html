@@ -69,12 +69,21 @@
 <p class="vazio">Nenhuma permissão corresponde à busca e aos filtros.</p>
 {% endif %}
 {% endif %}
-<section class="perm-previa" aria-label="Prévia do menu">
-  <h2>Prévia do menu</h2>
+{% for p in previas %}
+<section class="perm-previa" aria-label="{{ p.rotulo }}">
+  <h2>{{ p.rotulo }}</h2>
+  {% if p.grupos %}
   <ul>
-    {% for g in previa_menu %}
+    {% for g in p.grupos %}
     <li class="previa-grupo"><span>{{ g.nome }}</span><ul>{% for item in g.itens %}<li>{{ item.texto }}</li>{% endfor %}</ul></li>
     {% endfor %}
   </ul>
+  {% else %}
+  <p class="vazio">Nenhum item no menu.</p>
+  {% endif %}
 </section>
+{% endfor %}
+{% if previas %}
+<p>A prévia mostra só o menu. O acesso a cada página continua sendo decidido pelo servidor a cada pedido.</p>
+{% endif %}
 {% endblock %}

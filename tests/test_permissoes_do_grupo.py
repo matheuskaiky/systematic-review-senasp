@@ -316,7 +316,7 @@ def test_contas_ocupadas_vence_o_grupo_inexistente(adm, monkeypatch):
     assert cli.get("/admin/grupos/999").status_code == 503
 
 
-@pytest.mark.parametrize("grupo", ["Administrador", "Visitante", "Leitor", "Revisor"])
+@pytest.mark.parametrize("grupo", ["Administrador", "Leitor", "Revisor"])     # o Visitante: test_previas_do_menu.py
 def test_previa_do_menu_pela_mesma_regra(adm, grupo):
     cli, contas, contas_db, _ = adm
     gid = _gid(contas_db, grupo)

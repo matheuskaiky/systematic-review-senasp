@@ -291,6 +291,66 @@ class ContasSQLite:
                 for r in rows
             ]
 
+    def auditoria_filtrada(
+        self,
+        acao: str | None = None,
+        alvo: str | None = None,
+        pagina: int = 1,
+        por_pagina: int = 50,
+    ) -> dict:
+        """Consulta registros de auditoria com filtros opcionais por ação e por alvo, e paginação."""
+        if acao is not None and (not isinstance(acao, str) or acao not in autenticacao.ACOES_AUDITORIA):
+            raise ValueError("Ação de auditoria inválida.")
+        if alvo is not None and not isinstance(alvo, str):
+            raise ValueError("Alvo de auditoria inválido.")
+        if type(pagina) is not int or isinstance(pagina, bool) or not (1 <= pagina <= 1_000_000):
+            raise ValueError("Página inválida.")
+        if type(por_pagina) is not int or isinstance(por_pagina, bool) or not (1 <= por_pagina <= 200):
+            raise ValueError("Quantidade por página inválida.")
+
+        with self._conexao() as conn:
+            rows = conn.execute("SELECT DISTINCT alvo FROM auditoria_admin WHERE alvo IS NOT NULL").fetchall()
+            alvos = sorted(
+                {r[0] for r in rows if type(r[0]) is str and r[0] != ""},
+                key=lambda a: (autenticacao._normalizar_texto(a), a),
+            )
+            if alvo is not None and alvo not in alvos:
+                return {"total": 0, "linhas": [], "alvos": alvos}
+
+            condicoes = []
+            params = []
+            if acao is not None:
+                condicoes.append("acao = ?")
+                params.append(acao)
+            if alvo is not None:
+                condicoes.append("alvo = ?")
+                params.append(alvo)
+
+            where = (" WHERE " + " AND ".join(condicoes)) if condicoes else ""
+
+            total = conn.execute(f"SELECT COUNT(*) FROM auditoria_admin{where}", tuple(params)).fetchone()[0]
+
+            offset = (pagina - 1) * por_pagina
+            params_linhas = tuple(params + [por_pagina, offset])
+            rows_linhas = conn.execute(
+                f"SELECT id, quando, admin_login, acao, alvo, detalhe FROM auditoria_admin{where} ORDER BY id DESC LIMIT ? OFFSET ?",
+                params_linhas,
+            ).fetchall()
+
+            linhas = [
+                {
+                    "id": r[0],
+                    "quando": r[1],
+                    "admin_login": r[2],
+                    "acao": r[3],
+                    "alvo": r[4],
+                    "detalhe": r[5],
+                }
+                for r in rows_linhas
+            ]
+
+            return {"total": total, "linhas": linhas, "alvos": alvos}
+
     def listar_usuarios(self) -> list[dict]:
         """Retorna lista de todos os usuários ordenados por lower(nome)."""
         with self._conexao() as conn:

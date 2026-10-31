@@ -6,7 +6,34 @@
 <p class="aviso ok" role="status">Alteração gravada.</p>
 {% endif %}
 
-{% if not linhas %}
+<form class="filtros" method="get" action="/admin/auditoria">
+  <label>Ação <select name="acao">
+    <option value="">todas</option>
+    {% for a in acoes_auditoria %}
+    <option value="{{ a }}"{% if acao_ativa == a %} selected{% endif %}>{{ rotulos.rotulo(rotulos.ACOES_AUDITORIA, a) }}</option>
+    {% endfor %}
+  </select></label>
+  <label>Alvo <select name="alvo">
+    <option value="">todos</option>
+    {% for a in alvos %}
+    <option value="{{ a }}"{% if alvo_ativo == a %} selected{% endif %}>{{ a }}</option>
+    {% endfor %}
+  </select></label>
+  <button class="botao" type="submit">Filtrar</button>
+  {% if acao_ativa or alvo_ativo %}
+  <a href="/admin/auditoria">Limpar</a>
+  {% endif %}
+</form>
+
+{% if total > 0 %}
+<p class="contagem"><strong>{{ fmt.numero(total) }}</strong> registro(s)</p>
+{% endif %}
+
+{% if total > 0 and not linhas %}
+<p class="vazio">Não há registros nesta página: são {{ fmt.numero(total) }} em {{ paginas }} página(s). <a href="/admin/auditoria?{{ base }}{{ '&' if base }}p=1">Ir para a primeira</a>.</p>
+{% elif total == 0 and (acao_ativa or alvo_ativo) %}
+<p class="vazio">Nenhuma ação registrada com estes filtros. <a href="/admin/auditoria">Limpar filtros</a>.</p>
+{% elif total == 0 %}
 <p class="vazio">Nenhuma ação registrada.</p>
 {% else %}
 <div class="tabela-rolavel">
@@ -33,5 +60,15 @@
     </tbody>
   </table>
 </div>
+
+<nav class="paginacao" aria-label="Páginas">
+  {% if n > 1 %}
+  <a href="/admin/auditoria?{{ base }}{{ '&' if base }}p={{ n - 1 }}">← Anterior</a>
+  {% endif %}
+  <span>Página {{ n }} de {{ paginas }}</span>
+  {% if n < paginas %}
+  <a href="/admin/auditoria?{{ base }}{{ '&' if base }}p={{ n + 1 }}">Próxima →</a>
+  {% endif %}
+</nav>
 {% endif %}
 {% endblock %}

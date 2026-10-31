@@ -1,6 +1,8 @@
 """Rotas de administração do painel (usuários, matriz de permissões, auditoria e estatísticas)."""
 from datetime import datetime, timezone
+import math
 import re
+import urllib.parse
 from starlette.convertors import Convertor, register_url_convertor
 from starlette.responses import RedirectResponse, Response
 from fastapi import Form, Request
@@ -1119,11 +1121,38 @@ def registrar(c) -> None:
 
     @app.get("/admin/auditoria")
     def listar_auditoria_view(request: Request):
+        for k in ("acao", "alvo", "p"):
+            if len(request.query_params.getlist(k)) > 1:
+                return c.erro(request, 404, "Filtro inválido", "O endereço traz o mesmo filtro mais de uma vez.")
+
+        acao_raw = request.query_params.get("acao")
+        if acao_raw is not None and acao_raw != "":
+            if acao_raw not in autenticacao.ACOES_AUDITORIA:
+                return c.erro(request, 404, "Filtro inválido", "A ação escolhida não existe. Escolha uma da lista.")
+            acao = acao_raw
+        else:
+            acao = None
+
+        p_raw = request.query_params.get("p")
+        if p_raw is None or p_raw == "":
+            n = 1
+        else:
+            n = _converter_id(p_raw)
+            if n is None or not (1 <= n <= 1_000_000):
+                return c.erro(request, 404, "Página inválida", "O número da página não é válido.")
+
+        alvo_raw = request.query_params.get("alvo")
+        alvo = alvo_raw if (alvo_raw is not None and alvo_raw != "") else None
+
         try:
-            linhas = c.contas.auditoria(limite=200)
+            res = c.contas.auditoria_filtrada(acao, alvo, n, 50)
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
 
+        if alvo is not None and alvo not in res["alvos"]:
+            return c.erro(request, 404, "Filtro inválido", "O alvo escolhido não aparece no registro. Escolha um da lista.")
+
+        linhas = res["linhas"]
         for l in linhas:
             if l.get("acao") == "salvar_permissoes":
                 l["resumo"] = autenticacao.resumo_detalhe_auditoria(l.get("detalhe"))
@@ -1133,11 +1162,29 @@ def registrar(c) -> None:
             else:
                 l["resumo"] = None
 
+        total = res["total"]
+        paginas = max(math.ceil(total / 50), 1)
+
+        pares = []
+        if acao is not None:
+            pares.append(("acao", acao))
+        if alvo is not None:
+            pares.append(("alvo", alvo))
+        base = urllib.parse.urlencode(pares)
+
         return c.pagina(
             request,
             "admin_auditoria.html",
             linhas=linhas,
+            total=total,
+            paginas=paginas,
+            n=n,
+            base=base,
+            acao_ativa=acao or "",
+            alvo_ativo=alvo or "",
+            alvos=res["alvos"],
             ok=(request.query_params.get("ok") == "1"),
+            acoes_auditoria=autenticacao.ACOES_AUDITORIA,
         )
 
     @app.get("/admin/divulgacao")

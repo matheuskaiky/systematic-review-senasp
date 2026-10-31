@@ -180,6 +180,7 @@ REGRAS_ROTAS = (
     ("GET", "/admin/grupos/{grupo_id:digitos}", SO_ADMIN),
     ("GET", "/admin/grupos/{grupo_id}/editar", SO_ADMIN),
     ("GET", "/admin/grupos/{grupo_id}/comparar", SO_ADMIN),
+    ("GET", "/admin/grupos/{grupo_id}/restaurar", SO_ADMIN),
     ("GET", "/admin/auditoria", SO_ADMIN),
     ("GET", "/admin/divulgacao", SO_ADMIN),
     ("POST", "/literatura/artigos/{artigo_id}/triar", "triar_artigos"),
@@ -871,6 +872,29 @@ REFERENCIAS_PERFIS = {
 }
 
 
+def diferencas_entre(atuais, alvo) -> dict:
+    """Retorna as permissões a conceder e a retirar para alinhar o conjunto atual com o alvo."""
+    atuais_set = set(atuais) if atuais else set()
+    alvo_set = set(alvo) if alvo else set()
+    conceder = []
+    retirar = []
+    for p in PERMISSOES:
+        if p not in CATALOGO_PERMISSOES:
+            continue
+        sensivel = bool(CATALOGO_PERMISSOES[p].get("sensibilidade") in ROTULOS_SENSIBILIDADE)
+        item = {
+            "permissao": p,
+            "descricao": PERMISSOES[p],
+            "sensivel": sensivel,
+            "marcada": False,
+        }
+        if p in alvo_set and p not in atuais_set:
+            conceder.append(item)
+        elif p in atuais_set and p not in alvo_set:
+            retirar.append(item)
+    return {"conceder": conceder, "retirar": retirar}
+
+
 def comparar_com_referencia(grupo: str, atuais, perfil: str) -> dict:
     """Compara as permissões de um grupo com um perfil de referência, sem marcar nenhuma."""
     if grupo == GRUPO_ADMIN:
@@ -902,31 +926,48 @@ def comparar_com_referencia(grupo: str, atuais, perfil: str) -> dict:
 
     rotulo = ROTULOS_PERFIL_REFERENCIA.get(perfil)
     ref = REFERENCIAS_PERFIS.get(perfil, frozenset())
-    atuais_set = set(atuais) if atuais else set()
-
-    conceder = []
-    retirar = []
-
-    for p in PERMISSOES:
-        if p not in CATALOGO_PERMISSOES:
-            continue
-        sensivel = bool(CATALOGO_PERMISSOES[p].get("sensibilidade") in ROTULOS_SENSIBILIDADE)
-        item = {
-            "permissao": p,
-            "descricao": PERMISSOES[p],
-            "sensivel": sensivel,
-            "marcada": False,
-        }
-        if p in ref and p not in atuais_set:
-            conceder.append(item)
-        elif p in atuais_set and p not in ref:
-            retirar.append(item)
+    _dif = getattr(sys.modules[__name__], "diferencas_entre")
+    difs = _dif(atuais, ref)
 
     return {
         "perfil": perfil,
         "rotulo": rotulo,
-        "conceder": conceder,
-        "retirar": retirar,
+        "conceder": difs["conceder"],
+        "retirar": difs["retirar"],
+        "erros": [],
+    }
+
+
+def comparar_com_alteracao(grupo: str, atuais, entrada: dict | None) -> dict:
+    """Compara as permissões atuais de um grupo com seu estado anterior a uma alteração registrada."""
+    if grupo == GRUPO_ADMIN:
+        return {
+            "registro": None,
+            "conceder": [],
+            "retirar": [],
+            "erros": ["O grupo Administrador tem acesso integral e não pode ser alterado."],
+        }
+    if entrada is None:
+        return {
+            "registro": None,
+            "conceder": [],
+            "retirar": [],
+            "erros": ["Esta alteração não está no histórico deste grupo."],
+        }
+    if entrada.get("detalhe") is None:
+        return {
+            "registro": None,
+            "conceder": [],
+            "retirar": [],
+            "erros": ["Esta alteração foi registrada sem o estado anterior completo; não há o que restaurar."],
+        }
+
+    _dif = getattr(sys.modules[__name__], "diferencas_entre")
+    difs = _dif(atuais, entrada["detalhe"].get("antes", []))
+    return {
+        "registro": entrada["id"],
+        "conceder": difs["conceder"],
+        "retirar": difs["retirar"],
         "erros": [],
     }
 

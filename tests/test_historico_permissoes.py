@@ -248,8 +248,13 @@ def _secao(h):
     return h[i:fim]
 
 
+RESTAURAR = re.compile(r'<p><a href="/admin/grupos/\d+/restaurar\?registro=\d+">Ver as diferenças para o estado anterior a esta '
+                       r'alteração</a></p>')
+
+
 def _itens(sec):
-    sec = re.sub(r">\s+<", "><", sec).strip()
+    """As entradas do historico sem o link de restauracao (coberto em test_restaurar_estado.py)."""
+    sec = RESTAURAR.sub("", re.sub(r">\s+<", "><", sec).strip())
     return re.findall(r'<li class="historico-item">(.*?)</li>\s*(?=<li class="historico-item">|</ol>)', sec, re.S)
 
 

@@ -93,6 +93,9 @@
       {% if item.justificativa %}
       <p>Justificativa: {{ item.justificativa }}</p>
       {% endif %}
+      {% if nome != "Administrador" %}
+      <p><a href="/admin/grupos/{{ grupo_id }}/restaurar?registro={{ item.id }}">Ver as diferenças para o estado anterior a esta alteração</a></p>
+      {% endif %}
       {% elif item.texto is not none %}
       <p>Registro antigo: {{ item.texto }}</p>
       {% else %}

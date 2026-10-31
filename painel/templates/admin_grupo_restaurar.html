@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}Diferenças para um estado anterior — {{ nome }}{% endblock %}
+{% block conteudo %}
+<h1>Diferenças para um estado anterior: {{ nome }}</h1>
+<p>Estado anterior à alteração de {{ fmt.data_hora(entrada.quando) }} por {{ entrada.admin_login }}{% if entrada.nome != nome %} · com o nome «{{ entrada.nome }}»{% endif %}.</p>
+
+{% if comp.erros %}
+<p class="aviso" role="status">{{ comp.erros[0] }}</p>
+{% elif not comp.conceder and not comp.retirar %}
+<p class="vazio">Este grupo já está igual ao estado anterior a esta alteração.</p>
+{% else %}
+{% if comp.conceder %}
+<h2>O estado anterior tem e o grupo não ({{ comp.conceder|length }})</h2>
+<ul>
+  {% for item in comp.conceder %}
+  <li>{{ item.descricao }}{% if item.sensivel %} <span class="perm-sensivel">◆ {{ rotulos_sensibilidade[catalogo[item.permissao].sensibilidade] }}</span>{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if comp.retirar %}
+<h2>O grupo tem e o estado anterior não ({{ comp.retirar|length }})</h2>
+<ul>
+  {% for item in comp.retirar %}
+  <li>{{ item.descricao }}{% if item.sensivel %} <span class="perm-sensivel">◆ {{ rotulos_sensibilidade[catalogo[item.permissao].sensibilidade] }}</span>{% endif %}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+<p>Esta página só mostra; nada é alterado aqui.</p>
+{% endif %}
+
+<p><a href="/admin/grupos/{{ grupo_id }}">Voltar ao grupo</a></p>
+{% endblock %}

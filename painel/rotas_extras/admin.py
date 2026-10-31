@@ -867,6 +867,45 @@ def registrar(c) -> None:
             rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
         )
 
+    @app.get("/admin/grupos/{grupo_id}/restaurar")
+    def restaurar_grupo_view(request: Request, grupo_id: str):
+        grupo, erro = _resolver_grupo(c, request, grupo_id, edicao=True)
+        if erro:
+            return erro
+
+        gid = grupo["grupo_id"]
+        nome = grupo["nome"]
+
+        registros_param = request.query_params.getlist("registro")
+        if len(registros_param) != 1:
+            return c.erro(request, 404, "Alteração não encontrada", "Esta alteração não está no histórico deste grupo.")
+        reg_id = _converter_id(registros_param[0])
+        if reg_id is None:
+            return c.erro(request, 404, "Alteração não encontrada", "Esta alteração não está no histórico deste grupo.")
+
+        try:
+            registros = c.contas.registros_de_permissoes()
+        except autenticacao.ContasOcupadas:
+            return _erro_contas_ocupadas(request)
+
+        historico = autenticacao.historico_do_grupo(nome, registros)
+        entrada = next((e for e in historico if e["id"] == reg_id), None)
+        if entrada is None:
+            return c.erro(request, 404, "Alteração não encontrada", "Esta alteração não está no histórico deste grupo.")
+
+        comp = autenticacao.comparar_com_alteracao(nome, set(grupo["permissoes"]), entrada)
+
+        return c.pagina(
+            request,
+            "admin_grupo_restaurar.html",
+            nome=nome,
+            grupo_id=gid,
+            entrada=entrada,
+            comp=comp,
+            catalogo=autenticacao.CATALOGO_PERMISSOES,
+            rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
+        )
+
     @app.post("/admin/grupos/{grupo_id}/revisar")
     async def revisar_grupo_view(request: Request, grupo_id: str):
         form = await request.form()

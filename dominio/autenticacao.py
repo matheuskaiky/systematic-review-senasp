@@ -413,6 +413,7 @@ def filtrar_permissoes(
     filtro: str,
     modulo: str,
     perfil: str = "",
+    alteradas: set[str] | frozenset[str] | None = None,
 ) -> list[str]:
     """Filtra permissões do catálogo segundo busca de texto, estado/sensibilidade e módulo."""
     b = busca.strip()
@@ -446,6 +447,8 @@ def filtrar_permissoes(
         elif filtro == "financeiras" and meta.get("sensibilidade") != "financeira":
             continue
         elif filtro == "diferentes" and (difs is None or chave not in difs):
+            continue
+        elif filtro == "alteradas" and (alteradas is None or chave not in alteradas):
             continue
 
         if b_norm:
@@ -714,8 +717,8 @@ def detalhe_auditoria(
     return json.dumps(dados, ensure_ascii=False)
 
 
-def resumo_detalhe_auditoria(texto: str | None) -> str | None:
-    """Gera um resumo legível do detalhe JSON de auditoria da alteração de permissões."""
+def ler_detalhe_auditoria(texto: str | None) -> dict | None:
+    """Valida e converte o JSON do detalhe de auditoria da alteração de permissões."""
     if not isinstance(texto, str):
         return None
     try:
@@ -741,6 +744,16 @@ def resumo_detalhe_auditoria(texto: str | None) -> str | None:
     if type(dados["justificativa"]) is not str or type(dados["origem"]) is not str:
         return None
 
+    return dados
+
+
+def resumo_detalhe_auditoria(texto: str | None) -> str | None:
+    """Gera um resumo legível do detalhe JSON de auditoria da alteração de permissões."""
+    _ler = sys.modules[__name__].ler_detalhe_auditoria
+    dados = _ler(texto)
+    if dados is None:
+        return None
+
     origem = dados["origem"]
     origem_str = ""
     if origem.startswith("referencia:"):
@@ -755,6 +768,45 @@ def resumo_detalhe_auditoria(texto: str | None) -> str | None:
     if justificativa:
         resumo += f" Justificativa: {justificativa}"
     return resumo
+
+
+def historico_do_grupo(nome: str, registros: list[dict]) -> list[dict]:
+    """Retorna o histórico de alterações de permissões de um grupo seguindo renomeações até a criação."""
+    _ler = sys.modules[__name__].ler_detalhe_auditoria
+    atual = nome
+    historico = []
+    for r in registros:
+        acao = r.get("acao")
+        alvo = r.get("alvo")
+        if not isinstance(acao, str) or not isinstance(alvo, str):
+            continue
+        detalhe = r.get("detalhe")
+
+        if acao == "salvar_permissoes":
+            if alvo == atual:
+                parsed = _ler(detalhe)
+                texto = detalhe if (isinstance(detalhe, str) and parsed is None) else None
+                historico.append({
+                    "id": r["id"],
+                    "quando": r["quando"],
+                    "admin_login": r["admin_login"],
+                    "nome": atual,
+                    "detalhe": parsed,
+                    "texto": texto,
+                })
+        elif acao == "renomear_grupo":
+            if alvo == atual:
+                sufixo = " -> " + atual
+                if isinstance(detalhe, str) and detalhe.endswith(sufixo) and len(detalhe) > len(sufixo):
+                    atual = detalhe[:-len(sufixo)]
+                else:
+                    break
+            elif isinstance(detalhe, str) and detalhe == atual + " -> " + alvo:
+                break
+        elif acao == "criar_grupo":
+            if alvo == atual:
+                break
+    return historico
 
 
 # --- Configurações de referência dos perfis e comparação de regras (P6-03, D151) ---

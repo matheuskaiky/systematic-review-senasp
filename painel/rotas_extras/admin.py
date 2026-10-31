@@ -8,7 +8,7 @@ from starlette.responses import RedirectResponse, Response
 from fastapi import Form, Request
 
 from dominio import autenticacao, divulgacao
-from painel import navegacao, rotulos
+from painel import formatacao as fmt, navegacao, rotulos
 
 LEITURA_FALHOU = "Não foi possível ler a configuração de divulgação agora. Para quem não entrou, a pesquisa continua fechada. Tente de novo em alguns segundos."
 ALTERADA = "A divulgação desta pesquisa mudou desde que você abriu a página. Nada foi gravado: abra a página de novo e refaça a alteração."
@@ -563,11 +563,13 @@ def registrar(c) -> None:
         gid = grupo["grupo_id"]
         try:
             usuarios_ativos = _usuarios_ativos(c, gid)
+            registros = c.contas.registros_de_permissoes()
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)
 
         nome = grupo["nome"]
         permissoes = grupo["permissoes"]
+        historico = autenticacao.historico_do_grupo(nome, registros)
 
         q = request.query_params.get("q", "")
         filtro = request.query_params.get("filtro", "")
@@ -582,6 +584,8 @@ def registrar(c) -> None:
             perfis_opcoes = [(p, autenticacao.ROTULOS_PERFIL_REFERENCIA[p]) for p in autenticacao.PERFIS_REFERENCIA]
 
         filtros_permitidos = {"habilitadas", "desabilitadas", "sensiveis", "financeiras", "administrativas"}
+        if nome != autenticacao.GRUPO_ADMIN:
+            filtros_permitidos.add("alteradas")
         if perfis_opcoes:
             filtros_permitidos.add("diferentes")
 
@@ -589,8 +593,28 @@ def registrar(c) -> None:
         modulo_ativo = modulo if modulo in autenticacao.MODULOS_PERMISSAO else ""
         perfil_ativo = perfil if perfil in {k for k, _ in perfis_opcoes} else ""
 
+        ultima = historico[0] if historico else None
+        if ultima is not None and ultima.get("detalhe") is not None:
+            det_ult = ultima["detalhe"]
+            alteradas = set(det_ult.get("concedidas", [])) | set(det_ult.get("retiradas", []))
+        else:
+            alteradas = None
+
         resumo = autenticacao.resumo_do_grupo(nome, permissoes)
-        chaves_filtradas = autenticacao.filtrar_permissoes(nome, permissoes, q, filtro_ativo, modulo_ativo, perfil=perfil_ativo)
+        chaves_filtradas = autenticacao.filtrar_permissoes(
+            nome, permissoes, q, filtro_ativo, modulo_ativo, perfil=perfil_ativo, alteradas=alteradas
+        )
+
+        aviso_alteradas = None
+        nota_alteradas = None
+        if filtro_ativo == "alteradas":
+            if not historico:
+                aviso_alteradas = "Este grupo ainda não tem alterações de permissões registradas."
+            elif ultima.get("detalhe") is None:
+                aviso_alteradas = "A última alteração deste grupo foi registrada sem a lista das permissões alteradas. Veja o histórico abaixo."
+            else:
+                quando_fmt = fmt.data_hora(ultima["quando"])
+                nota_alteradas = f"Permissões concedidas ou retiradas na última alteração, em {quando_fmt}, por {ultima['admin_login']}. Esta página só mostra; nada é alterado aqui."
 
         aviso_referencia = None
         nota_referencia = None
@@ -643,6 +667,38 @@ def registrar(c) -> None:
                 "itens": itens,
             })
 
+        historico_itens = []
+        for h in historico[:20]:
+            det = h.get("detalhe")
+            if det is not None:
+                concedidas_desc = [autenticacao.PERMISSOES.get(k, k) for k in det.get("concedidas", [])]
+                retiradas_desc = [autenticacao.PERMISSOES.get(k, k) for k in det.get("retiradas", [])]
+                origem = det.get("origem", "")
+                origem_rotulo = None
+                if isinstance(origem, str) and origem.startswith("referencia:"):
+                    perf = origem[len("referencia:"):]
+                    if perf in autenticacao.PERFIS_REFERENCIA:
+                        origem_rotulo = autenticacao.ROTULOS_PERFIL_REFERENCIA.get(perf)
+                justificativa = det.get("justificativa", "")
+            else:
+                concedidas_desc = None
+                retiradas_desc = None
+                origem_rotulo = None
+                justificativa = None
+
+            historico_itens.append({
+                "id": h["id"],
+                "quando": h["quando"],
+                "admin_login": h["admin_login"],
+                "nome": h["nome"],
+                "detalhe": det,
+                "texto": h.get("texto"),
+                "concedidas_desc": concedidas_desc,
+                "retiradas_desc": retiradas_desc,
+                "origem_rotulo": origem_rotulo,
+                "justificativa": justificativa,
+            })
+
         try:
             previas = _previas_do_menu(c, nome, permissoes, "Prévia do menu")
         except autenticacao.ContasOcupadas:
@@ -666,6 +722,11 @@ def registrar(c) -> None:
             perfil_ativo=perfil_ativo,
             aviso_referencia=aviso_referencia,
             nota_referencia=nota_referencia,
+            aviso_alteradas=aviso_alteradas,
+            nota_alteradas=nota_alteradas,
+            historico=historico[:20],
+            historico_itens=historico_itens,
+            total_historico=len(historico),
         )
 
     def _calcular_frase_efeito(nome: str, gid: int, r: dict) -> str:

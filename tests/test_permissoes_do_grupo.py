@@ -245,7 +245,9 @@ def test_formulario_de_filtro(adm):
     opcao = r'<option value="([a-z]*)"(?: selected)?>([^<]+)</option>'
     assert re.findall(opcao, sel_filtro) == [("", "Todas"), ("habilitadas", "Habilitadas"), ("desabilitadas", "Desabilitadas"),
                                              ("sensiveis", "Sensíveis"), ("financeiras", "Financeiras"),
-                                             ("administrativas", "Administrativas"), ("diferentes", "Diferentes da referência")]
+                                             ("administrativas", "Administrativas"),
+                                             ("alteradas", "Alteradas na última alteração"),
+                                             ("diferentes", "Diferentes da referência")]
     assert re.findall(opcao, sel_modulo) == [("", "Todos")] + list(A.MODULOS_PERMISSAO.items())
     assert "placeholder" not in form
     assert '<button class="botao" type="submit">Filtrar</button>' in form

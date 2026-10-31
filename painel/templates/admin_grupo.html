@@ -24,6 +24,9 @@
     {% if filtro_ativo == "sensiveis" %}<option value="sensiveis" selected>Sensíveis</option>{% else %}<option value="sensiveis">Sensíveis</option>{% endif %}
     {% if filtro_ativo == "financeiras" %}<option value="financeiras" selected>Financeiras</option>{% else %}<option value="financeiras">Financeiras</option>{% endif %}
     {% if filtro_ativo == "administrativas" %}<option value="administrativas" selected>Administrativas</option>{% else %}<option value="administrativas">Administrativas</option>{% endif %}
+    {% if nome != "Administrador" %}
+    {% if filtro_ativo == "alteradas" %}<option value="alteradas" selected>Alteradas na última alteração</option>{% else %}<option value="alteradas">Alteradas na última alteração</option>{% endif %}
+    {% endif %}
     {% if perfis_opcoes %}
     {% if filtro_ativo == "diferentes" %}<option value="diferentes" selected>Diferentes da referência</option>{% else %}<option value="diferentes">Diferentes da referência</option>{% endif %}
     {% endif %}
@@ -46,7 +49,11 @@
   {% endif %}
   <button class="botao" type="submit">Filtrar</button>
 </form>
-{% if aviso_referencia %}
+{% if aviso_alteradas %}
+<p class="aviso" role="status">{{ aviso_alteradas }}</p>
+{% elif nota_alteradas %}
+<p>{{ nota_alteradas }}</p>
+{% elif aviso_referencia %}
 <p class="aviso" role="status">{{ aviso_referencia }}</p>
 {% elif nota_referencia %}
 <p>Comparação com a referência de {{ nota_referencia }}. Habilitada: o grupo tem e a referência não. Não habilitada: a referência tem e o grupo não. Esta página só mostra; nada é alterado aqui.</p>
@@ -63,12 +70,44 @@
 </details>
 {% endfor %}
 {% else %}
-{% if filtro_ativo == "administrativas" %}
+{% if aviso_alteradas %}
+{% elif filtro_ativo == "administrativas" %}
 <p class="vazio">As capacidades de administração são exclusivas do grupo Administrador e não podem ser dadas a outro grupo.</p>
 {% else %}
 <p class="vazio">Nenhuma permissão corresponde à busca e aos filtros.</p>
 {% endif %}
 {% endif %}
+<section class="perm-historico" aria-labelledby="historico">
+  <h2 id="historico">Histórico de alterações</h2>
+  {% if historico_itens %}
+  <ol class="historico">
+    {% for item in historico_itens %}
+    <li class="historico-item">
+      <p><strong>{{ fmt.data_hora(item.quando) }}</strong> · {{ item.admin_login }}{% if item.nome != nome %} · com o nome «{{ item.nome }}»{% endif %}</p>
+      {% if item.detalhe is not none %}
+      <p>Concedidas: {% if item.concedidas_desc %}{{ item.concedidas_desc|join(', ') }}{% else %}nenhuma{% endif %}.</p>
+      <p>Retiradas: {% if item.retiradas_desc %}{{ item.retiradas_desc|join(', ') }}{% else %}nenhuma{% endif %}.</p>
+      {% if item.origem_rotulo %}
+      <p>Origem: comparação com a referência de {{ item.origem_rotulo }}.</p>
+      {% endif %}
+      {% if item.justificativa %}
+      <p>Justificativa: {{ item.justificativa }}</p>
+      {% endif %}
+      {% elif item.texto is not none %}
+      <p>Registro antigo: {{ item.texto }}</p>
+      {% else %}
+      <p>Registro sem detalhe legível.</p>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% if total_historico > 20 %}
+  <p>Mostrando as 20 alterações mais recentes de {{ total_historico }}. As anteriores estão no <a href="/admin/auditoria?acao=salvar_permissoes">registro de administração</a>.</p>
+  {% endif %}
+  {% else %}
+  <p class="vazio">Nenhuma alteração de permissões registrada para este grupo.</p>
+  {% endif %}
+</section>
 {% for p in previas %}
 <section class="perm-previa" aria-label="{{ p.rotulo }}">
   <h2>{{ p.rotulo }}</h2>

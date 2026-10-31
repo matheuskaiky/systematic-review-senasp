@@ -141,12 +141,13 @@ def _selecionada(form, sid):
 FILTROS_BASE = [("", "Todas"), ("habilitadas", "Habilitadas"), ("desabilitadas", "Desabilitadas"),
                 ("sensiveis", "Sensíveis"), ("financeiras", "Financeiras"), ("administrativas", "Administrativas")]
 PERFIS = [("", "Nenhuma")] + [(p, A.ROTULOS_PERFIL_REFERENCIA[p]) for p in A.PERFIS_REFERENCIA]
+ALTERADAS = ("alteradas", "Alteradas na última alteração")
 
 
 def test_formulario_de_um_grupo_comum(adm):
     cli, _, contas_db, _ = adm
     form = _form(_pagina(cli, _gid(contas_db, "Leitor")))
-    assert _opcoes(form, "perm-filtro") == FILTROS_BASE + [("diferentes", "Diferentes da referência")]
+    assert _opcoes(form, "perm-filtro") == FILTROS_BASE + [ALTERADAS, ("diferentes", "Diferentes da referência")]
     assert '<label for="perm-perfil">Referência</label>' in form and '<select id="perm-perfil" name="perfil">' in form
     assert _opcoes(form, "perm-perfil") == PERFIS
     assert _selecionada(form, "perm-perfil") == [""]
@@ -158,7 +159,7 @@ def test_formulario_de_um_grupo_comum(adm):
 def test_formulario_do_visitante_so_oferece_o_publico(adm):
     cli, _, contas_db, _ = adm
     form = _form(_pagina(cli, _gid(contas_db, "Visitante")))
-    assert _opcoes(form, "perm-filtro") == FILTROS_BASE + [("diferentes", "Diferentes da referência")]
+    assert _opcoes(form, "perm-filtro") == FILTROS_BASE + [ALTERADAS, ("diferentes", "Diferentes da referência")]
     assert _opcoes(form, "perm-perfil") == [("", "Nenhuma"), ("publico", "Público")]
 
 

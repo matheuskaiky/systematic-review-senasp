@@ -351,6 +351,26 @@ class ContasSQLite:
 
             return {"total": total, "linhas": linhas, "alvos": alvos}
 
+    def registros_de_permissoes(self) -> list[dict]:
+        """Retorna os registros de auditoria das ações sobre permissões e grupos mais recentes primeiro."""
+        with self._conexao() as conn:
+            rows = conn.execute(
+                "SELECT id, quando, admin_login, acao, alvo, detalhe FROM auditoria_admin "
+                "WHERE acao IN ('salvar_permissoes', 'renomear_grupo', 'criar_grupo') "
+                "ORDER BY id DESC"
+            ).fetchall()
+            return [
+                {
+                    "id": r[0],
+                    "quando": r[1],
+                    "admin_login": r[2],
+                    "acao": r[3],
+                    "alvo": r[4],
+                    "detalhe": r[5],
+                }
+                for r in rows
+            ]
+
     def listar_usuarios(self) -> list[dict]:
         """Retorna lista de todos os usuários ordenados por lower(nome)."""
         with self._conexao() as conn:

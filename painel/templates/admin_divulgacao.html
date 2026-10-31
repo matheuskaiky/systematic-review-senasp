@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Divulgação pública{% endblock %}
+{% block conteudo %}
+<h1>Divulgação pública</h1>
+<p>Controla o que quem não entrou no painel pode ver. Não muda a validade científica de nenhum resultado.</p>
+{% if gravado == "1" %}
+<p class="aviso ok" role="status">Alteração gravada.</p>
+{% elif gravado == "0" %}
+<p class="aviso" role="status">Nada mudou.</p>
+{% endif %}
+
+<section class="cartao">
+  <h2>Pesquisa: {{ rotulo_pesquisa }}</h2>
+  {% if situacao == "ausente" %}
+  <p class="aviso">Ainda não configurada: a pesquisa é tratada como não divulgada.</p>
+  {% elif situacao == "invalida" %}
+  <p class="aviso erro">Configuração de divulgação inválida; tratada como não divulgada.</p>
+  {% endif %}
+  <p>{% if politica.publica %}Hoje quem não entrou vê: a Visão Geral, Sobre os dados, o PRISMA, a Metodologia e a busca no texto, sem resultados automatizados.{% else %}Hoje quem não entrou vê: só a tela de entrada.{% endif %}</p>
+  <form method="post" action="/admin/divulgacao/revisar">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="versao" value="{{ versao }}">
+    <p>
+      {% if politica.publica %}
+      <label><input type="radio" name="publica" value="1" checked> Divulgada</label>
+      <label><input type="radio" name="publica" value="0"> Não divulgada</label>
+      {% else %}
+      <label><input type="radio" name="publica" value="1"> Divulgada</label>
+      <label><input type="radio" name="publica" value="0" checked> Não divulgada</label>
+      {% endif %}
+    </p>
+    <fieldset disabled>
+      <legend>Resultados preliminares</legend>
+      <p>
+        <label><input type="radio" disabled> Mostrar com aviso</label>
+        <label><input type="radio" disabled checked> Não mostrar</label>
+      </p>
+      <p><small>Disponível quando o aviso de resultado preliminar estiver pronto.</small></p>
+    </fieldset>
+    <button class="botao" type="submit">Revisar alteração</button>
+  </form>
+</section>
+{% endblock %}

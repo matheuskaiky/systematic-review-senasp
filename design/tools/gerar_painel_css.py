@@ -35,6 +35,7 @@ MENU = [
     ("/buscar-texto", "magnifying-glass", "petroleo"), ("/execucoes", "play-circle", "ambar"), ("/chamadas", "plugs-connected", "ambar"),
     ("/metodologia", "flask", "cobalto"), ("/sobre", "database", "cobalto"),
     ("/admin/usuarios", "users", "cobalto"), ("/admin/grupos", "shield-check", "cobalto"),
+    ("/admin/divulgacao", "globe", "cobalto"),
     ("/admin/auditoria", "list-magnifying-glass", "cobalto"), ("/estatisticas-usuarios", "chart-pie-slice", "cobalto"),
 ]
 GRUPOS = [("revisao", "list-checks", "cobalto"), ("analises", "chart-bar", "violeta"), ("auditoria", "gear-six", "ambar"),

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Revisar a divulgação pública{% endblock %}
+{% block conteudo %}
+<h1>Revisar a divulgação pública</h1>
+{% if mensagens_erro %}
+<ul class="aviso erro" role="alert">{% for e in mensagens_erro %}<li>{{ e }}</li>{% endfor %}</ul>
+{% endif %}
+{% if revisao %}
+<p>Hoje: {{ hoje }}.</p>
+<p>Depois da alteração: {{ depois }}.</p>
+<p>{{ revisao.frase }}</p>
+{% if revisao.muda %}
+<form method="post" action="/admin/divulgacao">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="versao" value="{{ versao }}">
+  <input type="hidden" name="publica" value="{{ publica }}">
+  <p><label><input type="checkbox" name="confirmo" value="1" required> {{ revisao.confirmacao }}</label></p>
+  <button class="botao" type="submit">Gravar alteração</button>
+</form>
+{% endif %}
+{% endif %}
+<p><a href="/admin/divulgacao">Cancelar</a></p>
+{% endblock %}

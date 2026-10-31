@@ -31,8 +31,8 @@ def test_menu_do_vies_sem_as_telas_da_tarefa_1_na_mesma_ordem():
 
 
 def test_menu_do_vies_com_admin_mantem_a_administracao():
-    assert _hrefs(navegacao.grupos("/", admin=True, banco="vies"))[-4:] == ["/admin/usuarios", "/admin/grupos", "/admin/auditoria",
-                                                                           "/estatisticas-usuarios"]
+    assert _hrefs(navegacao.grupos("/", admin=True, banco="vies"))[-5:] == ["/admin/usuarios", "/admin/grupos", "/admin/divulgacao",
+                                                                           "/admin/auditoria", "/estatisticas-usuarios"]
 
 
 def test_pagina_do_vies_sem_links_da_tarefa_1_no_menu_e_rotas_no_ar(banco, tmp_path):

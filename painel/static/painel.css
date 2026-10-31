@@ -368,6 +368,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .menu-lista a[href='/sobre'] { --mi: "\e035"; --mi-f: "\e036"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
 .menu-lista a[href='/admin/usuarios'] { --mi: "\e0aa"; --mi-f: "\e0ab"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
 .menu-lista a[href='/admin/grupos'] { --mi: "\e0ef"; --mi-f: "\e0f0"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
+.menu-lista a[href='/admin/divulgacao'] { --mi: "\e0ce"; --mi-f: "\e0cf"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
 .menu-lista a[href='/admin/auditoria'] { --mi: "\e0d7"; --mi-f: "\e0d8"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
 .menu-lista a[href='/estatisticas-usuarios'] { --mi: "\e0e3"; --mi-f: "\e0e4"; --mt-fundo: var(--menu-cobalto-fundo); --mt-tx: var(--menu-cobalto-tx); --mt-solido: var(--menu-cobalto-solido); }
 .menu-grupo[data-grupo="revisao"] > summary { --mi: "\e038"; --mt-tx: var(--menu-cobalto-tx); }
@@ -381,6 +382,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .layout:has(.menu-lista a[href='/sobre'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/admin/usuarios'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/admin/grupos'][aria-current="page"]),
+.layout:has(.menu-lista a[href='/admin/divulgacao'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/admin/auditoria'][aria-current="page"]),
 .layout:has(.menu-lista a[href='/estatisticas-usuarios'][aria-current="page"]) { --tom-tx: var(--tom-cobalto-tx); --tom-fundo: var(--tom-cobalto-fundo); --tom-borda: var(--tom-cobalto-borda); --tom-solido: var(--tom-cobalto-solido); --tom-solido-tx: var(--tom-cobalto-solido-tx); }
 .layout:has(.menu-lista a[href='/estados'][aria-current="page"]),
@@ -424,6 +426,7 @@ html.icones-ok .layout:has(.menu-lista a[aria-current="page"]) main > h1::before
 .layout:has(.menu-lista a[href='/sobre'][aria-current="page"]) { --pg-ic: "\e035"; --pg-ic-f: "\e036"; --pg-ic-d: "\e037"; }
 .layout:has(.menu-lista a[href='/admin/usuarios'][aria-current="page"]) { --pg-ic: "\e0aa"; --pg-ic-f: "\e0ab"; --pg-ic-d: "\e0ac"; }
 .layout:has(.menu-lista a[href='/admin/grupos'][aria-current="page"]) { --pg-ic: "\e0ef"; --pg-ic-f: "\e0f0"; --pg-ic-d: "\e0f1"; }
+.layout:has(.menu-lista a[href='/admin/divulgacao'][aria-current="page"]) { --pg-ic: "\e0ce"; --pg-ic-f: "\e0cf"; --pg-ic-d: "\e0d0"; }
 .layout:has(.menu-lista a[href='/admin/auditoria'][aria-current="page"]) { --pg-ic: "\e0d7"; --pg-ic-f: "\e0d8"; --pg-ic-d: "\e0d9"; }
 .layout:has(.menu-lista a[href='/estatisticas-usuarios'][aria-current="page"]) { --pg-ic: "\e0e3"; --pg-ic-f: "\e0e4"; --pg-ic-d: "\e0e5"; }
 

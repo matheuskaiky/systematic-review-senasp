@@ -162,13 +162,54 @@ def test_fechar_quando_ausente_nao_muda_nada(contas):  # noqa: F811
     assert not r["muda"] and _linha(contas, "real") is None and _divulgacoes(contas) == []
 
 
-def test_invalida_conta_como_fechada_e_pode_ser_corrigida(contas):  # noqa: F811
+REPARO = ("A configuração inválida será trocada por «não divulgada»: quem não entrou continua sendo levado à tela de "
+          "entrada.")
+REPARO_CONF = "Entendo que a pesquisa continua fechada para quem não entrou."
+
+
+def test_invalida_pode_ser_corrigida_sem_abrir(contas):  # noqa: F811
+    """Fechar uma configuracao invalida grava a linha explicita de nao divulgada (sem passar por aberta), com confirmacao e
+    auditoria; abrir a partir dela tambem e possivel."""
     _bruto(contas, "real", "lixo")
-    r = _alterar(contas, FECHADA, confirmado=False)                 # o efeito ja e fechado: nada muda, a linha fica
-    assert not r["muda"] and _linha(contas, "real") == "lixo"
-    _alterar(contas, ABERTA)
+    with pytest.raises(A.AlteracaoRecusada):
+        _alterar(contas, FECHADA, confirmado=False)
+    assert _linha(contas, "real") == "lixo"
+    r = _alterar(contas, FECHADA)
+    assert (r["muda"], r["amplia"], r["frase"], r["confirmacao"]) == (True, False, REPARO, REPARO_CONF)
+    assert json.loads(_linha(contas, "real")) == FECHADA
     assert json.loads(_divulgacoes(contas)[0]["detalhe"]) == {"antes": FECHADA, "situacao_antes": "invalida",
-                                                              "versao_antes": D.versao("lixo"), "depois": ABERTA}
+                                                              "versao_antes": D.versao("lixo"), "depois": FECHADA}
+    _bruto(contas, "real", "lixo")
+    _alterar(contas, ABERTA)
+    assert json.loads(_divulgacoes(contas)[0]["detalhe"])["situacao_antes"] == "invalida"
+
+
+def test_revisao_de_uma_configuracao_invalida():
+    assert D.revisar(FECHADA, FECHADA, "invalida")["frase"] == REPARO
+    assert D.revisar(FECHADA, FECHADA, "ausente")["muda"] is False                # ausente nao e invalida: nada muda
+    assert D.revisar(FECHADA, ABERTA, "invalida")["amplia"] is True
+
+
+@pytest.mark.parametrize("detalhe,resumo", [
+    ({"antes": FECHADA, "situacao_antes": "ausente", "depois": ABERTA}, "Não configurada → Divulgada"),
+    ({"antes": FECHADA, "situacao_antes": "valida", "depois": ABERTA}, "Não divulgada → Divulgada"),
+    ({"antes": ABERTA, "situacao_antes": "valida", "depois": FECHADA}, "Divulgada → Não divulgada"),
+    ({"antes": FECHADA, "situacao_antes": "invalida", "depois": FECHADA}, "Configuração inválida → Não divulgada"),
+])
+def test_resumo_da_auditoria(detalhe, resumo):
+    """Le so os campos que usa (antes, depois, situacao_antes); chaves a mais e a versao nao mudam o resumo."""
+    assert D.resumo_auditoria(json.dumps({**detalhe, "versao_antes": D.versao(None), "extra": 1})) == resumo
+
+
+@pytest.mark.parametrize("detalhe", [None, "", "lixo", "[]", "{}", '{"antes": 1}', json.dumps({"antes": FECHADA, "depois": ABERTA}),
+                                     json.dumps({"antes": FECHADA, "situacao_antes": "outra", "depois": ABERTA}), 5,
+                                     json.dumps({"antes": {"publica": 1}, "situacao_antes": "valida", "depois": ABERTA}),
+                                     json.dumps({"antes": FECHADA, "situacao_antes": "valida", "depois": {"publica": "true"}}),
+                                     json.dumps({"antes": FECHADA, "situacao_antes": "valida", "depois": None}),
+                                     '{"antes": {"publica": false, "preliminares": false}, "situacao_antes": "valida", '
+                                     '"depois": {"publica": true, "preliminares": false}, "situacao_antes": "valida"}'])
+def test_resumo_da_auditoria_invalido(detalhe):
+    assert D.resumo_auditoria(detalhe) is None
 
 
 @pytest.mark.parametrize("nova", [{"publica": True, "preliminares": True}, {"publica": False, "preliminares": True}])
@@ -225,13 +266,19 @@ def test_ordem_pesquisa_formulario_versao_sem_mudanca(contas):  # noqa: F811
         contas.alterar_divulgacao("real", FECHADA, "velha", False, ("chefe", AGORA))
 
 
-@pytest.mark.parametrize("banco,nova", [("foo", ABERTA), ("real", {"publica": True, "preliminares": True}), ("real", None)])
-def test_pesquisa_e_formulario_conferidos_antes_de_abrir_o_banco(contas, monkeypatch, banco, nova):  # noqa: F811
+@pytest.mark.parametrize("banco,nova,auditoria,erro", [
+    ("foo", ABERTA, ("chefe", AGORA), A.AlteracaoRecusada),
+    ("real", {"publica": True, "preliminares": True}, ("chefe", AGORA), A.AlteracaoRecusada),
+    ("real", None, ("chefe", AGORA), A.AlteracaoRecusada),
+    ("real", ABERTA, ("", AGORA), ValueError),
+    ("real", ABERTA, None, ValueError),
+])
+def test_pesquisa_formulario_e_auditoria_conferidos_antes_de_abrir_o_banco(contas, monkeypatch, banco, nova, auditoria, erro):  # noqa: F811
     def nao_abre(*a, **k):
         raise AssertionError("abriu o banco")
     monkeypatch.setattr(contas, "_conexao", nao_abre)
-    with pytest.raises(A.AlteracaoRecusada):
-        contas.alterar_divulgacao(banco, nova, "x", True, ("chefe", AGORA))
+    with pytest.raises(erro):
+        contas.alterar_divulgacao(banco, nova, "x", True, auditoria)
 
 
 @pytest.mark.parametrize("auditoria", [None, (), ("chefe",), ("", AGORA), ("  ", AGORA), (1, AGORA), ("chefe", ""), ("chefe", None),
@@ -258,12 +305,20 @@ def test_duas_alteracoes_ao_mesmo_tempo_so_uma_grava(contas, monkeypatch):  # no
     dentro, solta = threading.Event(), threading.Event()
     original = D.revisar
 
-    def revisar_lento(antes, nova):
+    def revisar_lento(*a, **k):
         if threading.current_thread().name == "ana":
             dentro.set()
             solta.wait(10)
-        return original(antes, nova)
+        return original(*a, **k)
     monkeypatch.setattr(D, "revisar", revisar_lento)
+    b_no_banco = threading.Event()
+    conexao_original = contas._conexao
+
+    def conexao_espiada(*a, **k):
+        if threading.current_thread().name == "bia" and k.get("escrita"):
+            b_no_banco.set()                                       # B pede a conexao de escrita (e espera a trava de A)
+        return conexao_original(*a, **k)
+    monkeypatch.setattr(contas, "_conexao", conexao_espiada)
     resultados = {}
 
     def gravar(login):
@@ -277,7 +332,8 @@ def test_duas_alteracoes_ao_mesmo_tempo_so_uma_grava(contas, monkeypatch):  # no
     assert dentro.wait(10)
     b = threading.Thread(target=gravar, args=("bia",), name="bia")
     b.start()
-    time.sleep(0.5)                                                # B ja chegou a trava (ou, errado, ja conferiu a versao)
+    assert b_no_banco.wait(10)                                     # B ja pediu a escrita antes de A gravar
+    time.sleep(0.2)                                                # e esta parado na trava
     solta.set()
     a.join(20)
     b.join(20)

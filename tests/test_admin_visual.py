@@ -12,8 +12,9 @@ from test_painel import demo  # noqa: F401
 
 RAIZ = Path(__file__).resolve().parent.parent
 ITENS_ADMIN = [("/admin/usuarios", "Usuários"), ("/admin/grupos", "Permissões por grupo"),
-               ("/admin/auditoria", "Registro de administração"), ("/estatisticas-usuarios", "Atividade dos revisores")]
-TEMPLATES = ["admin_usuarios", "admin_usuario", "admin_grupos", "admin_auditoria", "estatisticas_usuarios"]
+               ("/admin/divulgacao", "Divulgação pública"), ("/admin/auditoria", "Registro de administração"), ("/estatisticas-usuarios", "Atividade dos revisores")]
+TEMPLATES = ["admin_usuarios", "admin_usuario", "admin_grupos", "admin_auditoria", "estatisticas_usuarios",
+             "admin_divulgacao", "admin_divulgacao_revisar"]
 
 
 def _grupo_admin(html):
@@ -30,7 +31,8 @@ def test_grupo_de_administracao_so_para_administrador(caminho, admin, ids):
 
 
 @pytest.mark.parametrize("caminho,atual", [("/admin/usuarios", "/admin/usuarios"), ("/admin/usuarios/7", "/admin/usuarios"),
-                                           ("/admin/grupos", "/admin/grupos"), ("/admin/auditoria", "/admin/auditoria"),
+                                           ("/admin/grupos", "/admin/grupos"), ("/admin/divulgacao", "/admin/divulgacao"),
+                                           ("/admin/auditoria", "/admin/auditoria"),
                                            ("/estatisticas-usuarios", "/estatisticas-usuarios"), ("/", None)])
 def test_item_atual_do_grupo(caminho, atual):
     g = navegacao.grupos(caminho, admin=True)[3]
@@ -82,6 +84,6 @@ def test_css_do_admin():
     css = (RAIZ / "painel" / "static" / "painel.css").read_text(encoding="utf-8")
     assert ".form-admin { display: grid; gap: .35rem; max-width: 32rem; margin: 0; }" in css
     assert ".botao.perigo { background-color: var(--superficie); background-image: none; color: var(--perigo); border-color: var(--perigo); box-shadow: none; }" in css
-    for href in ("/admin/usuarios", "/admin/grupos", "/admin/auditoria", "/estatisticas-usuarios"):
+    for href in ("/admin/usuarios", "/admin/grupos", "/admin/divulgacao", "/admin/auditoria", "/estatisticas-usuarios"):
         assert f".layout:has(.menu-lista a[href='{href}'][aria-current=\"page\"]) {{ --pg-ic:" in css, href   # ladrilho do titulo
     assert '.menu-grupo[data-grupo="administracao"] > summary {' in css

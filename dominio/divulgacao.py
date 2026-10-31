@@ -60,23 +60,29 @@ def nova_do_formulario(publica: list[str], preliminares: list[str]) -> tuple[dic
     return ({"publica": pub_val, "preliminares": False}, [])
 
 
-def revisar(antes: dict, nova: dict) -> dict:
+def revisar(antes: dict, nova: dict, situacao: str = "valida") -> dict:
     """Resume o efeito da alteração de política e define frases e confirmação."""
-    muda = antes["publica"] != nova["publica"]
-    amplia = muda and nova["publica"]
-    if muda:
-        if amplia:
-            frase = ("Quem não entrou passará a ver a Visão Geral, Sobre os dados, o PRISMA, a Metodologia e "
-                     "a busca no texto, sem resultados automatizados.")
-            confirmacao = ("Entendo que qualquer pessoa na internet passará a ver: a Visão Geral, Sobre os dados, "
-                           "o PRISMA, a Metodologia e a busca no texto, sem resultados automatizados.")
-        else:
-            frase = ("Quem não entrou passará a ser levado à tela de entrada em todas as páginas desta "
-                     "pesquisa.")
-            confirmacao = "Entendo que quem não entrou deixará de ver as páginas desta pesquisa."
+    if situacao == "invalida" and not nova["publica"]:
+        muda = True
+        amplia = False
+        frase = ("A configuração inválida será trocada por «não divulgada»: quem não entrou continua sendo levado à tela de entrada.")
+        confirmacao = "Entendo que a pesquisa continua fechada para quem não entrou."
     else:
-        frase = "Nada muda: a divulgação já está assim."
-        confirmacao = None
+        muda = antes["publica"] != nova["publica"]
+        amplia = muda and nova["publica"]
+        if muda:
+            if amplia:
+                frase = ("Quem não entrou passará a ver a Visão Geral, Sobre os dados, o PRISMA, a Metodologia e "
+                         "a busca no texto, sem resultados automatizados.")
+                confirmacao = ("Entendo que qualquer pessoa na internet passará a ver: a Visão Geral, Sobre os dados, "
+                               "o PRISMA, a Metodologia e a busca no texto, sem resultados automatizados.")
+            else:
+                frase = ("Quem não entrou passará a ser levado à tela de entrada em todas as páginas desta "
+                         "pesquisa.")
+                confirmacao = "Entendo que quem não entrou deixará de ver as páginas desta pesquisa."
+        else:
+            frase = "Nada muda: a divulgação já está assim."
+            confirmacao = None
     return {
         "antes": antes,
         "depois": nova,
@@ -85,6 +91,35 @@ def revisar(antes: dict, nova: dict) -> dict:
         "confirmacao": confirmacao,
         "frase": frase,
     }
+
+
+def resumo_auditoria(detalhe) -> str | None:
+    """Devolve o resumo textual de uma entrada de auditoria de divulgação."""
+    if not isinstance(detalhe, str):
+        return None
+    try:
+        obj = json.loads(detalhe, object_pairs_hook=_pares_sem_repeticao)
+    except Exception:
+        return None
+    if not isinstance(obj, dict):
+        return None
+    situacao_antes = obj.get("situacao_antes")
+    if situacao_antes not in ("ausente", "invalida", "valida"):
+        return None
+    depois = obj.get("depois")
+    if not isinstance(depois, dict) or type(depois.get("publica")) is not bool:
+        return None
+    depois_txt = "Divulgada" if depois["publica"] else "Não divulgada"
+    if situacao_antes == "ausente":
+        antes_txt = "Não configurada"
+    elif situacao_antes == "invalida":
+        antes_txt = "Configuração inválida"
+    else:
+        antes = obj.get("antes")
+        if not isinstance(antes, dict) or type(antes.get("publica")) is not bool:
+            return None
+        antes_txt = "Divulgada" if antes["publica"] else "Não divulgada"
+    return f"{antes_txt} → {depois_txt}"
 
 
 def valor(politica: dict) -> str:

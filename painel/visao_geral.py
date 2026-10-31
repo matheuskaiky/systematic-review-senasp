@@ -623,7 +623,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
     bloco_administracao = None
     if ve_administracao(quem) and dados.get("contas_resumo"):
         resumo_contas = dados["contas_resumo"]
-        texto_admin = ["A divulgação pública dos resultados ainda não tem controle no painel: nada é publicado por aqui."]
+        texto_admin = ["Quem não entrou só vê o que a divulgação pública desta pesquisa libera."]
         if resumo_contas.get("indisponivel"):
             bloco_administracao = _bloco_base(
                 "administracao",
@@ -668,6 +668,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
             acoes_admin = []
             for t, h in [
                 ("Gerenciar contas", "/admin/usuarios"),
+                ("Ver a divulgação pública", "/admin/divulgacao"),
                 ("Ver o registro de administração", "/admin/auditoria"),
             ]:
                 if navegacao.pode_seguir(h, pred):

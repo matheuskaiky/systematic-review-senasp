@@ -53,6 +53,7 @@ def _atual(caminho, href, prefixo, excecoes):
 _ADMIN = ("administracao", "Administração", (
     ("/admin/usuarios", "Usuários", "/admin/usuarios", ()),
     ("/admin/grupos", "Permissões por grupo", "/admin/grupos", ()),
+    ("/admin/divulgacao", "Divulgação pública", "/admin/divulgacao", ()),
     ("/admin/auditoria", "Registro de administração", "/admin/auditoria", ()),
     ("/estatisticas-usuarios", "Atividade dos revisores", "/estatisticas-usuarios", ()),
 ))

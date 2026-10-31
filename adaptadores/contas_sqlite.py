@@ -761,7 +761,7 @@ class ContasSQLite:
                 raise divulgacao.DivulgacaoAlterada()
 
             antes, situacao = divulgacao.ler_politica(raw)
-            r = divulgacao.revisar(antes, nova)
+            r = divulgacao.revisar(antes, nova, situacao)
             if not r["muda"]:
                 return r
 

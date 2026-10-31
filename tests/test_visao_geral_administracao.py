@@ -14,7 +14,7 @@ from test_painel import cliente_demo, demo  # noqa: F401
 from test_visao_geral_montador import ADMIN, ANONIMO, LEITOR, TECNICO, _quem, _real, _vies
 from test_visao_geral_pagina import _blocos, _secoes
 
-AVISO_DIVULGACAO = "A divulgação pública dos resultados ainda não tem controle no painel: nada é publicado por aqui."
+AVISO_DIVULGACAO = "Quem não entrou só vê o que a divulgação pública desta pesquisa libera."
 OCUPADO = "O banco de contas está ocupado. Tente de novo em alguns segundos."
 UNIVERSO = "Contas do painel."
 SEM_ALTERACOES = "Nenhuma alteração de permissões registrada."
@@ -196,6 +196,7 @@ def test_bloco_da_administracao():
     ]
     assert b["alteracoes"] == _contas_resumo()["alteracoes"]
     assert b["acoes"] == [{"texto": "Gerenciar contas", "href": "/admin/usuarios"},
+                          {"texto": "Ver a divulgação pública", "href": "/admin/divulgacao"},
                           {"texto": "Ver o registro de administração", "href": "/admin/auditoria"}]
 
 
@@ -211,10 +212,11 @@ def test_bloco_com_o_banco_ocupado():
 
 
 @pytest.mark.parametrize("negados,acoes", [
-    (set(), ["/admin/usuarios", "/admin/auditoria"]),
-    ({"/admin/usuarios"}, ["/admin/auditoria"]),
-    ({"/admin/auditoria"}, ["/admin/usuarios"]),
-    ({"/admin/usuarios", "/admin/auditoria"}, []),
+    (set(), ["/admin/usuarios", "/admin/divulgacao", "/admin/auditoria"]),
+    ({"/admin/usuarios"}, ["/admin/divulgacao", "/admin/auditoria"]),
+    ({"/admin/auditoria"}, ["/admin/usuarios", "/admin/divulgacao"]),
+    ({"/admin/divulgacao"}, ["/admin/usuarios", "/admin/auditoria"]),
+    ({"/admin/usuarios", "/admin/divulgacao", "/admin/auditoria"}, []),
 ])
 def test_links_seguem_a_regra_das_rotas(negados, acoes):
     quem = {**ADMIN, "pode_rota": lambda m, c: c not in negados}

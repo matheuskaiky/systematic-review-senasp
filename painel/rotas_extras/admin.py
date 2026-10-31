@@ -5,8 +5,12 @@ from starlette.convertors import Convertor, register_url_convertor
 from starlette.responses import RedirectResponse, Response
 from fastapi import Form, Request
 
-from dominio import autenticacao
-from painel import navegacao
+from dominio import autenticacao, divulgacao
+from painel import navegacao, rotulos
+
+LEITURA_FALHOU = "Não foi possível ler a configuração de divulgação agora. Para quem não entrou, a pesquisa continua fechada. Tente de novo em alguns segundos."
+ALTERADA = "A divulgação desta pesquisa mudou desde que você abriu a página. Nada foi gravado: abra a página de novo e refaça a alteração."
+NAO_GRAVOU = "Não foi possível gravar a alteração. Nada foi gravado: a divulgação continua como estava."
 
 
 class DigitosConvertor(Convertor[str]):
@@ -867,11 +871,13 @@ def registrar(c) -> None:
             return _erro_contas_ocupadas(request)
 
         for l in linhas:
-            l["resumo"] = (
-                autenticacao.resumo_detalhe_auditoria(l.get("detalhe"))
-                if l.get("acao") == "salvar_permissoes"
-                else None
-            )
+            if l.get("acao") == "salvar_permissoes":
+                l["resumo"] = autenticacao.resumo_detalhe_auditoria(l.get("detalhe"))
+            elif l.get("acao") == "alterar_divulgacao":
+                l["resumo"] = divulgacao.resumo_auditoria(l.get("detalhe"))
+                l["detalhe"] = None
+            else:
+                l["resumo"] = None
 
         return c.pagina(
             request,
@@ -879,6 +885,142 @@ def registrar(c) -> None:
             linhas=linhas,
             ok=(request.query_params.get("ok") == "1"),
         )
+
+    @app.get("/admin/divulgacao")
+    def admin_divulgacao_view(request: Request):
+        try:
+            estado = c.contas.estado_divulgacao(c.contexto.banco)
+        except Exception:
+            return c.erro(request, 503, "Divulgação pública", LEITURA_FALHOU)
+
+        rotulo_pesquisa = rotulos.NOMES_PESQUISA.get(c.contexto.banco, c.contexto.banco)
+        gravado_list = request.query_params.getlist("gravado")
+        gravado = gravado_list[0] if gravado_list in (["1"], ["0"]) else None
+
+        return c.pagina(
+            request,
+            "admin_divulgacao.html",
+            rotulo_pesquisa=rotulo_pesquisa,
+            estado=estado,
+            situacao=estado["situacao"],
+            politica=estado["politica"],
+            versao=estado["versao"],
+            gravado=gravado,
+        )
+
+    @app.post("/admin/divulgacao/revisar")
+    async def admin_divulgacao_revisar_view(request: Request):
+        form = await request.form()
+        csrf = form.get("csrf", "")
+        bloqueio = c.checar_escrita(request, csrf)
+        if bloqueio:
+            return bloqueio
+
+        publica_list = list(form.getlist("publica"))
+        preliminares_list = list(form.getlist("preliminares"))
+        nova, erros = divulgacao.nova_do_formulario(publica_list, preliminares_list)
+        if erros:
+            return c.pagina(
+                request,
+                "admin_divulgacao_revisar.html",
+                status=400,
+                mensagens_erro=erros,
+                revisao=None,
+            )
+
+        v_list = form.getlist("versao")
+        versao = v_list[0] if len(v_list) == 1 and isinstance(v_list[0], str) else ""
+
+        try:
+            estado = c.contas.estado_divulgacao(c.contexto.banco)
+        except Exception:
+            return c.erro(request, 503, "Divulgação pública", LEITURA_FALHOU)
+
+        if estado["versao"] != versao:
+            return c.erro(request, 409, "Divulgação não alterada", ALTERADA)
+
+        hoje = "Configuração inválida (tratada como não divulgada)" if estado["situacao"] == "invalida" else (
+            "Divulgada" if estado["politica"]["publica"] else "Não divulgada"
+        )
+        depois = "Divulgada" if nova["publica"] else "Não divulgada"
+        r = divulgacao.revisar(estado["politica"], nova, estado["situacao"])
+        return c.pagina(
+            request,
+            "admin_divulgacao_revisar.html",
+            mensagens_erro=[],
+            revisao=r,
+            hoje=hoje,
+            depois=depois,
+            versao=versao,
+            publica="1" if nova["publica"] else "0",
+        )
+
+    @app.post("/admin/divulgacao")
+    async def admin_divulgacao_gravar_view(request: Request):
+        form = await request.form()
+        csrf = form.get("csrf", "")
+        bloqueio = c.checar_escrita(request, csrf)
+        if bloqueio:
+            return bloqueio
+
+        publica_list = list(form.getlist("publica"))
+        preliminares_list = list(form.getlist("preliminares"))
+        nova, erros = divulgacao.nova_do_formulario(publica_list, preliminares_list)
+        if erros:
+            return c.pagina(
+                request,
+                "admin_divulgacao_revisar.html",
+                status=400,
+                mensagens_erro=erros,
+                revisao=None,
+            )
+
+        v_list = form.getlist("versao")
+        versao = v_list[0] if len(v_list) == 1 and isinstance(v_list[0], str) else ""
+        confirmado = form.getlist("confirmo") == ["1"]
+
+        admin_login = request.state.usuario["login"]
+        agora = datetime.now(timezone.utc).isoformat()
+
+        try:
+            r = c.contas.alterar_divulgacao(
+                c.contexto.banco,
+                nova,
+                versao,
+                confirmado,
+                (admin_login, agora),
+            )
+        except divulgacao.DivulgacaoAlterada:
+            return c.erro(request, 409, "Divulgação não alterada", ALTERADA)
+        except autenticacao.AlteracaoRecusada as e:
+            try:
+                estado = c.contas.estado_divulgacao(c.contexto.banco)
+            except Exception:
+                return c.erro(request, 503, "Divulgação pública", LEITURA_FALHOU)
+
+            hoje = "Configuração inválida (tratada como não divulgada)" if estado["situacao"] == "invalida" else (
+                "Divulgada" if estado["politica"]["publica"] else "Não divulgada"
+            )
+            depois = "Divulgada" if nova["publica"] else "Não divulgada"
+            revisao = divulgacao.revisar(estado["politica"], nova, estado["situacao"])
+            return c.pagina(
+                request,
+                "admin_divulgacao_revisar.html",
+                status=400,
+                mensagens_erro=e.erros,
+                revisao=revisao,
+                hoje=hoje,
+                depois=depois,
+                versao=versao,
+                publica="1" if nova["publica"] else "0",
+            )
+        except autenticacao.ContasOcupadas:
+            return _erro_contas_ocupadas(request)
+        except Exception:
+            return c.erro(request, 500, "Divulgação não alterada", NAO_GRAVOU)
+
+        param = "1" if r.get("muda") else "0"
+        return RedirectResponse(f"/admin/divulgacao?gravado={param}", status_code=303)
 
     @app.get("/estatisticas-usuarios")
     def estatisticas_usuarios_view(request: Request):

@@ -411,12 +411,24 @@ def filtrar_permissoes(
     busca: str,
     filtro: str,
     modulo: str,
+    perfil: str = "",
 ) -> list[str]:
     """Filtra permissões do catálogo segundo busca de texto, estado/sensibilidade e módulo."""
     b = busca.strip()
     if len(b) > 100:
         return []
     b_norm = _normalizar_texto(b)
+
+    if filtro == "administrativas":
+        return []
+
+    difs = None
+    if filtro == "diferentes":
+        _comparar = getattr(sys.modules[__name__], "comparar_com_referencia")
+        r = _comparar(grupo, permissoes, perfil)
+        if r.get("erros"):
+            return []
+        difs = {i["permissao"] for i in r.get("conceder", []) + r.get("retirar", [])}
 
     _pode = sys.modules[__name__].pode
     resultado = []
@@ -429,6 +441,10 @@ def filtrar_permissoes(
         elif filtro == "desabilitadas" and _pode(grupo, permissoes, chave):
             continue
         elif filtro == "sensiveis" and meta["sensibilidade"] not in ROTULOS_SENSIBILIDADE:
+            continue
+        elif filtro == "financeiras" and meta.get("sensibilidade") != "financeira":
+            continue
+        elif filtro == "diferentes" and (difs is None or chave not in difs):
             continue
 
         if b_norm:

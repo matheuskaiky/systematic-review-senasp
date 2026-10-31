@@ -463,12 +463,34 @@ def registrar(c) -> None:
         q = request.query_params.get("q", "")
         filtro = request.query_params.get("filtro", "")
         modulo = request.query_params.get("modulo", "")
+        perfil = request.query_params.get("perfil", "")
 
-        filtro_ativo = filtro if filtro in ("habilitadas", "desabilitadas", "sensiveis") else ""
+        if nome == autenticacao.GRUPO_ADMIN:
+            perfis_opcoes = []
+        elif nome == autenticacao.GRUPO_VISITANTE:
+            perfis_opcoes = [("publico", autenticacao.ROTULOS_PERFIL_REFERENCIA["publico"])]
+        else:
+            perfis_opcoes = [(p, autenticacao.ROTULOS_PERFIL_REFERENCIA[p]) for p in autenticacao.PERFIS_REFERENCIA]
+
+        filtros_permitidos = {"habilitadas", "desabilitadas", "sensiveis", "financeiras", "administrativas"}
+        if perfis_opcoes:
+            filtros_permitidos.add("diferentes")
+
+        filtro_ativo = filtro if filtro in filtros_permitidos else ""
         modulo_ativo = modulo if modulo in autenticacao.MODULOS_PERMISSAO else ""
+        perfil_ativo = perfil if perfil in {k for k, _ in perfis_opcoes} else ""
 
         resumo = autenticacao.resumo_do_grupo(nome, permissoes)
-        chaves_filtradas = autenticacao.filtrar_permissoes(nome, permissoes, q, filtro, modulo)
+        chaves_filtradas = autenticacao.filtrar_permissoes(nome, permissoes, q, filtro_ativo, modulo_ativo, perfil=perfil_ativo)
+
+        aviso_referencia = None
+        nota_referencia = None
+        if filtro_ativo == "diferentes":
+            comp = autenticacao.comparar_com_referencia(nome, permissoes, perfil_ativo)
+            if comp.get("erros"):
+                aviso_referencia = comp["erros"][0]
+            else:
+                nota_referencia = comp.get("rotulo")
 
         modulos_exibidos = []
         for m_chave, m_rotulo in autenticacao.MODULOS_PERMISSAO.items():
@@ -533,6 +555,10 @@ def registrar(c) -> None:
             modulos_opcoes=list(autenticacao.MODULOS_PERMISSAO.items()),
             modulos_exibidos=modulos_exibidos,
             previa_menu=previa_menu,
+            perfis_opcoes=perfis_opcoes,
+            perfil_ativo=perfil_ativo,
+            aviso_referencia=aviso_referencia,
+            nota_referencia=nota_referencia,
         )
 
     def _calcular_frase_efeito(nome: str, gid: int, r: dict) -> str:

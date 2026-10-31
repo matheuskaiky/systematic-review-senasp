@@ -22,6 +22,11 @@
     {% if filtro_ativo == "habilitadas" %}<option value="habilitadas" selected>Habilitadas</option>{% else %}<option value="habilitadas">Habilitadas</option>{% endif %}
     {% if filtro_ativo == "desabilitadas" %}<option value="desabilitadas" selected>Desabilitadas</option>{% else %}<option value="desabilitadas">Desabilitadas</option>{% endif %}
     {% if filtro_ativo == "sensiveis" %}<option value="sensiveis" selected>Sensíveis</option>{% else %}<option value="sensiveis">Sensíveis</option>{% endif %}
+    {% if filtro_ativo == "financeiras" %}<option value="financeiras" selected>Financeiras</option>{% else %}<option value="financeiras">Financeiras</option>{% endif %}
+    {% if filtro_ativo == "administrativas" %}<option value="administrativas" selected>Administrativas</option>{% else %}<option value="administrativas">Administrativas</option>{% endif %}
+    {% if perfis_opcoes %}
+    {% if filtro_ativo == "diferentes" %}<option value="diferentes" selected>Diferentes da referência</option>{% else %}<option value="diferentes">Diferentes da referência</option>{% endif %}
+    {% endif %}
   </select>
   <label for="perm-modulo">Módulo</label>
   <select id="perm-modulo" name="modulo">
@@ -30,8 +35,22 @@
     {% if modulo_ativo == m_chave %}<option value="{{ m_chave }}" selected>{{ m_rotulo }}</option>{% else %}<option value="{{ m_chave }}">{{ m_rotulo }}</option>{% endif %}
     {% endfor %}
   </select>
+  {% if perfis_opcoes %}
+  <label for="perm-perfil">Referência</label>
+  <select id="perm-perfil" name="perfil">
+    {% if perfil_ativo == "" %}<option value="" selected>Nenhuma</option>{% else %}<option value="">Nenhuma</option>{% endif %}
+    {% for p_chave, p_rotulo in perfis_opcoes %}
+    {% if perfil_ativo == p_chave %}<option value="{{ p_chave }}" selected>{{ p_rotulo }}</option>{% else %}<option value="{{ p_chave }}">{{ p_rotulo }}</option>{% endif %}
+    {% endfor %}
+  </select>
+  {% endif %}
   <button class="botao" type="submit">Filtrar</button>
 </form>
+{% if aviso_referencia %}
+<p class="aviso" role="status">{{ aviso_referencia }}</p>
+{% elif nota_referencia %}
+<p>Comparação com a referência de {{ nota_referencia }}. Habilitada: o grupo tem e a referência não. Não habilitada: a referência tem e o grupo não. Esta página só mostra; nada é alterado aqui.</p>
+{% endif %}
 {% if modulos_exibidos %}
 {% for m in modulos_exibidos %}
 <details open class="modulo" data-modulo="{{ m.chave }}">
@@ -44,7 +63,11 @@
 </details>
 {% endfor %}
 {% else %}
+{% if filtro_ativo == "administrativas" %}
+<p class="vazio">As capacidades de administração são exclusivas do grupo Administrador e não podem ser dadas a outro grupo.</p>
+{% else %}
 <p class="vazio">Nenhuma permissão corresponde à busca e aos filtros.</p>
+{% endif %}
 {% endif %}
 <section class="perm-previa" aria-label="Prévia do menu">
   <h2>Prévia do menu</h2>

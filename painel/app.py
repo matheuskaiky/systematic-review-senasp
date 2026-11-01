@@ -24,7 +24,7 @@ from fastapi.templating import Jinja2Templates
 
 from aplicacao import catalogo as catalogo_uc, exportacao, revisao, sugestoes as sugestoes_uc
 from dominio.sugestoes import CAMPOS_ACHADO, chave_autor, ficha_da_decisao
-from dominio import autenticacao, divulgacao, referencias_busca, relevancia as relev
+from dominio import apresentacao, autenticacao, divulgacao, referencias_busca, relevancia as relev
 from dominio.erros import BancoIndisponivel
 from dominio.servicos_painel import diff_config, localizar_evidencia, mascarar_segredos, trecho_mais_parecido
 from painel import (
@@ -164,6 +164,7 @@ class Contexto:
     consultas_literatura: dict = field(default_factory=dict)     # id -> texto das consultas dos conjuntos (so para exibir)
     brutos_aqui: bool = True                                     # False na nuvem: os arquivos brutos ficam no computador da coleta (D99)
     aceita_envios: bool = False                                  # True so no painel da nuvem (PostgreSQL): POST /api/coletas (D98)
+    apresentacao: dict = field(default_factory=dict)             # textos da apresentação pública (config/apresentacao.py), pela pesquisa aberta
 
 
 def _filtros(params):
@@ -583,7 +584,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             dados = visao_geral.ler_dados(leitura, contexto, quem)
         dados["contas_resumo"] = visao_geral.ler_contas(contas, quem)
         secoes = visao_geral.montar(dados, quem)
-        return pagina(request, "geral.html", secoes=secoes, banco=contexto.banco)
+        if contexto.autenticacao and not logado:
+            secoes_ap = apresentacao.secoes_publicas(contexto.apresentacao)
+        else:
+            secoes_ap = {"antes": [], "depois": []}
+        return pagina(request, "geral.html", secoes=secoes, banco=contexto.banco, apresentacao=secoes_ap)
 
     # ---------- estados ----------
     def _linhas_ufs():

@@ -527,6 +527,7 @@ def abrir_painel(a, fab):
     import uvicorn
     from adaptadores.repositorio_sqlite import RepositorioSQLite
     from adaptadores.contas_sqlite import ContasSQLite
+    from config import apresentacao as config_apresentacao
     from painel.app import Contexto, criar_app
     banco = "demo" if a.demo else "simulado" if a.simulado else getattr(a, "banco", "real")
     if a.demo:        # a demonstração tem as suas soluções (fictícias, presentes nos dados dela); a lista real é do pesquisador e vale para o banco real e o simulado
@@ -549,7 +550,8 @@ def abrir_painel(a, fab):
         conjunto_da_consulta={t.id: nome for nome, ts in C.CONJUNTOS_LITERATURA.items() for t in ts},
         eixos_exploracao=dict(EIXOS_EXPLORACAO), versao_triagem_vies=TE.PROMPT_TRIAGEM_VIES_VERSAO,
         versoes_triagem_vies=TE.VERSOES_TRIAGEM_VIES, recortes_vies=dict(TE.RECORTES_VIES),
-        consultas_literatura={t.id: t.query for ts in C.CONJUNTOS_LITERATURA.values() for t in ts})
+        consultas_literatura={t.id: t.query for ts in C.CONJUNTOS_LITERATURA.values() for t in ts},
+        apresentacao=dict(config_apresentacao.APRESENTACAO.get(banco, {})))
     if servidor:
         contexto.hosts_permitidos = dominios + ("127.0.0.1", "localhost")   # o dominio publico e o acesso de dentro da VM
         contexto.origens_publicas, contexto.exige_https = origens, True

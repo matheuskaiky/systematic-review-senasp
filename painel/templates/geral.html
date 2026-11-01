@@ -5,7 +5,28 @@
 {% block extra_head %}{% if banco == "vies" %}<link rel="stylesheet" href="/static/analises.css">{% endif %}{% endblock %}
 {% block conteudo %}
 <h1>Visão geral</h1>
-
+{% for s in apresentacao.antes -%}
+<section class="cartao" id="vg-ap-{{ s.id }}" aria-labelledby="t-vg-ap-{{ s.id }}">
+<h2 id="t-vg-ap-{{ s.id }}">{{ s.titulo }}</h2>
+{% if s.lista == "ol" -%}
+<ol>
+{% for p in s.paragrafos -%}
+<li>{{ p }}</li>
+{% endfor -%}
+</ol>
+{% elif s.lista == "ul" -%}
+<ul>
+{% for p in s.paragrafos -%}
+<li>{{ p }}</li>
+{% endfor -%}
+</ul>
+{% else -%}
+{% for p in s.paragrafos -%}
+<p>{{ p }}</p>
+{% endfor -%}
+{% endif -%}
+</section>
+{% endfor %}
 {% set icones = {
   "identificacao": ("binoculars", "petroleo"),
   "cobertura": ("magnifying-glass", "cobalto"),
@@ -103,7 +124,31 @@
   {% endfor %}
 </section>
 {% endfor %}
-
+{% if apresentacao.depois %}
+{% for s in apresentacao.depois -%}
+<section class="cartao" id="vg-ap-{{ s.id }}" aria-labelledby="t-vg-ap-{{ s.id }}">
+<h2 id="t-vg-ap-{{ s.id }}">{{ s.titulo }}</h2>
+{% if s.lista == "ol" -%}
+<ol>
+{% for p in s.paragrafos -%}
+<li>{{ p }}</li>
+{% endfor -%}
+</ol>
+{% elif s.lista == "ul" -%}
+<ul>
+{% for p in s.paragrafos -%}
+<li>{{ p }}</li>
+{% endfor -%}
+</ul>
+{% else -%}
+{% for p in s.paragrafos -%}
+<p>{{ p }}</p>
+{% endfor -%}
+{% endif -%}
+</section>
+{% endfor -%}
+{%- else %}
+{% endif -%}
 {% if banco == "vies" %}
 {{ guia_leitura(
   "Como interpretar esta página e suas métricas",

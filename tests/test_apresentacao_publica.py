@@ -404,9 +404,9 @@ def test_pesquisa_nao_divulgada_leva_a_entrada_sem_nenhum_texto(demo, tmp_path, 
     r = cli.get("/", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/entrar")
     entrada = cli.get("/entrar").text
-    for paragrafos in TEXTOS.values():
+    for sid, paragrafos in TEXTOS.items():          # a entrada leva so a descricao (conteudo institucional), nunca as outras
         for p in paragrafos:
-            assert p not in entrada
+            assert (p in entrada) == (sid == "descricao"), (sid, p)
     assert "vg-ap-" not in entrada
 
 

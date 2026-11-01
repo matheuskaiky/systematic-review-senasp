@@ -470,6 +470,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 autenticacao.pode(autenticacao.GRUPO_VISITANTE, visitante, autenticacao.permissao_exigida("GET", "/"))
                 and divulgacao.decisao_publico("GET", "/", politica) == "liberada"
             )
+            secoes_ap = apresentacao.secoes_publicas(contexto.apresentacao)
+            descricao = next((s["paragrafos"] for s in (secoes_ap.get("antes") or []) if s.get("id") == "descricao"), [])
             return pagina(
                 request,
                 "entrar.html",
@@ -483,6 +485,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
                 acesso_publico=acesso_publico,
                 minutos_bloqueio=autenticacao.MINUTOS_DE_BLOQUEIO,
                 falhas_bloqueio=autenticacao.FALHAS_ATE_BLOQUEIO,
+                descricao=descricao,
             )
 
         @app.get("/entrar", response_class=HTMLResponse)

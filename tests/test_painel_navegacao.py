@@ -53,7 +53,7 @@ def test_os_tres_grupos_e_todos_os_links_aparecem_uma_vez_cada(cliente):
 def test_a_marca_continua_levando_a_visao_geral(cliente):
     cli, _ = cliente
     html = cli.get("/estados").text
-    assert '<a class="marca" href="/">Levantamento<br><small>IA na Segurança Pública</small></a>' in html
+    assert '<a class="marca" href="/">IA na Segurança Pública<br><small>UFPI · SENASP</small></a>' in html
 
 
 def test_todo_endereco_do_menu_existe_na_aplicacao(cliente):

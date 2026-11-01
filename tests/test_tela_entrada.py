@@ -29,11 +29,10 @@ TEXTOS_DA_TELA = [
     "<title>Entrar · IA na Segurança Pública</title>",
     '<div class="layout layout-entrada">',
     '<nav class="menu menu-entrada" aria-label="Principal">',
-    '<aside class="entrada-apresentacao" aria-label="Sobre o levantamento">',
-    '<p class="entrada-chamada">Cada achado passa por uma pessoa antes de virar resultado.</p>',
-    '<p class="entrada-texto">O levantamento reúne evidências públicas sobre o uso, a contratação e o estudo de inteligência '
-    "artificial na segurança pública brasileira, além da literatura sobre o tema.</p>",
-    '<div><strong>Triagem de artigos</strong><span>Leia o título e o resumo e decida o que entra na revisão sistemática.</span></div>',
+    '<aside class="entrada-apresentacao" aria-label="Sobre a pesquisa">',
+    '<p class="entrada-chamada">Resultados produzidos por modelos de inteligência artificial não são considerados resultados '
+    'validados da pesquisa sem confirmação humana.</p>',
+    '<div><strong>Triagem de artigos</strong><span>Leia o título e o resumo e registre a decisão de incluir ou excluir.</span></div>',
     '<div><strong>Revisão de achados</strong><span>Confirme ou descarte cada achado a partir do trecho da página.</span></div>',
     '<div><strong>Decisão com autoria</strong><span>Cada decisão guarda o nome de quem decidiu, para a pesquisa poder ser auditada.</span></div>',
     '<section class="entrada-cartao" aria-labelledby="t-entrar">',
@@ -374,6 +373,11 @@ def test_navegador_tela_estreita_sem_rolagem_horizontal(navegador_entrada, largu
     pg.wait_for_function("document.documentElement.classList.contains('icones-ok')")
     assert pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert pg.locator(".entrada-apresentacao").count() == 1
-    assert pg.evaluate("getComputedStyle(document.querySelector('.entrada-apresentacao')).display") == "none"
+    # no celular a frase-guia fica visivel acima do formulario; os itens da equipe saem
+    assert pg.evaluate("getComputedStyle(document.querySelector('.entrada-apresentacao')).display") == "flex"
+    assert pg.evaluate("getComputedStyle(document.querySelector('.entrada-chamada')).display") != "none"
+    assert pg.evaluate("getComputedStyle(document.querySelector('.entrada-itens')).display") == "none"
+    caixa = pg.evaluate("(() => { const r = document.querySelector('.entrada-chamada').getBoundingClientRect(); return [r.left, r.right]; })()")
+    assert caixa[0] >= 0 and caixa[1] <= largura                   # a frase cabe na largura, sem corte
     assert pg.evaluate("document.activeElement.id") != "login"     # sem foco automatico em tela de toque
     ctx.close()

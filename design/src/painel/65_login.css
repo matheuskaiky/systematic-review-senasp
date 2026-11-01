@@ -86,7 +86,10 @@ html.icones-ok .entrada-formulario .botao[type="submit"]::after { content: %ic(a
 @media (max-width: 900px) {
   .layout-entrada { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }   /* a faixa da marca fica do tamanho dela; a folga da página vai para o cartão */
   .entrada-lateral { gap: 0; padding: var(--esp-3) var(--esp-4); box-shadow: inset 0 -1px 0 var(--menu-borda); }
-  .entrada-lateral::before, .entrada-apresentacao { display: none; }
+  .entrada-lateral::before, .entrada-itens { display: none; }
+  .entrada-apresentacao { margin: var(--esp-3) 0 0; }
+  .entrada-chamada { font-size: var(--fs-lg); line-height: 1.3; }
+  .entrada-texto { margin-top: var(--esp-2); font-size: var(--fs-md); }
   .layout-entrada main { align-content: start; padding: var(--esp-5) var(--esp-4) var(--esp-7); }
   .layout-entrada main::before { height: 14rem; inset: 0 0 auto 0; }
   .entrada-cartao { padding: var(--esp-5) var(--esp-4) var(--esp-5); border-radius: var(--raio); }

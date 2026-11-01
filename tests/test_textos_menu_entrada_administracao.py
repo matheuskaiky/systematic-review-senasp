@@ -84,8 +84,6 @@ def test_aviso_sobre_troca_de_nome(adm):  # noqa: F811
 
 # ---------------- tela de entrada (T123-T124; a T122 fica para decisao do pesquisador) ----------------
 ENTRADA_NOVA = [
-    '<p class="entrada-texto">O levantamento reúne evidências públicas sobre o uso, a contratação e o estudo de inteligência '
-    'artificial na segurança pública brasileira, além da literatura sobre o tema.</p>',
     '<div><strong>Revisão de achados</strong><span>Confirme ou descarte cada achado a partir do trecho da página.</span></div>',
 ]
 ENTRADA_ANTIGA = ["O levantamento reúne onde",

@@ -60,7 +60,7 @@ def test_pagina_na_url_e_ignorada(sintetico):
 def test_cabecalho(sintetico):
     cli, _ = sintetico
     html = cli.get("/observatorio").text
-    assert "<h1>Observatório Analítico — Inteligência Artificial e Segurança Pública</h1>" in html
+    assert "<h1>Observatório Analítico — Inteligência Artificial na Segurança Pública</h1>" in html
     assert ('<p class="aviso" role="status"><strong>Retratos da busca e dos rótulos automáticos.</strong> Os números '
             "descrevem as obras recuperadas pelas consultas desta busca e classificadas automaticamente pela triagem v2, sem "
             "conferência humana nem codificação temática: não são uma síntese validada da literatura nem inclusão na "

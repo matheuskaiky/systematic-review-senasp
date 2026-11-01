@@ -88,7 +88,7 @@
       <p>Concedidas: {% if item.concedidas_desc %}{{ item.concedidas_desc|join(', ') }}{% else %}nenhuma{% endif %}.</p>
       <p>Retiradas: {% if item.retiradas_desc %}{{ item.retiradas_desc|join(', ') }}{% else %}nenhuma{% endif %}.</p>
       {% if item.origem_rotulo %}
-      <p>Origem: comparação com a referência de {{ item.origem_rotulo }}.</p>
+      <p>Origem: {{ item.origem_rotulo }}.</p>
       {% endif %}
       {% if item.justificativa %}
       <p>Justificativa: {{ item.justificativa }}</p>

@@ -13,8 +13,8 @@
 {% if not revisao.concedidas and not revisao.retiradas %}
 <p class="aviso" role="status">Nenhuma alteração.</p>
 {% else %}
-{% if perfil and rotulo_perfil %}
-<p>Origem: comparação com a referência de {{ rotulo_perfil }}. Só as diferenças marcadas estão abaixo.</p>
+{% if rotulo_origem %}
+<p>Origem: {{ rotulo_origem }}. Só as diferenças marcadas estão abaixo.</p>
 {% endif %}
 {% if revisao.concedidas %}
 <h2>Serão concedidas ({{ revisao.concedidas|length }})</h2>
@@ -38,6 +38,11 @@
   <input type="hidden" name="versao" value="{{ versao }}">
   {% if perfil %}
   <input type="hidden" name="perfil" value="{{ perfil }}">
+  {% for p in escolhidas %}
+  <input type="hidden" name="escolhida" value="{{ p }}">
+  {% endfor %}
+  {% elif registro %}
+  <input type="hidden" name="registro" value="{{ registro }}">
   {% for p in escolhidas %}
   <input type="hidden" name="escolhida" value="{{ p }}">
   {% endfor %}
@@ -80,7 +85,9 @@
 {% endif %}
 {% endif %}
 {% endif %}
-{% if perfil %}
+{% if registro %}
+<p><a href="/admin/grupos/{{ grupo_id }}/restaurar?registro={{ registro }}">Voltar à restauração</a></p>
+{% elif perfil %}
 <p><a href="/admin/grupos/{{ grupo_id }}/comparar?perfil={{ perfil }}">Voltar à comparação</a></p>
 {% else %}
 <p><a href="/admin/grupos/{{ grupo_id }}/editar">Voltar e editar</a></p>

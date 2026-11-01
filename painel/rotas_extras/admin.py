@@ -125,19 +125,22 @@ def _previas_do_menu(c, nome: str, permissoes, titulo: str) -> list[dict]:
     return previas
 
 
-def _revisao_do_formulario(nome: str, atuais: set[str], form) -> dict:
-    """Processa o formulário de alteração de permissões tanto no modo de edição quanto no de referência."""
+def _revisao_do_formulario(nome: str, atuais: set[str], form, historico=None) -> dict:
+    """Processa o formulário de alteração de permissões tanto no modo de edição quanto no de referência ou restauração."""
+    tem_registro = "registro" in form
     tem_perfil = "perfil" in form
-    perfis = list(form.getlist("perfil"))
     tem_marcada = "marcada" in form
     tem_exibida = "exibida" in form
+
+    registros = list(form.getlist("registro"))
+    perfis = list(form.getlist("perfil"))
     escolhidas = list(form.getlist("escolhida"))
     marcadas_edit = list(form.getlist("marcada"))
     exibidas_edit = list(form.getlist("exibida"))
 
     incompleto = "O formulário veio incompleto. Abra o grupo de novo e refaça as alterações."
 
-    if not tem_perfil:
+    if not tem_perfil and not tem_registro:
         # Modo de edição
         r = autenticacao.revisar_alteracao(nome, atuais, marcadas_edit, exibidas_edit)
         return {
@@ -145,7 +148,77 @@ def _revisao_do_formulario(nome: str, atuais: set[str], form) -> dict:
             "marcadas": marcadas_edit,
             "exibidas": exibidas_edit,
             "perfil": None,
+            "registro": None,
             "escolhidas": [],
+        }
+
+    if tem_registro:
+        # Modo de restauração
+        if len(registros) != 1 or tem_perfil or tem_marcada or tem_exibida:
+            return {
+                "revisao": {
+                    "antes": sorted(atuais),
+                    "depois": sorted(atuais),
+                    "concedidas": [],
+                    "retiradas": [],
+                    "sensiveis": [],
+                    "exige_justificativa": False,
+                    "erros": [incompleto],
+                },
+                "marcadas": [],
+                "exibidas": [],
+                "perfil": None,
+                "registro": None,
+                "escolhidas": [],
+            }
+
+        reg_id = _converter_id(registros[0])
+        if reg_id is None:
+            return {
+                "revisao": {
+                    "antes": sorted(atuais),
+                    "depois": sorted(atuais),
+                    "concedidas": [],
+                    "retiradas": [],
+                    "sensiveis": [],
+                    "exige_justificativa": False,
+                    "erros": [incompleto],
+                },
+                "marcadas": [],
+                "exibidas": [],
+                "perfil": None,
+                "registro": None,
+                "escolhidas": [],
+            }
+
+        entrada = next((e for e in historico if e["id"] == reg_id), None) if historico else None
+        m = autenticacao.montar_escolhas_da_restauracao(nome, atuais, entrada, escolhidas)
+        if m.get("erros"):
+            return {
+                "revisao": {
+                    "antes": sorted(atuais),
+                    "depois": sorted(atuais),
+                    "concedidas": [],
+                    "retiradas": [],
+                    "sensiveis": [],
+                    "exige_justificativa": False,
+                    "erros": list(m["erros"]),
+                },
+                "marcadas": [],
+                "exibidas": [],
+                "perfil": None,
+                "registro": None,
+                "escolhidas": [],
+            }
+
+        r = autenticacao.revisar_alteracao(nome, atuais, m["marcadas"], m["exibidas"])
+        return {
+            "revisao": r,
+            "marcadas": m["marcadas"],
+            "exibidas": m["exibidas"],
+            "perfil": None,
+            "registro": reg_id,
+            "escolhidas": m["escolhidas"],
         }
 
     # Modo de referência
@@ -163,6 +236,7 @@ def _revisao_do_formulario(nome: str, atuais: set[str], form) -> dict:
             "marcadas": [],
             "exibidas": [],
             "perfil": None,
+            "registro": None,
             "escolhidas": [],
         }
 
@@ -182,6 +256,7 @@ def _revisao_do_formulario(nome: str, atuais: set[str], form) -> dict:
             "marcadas": [],
             "exibidas": [],
             "perfil": None,
+            "registro": None,
             "escolhidas": [],
         }
 
@@ -191,6 +266,7 @@ def _revisao_do_formulario(nome: str, atuais: set[str], form) -> dict:
         "marcadas": m["marcadas"],
         "exibidas": m["exibidas"],
         "perfil": perfil,
+        "registro": None,
         "escolhidas": m["escolhidas"],
     }
 
@@ -673,12 +749,8 @@ def registrar(c) -> None:
             if det is not None:
                 concedidas_desc = [autenticacao.PERMISSOES.get(k, k) for k in det.get("concedidas", [])]
                 retiradas_desc = [autenticacao.PERMISSOES.get(k, k) for k in det.get("retiradas", [])]
-                origem = det.get("origem", "")
-                origem_rotulo = None
-                if isinstance(origem, str) and origem.startswith("referencia:"):
-                    perf = origem[len("referencia:"):]
-                    if perf in autenticacao.PERFIS_REFERENCIA:
-                        origem_rotulo = autenticacao.ROTULOS_PERFIL_REFERENCIA.get(perf)
+                origem = det.get("origem")
+                origem_rotulo = autenticacao.rotulo_origem(origem)
                 justificativa = det.get("justificativa", "")
             else:
                 concedidas_desc = None
@@ -724,7 +796,6 @@ def registrar(c) -> None:
             nota_referencia=nota_referencia,
             aviso_alteradas=aviso_alteradas,
             nota_alteradas=nota_alteradas,
-            historico=historico[:20],
             historico_itens=historico_itens,
             total_historico=len(historico),
         )
@@ -894,6 +965,7 @@ def registrar(c) -> None:
             return c.erro(request, 404, "Alteração não encontrada", "Esta alteração não está no histórico deste grupo.")
 
         comp = autenticacao.comparar_com_alteracao(nome, set(grupo["permissoes"]), entrada)
+        versao = autenticacao.versao_permissoes({gid: set(grupo["permissoes"])})
 
         return c.pagina(
             request,
@@ -902,6 +974,7 @@ def registrar(c) -> None:
             grupo_id=gid,
             entrada=entrada,
             comp=comp,
+            versao=versao,
             catalogo=autenticacao.CATALOGO_PERMISSOES,
             rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
         )
@@ -922,11 +995,20 @@ def registrar(c) -> None:
         nome = grupo["nome"]
         atuais = set(grupo["permissoes"])
 
-        res = _revisao_do_formulario(nome, atuais, form)
+        historico = None
+        if "registro" in form:
+            try:
+                registros = c.contas.registros_de_permissoes()
+            except autenticacao.ContasOcupadas:
+                return _erro_contas_ocupadas(request)
+            historico = autenticacao.historico_do_grupo(nome, registros)
+
+        res = _revisao_do_formulario(nome, atuais, form, historico=historico)
         r = res["revisao"]
         marcadas = res["marcadas"]
         exibidas = res["exibidas"]
         perfil = res["perfil"]
+        registro = res["registro"]
         escolhidas = res["escolhidas"]
 
         v_list = form.getlist("versao")
@@ -943,6 +1025,11 @@ def registrar(c) -> None:
             return _erro_contas_ocupadas(request)
 
         rotulo_perfil = autenticacao.ROTULOS_PERFIL_REFERENCIA.get(perfil, "") if perfil else ""
+        rotulo_origem = None
+        if perfil:
+            rotulo_origem = autenticacao.rotulo_origem(f"referencia:{perfil}")
+        elif registro:
+            rotulo_origem = autenticacao.rotulo_origem(f"restauracao:{registro}")
 
         return c.pagina(
             request,
@@ -961,8 +1048,10 @@ def registrar(c) -> None:
             rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
             previas=previas,
             perfil=perfil,
+            registro=registro,
             escolhidas=escolhidas,
             rotulo_perfil=rotulo_perfil,
+            rotulo_origem=rotulo_origem,
         )
 
     @app.post("/admin/grupos/{grupo_id}/permissoes")
@@ -981,11 +1070,20 @@ def registrar(c) -> None:
         nome = grupo["nome"]
         atuais = set(grupo["permissoes"])
 
-        res = _revisao_do_formulario(nome, atuais, form)
+        historico = None
+        if "registro" in form:
+            try:
+                registros = c.contas.registros_de_permissoes()
+            except autenticacao.ContasOcupadas:
+                return _erro_contas_ocupadas(request)
+            historico = autenticacao.historico_do_grupo(nome, registros)
+
+        res = _revisao_do_formulario(nome, atuais, form, historico=historico)
         r = res["revisao"]
         marcadas = res["marcadas"]
         exibidas = res["exibidas"]
         perfil = res["perfil"]
+        registro = res["registro"]
         escolhidas = res["escolhidas"]
 
         v_list = form.getlist("versao")
@@ -995,8 +1093,13 @@ def registrar(c) -> None:
         confirmado = "1" in form.getlist("confirmo")
 
         rotulo_perfil = autenticacao.ROTULOS_PERFIL_REFERENCIA.get(perfil, "") if perfil else ""
+        rotulo_origem = None
+        if perfil:
+            rotulo_origem = autenticacao.rotulo_origem(f"referencia:{perfil}")
+        elif registro:
+            rotulo_origem = autenticacao.rotulo_origem(f"restauracao:{registro}")
 
-        if "perfil" in form and r.get("erros"):
+        if ("perfil" in form or "registro" in form) and r.get("erros"):
             return c.pagina(
                 request,
                 "admin_grupo_revisar.html",
@@ -1015,8 +1118,10 @@ def registrar(c) -> None:
                 rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
                 previas=[],
                 perfil=perfil,
+                registro=registro,
                 escolhidas=escolhidas,
                 rotulo_perfil=rotulo_perfil,
+                rotulo_origem=rotulo_origem,
             )
 
         admin_login = request.state.usuario["login"]
@@ -1033,6 +1138,17 @@ def registrar(c) -> None:
                     justificativa,
                     (admin_login, agora),
                     referencia=(perfil, escolhidas),
+                )
+            elif registro is not None:
+                r_adapter = c.contas.definir_permissoes_do_grupo(
+                    gid,
+                    marcadas,
+                    exibidas,
+                    versao,
+                    confirmado,
+                    justificativa,
+                    (admin_login, agora),
+                    restauracao=(registro, escolhidas),
                 )
             else:
                 r_adapter = c.contas.definir_permissoes_do_grupo(
@@ -1078,8 +1194,10 @@ def registrar(c) -> None:
                 rotulos_sensibilidade=autenticacao.ROTULOS_SENSIBILIDADE,
                 previas=previas,
                 perfil=perfil,
+                registro=registro,
                 escolhidas=escolhidas,
                 rotulo_perfil=rotulo_perfil,
+                rotulo_origem=rotulo_origem,
             )
         except autenticacao.ContasOcupadas:
             return _erro_contas_ocupadas(request)

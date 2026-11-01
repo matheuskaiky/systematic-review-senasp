@@ -351,25 +351,29 @@ class ContasSQLite:
 
             return {"total": total, "linhas": linhas, "alvos": alvos}
 
+    @staticmethod
+    def _ler_registros_de_permissoes(conn) -> list[dict]:
+        rows = conn.execute(
+            "SELECT id, quando, admin_login, acao, alvo, detalhe FROM auditoria_admin "
+            "WHERE acao IN ('salvar_permissoes', 'renomear_grupo', 'criar_grupo') "
+            "ORDER BY id DESC"
+        ).fetchall()
+        return [
+            {
+                "id": r[0],
+                "quando": r[1],
+                "admin_login": r[2],
+                "acao": r[3],
+                "alvo": r[4],
+                "detalhe": r[5],
+            }
+            for r in rows
+        ]
+
     def registros_de_permissoes(self) -> list[dict]:
         """Retorna os registros de auditoria das ações sobre permissões e grupos mais recentes primeiro."""
         with self._conexao() as conn:
-            rows = conn.execute(
-                "SELECT id, quando, admin_login, acao, alvo, detalhe FROM auditoria_admin "
-                "WHERE acao IN ('salvar_permissoes', 'renomear_grupo', 'criar_grupo') "
-                "ORDER BY id DESC"
-            ).fetchall()
-            return [
-                {
-                    "id": r[0],
-                    "quando": r[1],
-                    "admin_login": r[2],
-                    "acao": r[3],
-                    "alvo": r[4],
-                    "detalhe": r[5],
-                }
-                for r in rows
-            ]
+            return self._ler_registros_de_permissoes(conn)
 
     def listar_usuarios(self) -> list[dict]:
         """Retorna lista de todos os usuários ordenados por lower(nome)."""
@@ -625,6 +629,7 @@ class ContasSQLite:
         justificativa: str,
         auditoria: tuple[str, str],
         referencia: tuple | None = None,
+        restauracao: tuple | None = None,
     ) -> dict:
         """Altera com segurança as permissões de um grupo com conferência de versão e auditoria."""
         if type(grupo_id) is not int or not (1 <= grupo_id <= 9223372036854775807):
@@ -650,6 +655,9 @@ class ContasSQLite:
                     "As permissões deste grupo mudaram desde que a página foi aberta."
                 )
 
+            if referencia is not None and restauracao is not None:
+                raise autenticacao.AlteracaoRecusada(incompleto)
+
             m = None
             perfil = None
             if referencia is not None:
@@ -670,6 +678,37 @@ class ContasSQLite:
                 if list(marcadas) != m["marcadas"] or list(exibidas) != m["exibidas"]:
                     raise autenticacao.AlteracaoRecusada(incompleto)
 
+            m_res = None
+            reg_id = None
+            if restauracao is not None:
+                if (
+                    not isinstance(restauracao, tuple)
+                    or len(restauracao) != 2
+                    or type(restauracao[0]) is not int
+                    or isinstance(restauracao[0], bool)
+                    or not isinstance(restauracao[1], list)
+                    or any(type(x) is not str for x in restauracao[1])
+                ):
+                    raise autenticacao.AlteracaoRecusada(incompleto)
+                if (
+                    not isinstance(marcadas, (list, tuple))
+                    or any(type(x) is not str for x in marcadas)
+                    or not isinstance(exibidas, (list, tuple))
+                    or any(type(x) is not str for x in exibidas)
+                ):
+                    raise autenticacao.AlteracaoRecusada(incompleto)
+
+                reg_id, escolhidas = restauracao
+                hist_rows = self._ler_registros_de_permissoes(conn)
+                historico = autenticacao.historico_do_grupo(nome, hist_rows)
+                entrada = next((h for h in historico if h["id"] == reg_id), None)
+
+                m_res = autenticacao.montar_escolhas_da_restauracao(nome, atuais, entrada, escolhidas)
+                if m_res.get("erros"):
+                    raise autenticacao.AlteracaoRecusada(m_res["erros"])
+                if list(marcadas) != m_res["marcadas"] or list(exibidas) != m_res["exibidas"]:
+                    raise autenticacao.AlteracaoRecusada(incompleto)
+
             r = autenticacao.revisar_alteracao(nome, atuais, marcadas, exibidas)
             if r["erros"]:
                 raise autenticacao.AlteracaoRecusada(r["erros"])
@@ -687,6 +726,10 @@ class ContasSQLite:
             if referencia is not None and m is not None:
                 detalhe = autenticacao.detalhe_auditoria(
                     r, justificativa, origem=f"referencia:{perfil}", escolhidas=m["escolhidas"]
+                )
+            elif restauracao is not None and m_res is not None:
+                detalhe = autenticacao.detalhe_auditoria(
+                    r, justificativa, origem=f"restauracao:{reg_id}", escolhidas=m_res["escolhidas"]
                 )
             else:
                 detalhe = autenticacao.detalhe_auditoria(r, justificativa)

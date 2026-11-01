@@ -1,5 +1,6 @@
-"""Diferencas entre o estado atual de um grupo e o estado anterior a uma alteracao do seu historico. So leitura: a pagina
-lista as diferencas e nao grava nada, nao marca nada e nao leva a nenhuma gravacao. Todos os bancos sao temporarios."""
+"""Diferencas entre o estado atual de um grupo e o estado anterior a uma alteracao do seu historico. A pagina lista as
+diferencas em caixas desmarcadas e nao grava nada; a revisao e a gravacao estao em test_restaurar_gravacao.py. Todos os
+bancos sao temporarios."""
 import json
 import re
 import sqlite3
@@ -169,15 +170,15 @@ def test_pagina_lista_as_diferencas(adm):
     assert "<p>Estado anterior à alteração de 05/10/2026 12:00 por ana.</p>" in h
     sens = A.ROTULOS_SENSIBILIDADE[A.CATALOGO_PERMISSOES["ver_custos"]["sensibilidade"]]
     sens_ch = A.ROTULOS_SENSIBILIDADE[A.CATALOGO_PERMISSOES["ver_chamadas"]["sensibilidade"]]
+    def caixa(p, extra=""):
+        return f'<input type="checkbox" id="e-{p}" name="escolhida" value="{p}"> <label for="e-{p}">{A.PERMISSOES[p]}</label>{extra}'
     assert _listas(h) == {
-        "O estado anterior tem e o grupo não (1)": [f'{A.PERMISSOES["ver_custos"]} <span class="perm-sensivel">◆ {sens}</span>'],
+        "O estado anterior tem e o grupo não (1)": [caixa("ver_custos", f' <span class="perm-sensivel">◆ {sens}</span>')],
         "O grupo tem e o estado anterior não (2)": [
-            f'{A.PERMISSOES["ver_chamadas"]} <span class="perm-sensivel">◆ {sens_ch}</span>', A.PERMISSOES["triar_artigos"]],
+            caixa("ver_chamadas", f' <span class="perm-sensivel">◆ {sens_ch}</span>'), caixa("triar_artigos")],
     }
     assert h.index("O estado anterior tem e o grupo não") < h.index("O grupo tem e o estado anterior não")
-    assert SO_MOSTRA in h
-    corpo = h[h.index("<main"):h.index("</main>")]
-    assert "<form" not in corpo and "<input" not in corpo and "<button" not in corpo
+    assert SO_MOSTRA not in h and " checked" not in h
     assert f'<p><a href="/admin/grupos/{_gid(contas_db, "Leitor")}">Voltar ao grupo</a></p>' in h
     assert verificar(h) == []
 

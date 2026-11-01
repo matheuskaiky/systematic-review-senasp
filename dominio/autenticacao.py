@@ -748,6 +748,28 @@ def ler_detalhe_auditoria(texto: str | None) -> dict | None:
     return dados
 
 
+def rotulo_origem(origem: str | None) -> str | None:
+    """Retorna o rótulo descritivo da origem de uma alteração de permissões, ou None."""
+    if not isinstance(origem, str):
+        return None
+    if origem.startswith("referencia:"):
+        perfil = origem[len("referencia:"):]
+        if perfil in PERFIS_REFERENCIA:
+            rot = ROTULOS_PERFIL_REFERENCIA.get(perfil)
+            if rot:
+                return f"comparação com a referência de {rot}"
+    elif origem.startswith("restauracao:"):
+        n = origem[len("restauracao:"):]
+        if re.fullmatch(r"[1-9][0-9]*", n) and len(n) <= 19:
+            try:
+                val = int(n)
+                if val <= 9223372036854775807:
+                    return f"restauração do estado anterior à alteração nº {n}"
+            except ValueError:
+                pass
+    return None
+
+
 def resumo_detalhe_auditoria(texto: str | None) -> str | None:
     """Gera um resumo legível do detalhe JSON de auditoria da alteração de permissões."""
     _ler = sys.modules[__name__].ler_detalhe_auditoria
@@ -755,12 +777,9 @@ def resumo_detalhe_auditoria(texto: str | None) -> str | None:
     if dados is None:
         return None
 
-    origem = dados["origem"]
-    origem_str = ""
-    if origem.startswith("referencia:"):
-        perfil = origem[len("referencia:"):]
-        if perfil in PERFIS_REFERENCIA:
-            origem_str = f" Origem: comparação com a referência de {ROTULOS_PERFIL_REFERENCIA[perfil]}."
+    _rotulo = getattr(sys.modules[__name__], "rotulo_origem")
+    rotulo = _rotulo(dados.get("origem"))
+    origem_str = f" Origem: {rotulo}." if rotulo is not None else ""
 
     concedidas_str = ", ".join(dados["concedidas"]) or "nenhuma"
     retiradas_str = ", ".join(dados["retiradas"]) or "nenhuma"
@@ -972,17 +991,8 @@ def comparar_com_alteracao(grupo: str, atuais, entrada: dict | None) -> dict:
     }
 
 
-def montar_escolhas_da_referencia(grupo: str, atuais, perfil: str, escolhidas) -> dict:
-    """Transforma as diferenças escolhidas pelo administrador nos conjuntos exibidas/marcadas para revisão."""
-    comp = comparar_com_referencia(grupo, atuais, perfil)
-    if comp.get("erros"):
-        return {
-            "exibidas": [],
-            "marcadas": [],
-            "escolhidas": [],
-            "erros": list(comp["erros"]),
-        }
-
+def _validar_e_montar_escolhas(conceder: list[dict], retirar: list[dict], escolhidas, sufixo_nao_dif: str) -> dict:
+    """Valida as permissões escolhidas e monta os conjuntos exibidas/marcadas para revisão."""
     if not isinstance(escolhidas, (list, tuple)) or any(type(x) is not str for x in escolhidas):
         return {
             "exibidas": [],
@@ -1013,8 +1023,8 @@ def montar_escolhas_da_referencia(grupo: str, atuais, perfil: str, escolhidas) -
         erros.append(f"O formulário trouxe {n_desc} permissões desconhecidas.")
 
     # 2. Chaves do catálogo que não são diferença, na ordem da primeira aparição
-    conceder_chaves = {item["permissao"] for item in comp["conceder"]}
-    retirar_chaves = {item["permissao"] for item in comp["retirar"]}
+    conceder_chaves = {item["permissao"] for item in conceder}
+    retirar_chaves = {item["permissao"] for item in retirar}
     difs = conceder_chaves | retirar_chaves
 
     nao_difs_vistas = set()
@@ -1022,7 +1032,7 @@ def montar_escolhas_da_referencia(grupo: str, atuais, perfil: str, escolhidas) -
         if x in CATALOGO_PERMISSOES and x not in difs and x not in nao_difs_vistas:
             nao_difs_vistas.add(x)
             desc = PERMISSOES.get(x, x)
-            erros.append(f"«{desc}» não é uma diferença entre o grupo e a referência escolhida. Compare de novo.")
+            erros.append(f"«{desc}» {sufixo_nao_dif}")
 
     # 3. Diferenças escolhidas mais de uma vez, na ordem da primeira aparição
     contagem_difs = {}
@@ -1056,4 +1066,42 @@ def montar_escolhas_da_referencia(grupo: str, atuais, perfil: str, escolhidas) -
         "escolhidas": list(ordenadas),
         "erros": [],
     }
+
+
+def montar_escolhas_da_referencia(grupo: str, atuais, perfil: str, escolhidas) -> dict:
+    """Transforma as diferenças escolhidas pelo administrador nos conjuntos exibidas/marcadas para revisão."""
+    _comp = getattr(sys.modules[__name__], "comparar_com_referencia")
+    comp = _comp(grupo, atuais, perfil)
+    if comp.get("erros"):
+        return {
+            "exibidas": [],
+            "marcadas": [],
+            "escolhidas": [],
+            "erros": list(comp["erros"]),
+        }
+    return _validar_e_montar_escolhas(
+        comp["conceder"],
+        comp["retirar"],
+        escolhidas,
+        "não é uma diferença entre o grupo e a referência escolhida. Compare de novo.",
+    )
+
+
+def montar_escolhas_da_restauracao(grupo: str, atuais, entrada: dict | None, escolhidas) -> dict:
+    """Transforma as diferenças escolhidas pelo administrador nos conjuntos exibidas/marcadas para restauração."""
+    _comp = getattr(sys.modules[__name__], "comparar_com_alteracao")
+    comp = _comp(grupo, atuais, entrada)
+    if comp.get("erros"):
+        return {
+            "exibidas": [],
+            "marcadas": [],
+            "escolhidas": [],
+            "erros": list(comp["erros"]),
+        }
+    return _validar_e_montar_escolhas(
+        comp["conceder"],
+        comp["retirar"],
+        escolhidas,
+        "não é uma diferença entre o grupo e o estado anterior escolhido. Compare de novo.",
+    )
 

@@ -409,7 +409,7 @@ def test_links_para_aprofundar():
     vies = _bloco(VG.montar(_vies(), LEITOR), "links")["acoes"]
     assert vies == [{"texto": t, "href": h} for t, h in (("Observatório", "/observatorio"), ("Referências", "/literatura/referencias"),
                                                         ("PRISMA", "/literatura/prisma"), ("Análises", "/analises"),
-                                                        ("Validação da triagem", "/validacao"), ("Metodologia", "/metodologia"),
+                                                        ("Validação humana da triagem", "/validacao"), ("Metodologia", "/metodologia"),
                                                         ("Sobre os dados", "/sobre"))]
 
 

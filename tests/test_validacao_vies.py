@@ -298,7 +298,7 @@ def test_fluxo_completo_sem_mostrar_a_resposta_do_modelo(banco, tmp_path):
     assert "<strong>0 de 5</strong>" in lista and "Concordância entre a pessoa e o modelo" not in lista
     for ordem in range(1, 6):
         pagina = cli.get(f"/validacao/{ordem}").text
-        for segredo in ("Relatório técnico / literatura cinzenta", "trata de viés", "Brasil / SP", "Triagem de escopo pelo modelo"):
+        for segredo in ("Relatório técnico / literatura cinzenta", "trata de viés", "Brasil / SP", 'id="triagem-llm"'):
             assert segredo not in pagina, (ordem, segredo)
         r = _post(cli, f"/validacao/{ordem}/triar", revisor="Ana", **VALIDA)
         assert r.status_code == 303

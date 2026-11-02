@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "_selos.html" as s %}
-{% block titulo %}Classificadores{% endblock %}
+{% block titulo %}Comparação de classificadores{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="/static/classificadores.css">{% endblock %}
 {% macro nd(v, formatar) -%}{% if v is none %}<span class="nao-calculado">não calculado</span>{% else %}{{ formatar(v) }}{% endif %}{%- endmacro %}
 {% macro valor(tipo, v) -%}
@@ -11,7 +11,7 @@
   {%- endif -%}
 {%- endmacro %}
 {% block conteudo %}
-<h1>Classificadores</h1>
+<h1>Comparação de classificadores</h1>
 <p class="sub">Dois modelos de linguagem leram as mesmas páginas e chegaram às mesmas conclusões? Escolha duas execuções do comando <code>classificar</code>; o painel compara só as páginas que as duas classificaram (mesma URL e mesma UF). Não importa se a execução está dentro ou fora do relatório.</p>
 
 <form class="filtros escolha" method="get" action="/classificadores">

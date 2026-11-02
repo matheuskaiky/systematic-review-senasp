@@ -704,7 +704,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
             ("Referências", "/literatura/referencias"),
             ("PRISMA", "/literatura/prisma"),
             ("Análises", "/analises"),
-            ("Validação da triagem", "/validacao"),
+            ("Validação humana da triagem", "/validacao"),
             ("Metodologia", "/metodologia"),
             ("Sobre os dados", "/sobre"),
         ]

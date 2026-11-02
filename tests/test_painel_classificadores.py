@@ -63,7 +63,7 @@ def test_seletor_lista_as_execucoes_de_classificacao_e_so_elas(ctx):
     busca = _sql(copia, "SELECT run_id FROM execucoes WHERE comando='busca-web' LIMIT 1")[0][0]
     assert busca not in r.text
     assert re.search(r'<label for="exec-a">', r.text) and re.search(r'<select id="exec-a" name="a"', r.text)
-    assert r.text.count("<h1") == 1 and "<title>Classificadores" in r.text
+    assert r.text.count("<h1") == 1 and "<title>Comparação de classificadores" in r.text
     assert 'href="/static/classificadores.css"' in r.text
 
 
@@ -72,7 +72,7 @@ def test_comparacao_responde_200_com_estrutura_acessivel(ctx):
     a, b = _runs(copia)
     r = cli.get(_url(a, b))
     assert r.status_code == 200
-    assert r.text.count("<h1") == 1 and "<title>Classificadores" in r.text
+    assert r.text.count("<h1") == 1 and "<title>Comparação de classificadores" in r.text
     assert "DEMONSTRAÇÃO (dados fictícios)" in r.text
     assert "<th>" not in r.text                                  # todo cabecalho de tabela tem scope
     assert not re.search(r"<th(?=[\s>])(?![^>]*scope=)", r.text)

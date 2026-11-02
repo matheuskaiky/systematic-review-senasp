@@ -22,9 +22,9 @@ _GRUPOS = (
     ("analises", "Análises e qualidade", (
         ("/observatorio", "Observatório", "/observatorio", ()),
         ("/analises", "Análises", "/analises", ()),
-        ("/triagem-escopo", "Triagem de escopo (LLM)", "/triagem-escopo", ()),
-        ("/validacao", "Validação da triagem", "/validacao", ()),
-        ("/classificadores", "Classificadores", "/classificadores", ()),
+        ("/triagem-escopo", "Triagem de escopo pelo modelo", "/triagem-escopo", ()),
+        ("/validacao", "Validação humana da triagem", "/validacao", ()),
+        ("/classificadores", "Comparação de classificadores", "/classificadores", ()),
         # sem parâmetros a página é o seletor de duas execuções (responde 200), então o link direto está certo
         ("/execucoes/comparar", "Comparar execuções", "/execucoes/comparar", ()),
         ("/solucoes", "Soluções conhecidas", "/solucoes", ()),

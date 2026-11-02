@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "_selos.html" as s %}
-{% block titulo %}Triagem de escopo (LLM){% endblock %}
+{% block titulo %}Triagem de escopo pelo modelo{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="/static/triagem_escopo.css">{% endblock %}
 {% macro texto_ou_traco(v) -%}{% if v %}{{ v }}{% else %}—{% endif %}{%- endmacro %}
 {% block conteudo %}

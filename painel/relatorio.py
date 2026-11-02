@@ -232,9 +232,12 @@ def _literatura(d):
                if lit["manuais"] else '<p class="vazio">Nenhuma busca manual importada.</p>')
     citados = "".join(f'<li>{_link_externo(a.get("link"), a["titulo"])} '
                       f'<small>({_e(a["ano"] or "s/ano")}) · {fmt.numero(a["citacoes"])} citações</small></li>' for a in lit["mais_citados"])
+    nota_citados = (f'<p><small>Artigos visíveis: {fmt.numero(lit["n_artigos"])}; '
+                    f'com contagem de citações: {fmt.numero(lit["com_citacoes"])}; '
+                    f'sem contagem (a fonte não informou): {fmt.numero(lit["sem_citacoes"])}.</small></p>')
     return (f'<section class="cartao" id="literatura"><h2>Literatura</h2><div class="kpis">{kpis}</div>'
             f'<h3>Artigos por ano</h3>{anos}{sem_ano}<h3>Buscas manuais por base</h3>{manuais}'
-            f'<h3>Artigos mais citados</h3><ol class="lista-simples numerada">{citados}</ol>'
+            f'<h3>Artigos mais citados</h3><ol class="lista-simples numerada">{citados}</ol>{nota_citados}'
             f'<h3>Termos em comum</h3><p class="sub">Quanto mais escura a célula, mais artigos os dois termos encontraram juntos; a diagonal é o total de cada termo.</p>'
             f'<div class="tabela-rolavel">{calor}</div></section>')
 

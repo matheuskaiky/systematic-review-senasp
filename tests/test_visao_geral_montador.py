@@ -161,13 +161,13 @@ INDICADORES_REAL = {
                                      "Unidades da federação com pelo menos um achado confirmado por uma pessoa.", "C1"),
     },
     "segundo_o_modelo": {
-        "classificacoes": _esperado("modelo", "Classificações", 90, None, REL, "Páginas que o modelo leu e classificou.", "C2"),
+        "classificacoes": _esperado("modelo", "Classificações", 90, None, REL, "Classificações vigentes do modelo, uma por endereço e UF; algumas usaram só o título e o trecho devolvidos pela busca, sem a página.", "C2"),
         "achados": _esperado("modelo", "Achados apontados pelo modelo", 30, None, REL,
                              "Trechos em que o modelo identificou menção a uma ferramenta de IA na segurança pública.", "C2"),
     },
     "conferencia": {
         "evidencia": _esperado("verificacao_automatica", "Citação localizada no texto", 25, 30, REL,
-                               "Achados cuja citação literal foi encontrada no texto da página por conferência automática.", "C2"),
+                               "Achados cuja citação literal foi encontrada, por conferência automática, no texto enviado ao modelo (a página ou, sem ela, o título e o trecho da busca).", "C2"),
         "sem_evidencia": _esperado("verificacao_automatica", "Sem verificação humana e com a citação não localizada", 3, None, REL,
                                    "Achados ainda não verificados cuja citação a conferência automática não encontrou no texto.", "C2"),
     },

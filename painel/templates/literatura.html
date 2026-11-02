@@ -31,7 +31,7 @@
 <div class="duas-colunas">
 <section class="cartao"><h2 data-ic="quotes" data-tom="rosa">Artigos mais citados</h2>
   <ol class="lista-simples numerada">{% for a in d.mais_citados %}<li><a href="/literatura/artigos/{{ a.artigo_id }}">{{ a.titulo }}</a> <small>({{ a.ano or "s/ano" }}) · {{ fmt.numero(a.citacoes) }} citações</small></li>{% endfor %}</ol>
-  {% if d.sem_citacoes %}<p><small>{{ fmt.numero(d.sem_citacoes) }} artigo(s) sem contagem de citações (não informada pela fonte).</small></p>{% endif %}</section>
+  {% if d.n_artigos %}<p><small>Artigos visíveis: {{ fmt.numero(d.n_artigos) }}; com contagem de citações: {{ fmt.numero(d.com_citacoes) }}; sem contagem (a fonte não informou): {{ fmt.numero(d.sem_citacoes) }}.</small></p>{% endif %}</section>
 <section class="cartao"><h2 data-ic="books" data-tom="rosa">Buscas manuais por base</h2>
   {% if d.manuais %}<div class="tabela-rolavel"><table><thead><tr><th>Base</th><th class="num">Buscas</th><th class="num" title="Resultados informados">Result.</th><th class="num" title="Após o filtro da base">Filtro</th><th class="num" title="Selecionados">Selec.</th></tr></thead>
     <tbody>{% for m in d.manuais %}<tr><td>{{ m.base }}</td><td class="num">{{ m.n_buscas }}</td><td class="num">{{ fmt.numero(m.total_resultados) }}</td><td class="num">{{ fmt.numero(m.total_apos_filtro) }}</td><td class="num">{{ fmt.numero(m.total_selecionados) }}</td></tr>{% endfor %}</tbody></table></div>

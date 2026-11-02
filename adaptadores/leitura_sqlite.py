@@ -515,7 +515,8 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             "por_termo": self._consulta("""SELECT termo_id, COUNT(DISTINCT artigo_id) AS n_artigos FROM r_ocorrencias
                                            GROUP BY termo_id ORDER BY termo_id"""),
             "sobreposicao": self._consulta("SELECT termo_a, termo_b, n_em_comum FROM v_sobreposicao_termos"),
-            "mais_citados": self._consulta("""SELECT artigo_id, titulo, ano, citacoes FROM r_artigos WHERE citacoes IS NOT NULL
+            "mais_citados": self._consulta(f"""SELECT artigo_id, titulo, ano, citacoes FROM ({self._BASE_ARTIGOS})
+                                              WHERE llm_oculto = 0 AND citacoes IS NOT NULL
                                               ORDER BY citacoes DESC, artigo_id LIMIT 10"""),
             "manuais": self._consulta("SELECT * FROM v_manuais_resumo ORDER BY base"),
             "n_artigos": self._um(f"SELECT COUNT(*) AS n FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0")["n"],
@@ -523,7 +524,8 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             "n_multi": self._um(f"""SELECT COUNT(*) AS n FROM ({self._BASE_ARTIGOS})
                                     WHERE llm_oculto = 0 AND (n_termos + n_bases_manuais) >= 2""")["n"],
             "n_ocultos_llm": self._um(f"SELECT COALESCE(SUM(llm_oculto), 0) AS n FROM ({self._BASE_ARTIGOS})")["n"],
-            "sem_citacoes": self._um("SELECT COUNT(*) AS n FROM r_artigos WHERE citacoes IS NULL")["n"],
+            "com_citacoes": self._um(f"SELECT COUNT(*) AS n FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0 AND citacoes IS NOT NULL")["n"],
+            "sem_citacoes": self._um(f"SELECT COUNT(*) AS n FROM ({self._BASE_ARTIGOS}) WHERE llm_oculto = 0 AND citacoes IS NULL")["n"],
         }
 
     def prisma(self):

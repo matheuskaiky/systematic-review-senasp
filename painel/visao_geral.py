@@ -387,7 +387,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
         )
         vazio_modelo = None
         inds_modelo = [
-            _indicador("classificacoes", "modelo", "Classificações", resumo.get("classificacoes"), None, REL, "Páginas que o modelo leu e classificou.", "C2"),
+            _indicador("classificacoes", "modelo", "Classificações", resumo.get("classificacoes"), None, REL, "Classificações vigentes do modelo, uma por endereço e UF; algumas usaram só o título e o trecho devolvidos pela busca, sem a página.", "C2"),
             _indicador("achados", "modelo", "Achados apontados pelo modelo", resumo.get("achados"), None, REL, "Trechos em que o modelo identificou menção a uma ferramenta de IA na segurança pública.", "C2"),
         ]
     else:
@@ -470,7 +470,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
                 "Conferência das citações",
                 "C2",
                 indicadores=[
-                    _indicador("evidencia", "verificacao_automatica", "Citação localizada no texto", resumo.get("evidencia_ok"), resumo.get("achados"), REL, "Achados cuja citação literal foi encontrada no texto da página por conferência automática.", "C2"),
+                    _indicador("evidencia", "verificacao_automatica", "Citação localizada no texto", resumo.get("evidencia_ok"), resumo.get("achados"), REL, "Achados cuja citação literal foi encontrada, por conferência automática, no texto enviado ao modelo (a página ou, sem ela, o título e o trecho da busca).", "C2"),
                     _indicador("sem_evidencia", "verificacao_automatica", "Sem verificação humana e com a citação não localizada", revisao.get("pendentes_sem_evidencia"), None, REL, "Achados ainda não verificados cuja citação a conferência automática não encontrou no texto.", "C2"),
                 ],
                 acoes=acoes_conf,

@@ -52,7 +52,7 @@ def test_visao_geral_traz_numeros_graficos_e_buscas_manuais(ctx):
     n = _um(copia, "SELECT COUNT(*) FROM r_artigos")
     assert f'<span class="kpi-valor">{n}</span><span class="kpi-rotulo">Artigos únicos</span>' in h.replace("\n", "")
     assert "Artigos por ano" in h and "Termos em comum" in h and "<svg" in h and "IEEE" in h and "SBC OpenLib" not in h.split("Buscas manuais por base")[1].split("Termos em comum")[0]
-    assert "sem contagem de citações" in h
+    assert "com contagem de citações:" in h and "sem contagem (a fonte não informou):" in h
 
 
 def test_lista_filtra_por_decisao_termo_ano_e_busca(ctx):

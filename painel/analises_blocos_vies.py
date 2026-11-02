@@ -154,11 +154,23 @@ def bloco_ferramentas_relevancia(linhas, custos=True):
     if not linhas:
         return _bloco("vies-ferramentas", "Nenhuma busca registrada nas execuções do relatório")
     prop = [{"rotulo": f"{l['fonte']} · {l['ferramenta']}", "total": l["itens"] or 0, "parte": l["elegiveis"]} for l in linhas]
-    melhor = max(linhas, key=lambda l: ((l["elegiveis"] / l["itens"]) if l["itens"] else -1, l["ferramenta"]))
-    titulo = (f"{melhor['ferramenta']} trouxe a maior parte com relevância alta ou média: {fmt.numero(melhor['elegiveis'])} de "
-              f"{_itens_pl(melhor['itens'] or 0)}") if len(linhas) > 1 else (
-              f"{melhor['ferramenta']}: {fmt.numero(melhor['elegiveis'])} de {_itens_pl(melhor['itens'] or 0)} com relevância alta "
-              "ou média")
+    fontes_distintas = sorted({l["fonte"] for l in linhas})
+    if not any(l.get("itens") for l in linhas):
+        titulo = "Relevância alta ou média segundo o modelo, por fonte: nenhum item com triagem"
+    else:
+        partes_titulo = []
+        for f in fontes_distintas:
+            linhas_f = [l for l in linhas if l["fonte"] == f]
+            if len(linhas_f) > 1:
+                partes_titulo.append(f"{f} {fmt.numero(linhas_f[0]['elegiveis'])} itens (mais de uma ferramenta; sem total por fonte)")
+            else:
+                r = linhas_f[0]
+                itens = r["itens"] or 0
+                if not itens:
+                    partes_titulo.append(f"{f} sem itens")
+                else:
+                    partes_titulo.append(f"{f} {fmt.numero(r['elegiveis'])} de {_itens_pl(itens)}")
+        titulo = "Relevância alta ou média segundo o modelo, por fonte: " + "; ".join(partes_titulo)
     graf = g.barras_proporcao(prop, titulo, "Parte dos itens de cada ferramenta com relevância alta ou média",
                               rotulo_parte="Alta ou média", rotulo_resto="Baixa ou fora do escopo")
 

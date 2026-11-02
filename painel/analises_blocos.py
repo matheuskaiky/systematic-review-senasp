@@ -42,6 +42,24 @@ def _pct(parte, total):
     return fmt.pct(parte, total)
 
 
+def _juntar_e(itens):
+    itens = [str(x) for x in itens]
+    if not itens:
+        return ""
+    if len(itens) == 1:
+        return itens[0]
+    return f"{', '.join(itens[:-1])} e {itens[-1]}"
+
+
+def _eh_maioria(parte, total):
+    """Uma parcela e maioria quando a porcentagem exibida por fmt.pct(parte, total) e maior que 50."""
+    if not total:
+        return False
+    texto_pct = fmt.pct(parte, total)
+    digitos = "".join(c for c in texto_pct if c.isdigit())
+    return int(digitos) > 50 if digitos else False
+
+
 # ---------------------------------------------------------------- adocao
 def bloco_maturidade(d):
     regioes = d.get("regioes") or {}
@@ -62,11 +80,19 @@ def bloco_maturidade(d):
     elif d.get("base") == "confirmados":
         titulo = (f"{len(em_uso)} de {total} UFs com ao menos um achado confirmado por revisor no estágio “em uso” "
                   f"(estágio do revisor quando ele o registrou; nos demais, o do modelo)")
+    elif not d.get("tem_dados_humanos"):
+        titulo = (f"Segundo o modelo, {len(em_uso)} de {total} UFs têm ao menos um achado marcado como “em uso”; "
+                  f"nenhum achado foi verificado por pessoa")
     else:
         titulo = (f"{len(em_uso)} de {total} UFs com ao menos um achado no estágio “em uso” "
                   f"(estágio do revisor quando ele o registrou; nos demais, o do modelo)")
-    texto = ["Cada quadrado mostra o estágio mais avançado encontrado para aquela tecnologia naquela UF "
-             "(do cinza, apenas citado, ao azul-escuro, em uso). Clique para ver os achados."]
+    if d.get("n_achados") and d.get("base") != "confirmados" and not d.get("tem_dados_humanos"):
+        primeiro_p = ("Cada quadrado mostra o estágio mais avançado que o modelo atribuiu aos achados daquela tecnologia naquela UF "
+                      "(do cinza, apenas citado, ao azul-escuro, em uso). Não é verificação de uso. Clique para ver os achados.")
+    else:
+        primeiro_p = ("Cada quadrado mostra o estágio mais avançado encontrado para aquela tecnologia naquela UF "
+                      "(do cinza, apenas citado, ao azul-escuro, em uso). Clique para ver os achados.")
+    texto = [primeiro_p]
     por_status = {}
     for c in d.get("celulas") or []:
         for st, n in (c.get("por_status") or {}).items():
@@ -106,10 +132,24 @@ def bloco_regiao_tecnologia(d):
     s = selos.selo(p)
     if p is None:
         titulo = "Região e tecnologia: dados insuficientes para o teste"
-    elif p < 0.05:
-        titulo = "A mistura de tecnologias muda de uma região para outra"
     else:
-        titulo = "Sem evidência suficiente de que a mistura de tecnologias dependa da região"
+        nv = d.get("n_verificados")
+        na = d.get("n_achados")
+        tudo_verificado = (nv is not None and na is not None and nv >= na > 0)
+        if tudo_verificado:
+            if p < 0.05:
+                titulo = "A mistura de tecnologias muda de uma região para outra"
+            else:
+                titulo = "Sem evidência suficiente de que a mistura de tecnologias dependa da região"
+        else:
+            if not nv:
+                prefixo = "Análise exploratória (rótulos do modelo, sem verificação humana): "
+            else:
+                prefixo = "Análise exploratória (rótulos do modelo, com verificação humana parcial): "
+            if p < 0.05:
+                titulo = prefixo + "a mistura de tecnologias varia entre as regiões"
+            else:
+                titulo = prefixo + "sem evidência suficiente de que a mistura de tecnologias dependa da região"
     texto = [s["texto"],
              "Atenção: a unidade contada é o achado, não a UF; vários achados da mesma UF pesam várias vezes. "
              "Leia como indício, não como prova."]
@@ -245,8 +285,19 @@ def bloco_temporal(d):
     grupos = sorted({c["grupo"] for c in d["celulas"] if c.get("ano") is not None})
     mapa = {(c["ano"], c["grupo"]): c["n_artigos"] for c in d["celulas"] if c.get("ano") is not None}
     series = [{"rotulo": gr, "valores": [mapa.get((a, gr), 0) for a in anos]} for gr in grupos]
-    pico = max(por_ano, key=lambda x: x["n_artigos"])
-    titulo = f"A maior parte dos artigos encontrados é de {pico['ano']} ({fmt.numero(pico['n_artigos'])} artigos)"
+    total_ano = sum(x["n_artigos"] for x in por_ano)
+    max_artigos = max(x["n_artigos"] for x in por_ano)
+    empate = [x for x in por_ano if x["n_artigos"] == max_artigos]
+    pct = fmt.pct(max_artigos, total_ano)
+    if len(empate) > 1:
+        anos_str = _juntar_e([x["ano"] for x in empate])
+        titulo = f"Os anos com mais artigos encontrados são {anos_str} ({fmt.numero(max_artigos)} artigos cada, {pct} cada dos que têm ano)"
+    elif _eh_maioria(max_artigos, total_ano):
+        pico = empate[0]
+        titulo = f"A maior parte dos artigos com ano conhecido é de {pico['ano']} ({fmt.numero(pico['n_artigos'])} artigos, {pct})"
+    else:
+        pico = empate[0]
+        titulo = f"O ano com mais artigos encontrados é {pico['ano']} ({fmt.numero(pico['n_artigos'])} artigos, {pct} dos que têm ano)"
     graf = g.areas_empilhadas(anos, series, titulo, "Artigos por ano de publicação e grupo de termo")
     return _bloco("temporal", titulo, graf, f"{fmt.numero(d.get('n_artigos'))} artigos; um artigo conta em cada grupo que o encontrou",
                   ["A forma do gráfico mostra tanto o interesse da pesquisa quanto o viés do Scholar por trabalhos recentes."],
@@ -437,16 +488,25 @@ def bloco_hipoteses(resumo, funil, falsa_exclusao=None):
 
     def estado(ok, falta):
         return "pode ser feita" if ok else "aguarda: " + falta
+
+    qualif = "com verificação humana parcial" if achados_h else "ainda sem verificação humana"
+    onde_h1 = f"análise exploratória baseada em classificações automatizadas, {qualif} (veja a aba Adoção)"
+    onde_h6 = f"análise exploratória baseada em classificações automatizadas, {qualif} (aba Operação)"
     linhas = [
-        ["H1 região × tecnologia", estado(True, ""), "feita com achados classificados (veja a aba Adoção)"],
+        ["H1 região × tecnologia", "exploratória", onde_h1],
         ["H2 evidência e confirmação (regressão)", estado(achados_h, "verificação humana dos achados"), "fase 3 (`analises/`)"],
         ["H3 buscadores (custo por achado confirmado)", estado(achados_h and dois, "um segundo buscador usado na coleta e a verificação humana"), "fase 3"],
         ["H4 falsa exclusão da triagem", estado(excluidos_h, "conferência por uma pessoa de uma amostra sorteada dos artigos que o modelo excluiu"),
          "feita na aba Confiança na IA quando houver essa conferência"],
         ["H5 citações e posição × inclusão", estado(artigos_h, "triagem humana dos artigos"), "fase 3"],
-        ["H6 tamanho do texto e falhas", estado(True, ""), "feita com a classificação (aba Operação)"],
+        ["H6 tamanho do texto e falhas", "exploratória", onde_h6],
     ]
-    return _bloco("hipoteses", "O que o plano de análise já pode responder", texto=["As hipóteses que dependem de pessoas ficam à espera da verificação."],
+    texto = [
+        "As hipóteses que dependem de pessoas ficam à espera da verificação.",
+        "Exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; "
+        "não responde à hipótese, porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana.",
+    ]
+    return _bloco("hipoteses", "O que o plano de análise já pode responder", texto=texto,
                   tabela={"cabecalho": ["Hipótese", "Situação", "Onde"], "linhas": linhas})
 
 

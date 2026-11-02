@@ -1,0 +1,349 @@
+{
+ "hipoteses_sem": {
+  "H1": [
+   "H1 região × tecnologia",
+   "pode ser feita",
+   "feita com achados classificados (veja a aba Adoção)"
+  ],
+  "H2": [
+   "H2 evidência e confirmação (regressão)",
+   "aguarda: verificação humana dos achados",
+   "fase 3 (`analises/`)"
+  ],
+  "H3": [
+   "H3 buscadores (custo por achado confirmado)",
+   "aguarda: um segundo buscador usado na coleta e a verificação humana",
+   "fase 3"
+  ],
+  "H4": [
+   "H4 falsa exclusão da triagem",
+   "aguarda: conferência por uma pessoa de uma amostra sorteada dos artigos que o modelo excluiu",
+   "feita na aba Confiança na IA quando houver essa conferência"
+  ],
+  "H5": [
+   "H5 citações e posição × inclusão",
+   "aguarda: triagem humana dos artigos",
+   "fase 3"
+  ],
+  "H6": [
+   "H6 tamanho do texto e falhas",
+   "pode ser feita",
+   "feita com a classificação (aba Operação)"
+  ]
+ },
+ "hipoteses_com": {
+  "H1": [
+   "H1 região × tecnologia",
+   "pode ser feita",
+   "feita com achados classificados (veja a aba Adoção)"
+  ],
+  "H2": [
+   "H2 evidência e confirmação (regressão)",
+   "pode ser feita",
+   "fase 3 (`analises/`)"
+  ],
+  "H3": [
+   "H3 buscadores (custo por achado confirmado)",
+   "pode ser feita",
+   "fase 3"
+  ],
+  "H4": [
+   "H4 falsa exclusão da triagem",
+   "pode ser feita",
+   "feita na aba Confiança na IA quando houver essa conferência"
+  ],
+  "H5": [
+   "H5 citações e posição × inclusão",
+   "pode ser feita",
+   "fase 3"
+  ],
+  "H6": [
+   "H6 tamanho do texto e falhas",
+   "pode ser feita",
+   "feita com a classificação (aba Operação)"
+  ]
+ },
+ "maturidade_sem": {
+  "id": "maturidade",
+  "subtitulo": "3 achados em 2 UFs; pesos ordinais em_uso=5 … apenas_citado=0",
+  "pares": [
+   [
+    "Achados considerados",
+    "3"
+   ],
+   [
+    "Achados verificados por humano",
+    "0"
+   ],
+   [
+    "Achados descartados (fora da conta)",
+    "0"
+   ],
+   [
+    "UFs com algum achado",
+    "2 de 3"
+   ]
+  ],
+  "tabela": null,
+  "aviso": "Estes números são de achados classificados pelo modelo, ainda sem verificação humana; não são resultados confirmados.",
+  "link": null
+ },
+ "maturidade_com": {
+  "id": "maturidade",
+  "subtitulo": "3 achados em 2 UFs; pesos ordinais em_uso=5 … apenas_citado=0",
+  "pares": [
+   [
+    "Achados considerados",
+    "3"
+   ],
+   [
+    "Achados verificados por humano",
+    "1"
+   ],
+   [
+    "Achados descartados (fora da conta)",
+    "0"
+   ],
+   [
+    "UFs com algum achado",
+    "2 de 3"
+   ]
+  ],
+  "tabela": null,
+  "aviso": null,
+  "link": null
+ },
+ "regiao_forte": {
+  "id": "regiao",
+  "subtitulo": "qui-quadrado de Pearson; χ² = 49,00, gl = 1, p = 0,0000, N = 64",
+  "pares": [
+   [
+    "Método",
+    "qui-quadrado de Pearson"
+   ],
+   [
+    "χ²",
+    "49,000"
+   ],
+   [
+    "Graus de liberdade",
+    "1"
+   ],
+   [
+    "p-valor",
+    "0,0000"
+   ],
+   [
+    "N (achados)",
+    "64"
+   ],
+   [
+    "Caselas com esperado < 5",
+    "0"
+   ],
+   [
+    "Aviso do teste",
+    "nenhum"
+   ]
+  ],
+  "tabela": null,
+  "link": null
+ },
+ "regiao_fraco": {
+  "id": "regiao",
+  "subtitulo": "qui-quadrado de Pearson; χ² = 0,00, gl = 1, p = 1,0000, N = 40",
+  "pares": [
+   [
+    "Método",
+    "qui-quadrado de Pearson"
+   ],
+   [
+    "χ²",
+    "0,000"
+   ],
+   [
+    "Graus de liberdade",
+    "1"
+   ],
+   [
+    "p-valor",
+    "1,0000"
+   ],
+   [
+    "N (achados)",
+    "40"
+   ],
+   [
+    "Caselas com esperado < 5",
+    "0"
+   ],
+   [
+    "Aviso do teste",
+    "nenhum"
+   ]
+  ],
+  "tabela": null,
+  "link": null
+ },
+ "temporal": {
+  "id": "temporal",
+  "subtitulo": "1.168 artigos; um artigo conta em cada grupo que o encontrou",
+  "pares": [],
+  "tabela": {
+   "cabecalho": [
+    "Ano",
+    "Artigos",
+    "Elegíveis (modelo)",
+    "Incluídos (humano)"
+   ],
+   "linhas": [
+    [
+     2023,
+     "300",
+     "0",
+     "0"
+    ],
+    [
+     2024,
+     "519",
+     "0",
+     "0"
+    ],
+    [
+     2025,
+     "337",
+     "0",
+     "0"
+    ]
+   ]
+  },
+  "aviso": null,
+  "link": null
+ },
+ "custos": {
+  "id": "ferramentas-custos",
+  "subtitulo": "custo registrado por chamada (preço de tabela); download não tem custo",
+  "pares": [],
+  "tabela": {
+   "cabecalho": [
+    "Etapa · ferramenta",
+    "Chamadas",
+    "Falhas",
+    "Custo",
+    "Tokens de entrada",
+    "Tokens de saída",
+    "Créditos"
+   ],
+   "linhas": [
+    [
+     "busca acadêmica · serpapi_scholar",
+     "2",
+     "0",
+     "—",
+     "—",
+     "—",
+     "2"
+    ],
+    [
+     "busca de literatura na web · perplexity_search",
+     "2",
+     "0",
+     "US$ 0,63",
+     "—",
+     "—",
+     "—"
+    ],
+    [
+     "triagem de escopo · gemini:m",
+     "4",
+     "1",
+     "US$ 0,37",
+     "10",
+     "5",
+     "—"
+    ]
+   ]
+  },
+  "aviso": null,
+  "link": null
+ },
+ "relevancia": {
+  "id": "vies-ferramentas",
+  "subtitulo": "por fonte: os itens únicos de cada ferramenta; a parte de relevância alta ou média vem da triagem do modelo",
+  "pares": [],
+  "tabela": {
+   "cabecalho": [
+    "Ferramenta",
+    "Fonte",
+    "Itens",
+    "Alta",
+    "Alta ou média",
+    "Fora do escopo",
+    "Custo por item de relevância alta ou média"
+   ],
+   "linhas": [
+    [
+     "perplexity_search",
+     "Web",
+     "199",
+     "199",
+     "199",
+     "0",
+     "—"
+    ],
+    [
+     "serpapi_scholar",
+     "Scholar",
+     "521",
+     "468",
+     "468",
+     "53",
+     "—"
+    ]
+   ]
+  },
+  "aviso": "Relevância, ângulo predominante, tipo de fonte, eixo, tópicos e país/escopo vêm da triagem automática do modelo, ainda sem conferência humana: não são inclusão na revisão nem categorias validadas.",
+  "link": null
+ },
+ "regiao_forte_com_aviso": {
+  "id": "regiao",
+  "subtitulo": "qui-quadrado de Pearson; χ² = 49,00, gl = 1, p = 0,0000, N = 64",
+  "pares": [
+   [
+    "Método",
+    "qui-quadrado de Pearson"
+   ],
+   [
+    "χ²",
+    "49,000"
+   ],
+   [
+    "Graus de liberdade",
+    "1"
+   ],
+   [
+    "p-valor",
+    "0,0000"
+   ],
+   [
+    "N (achados)",
+    "64"
+   ],
+   [
+    "Caselas com esperado < 5",
+    "0"
+   ],
+   [
+    "Aviso do teste",
+    "nenhum"
+   ]
+  ],
+  "tabela": null,
+  "aviso": "Estes números são de achados classificados pelo modelo, ainda sem verificação humana; não são resultados confirmados.",
+  "link": null
+ },
+ "grafico_regiao_forte": "<svg class=\"an-svg an-mosaico\" viewBox=\"0 0 640 346\" role=\"img\" aria-labelledby=\"at-ID ad-ID\"><title id=\"at-ID\">Mistura de tecnologias por região</title><desc id=\"ad-ID\">Mosaico com 2 colunas (largura proporcional ao total de cada linha) e 2 fatias; 64 ocorrências no total. Segmentos pintados por excesso ou falta em relação ao esperado.</desc><defs><pattern id=\"pt-ID-res-mais3\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\"><rect class=\"an-bg an-bg-res-mais3\" width=\"6\" height=\"6\"/><path class=\"an-ln an-ln-res-mais3\" d=\"M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5\" fill=\"none\" stroke-width=\"1.3\"/></pattern><pattern id=\"pt-ID-res-menos3\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\"><rect class=\"an-bg an-bg-res-menos3\" width=\"6\" height=\"6\"/><path class=\"an-ln an-ln-res-menos3\" d=\"M-1 5 L1 7 M0 0 L6 6 M5 -1 L7 1\" fill=\"none\" stroke-width=\"1.3\"/></pattern><pattern id=\"pt-ID-res-mais2\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\"><rect class=\"an-bg an-bg-res-mais2\" width=\"6\" height=\"6\"/><path class=\"an-ln an-ln-res-mais2\" d=\"M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5\" fill=\"none\" stroke-width=\"1.3\"/></pattern><pattern id=\"pt-ID-res-zero\" width=\"1\" height=\"1\" patternUnits=\"userSpaceOnUse\"><rect class=\"an-bg an-bg-res-zero\" width=\"1\" height=\"1\"/></pattern><pattern id=\"pt-ID-res-menos2\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\"><rect class=\"an-bg an-bg-res-menos2\" width=\"6\" height=\"6\"/><path class=\"an-ln an-ln-res-menos2\" d=\"M-1 5 L1 7 M0 0 L6 6 M5 -1 L7 1\" fill=\"none\" stroke-width=\"1.3\"/></pattern></defs><g><title>Nordeste × Reconhecimento facial: 30 (94% do total de Nordeste; resíduo padronizado 7,0)</title><rect class=\"an-seg an-seg-res-mais3\" x=\"8\" y=\"8\" width=\"310\" height=\"234.4\" fill=\"url(#pt-ID-res-mais3)\"/><text class=\"an-halo an-leg\" x=\"163\" y=\"123.2\" text-anchor=\"middle\">+ Reconhecimento facial</text><text class=\"an-halo an-leg\" x=\"163\" y=\"135.2\" text-anchor=\"middle\">94%</text></g><g><title>Nordeste × Leitura de placas de veículos: 2 (6% do total de Nordeste; resíduo padronizado -7,0)</title><rect class=\"an-seg an-seg-res-menos3\" x=\"8\" y=\"242.4\" width=\"310\" height=\"15.6\" fill=\"url(#pt-ID-res-menos3)\"/></g><text class=\"an-rot an-centro\" x=\"163\" y=\"272\" text-anchor=\"middle\">Nordeste</text><text class=\"an-leg\" x=\"163\" y=\"285\" text-anchor=\"middle\">n = 32</text><g><title>Sudeste × Reconhecimento facial: 2 (6% do total de Sudeste; resíduo padronizado -7,0)</title><rect class=\"an-seg an-seg-res-menos3\" x=\"322\" y=\"8\" width=\"310\" height=\"15.6\" fill=\"url(#pt-ID-res-menos3)\"/></g><g><title>Sudeste × Leitura de placas de veículos: 30 (94% do total de Sudeste; resíduo padronizado 7,0)</title><rect class=\"an-seg an-seg-res-mais3\" x=\"322\" y=\"23.6\" width=\"310\" height=\"234.4\" fill=\"url(#pt-ID-res-mais3)\"/><text class=\"an-halo an-leg\" x=\"477\" y=\"138.8\" text-anchor=\"middle\">+ Leitura de placas de veículos</text><text class=\"an-halo an-leg\" x=\"477\" y=\"150.8\" text-anchor=\"middle\">94%</text></g><text class=\"an-rot an-centro\" x=\"477\" y=\"272\" text-anchor=\"middle\">Sudeste</text><text class=\"an-leg\" x=\"477\" y=\"285\" text-anchor=\"middle\">n = 32</text><rect class=\"an-seg an-seg-res-mais3\" x=\"4\" y=\"298\" width=\"20\" height=\"14\" rx=\"2\" fill=\"url(#pt-ID-res-mais3)\"/><text class=\"an-leg\" x=\"30\" y=\"309\">Muito acima do esperado (+)</text><rect class=\"an-seg an-seg-res-mais2\" x=\"216\" y=\"298\" width=\"20\" height=\"14\" rx=\"2\" fill=\"url(#pt-ID-res-mais2)\"/><text class=\"an-leg\" x=\"242\" y=\"309\">Acima do esperado (+)</text><rect class=\"an-seg an-seg-res-zero\" x=\"428\" y=\"298\" width=\"20\" height=\"14\" rx=\"2\" fill=\"url(#pt-ID-res-zero)\"/><text class=\"an-leg\" x=\"454\" y=\"309\">Dentro do esperado</text><rect class=\"an-seg an-seg-res-menos2\" x=\"4\" y=\"320\" width=\"20\" height=\"14\" rx=\"2\" fill=\"url(#pt-ID-res-menos2)\"/><text class=\"an-leg\" x=\"30\" y=\"331\">Abaixo do esperado (−)</text><rect class=\"an-seg an-seg-res-menos3\" x=\"216\" y=\"320\" width=\"20\" height=\"14\" rx=\"2\" fill=\"url(#pt-ID-res-menos3)\"/><text class=\"an-leg\" x=\"242\" y=\"331\">Muito abaixo do esperado (−)</text></svg>",
+ "grafico_custos": "<svg class=\"grafico\" viewBox=\"0 0 620 68\" role=\"img\" aria-labelledby=\"gt-ID gd-ID\"><title id=\"gt-ID\">§TITULO§</title><desc id=\"gd-ID\">Custo registrado em US$ por etapa e ferramenta</desc><text class=\"gr-rotulo\" x=\"275\" y=\"23\" text-anchor=\"end\">busca de literatura na web · perplexity…</text><rect class=\"gr-barra\" x=\"285\" y=\"7\" width=\"265.0\" height=\"21\" rx=\"3\"><title>busca de literatura na web · perplexity_search: US$ 0,63</title></rect><text class=\"gr-valor\" x=\"558.0\" y=\"23\">US$ 0,63</text><text class=\"gr-rotulo\" x=\"275\" y=\"53\" text-anchor=\"end\">triagem de escopo · gemini:m</text><rect class=\"gr-barra\" x=\"285\" y=\"37\" width=\"155.6\" height=\"21\" rx=\"3\"><title>triagem de escopo · gemini:m: US$ 0,37</title></rect><text class=\"gr-valor\" x=\"448.6\" y=\"53\">US$ 0,37</text></svg>",
+ "grafico_temporal": "<svg class=\"an-svg an-areas\" viewBox=\"0 0 640 290\" role=\"img\" aria-labelledby=\"at-ID ad-ID\"><title id=\"at-ID\">§TITULO§</title><desc id=\"ad-ID\">Artigos por ano de publicação e grupo de termo</desc><defs><pattern id=\"pt-ID-s0\" width=\"1\" height=\"1\" patternUnits=\"userSpaceOnUse\"><rect class=\"an-bg an-bg-s0\" width=\"1\" height=\"1\"/></pattern></defs><line class=\"an-grade\" x1=\"52\" x2=\"620\" y1=\"236\" y2=\"236\"/><text class=\"an-eixo-val\" x=\"46\" y=\"240\" text-anchor=\"end\">0</text><line class=\"an-grade\" x1=\"52\" x2=\"620\" y1=\"162\" y2=\"162\"/><text class=\"an-eixo-val\" x=\"46\" y=\"166\" text-anchor=\"end\">200</text><line class=\"an-grade\" x1=\"52\" x2=\"620\" y1=\"88\" y2=\"88\"/><text class=\"an-eixo-val\" x=\"46\" y=\"92\" text-anchor=\"end\">400</text><line class=\"an-grade\" x1=\"52\" x2=\"620\" y1=\"14\" y2=\"14\"/><text class=\"an-eixo-val\" x=\"46\" y=\"18\" text-anchor=\"end\">600</text><text class=\"an-eixo-val\" x=\"52\" y=\"252\" text-anchor=\"middle\">2023</text><text class=\"an-eixo-val\" x=\"336\" y=\"252\" text-anchor=\"middle\">2024</text><text class=\"an-eixo-val\" x=\"620\" y=\"252\" text-anchor=\"middle\">2025</text><g><title>G: 1.156 no período</title><polygon class=\"an-area-s\" points=\"52,125 336,44 620,111.3 620,236 336,236 52,236\" fill=\"url(#pt-ID-s0)\"/></g><g><title>G: 1.156</title><rect class=\"an-area-s\" x=\"4\" y=\"266\" width=\"18\" height=\"12\" rx=\"2\" fill=\"url(#pt-ID-s0)\"/><text class=\"an-leg\" x=\"28\" y=\"276\">G</text></g></svg>",
+ "grafico_relevancia": "<svg class=\"an-svg an-proporcao\" viewBox=\"0 0 650 88\" role=\"img\" aria-labelledby=\"at-ID ad-ID\"><title id=\"at-ID\">§TITULO§</title><desc id=\"ad-ID\">Parte dos itens de cada ferramenta com relevância alta ou média</desc><g><title>Web · perplexity_search: 199 de 199 (100%)</title><text class=\"an-rot\" x=\"230\" y=\"24\" text-anchor=\"end\">Web · perplexity_search</text><rect class=\"an-bar-fundo\" x=\"240\" y=\"10\" width=\"230\" height=\"18\" rx=\"3\"/><rect class=\"an-bar-parte\" x=\"240\" y=\"10\" width=\"230\" height=\"18\" rx=\"3\"/><text class=\"an-val\" x=\"480\" y=\"24\">199 de 199 (100%)</text></g><g><title>Scholar · serpapi_scholar: 468 de 521 (90%)</title><text class=\"an-rot\" x=\"230\" y=\"52\" text-anchor=\"end\">Scholar · serpapi_scholar</text><rect class=\"an-bar-fundo\" x=\"240\" y=\"38\" width=\"230\" height=\"18\" rx=\"3\"/><rect class=\"an-bar-parte\" x=\"240\" y=\"38\" width=\"206.6\" height=\"18\" rx=\"3\"/><text class=\"an-val\" x=\"480\" y=\"52\">468 de 521 (90%)</text></g><rect class=\"an-bar-parte\" x=\"240\" y=\"68\" width=\"14\" height=\"12\" rx=\"2\"/><text class=\"an-leg\" x=\"260\" y=\"78\">Alta ou média</text><rect class=\"an-bar-fundo\" x=\"370\" y=\"68\" width=\"14\" height=\"12\" rx=\"2\"/><text class=\"an-leg\" x=\"390\" y=\"78\">Baixa ou fora do escopo</text></svg>"
+}

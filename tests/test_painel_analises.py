@@ -98,7 +98,7 @@ def test_maturidade_conta_ufs_em_uso_e_avisa_quando_nao_ha_humano():
                      {"uf": "SP", "regiao": "Sudeste", "tecnologia": "leitura_placas", "status_max": "piloto",
                       "peso": 4, "por_status": {"piloto": 1}, "n_achados": 1, "n_verificados": 0}]}
     bl = b.bloco_maturidade(d)
-    assert bl["titulo"].startswith("1 de 3 UFs") and "nos demais, o do modelo" in bl["titulo"]
+    assert bl["titulo"].startswith("Segundo o modelo, 1 de 3 UFs") and "nenhum achado foi verificado por pessoa" in bl["titulo"]
     assert bl["aviso"] and "<svg" in str(bl["grafico"])
 
 
@@ -114,7 +114,8 @@ def test_regiao_tecnologia_usa_qui_quadrado_e_selo():
         "n": 90}}
     bl = b.bloco_regiao_tecnologia(d)
     assert bl["selo"]["classe"] == "ev-forte"
-    assert "muda de uma região para outra" in bl["titulo"]
+    assert bl["titulo"].startswith("Análise exploratória (rótulos do modelo, sem verificação humana)")
+    assert "varia entre as regiões" in bl["titulo"]
     assert any("achado, não a UF" in t for t in bl["texto"])
 
 
@@ -123,7 +124,7 @@ def test_regiao_tecnologia_com_pouca_amostra_usa_monte_carlo_e_nao_afirma():
                                             "tabela": [[1, 1], [1, 1]], "n": 4}}
     bl = b.bloco_regiao_tecnologia(d)
     assert "Monte Carlo" in " ".join(v for _, v in bl["pares"])
-    assert "Sem evidência suficiente" in bl["titulo"]
+    assert "sem evidência suficiente" in bl["titulo"] and bl["titulo"].startswith("Análise exploratória")
 
 
 def test_falsa_exclusao_sem_humano_nao_mostra_numero():
@@ -207,13 +208,14 @@ def test_hipoteses_dependem_de_humano_e_de_dois_buscadores():
     res = {"tem_dados_humanos_achados": False, "tem_dados_humanos_artigos": False}
     bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "x"}]})
     situacao = {l[0][:2]: l[1] for l in bl["tabela"]["linhas"]}
-    assert situacao["H1"] == "pode ser feita" and situacao["H6"] == "pode ser feita"
+    assert situacao["H1"] == "exploratória" and situacao["H6"] == "exploratória"
     assert all(situacao[h].startswith("aguarda") for h in ("H2", "H3", "H4", "H5"))
     res = {"tem_dados_humanos_achados": True, "tem_dados_humanos_artigos": True}
     so_elegiveis = b.bloco_hipoteses(res, {"provedores": []}, {"tem_excluidos_checados": False})
     assert {l[0][:2]: l[1] for l in so_elegiveis["tabela"]["linhas"]}["H4"].startswith("aguarda")
     bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]}, {"tem_excluidos_checados": True})
-    assert all(l[1] == "pode ser feita" for l in bl["tabela"]["linhas"])
+    assert {l[0][:2]: l[1] for l in bl["tabela"]["linhas"]} == {"H1": "exploratória", "H2": "pode ser feita", "H3": "pode ser feita",
+                                                               "H4": "pode ser feita", "H5": "pode ser feita", "H6": "exploratória"}
 
 
 def test_blocos_aceitam_dicionarios_vazios():

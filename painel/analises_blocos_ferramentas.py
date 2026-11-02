@@ -24,6 +24,24 @@ def _nome(l):
     return f"{rotulos.ETAPAS.get(l['etapa'], l['etapa'])} · {l['ferramenta']}"
 
 
+def _juntar_e(itens):
+    itens = [str(x) for x in itens]
+    if not itens:
+        return ""
+    if len(itens) == 1:
+        return itens[0]
+    return f"{', '.join(itens[:-1])} e {itens[-1]}"
+
+
+def _eh_maioria(parte, total):
+    """Uma parcela e maioria quando a porcentagem exibida por fmt.pct(parte, total) e maior que 50."""
+    if not total:
+        return False
+    texto_pct = fmt.pct(parte, total)
+    digitos = "".join(c for c in texto_pct if c.isdigit())
+    return int(digitos) > 50 if digitos else False
+
+
 def bloco_ferramentas_busca(linhas, custos=True):
     """As buscas: resultados brutos, itens unicos (o que sobra depois de juntar as repeticoes) e custo de cada ferramenta."""
     buscas = [l for l in linhas if l["busca"] and l["chamadas"]]
@@ -68,14 +86,25 @@ def bloco_custos(linhas, custos=True):
                       ["Falha é a chamada sem resposta aproveitável (erro, cota, bloqueio); ela fica registrada."],
                       tabela=tabela)
 
-    com_custo = [l for l in linhas if l["custo_usd"]]
+    com_custo = [l for l in linhas if l.get("custo_usd")]
     if not linhas:
         return _bloco("ferramentas-custos", "Nenhuma chamada registrada nas execuções do relatório")
     total = sum(l["custo_usd"] for l in linhas)
     if com_custo:
-        maior = max(com_custo, key=lambda l: (l["custo_usd"], l["etapa"]))
-        titulo = (f"O custo registrado foi {_usd(total)}; a maior parte ({_pct(maior['custo_usd'], total)}) "
-                  f"na {rotulos.ETAPAS.get(maior['etapa'], maior['etapa'])}")
+        max_custo = max(l["custo_usd"] for l in com_custo)
+        empate = [l for l in com_custo if l["custo_usd"] == max_custo]
+        pct = fmt.pct(max_custo, total)
+        if len(empate) > 1:
+            etapas = _juntar_e(sorted(_nome(l) for l in empate))
+            titulo = f"O custo registrado foi {_usd(total)}; empate na maior parcela ({pct} cada): {etapas}"
+        elif _eh_maioria(max_custo, total):
+            maior = empate[0]
+            titulo = (f"O custo registrado foi {_usd(total)}; a maior parte ({pct}) "
+                      f"na {rotulos.ETAPAS.get(maior['etapa'], maior['etapa'])}")
+        else:
+            maior = empate[0]
+            titulo = (f"O custo registrado foi {_usd(total)}; a maior parcela ({pct}) "
+                      f"na {rotulos.ETAPAS.get(maior['etapa'], maior['etapa'])}")
     else:
         titulo = "Nenhuma chamada com custo em dólar registrado"
     graf = graficos.barras_horizontais([(_nome(l), round(l["custo_usd"], 4)) for l in com_custo], titulo,

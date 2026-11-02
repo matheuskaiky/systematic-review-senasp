@@ -192,23 +192,23 @@ def test_gerar_mostra_o_token_uma_vez_e_grava_so_o_hash(adm):
     _permitir_envio(contas, contas_db)
     _como_maria(cli, contas_db)
     h = cli.get("/conta").text
-    assert "Você não tem token ativo." in h and '<button class="botao" type="submit">Gerar token</button>' in h
+    assert "Você não tem chave de envio ativa." in h and '<button class="botao" type="submit">Gerar a chave de envio</button>' in h
     r = _gerar(cli)
     assert r.status_code == 200 and r.headers.get("cache-control") == "no-store"
     achados = FORMATO.findall(r.text)
     assert len(set(achados)) == 1
     token = achados[0]
     assert f'<code id="token-novo" class="token-novo">{token}</code>' in r.text and r.text.count(token) == 1
-    assert "Copie o token agora: ele não aparece de novo.</strong> Não recarregue esta página: recarregar gera outro token." in r.text
+    assert "Copie a chave agora: ela não aparece de novo.</strong> Não recarregue esta página: recarregar gera outra chave." in r.text
     caixa = r.text[r.text.rindex("<div", 0, r.text.index('id="token-novo"')):r.text.index('id="token-novo"')]
     assert caixa.startswith('<div class="aviso ok">') and "role=" not in caixa and "aria-live" not in caixa  # o leitor de tela nao le o token
-    assert 'data-copiar="token-novo" data-aviso="token-aviso" hidden>Copiar token</button>' in r.text
+    assert 'data-copiar="token-novo" data-aviso="token-aviso" hidden>Copiar a chave</button>' in r.text
     assert 'src="/static/copiar.js"' in r.text and token not in str(r.cookies) and "location" not in r.headers
     assert _hash_gravado(contas_db, "maria") == [(hashlib.sha256(token.encode()).hexdigest(), token[:12])]
     depois = cli.get("/conta")
     assert token not in depois.text and depois.headers.get("cache-control") == "no-store"
-    assert f"Ativo, começa com <code>{token[:12]}</code>" in depois.text and "<dd>nunca usado</dd>" in depois.text
-    assert '<button class="botao" type="submit">Gerar outro token (o atual deixa de valer)</button>' in depois.text
+    assert f"Ativa, começa com <code>{token[:12]}</code>" in depois.text and "<dd>nunca usada</dd>" in depois.text
+    assert '<button class="botao" type="submit">Gerar outra chave (a atual deixa de valer)</button>' in depois.text
     outro = FORMATO.findall(_gerar(cli).text)[0]
     assert outro != token and _hash_gravado(contas_db, "maria") == [(hashlib.sha256(outro.encode()).hexdigest(), outro[:12])]
 
@@ -218,7 +218,7 @@ def test_gerar_sem_formulario_valido_e_recusado(adm):
     _permitir_envio(contas, contas_db)
     _como_maria(cli, contas_db)
     r = cli.post("/conta/token", data={"csrf": "errado"}, follow_redirects=False)
-    assert r.status_code == 403 and "O token de segurança não confere." in r.text and r.headers.get("cache-control") == "no-store"
+    assert r.status_code == 403 and "A verificação de segurança do formulário falhou." in r.text and r.headers.get("cache-control") == "no-store"
     r = cli.post("/conta/token/revogar", data={"csrf": "errado"}, follow_redirects=False)
     assert r.status_code == 403 and r.headers.get("cache-control") == "no-store"
     r = cli.post("/conta/token", data={"csrf": _csrf(cli, "/conta")}, headers={"Origin": "https://outro-site.example"},
@@ -234,10 +234,10 @@ def test_revogar_o_proprio_token(adm):
     _gerar(cli)
     r = cli.post("/conta/token/revogar", data={"csrf": _csrf(cli, "/conta")}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/conta?ok=revogado" and r.headers.get("cache-control") == "no-store"
-    assert "Token revogado: ele não envia mais nada." in cli.get("/conta?ok=revogado").text and _hash_gravado(contas_db, "maria") == []
+    assert "Chave de envio revogada: ela não envia mais nada." in cli.get("/conta?ok=revogado").text and _hash_gravado(contas_db, "maria") == []
     r = cli.post("/conta/token/revogar", data={"csrf": _csrf(cli, "/conta")}, follow_redirects=False)
-    assert r.headers["location"] == "/conta?ok=sem-token" and "Você não tinha token ativo." in cli.get("/conta?ok=sem-token").text
-    assert "Token revogado" not in cli.get("/conta?ok=outra-coisa").text
+    assert r.headers["location"] == "/conta?ok=sem-token" and "Você não tinha chave de envio ativa." in cli.get("/conta?ok=sem-token").text
+    assert "Chave de envio revogada" not in cli.get("/conta?ok=outra-coisa").text
 
 
 def test_quem_perdeu_a_permissao_ainda_revoga(adm):
@@ -247,7 +247,7 @@ def test_quem_perdeu_a_permissao_ainda_revoga(adm):
     _gerar(cli)
     contas.definir_permissoes(_gid(contas_db, "Revisor"), set(A.GRUPOS_PADRAO["Revisor"]))
     h = cli.get("/conta").text
-    assert "Seu grupo não tem mais a permissão de enviar coletas: o token não envia nada. Você pode revogá-lo." in h
+    assert "Seu grupo não tem mais a permissão de enviar coletas: a chave não envia nada. Você pode revogá-la." in h
     assert 'action="/conta/token"' not in h and 'action="/conta/token/revogar"' in h
     assert _gerar(cli).status_code == 403
     r = cli.post("/conta/token/revogar", data={"csrf": _csrf(cli, "/conta")}, follow_redirects=False)
@@ -263,24 +263,24 @@ def test_admin_ve_e_revoga_sem_ver_o_valor(adm):
     _entrar(cli, "chefe")
     uid = _uid(contas_db, "maria")
     lista = cli.get("/admin/usuarios").text
-    assert '<th scope="col">Token de envio</th>' in lista
+    assert '<th scope="col">Chave de envio</th>' in lista
     linhas = {re.search(r'href="/admin/usuarios/\d+">([^<]+)</a>', l).group(1): re.findall(r"<td>([^<]*)</td>", l)[-1]
               for l in re.findall(r"<tr>\s*<td><a href=\"/admin/usuarios/\d+\">.*?</tr>", lista, re.S)}
     assert re.fullmatch(r"desde \d{2}/\d{2}/\d{4} \d{2}:\d{2}", linhas["maria"]) and linhas["chefe"] == "—"
     ficha = cli.get(f"/admin/usuarios/{uid}").text
-    assert f"Ativo, começa com <code>{token[:12]}</code>" in ficha and token not in ficha and token not in lista
+    assert f"Ativa, começa com <code>{token[:12]}</code>" in ficha and token not in ficha and token not in lista
     r = cli.post(f"/admin/usuarios/{uid}", data={"acao": "revogar_token", "csrf": _csrf(cli, f"/admin/usuarios/{uid}")},
                  follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == f"/admin/usuarios/{uid}?ok=1"
     assert _hash_gravado(contas_db, "maria") == []
-    assert "Sem token ativo." in cli.get(f"/admin/usuarios/{uid}").text
+    assert "Sem chave de envio ativa." in cli.get(f"/admin/usuarios/{uid}").text
     acoes = sqlite3.connect(contas_db).execute("SELECT admin_login, acao, alvo FROM auditoria_admin WHERE acao LIKE '%token' "
                                                "ORDER BY id").fetchall()
     assert acoes == [("maria", "gerar_token", "maria"), ("chefe", "revogar_token", "maria")]
     r = cli.post(f"/admin/usuarios/{uid}", data={"acao": "revogar_token", "csrf": _csrf(cli, f"/admin/usuarios/{uid}")},
                  follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == f"/admin/usuarios/{uid}?ok=sem-token"
-    assert "O usuário não tinha token ativo." in cli.get(r.headers["location"]).text
+    assert "O usuário não tinha chave de envio ativa." in cli.get(r.headers["location"]).text
     assert len(sqlite3.connect(contas_db).execute(
         "SELECT 1 FROM auditoria_admin WHERE acao = 'revogar_token'").fetchall()) == 1   # revogar sem token nao audita
 
@@ -289,10 +289,10 @@ def test_admin_textos_sem_token(adm):
     cli, contas, contas_db, _ = adm
     _criar(cli, contas_db)
     uid, chefe = _uid(contas_db, "maria"), _uid(contas_db, "chefe")
-    assert "Sem token ativo. Gere o seu na página <a href=\"/conta\">Minha conta</a>." in cli.get(f"/admin/usuarios/{chefe}").text
-    assert "O próprio usuário gera o token na página Minha conta" in cli.get(f"/admin/usuarios/{uid}").text
+    assert "Sem chave de envio ativa. Gere a sua na página <a href=\"/conta\">Minha conta</a>." in cli.get(f"/admin/usuarios/{chefe}").text
+    assert "O próprio usuário gera a chave na página Minha conta" in cli.get(f"/admin/usuarios/{uid}").text
     contas.definir_ativo(uid, 0)
-    assert "Sem token ativo. Conta desativada: não pode ter token." in cli.get(f"/admin/usuarios/{uid}").text
+    assert "Sem chave de envio ativa. Conta desativada: não pode ter chave de envio." in cli.get(f"/admin/usuarios/{uid}").text
 
 
 def test_banco_de_contas_ocupado(adm, monkeypatch):
@@ -309,7 +309,7 @@ def test_banco_de_contas_ocupado(adm, monkeypatch):
     assert "O banco de contas está ocupado. Tente de novo em alguns segundos." in r.text
     r = cli.post("/conta/token", data={"csrf": csrf}, follow_redirects=False)   # gravou: mostra sem ler de novo
     token = FORMATO.findall(r.text)[0]
-    assert r.status_code == 200 and f"Ativo, começa com <code>{token[:12]}</code>" in r.text
+    assert r.status_code == 200 and f"Ativa, começa com <code>{token[:12]}</code>" in r.text
     assert _hash_gravado(contas_db, "maria") == [(hashlib.sha256(token.encode()).hexdigest(), token[:12])]
     monkeypatch.setattr(type(contas), "gravar_token", ocupado)
     r = cli.post("/conta/token", data={"csrf": csrf}, follow_redirects=False)
@@ -328,7 +328,7 @@ def test_conta_desativada_no_meio_do_caminho(adm, monkeypatch):
         raise ValueError("Conta inexistente ou desativada: não pode ter token.")
     monkeypatch.setattr(type(contas), "gravar_token", desativada)
     r = _gerar(cli)
-    assert r.status_code == 403 and "Esta conta foi desativada e não pode ter token." in r.text and not FORMATO.search(r.text)
+    assert r.status_code == 403 and "Esta conta foi desativada e não pode ter chave de envio." in r.text and not FORMATO.search(r.text)
     assert r.headers.get("cache-control") == "no-store"
 
 

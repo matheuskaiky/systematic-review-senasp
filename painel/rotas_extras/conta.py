@@ -7,7 +7,7 @@ from starlette.responses import RedirectResponse
 
 from dominio import autenticacao
 
-AVISOS = {"revogado": "Token revogado: ele não envia mais nada.", "sem-token": "Você não tinha token ativo."}
+AVISOS = {"revogado": "Chave de envio revogada: ela não envia mais nada.", "sem-token": "Você não tinha chave de envio ativa."}
 
 
 def registrar(c) -> None:
@@ -54,7 +54,7 @@ def registrar(c) -> None:
         except autenticacao.ContasOcupadas:
             return _ocupado(request)
         except ValueError:                                       # a conta foi desativada depois de abrir a pagina
-            return _sem_cache(c.erro(request, 403, "Conta desativada", "Esta conta foi desativada e não pode ter token."))
+            return _sem_cache(c.erro(request, 403, "Conta desativada", "Esta conta foi desativada e não pode ter chave de envio."))
         return _pagina(request, token_novo=token,
                        token={"inicio": autenticacao.inicio_do_token(token), "criado_em": agora, "ultimo_uso": None})
 

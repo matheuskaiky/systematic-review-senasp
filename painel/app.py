@@ -436,7 +436,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         if not _mesma_origem(request):
             return erro(request, 403, "Pedido recusado", "O pedido veio de outro site ou de outra porta, não deste painel.")
         if not csrf or not hmac.compare_digest(csrf.encode("utf-8"), (ler_cookie(request)[0] or "").encode("utf-8")):
-            return erro(request, 403, "Formulário recusado", "O token de segurança não confere. Recarregue a página e tente de novo.")
+            return erro(request, 403, "Formulário recusado", "A verificação de segurança do formulário falhou. Recarregue a página e tente de novo.")
         return None
 
     @app.exception_handler(RequestValidationError)

@@ -20,8 +20,8 @@ from dominio.pacote_coleta import ErroPacote
 MAX_CORPO = 16 * 1024 * 1024              # bytes recebidos (a maior execucao real tem 2,3 MB compactada)
 MAX_DESCOMPACTADO = 64 * 1024 * 1024      # bytes depois do gzip (a maior tem 12,7 MB em JSON); cabe na memoria da instancia
 
-SEM_TOKEN = "Token ausente: mande o cabeçalho Authorization: Bearer <token>."
-TOKEN_INVALIDO = "Token inválido ou revogado: gere outro na página Minha conta."
+SEM_TOKEN = "Chave de envio ausente: mande o cabeçalho Authorization: Bearer <chave>."
+TOKEN_INVALIDO = "Chave de envio inválida ou revogada: gere outra na página Minha conta."
 SEM_PERMISSAO = "Sua conta não tem a permissão de enviar coletas."
 CONTAS_OCUPADAS = "O banco de contas está ocupado. Tente de novo em alguns segundos."
 GRANDE_DEMAIS = "Pacote grande demais: o limite é 16 MB compactado e 64 MB descompactado."

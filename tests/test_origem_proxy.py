@@ -16,7 +16,7 @@ PROPRIO = "https://revisao.exemplo.br"                     # dominio proprio fut
 TOKEN = r"[A-Za-z0-9_-]{43}"
 FONTE = "inter-latin-wght-normal.woff2"
 RECUSA_ORIGEM = "O pedido veio de outro site ou de outra porta, não deste painel."
-RECUSA_TOKEN = "O token de segurança não confere. Recarregue a página e tente de novo."
+RECUSA_TOKEN = "A verificação de segurança do formulário falhou. Recarregue a página e tente de novo."
 
 
 def _app(servidor, monkeypatch, origens=f" {FIREBASE} , {FIREBASE2} ,"):

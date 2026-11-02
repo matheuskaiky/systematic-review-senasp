@@ -14,37 +14,37 @@
 </section>
 
 {% if pode_enviar or token %}
-<section class="cartao"><h2 data-ic="lock" data-tom="cobalto">Token de envio</h2>
-<p>O token deixa a coleta feita no seu computador enviar os resultados para este painel. Ele vale como a sua senha para esse envio: guarde-o só no seu computador e não o mande a ninguém.</p>
+<section class="cartao"><h2 data-ic="lock" data-tom="cobalto">Chave de envio (token)</h2>
+<p>A chave de envio permite que a coleta executada no seu computador envie os resultados para esta plataforma. Ela vale como a sua senha para esse envio: guarde-a só no seu computador e não a mande a ninguém.</p>
 {% if token_novo %}
 <div class="aviso ok">
-  <p><strong>Copie o token agora: ele não aparece de novo.</strong> Não recarregue esta página: recarregar gera outro token. Se perder, gere outro (o atual deixa de valer).</p>
+  <p><strong>Copie a chave agora: ela não aparece de novo.</strong> Não recarregue esta página: recarregar gera outra chave. Se perder, gere outra (a atual deixa de valer).</p>
   <p><code id="token-novo" class="token-novo">{{ token_novo }}</code></p>
-  <p><button type="button" class="botao" data-copiar="token-novo" data-aviso="token-aviso" hidden>Copiar token</button>
+  <p><button type="button" class="botao" data-copiar="token-novo" data-aviso="token-aviso" hidden>Copiar a chave</button>
   <span id="token-aviso" role="status" aria-live="polite"></span></p>
 </div>
 {% endif %}
 {% if token %}
 <dl class="ficha">
-  <dt>Situação</dt><dd>Ativo, começa com <code>{{ token.inicio }}</code></dd>
-  <dt>Criado em</dt><dd>{{ fmt.data_hora(token.criado_em) }}</dd>
-  <dt>Último uso</dt><dd>{{ fmt.data_hora(token.ultimo_uso) if token.ultimo_uso else "nunca usado" }}</dd>
+  <dt>Situação</dt><dd>Ativa, começa com <code>{{ token.inicio }}</code></dd>
+  <dt>Criada em</dt><dd>{{ fmt.data_hora(token.criado_em) }}</dd>
+  <dt>Último uso</dt><dd>{{ fmt.data_hora(token.ultimo_uso) if token.ultimo_uso else "nunca usada" }}</dd>
 </dl>
 {% else %}
-<p>Você não tem token ativo.</p>
+<p>Você não tem chave de envio ativa.</p>
 {% endif %}
 {% if pode_enviar %}
 <form method="post" action="/conta/token">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <button class="botao" type="submit">{{ "Gerar outro token (o atual deixa de valer)" if token else "Gerar token" }}</button>
+  <button class="botao" type="submit">{{ "Gerar outra chave (a atual deixa de valer)" if token else "Gerar a chave de envio" }}</button>
 </form>
 {% else %}
-<p><small>Seu grupo não tem mais a permissão de enviar coletas: o token não envia nada. Você pode revogá-lo.</small></p>
+<p><small>Seu grupo não tem mais a permissão de enviar coletas: a chave não envia nada. Você pode revogá-la.</small></p>
 {% endif %}
 {% if token %}
 <form method="post" action="/conta/token/revogar">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <button class="botao perigo" type="submit">Revogar token</button>
+  <button class="botao perigo" type="submit">Revogar a chave</button>
 </form>
 {% endif %}
 </section>

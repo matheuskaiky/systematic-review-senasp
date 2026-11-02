@@ -55,7 +55,7 @@ PERMISSOES = {
     "triar_artigos": "Triar artigos por título e resumo",
     "triar_texto_completo": "Triar artigos por texto completo",
     "ver_estatisticas_usuarios": "Ver as estatísticas por usuário",
-    "enviar_coletas": "Gerar o próprio token e enviar coletas do computador local para a nuvem",
+    "enviar_coletas": "Gerar a própria chave de envio e enviar coletas do computador local para a nuvem",
     "ver_registros_revisao": "Ver observações e motivos das decisões",
     "ver_custos": "Ver custos das execuções",
 }

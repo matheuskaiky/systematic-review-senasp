@@ -433,8 +433,9 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
                                              WHERE o.artigo_id=? ORDER BY o.termo_id, o.ocorrencia_id""", (artigo_id,))
         a["manuais"] = self._consulta("""SELECT base, termo_id, data_busca, posicao FROM ocorrencias_manuais
                                          WHERE artigo_id=? ORDER BY base, termo_id""", (artigo_id,))
+        # a revisao independente (cega, so para o kappa) nao aparece aqui: um revisor nao ve a decisao do outro antes do consenso
         a["historico"] = self._consulta("""SELECT revisor, decisao, motivo, decisao_texto_completo, motivo_texto_completo, importado_em,
-                                                  independente FROM triagem_revisoes WHERE artigo_id=? ORDER BY revisao_id DESC""", (artigo_id,))
+                                                  independente FROM triagem_revisoes WHERE artigo_id=? AND independente=0 ORDER BY revisao_id DESC""", (artigo_id,))
         return a
 
     def contagem_triagem(self):

@@ -225,7 +225,7 @@ def test_sem_autenticacao_nao_ha_sugestoes(demo, tmp_path):
     h = cli.get(f"/achados/{a}").text
     csrf = re.search(r'name="csrf" value="([^"]+)"', h).group(1)
     r = cli.post(f"/achados/{a}/sugerir", data={"valor": "descartado", "estado": "x", "csrf": csrf}, follow_redirects=False)
-    assert r.status_code == 404 and "As sugestões só existem quando o painel usa login." in r.text
+    assert r.status_code == 404 and "As sugestões só existem quando o painel exige entrada com usuário e senha." in r.text
 
 
 def test_administrador_nao_aceita_a_propria_sugestao(equipe):
@@ -355,7 +355,7 @@ def test_sem_autenticacao_resolver_tambem_e_404(demo, tmp_path):
     csrf = re.search(r'name="csrf" value="([^"]+)"', cli.get(f"/achados/{a}").text).group(1)
     for url in (f"/achados/{a}/sugestoes/1/aceitar", f"/literatura/artigos/{art}/sugerir", f"/literatura/artigos/{art}/sugestoes/1/descartar"):
         r = cli.post(url, data={"csrf": csrf}, follow_redirects=False)
-        assert r.status_code == 404 and "As sugestões só existem quando o painel usa login." in r.text, url
+        assert r.status_code == 404 and "As sugestões só existem quando o painel exige entrada com usuário e senha." in r.text, url
 
 
 @pytest.mark.parametrize("metodo,caminho,esperado", [
@@ -398,4 +398,4 @@ def test_sem_autenticacao_vem_antes_da_acao_invalida(demo, tmp_path):
     a = _um(copia, "SELECT MIN(achado_id) FROM achados")[0]
     csrf = re.search(r'name="csrf" value="([^"]+)"', cli.get(f"/achados/{a}").text).group(1)
     r = cli.post(f"/achados/{a}/sugestoes/1/xyz", data={"csrf": csrf}, follow_redirects=False)
-    assert r.status_code == 404 and "As sugestões só existem quando o painel usa login." in r.text
+    assert r.status_code == 404 and "As sugestões só existem quando o painel exige entrada com usuário e senha." in r.text

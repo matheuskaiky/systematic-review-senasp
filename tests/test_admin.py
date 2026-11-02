@@ -18,7 +18,7 @@ from test_painel import demo  # noqa: F401
 from test_painel_acessibilidade import verificar
 
 SENHA = "senha-de-teste-123"
-MSG_LOGIN = "O login deve ter de 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."
+MSG_LOGIN = "O nome de usuário deve ter de 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."
 HOJE = datetime.now(timezone.utc).date()
 
 
@@ -94,7 +94,7 @@ def test_admin_redireciona_lista_e_links(adm):
     r = cli.get("/admin", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/admin/usuarios"
     h = cli.get("/admin/usuarios").text
-    assert re.findall(r"<th[^>]*>([^<]+)</th>", h)[:5] == ["Login", "Nome", "Grupo", "Situação", "Último acesso"]
+    assert re.findall(r"<th[^>]*>([^<]+)</th>", h)[:5] == ["Usuário", "Nome", "Grupo", "Situação", "Último acesso"]
     inicio = cli.get("/").text
     assert 'class="conta-admin" href="/admin"' in inicio and 'class="conta-estatisticas" href="/estatisticas-usuarios"' in inicio
     nav = inicio[inicio.index("<nav"):inicio.index("</nav>")]

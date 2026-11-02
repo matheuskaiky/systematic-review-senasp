@@ -459,7 +459,7 @@ class ContasSQLite:
         """Cria novo usuário validando login único, nome único insensível e grupo existente nesta ordem."""
         with self._conexao(escrita=True) as conn:
             if conn.execute("SELECT 1 FROM usuarios WHERE login = ?", (login,)).fetchone():
-                raise ValueError(f"Login já existe: {login}")
+                raise ValueError(f"Nome de usuário já existe: {login}")
             nome_cf = nome.casefold()
             for row in conn.execute("SELECT nome FROM usuarios").fetchall():
                 if row[0].casefold() == nome_cf:
@@ -481,7 +481,7 @@ class ContasSQLite:
         """Edita login, nome e grupo do usuário validando unicidade e existência do grupo."""
         with self._conexao(escrita=True) as conn:
             if conn.execute("SELECT 1 FROM usuarios WHERE login = ? AND usuario_id != ?", (login, usuario_id)).fetchone():
-                raise ValueError(f"Login já existe: {login}")
+                raise ValueError(f"Nome de usuário já existe: {login}")
             nome_cf = nome.casefold()
             for row in conn.execute("SELECT usuario_id, nome FROM usuarios WHERE usuario_id != ?", (usuario_id,)).fetchall():
                 if row[1].casefold() == nome_cf:

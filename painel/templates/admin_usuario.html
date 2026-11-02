@@ -16,7 +16,7 @@
 <form method="post" action="/admin/usuarios/{{ alvo.usuario_id }}" class="form-admin">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="acao" value="dados">
-  <label for="login">Login</label>
+  <label for="login">Usuário</label>
   <input type="text" id="login" name="login" maxlength="40" required value="{{ form.login }}">
 
   <label for="nome">Nome</label>

@@ -41,7 +41,7 @@
     {% set campo_invalido = erro == "credenciais" %}
     <section class="entrada-cartao" aria-labelledby="t-entrar">
       <h1 id="t-entrar">Entrar</h1>
-      <p class="sub">Use o login e a senha enviados pela coordenação da pesquisa.</p>
+      <p class="sub">Use o usuário e a senha enviados pela coordenação da pesquisa.</p>
       {% if sem_admin %}
       <div class="aviso" role="status"><strong>Nenhum administrador cadastrado.</strong> Crie um com: <code>python main.py usuario-admin --login &lt;login&gt; --nome &lt;nome&gt;{% if simulado %} --simulado{% endif %}{% if ctx.banco == "vies" %} --banco vies{% endif %}</code></div>
       {% endif %}
@@ -51,7 +51,7 @@
       <div class="aviso ok" role="status"><strong>Você saiu.</strong> Para voltar à revisão, entre de novo.</div>
       {% endif %}
       {% if erro == "credenciais" %}
-      <div class="aviso erro" id="erro-login" role="alert"><strong>Login ou senha incorretos.</strong> Confira os dois campos e tente de novo.</div>
+      <div class="aviso erro" id="erro-login" role="alert"><strong>Usuário ou senha incorretos.</strong> Confira os dois campos e tente de novo.</div>
       {% elif erro == "limite" %}
       <div class="retorno bloqueio" id="erro-login" role="alert"><p class="retorno-texto"><strong>Muitas tentativas. Tente de novo em alguns minutos.</strong><small>Por segurança, o acesso fica bloqueado por {{ minutos_bloqueio }} minutos depois de {{ falhas_bloqueio }} senhas erradas seguidas.</small></p></div>
       {% endif %}
@@ -59,7 +59,7 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <input type="hidden" name="proximo" value="{{ proximo }}">
         <div class="campo">
-          <label for="login">Login</label>
+          <label for="login">Usuário</label>
           <div class="campo-controle" data-ic="user">
             <input id="login" name="login" type="text" value="{{ login_digitado }}" autocomplete="username" autocapitalize="none" spellcheck="false" required{% if campo_invalido %} aria-invalid="true" aria-describedby="erro-login"{% endif %}>
           </div>

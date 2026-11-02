@@ -181,7 +181,7 @@ def test_login_inexistente_e_inativo_conferem_contra_o_hash_ficticio(painel, mon
     for login in ("ninguem", "maria"):
         r = cli.post("/entrar", data={"login": login, "senha": "errada-errada", "proximo": "/", "csrf": _csrf(cli)},
                      follow_redirects=False)
-        assert r.status_code == 400 and "Login ou senha incorretos." in r.text
+        assert r.status_code == 400 and "Usuário ou senha incorretos." in r.text
     assert chamadas == [A.hash_ficticio(), A.hash_ficticio()]
 
 

@@ -289,7 +289,7 @@ def validar_senha(senha: str) -> list[str]:
 def validar_login(login: str) -> list[str]:
     """Valida formato e tamanho do identificador de login."""
     if not isinstance(login, str) or not re.fullmatch(r"[a-z0-9._-]{3,40}", login):
-        return ["O login deve ter de 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."]
+        return ["O nome de usuário deve ter de 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."]
     return []
 
 

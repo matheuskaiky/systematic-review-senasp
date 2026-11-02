@@ -37,10 +37,10 @@ TEXTOS_DA_TELA = [
     '<div><strong>Decisão com autoria</strong><span>Cada decisão guarda o nome de quem decidiu, para a pesquisa poder ser auditada.</span></div>',
     '<section class="entrada-cartao" aria-labelledby="t-entrar">',
     '<h1 id="t-entrar">Entrar</h1>',
-    '<p class="sub">Use o login e a senha enviados pela coordenação da pesquisa.</p>',
+    '<p class="sub">Use o usuário e a senha enviados pela coordenação da pesquisa.</p>',
     '<form class="entrada-formulario" method="post" action="/entrar" data-entrada>',
     '<input type="hidden" name="proximo" value="/">',
-    '<label for="login">Login</label>',
+    '<label for="login">Usuário</label>',
     '<div class="campo-controle" data-ic="user">',
     '<input id="login" name="login" type="text" value="" autocomplete="username" autocapitalize="none" spellcheck="false" required>',
     '<label for="senha">Senha</label>',
@@ -137,7 +137,7 @@ def test_aviso_de_administrador_ausente_fica_no_cartao(painel):
 
 
 # ====================== recusas ======================
-ERRO_CREDENCIAIS = ('<div class="aviso erro" id="erro-login" role="alert"><strong>Login ou senha incorretos.</strong> '
+ERRO_CREDENCIAIS = ('<div class="aviso erro" id="erro-login" role="alert"><strong>Usuário ou senha incorretos.</strong> '
                     "Confira os dois campos e tente de novo.</div>")
 
 
@@ -186,7 +186,7 @@ def test_bloqueio_mostra_a_placa_com_o_prazo_e_sem_campo_invalido(painel):
     assert r.status_code == 429 and r.headers.get("cache-control") == "no-store"
     assert ('<div class="retorno bloqueio" id="erro-login" role="alert"><p class="retorno-texto"><strong>Muitas tentativas. Tente de novo em '
             "alguns minutos.</strong><small>Por segurança, o acesso fica bloqueado por 5 minutos depois de 5 senhas erradas seguidas.</small></p></div>") in h
-    assert "aria-invalid" not in h and "Login ou senha incorretos." not in h
+    assert "aria-invalid" not in h and "Usuário ou senha incorretos." not in h
     assert '<title>Erro ao entrar · IA na Segurança Pública</title>' in h
     assert 'value="maria"' in h
 

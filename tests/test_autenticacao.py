@@ -23,7 +23,7 @@ from painel.app import Contexto, criar_app
 from test_painel import demo  # noqa: F401
 
 SENHA = "senha-de-teste-123"
-MSG_LOGIN = "O login deve ter de 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."
+MSG_LOGIN = "O nome de usuário deve ter de 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado."
 
 
 def _agora(**delta):
@@ -140,7 +140,7 @@ def test_login_e_nome_unicos_e_grupo_existente(contas):
     c, caminho = contas
     g = _con(caminho).execute("SELECT grupo_id FROM grupos WHERE nome='Revisor'").fetchone()[0]
     c.criar_usuario("maria", "Maria Souza", g, A.hash_senha(SENHA), _agora())
-    with pytest.raises(ValueError, match="Login já existe: maria"):
+    with pytest.raises(ValueError, match="Nome de usuário já existe: maria"):
         c.criar_usuario("maria", "Outra", g, A.hash_senha(SENHA), _agora())
     with pytest.raises(ValueError, match="Nome já existe: MARIA souza"):
         c.criar_usuario("maria2", "MARIA souza", g, A.hash_senha(SENHA), _agora())
@@ -258,7 +258,7 @@ def test_entrada_errada_bloqueio_e_desbloqueio(painel):
     _criar(painel, "maria", "Revisor")
     for login, senha in (("maria", "errada-errada"), ("ninguem", "errada-errada"), ("Maria", SENHA), ("maria", "")):
         r = _entrar(cli, login, senha)
-        assert r.status_code == 400 and "Login ou senha incorretos." in r.text and SENHA not in r.text
+        assert r.status_code == 400 and "Usuário ou senha incorretos." in r.text and SENHA not in r.text
     for _ in range(3):
         _entrar(cli, "maria", "errada-errada")                                    # com a primeira: 4 falhas
     assert _entrar(cli, "maria").status_code == 303                              # 4 falhas nao bloqueiam
@@ -561,7 +561,7 @@ def test_r1_usuario_admin_sem_simulado_grava_ao_lado_do_banco_real(ambiente_cli,
 def test_r1_ordem_login_nome_grupo_no_adaptador(contas):
     c, caminho = contas
     _usuario(c, caminho, "maria", nome="Maria")
-    with pytest.raises(ValueError, match="^Login já existe: maria$"):
+    with pytest.raises(ValueError, match="^Nome de usuário já existe: maria$"):
         c.criar_usuario("maria", "MARIA", 999, A.hash_senha(SENHA), _agora())
     with pytest.raises(ValueError, match="^Nome já existe: MARIA$"):
         c.criar_usuario("outra", "MARIA", 999, A.hash_senha(SENHA), _agora())

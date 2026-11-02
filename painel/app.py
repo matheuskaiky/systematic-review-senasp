@@ -1226,7 +1226,7 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     MSG_CONFLITO_SEM_NOMES = "A decisão deste item mudou depois que a página foi aberta. Recarregue a página."
 
     def _sugestoes_desligadas(request):
-        return erro(request, 404, "Sugestões indisponíveis", "As sugestões só existem quando o painel usa login.")
+        return erro(request, 404, "Sugestões indisponíveis", "As sugestões só existem quando o painel exige entrada com usuário e senha.")
 
     def _sugerir(request, alvo_tipo, alvo_id, valor, motivo, estado, csrf):
         if not contexto.autenticacao:

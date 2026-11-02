@@ -14,7 +14,7 @@
   <table>
     <thead>
       <tr>
-        <th scope="col">Login</th>
+        <th scope="col">Usuário</th>
         <th scope="col">Nome</th>
         <th scope="col">Grupo</th>
         <th scope="col">Situação</th>
@@ -40,7 +40,7 @@
 <section class="cartao"><h2 data-ic="user" data-tom="cobalto">Novo usuário</h2>
 <form method="post" action="/admin/usuarios" class="form-admin">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <label for="login">Login</label>
+  <label for="login">Usuário</label>
   <input type="text" id="login" name="login" autocomplete="off" maxlength="40" required value="{{ form.login }}">
 
   <label for="nome">Nome</label>

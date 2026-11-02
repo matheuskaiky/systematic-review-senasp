@@ -239,6 +239,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         def pode_rota(metodo: str, caminho: str) -> bool:
             if metodo == "POST" and contexto.somente_leitura:
                 return False
+            if contexto.banco == "vies" and navegacao.fora_do_vies(caminho):
+                return False
             if not contexto.autenticacao:
                 return True
             if getattr(request.state, "contas_indisponiveis", False):
@@ -258,6 +260,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
         pode = _pode_rota(request)
 
         def seguir(href: str) -> bool:
+            if contexto.banco == "vies" and navegacao.fora_do_vies(href):
+                return False
             return navegacao.pode_seguir(href, pode)
 
         return seguir
@@ -324,6 +328,12 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             "O banco de contas está ocupado. Tente de novo em alguns segundos.",
         )
 
+    @app.middleware("http")
+    async def rotas_vies(request: Request, call_next):
+        if contexto.banco == "vies" and navegacao.fora_do_vies(request.url.path):
+            return erro(request, 404, "Página não encontrada", "O endereço não existe neste painel.")
+        return await call_next(request)
+
     # ---------- controle de acesso (quando autenticacao esta ligada) ----------
     if contexto.autenticacao:
         _erro_contas_ocupadas = contas_ocupadas
@@ -360,7 +370,8 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
             request.state.ver_nomes = autenticacao.pode(grupo, permissoes, "ver_nomes_revisores")
             request.state.perms = frozenset(p for p in autenticacao.PERMISSOES if autenticacao.pode(grupo, permissoes, p))
 
-            if _publico_libera(request, request.method, request.url.path) and autenticacao.pode_acessar(grupo, permissoes, request.method, request.url.path):
+            caminho_check = navegacao.CAMINHO_SEM_ROTA if (contexto.banco == "vies" and navegacao.fora_do_vies(request.url.path)) else request.url.path
+            if _publico_libera(request, request.method, caminho_check) and autenticacao.pode_acessar(grupo, permissoes, request.method, caminho_check):
                 return await call_next(request)
             elif not usuario:
                 if request.method == "GET":

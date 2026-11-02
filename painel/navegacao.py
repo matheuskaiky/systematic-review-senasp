@@ -58,9 +58,18 @@ _ADMIN = ("administracao", "Administração", (
     ("/estatisticas-usuarios", "Atividade dos revisores", "/estatisticas-usuarios", ()),
 ))
 
-# as telas só da Tarefa 1 (secretarias, páginas baixadas e achados): saem do menu no banco `vies`; as rotas continuam no ar
+# as telas só da Tarefa 1 (secretarias, páginas baixadas e achados): saem do menu no banco `vies` e, exceto /buscar-texto, não existem nele (SO_TAREFA_1_FORA_DO_VIES)
 SO_TAREFA_1 = frozenset({"/estados", "/achados", "/revisao/achados", "/classificadores", "/execucoes/comparar", "/solucoes",
                          "/buscar-texto"})
+SO_TAREFA_1_FORA_DO_VIES = SO_TAREFA_1 - {"/buscar-texto"}
+CAMINHO_SEM_ROTA = "/__sem_rota__"
+
+
+def fora_do_vies(caminho: str) -> bool:
+    """Indica se o caminho pertence às telas da Tarefa 1 que não existem no banco vies."""
+    c = unquote(urlsplit(str(caminho or "")).path)
+    c = c[:-1] if c.endswith("/") and len(c) > 1 else c
+    return any(_sob(c, h) for h in SO_TAREFA_1_FORA_DO_VIES)
 
 # as telas só do banco `vies`: saem do menu nos outros bancos
 SO_VIES = frozenset({"/validacao", "/observatorio"})

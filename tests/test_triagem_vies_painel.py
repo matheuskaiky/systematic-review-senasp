@@ -231,12 +231,20 @@ G = "99999999999999999999999"
 
 
 @pytest.mark.parametrize("rota", [
-    f"/literatura/referencias/web/{G}", f"/literatura/artigos/{G}", f"/achados/{G}", f"/chamadas/{G}",
-    "/chamadas/9223372036854775808/bruto", "/literatura/referencias/web/0", "/literatura/artigos/-1", "/achados/0",
+    f"/literatura/referencias/web/{G}", f"/literatura/artigos/{G}", f"/chamadas/{G}",
+    "/chamadas/9223372036854775808/bruto", "/literatura/referencias/web/0", "/literatura/artigos/-1",
 ])
 def test_numero_fora_do_que_o_banco_aceita_e_endereco_invalido(rota, banco, tmp_path):
     r = TestClient(_cli(banco, tmp_path).app, raise_server_exceptions=False).get(rota)
     assert r.status_code == 404 and "Endereço inválido" in r.text
+
+
+@pytest.mark.parametrize("rota,metodo", [(f"/achados/{G}", "GET"), ("/achados/0", "GET"), (f"/achados/{G}/verificar", "POST"),
+                                         (f"/achados/1/sugestoes/{G}/aceitar", "POST")])
+def test_rotas_de_achados_nao_existem_no_vies(rota, metodo, banco, tmp_path):
+    """Achados sao da Tarefa 1: no vies o endereco nao existe, qualquer que seja o numero."""
+    r = TestClient(_cli(banco, tmp_path).app, raise_server_exceptions=False).request(metodo, rota)
+    assert r.status_code == 404 and "O endereço não existe neste painel." in r.text
 
 
 def test_o_maior_numero_aceito_so_nao_existe(banco, tmp_path):
@@ -245,9 +253,7 @@ def test_o_maior_numero_aceito_so_nao_existe(banco, tmp_path):
 
 
 @pytest.mark.parametrize("rota", [
-    f"/literatura/artigos/{G}/triar", f"/achados/{G}/verificar", f"/achados/{G}/desfazer", f"/achados/{G}/revogar",
-    f"/achados/{G}/sugerir", f"/literatura/artigos/{G}/sugerir", f"/achados/1/sugestoes/{G}/aceitar",
-    f"/literatura/artigos/1/sugestoes/{G}/aceitar",
+    f"/literatura/artigos/{G}/triar", f"/literatura/artigos/{G}/sugerir", f"/literatura/artigos/1/sugestoes/{G}/aceitar",
 ])
 def test_gravacao_com_numero_grande_tambem_e_endereco_invalido(rota, banco, tmp_path):
     r = TestClient(_cli(banco, tmp_path).app, raise_server_exceptions=False).post(rota, data={"decisao": "incluir"})

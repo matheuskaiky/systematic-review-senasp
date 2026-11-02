@@ -1,5 +1,5 @@
 """Visão geral e menu do banco `vies` (busca de viés algorítmico): a página inicial mostra os números desta busca, o menu
-esconde as telas só da Tarefa 1 (as rotas continuam no ar) e o banco real fica como estava."""
+esconde as telas só da Tarefa 1 (que não existem no vies, menos a busca no texto) e o banco real fica como estava."""
 import re
 from pathlib import Path
 
@@ -35,14 +35,15 @@ def test_menu_do_vies_com_admin_mantem_a_administracao():
                                                                            "/admin/auditoria", "/estatisticas-usuarios"]
 
 
-def test_pagina_do_vies_sem_links_da_tarefa_1_no_menu_e_rotas_no_ar(banco, tmp_path):
+def test_pagina_do_vies_sem_links_da_tarefa_1_no_menu_e_rotas_fora(banco, tmp_path):
+    """As telas da Tarefa 1 nao existem no vies (404), menos a busca no texto, publica pela D147."""
     cli = _cli(banco, tmp_path)
     for caminho in ("/", "/analises", "/literatura/artigos"):
         menu = _menu(cli.get(caminho).text)
         assert all(f'href="{h}"' not in menu for h in TAREFA_1), caminho
         assert 'href="/literatura/referencias"' in menu and 'href="/analises"' in menu
     for h in TAREFA_1:
-        assert cli.get(h).status_code == 200, h
+        assert cli.get(h).status_code == (200 if h == "/buscar-texto" else 404), h
 
 
 def test_visao_geral_do_vies_mostra_os_numeros_da_busca(banco, tmp_path):

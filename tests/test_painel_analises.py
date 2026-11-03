@@ -201,7 +201,8 @@ def test_calibracao_sem_humano_e_com_humano():
                               "por_confianca": [{"confianca": "alta", "n_achados": 20, "n_verificados": 20, "n_confirmados": 19, "n_descartados": 1},
                                                 {"confianca": "media", "n_achados": 10, "n_verificados": 10, "n_confirmados": 6, "n_descartados": 4},
                                                 {"confianca": "baixa", "n_achados": 10, "n_verificados": 10, "n_confirmados": 3, "n_descartados": 7}]})
-    assert "95%" in com["titulo"] and "30%" in com["titulo"]
+    assert com["titulo"] == ("Confiança do modelo e acerto real: ainda não dá para comparar os níveis (28 confirmados e 12 "
+                             "descartados; o painel só compara os níveis com ao menos 40 de cada)")          # residuo R4: classe menor abaixo do minimo
 
 
 def test_hipoteses_dependem_de_humano_e_de_dois_buscadores():
@@ -213,7 +214,8 @@ def test_hipoteses_dependem_de_humano_e_de_dois_buscadores():
     res = {"tem_dados_humanos_achados": True, "tem_dados_humanos_artigos": True}
     so_elegiveis = b.bloco_hipoteses(res, {"provedores": []}, {"tem_excluidos_checados": False})
     assert {l[0][:2]: l[1] for l in so_elegiveis["tabela"]["linhas"]}["H4"].startswith("aguarda")
-    bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]}, {"tem_excluidos_checados": True})
+    bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]}, {"tem_excluidos_checados": True},
+                           {"h2": {"destravado": True}, "h5": {"destravado": True}})
     assert {l[0][:2]: l[1] for l in bl["tabela"]["linhas"]} == {"H1": "exploratória", "H2": "pode ser feita", "H3": "pode ser feita",
                                                                "H4": "pode ser feita", "H5": "pode ser feita", "H6": "exploratória"}
 

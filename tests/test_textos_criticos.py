@@ -83,10 +83,10 @@ def _maturidade(base):
 
 
 @pytest.mark.parametrize("base,titulo", [
-    (None, "1 de 3 UFs com ao menos um achado no estágio “em uso” (estágio do revisor quando ele o registrou; nos demais, o do "
-           "modelo)"),
-    ("status_final_ou_reportado", "1 de 3 UFs com ao menos um achado no estágio “em uso” (estágio do revisor quando ele o "
-                                  "registrou; nos demais, o do modelo)"),
+    (None, "Segundo os rótulos do modelo, com revisão humana parcial, 1 de 3 UFs têm ao menos um achado no estágio “em uso” "
+           "(confirmados por revisor: 1 de 3 achados do mapa, com o estágio do revisor; descartados, fora do mapa: 0)"),
+    ("status_final_ou_reportado", "Segundo os rótulos do modelo, com revisão humana parcial, 1 de 3 UFs têm ao menos um achado no estágio “em uso” "
+           "(confirmados por revisor: 1 de 3 achados do mapa, com o estágio do revisor; descartados, fora do mapa: 0)"),
     ("confirmados", "1 de 3 UFs com ao menos um achado confirmado por revisor no estágio “em uso” (estágio do revisor quando ele "
                     "o registrou; nos demais, o do modelo)"),
 ])

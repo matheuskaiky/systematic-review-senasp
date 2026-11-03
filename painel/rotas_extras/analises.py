@@ -46,7 +46,8 @@ def montar(leitura, secao, ver_nomes=True, ferramentas=None, seguir=None, custos
     resumo = leitura.analise_resumo() if secao in ("visao", "auditoria") else None
     if secao == "visao":
         funil = leitura.analise_funil_por_provedor()
-        return [b.bloco_prontidao(leitura.analise_prontidao()), b.bloco_hipoteses(resumo, funil, leitura.analise_falsa_exclusao())], resumo
+        prontidao = leitura.analise_prontidao()
+        return [b.bloco_prontidao(prontidao), b.bloco_hipoteses(resumo, funil, leitura.analise_falsa_exclusao(), prontidao)], resumo
     if secao == "adocao":
         m = leitura.analise_maturidade_uf_tecnologia()
         return [b.bloco_maturidade(m), b.bloco_regiao_tecnologia(m), b.bloco_lgpd(leitura.analise_lgpd_por_tecnologia()),

@@ -72,7 +72,7 @@
     "3"
    ],
    [
-    "Achados verificados por humano",
+    "Achados do mapa confirmados por revisor",
     "0"
    ],
    [
@@ -97,7 +97,7 @@
     "3"
    ],
    [
-    "Achados verificados por humano",
+    "Achados do mapa confirmados por revisor",
     "1"
    ],
    [
@@ -110,7 +110,7 @@
    ]
   ],
   "tabela": null,
-  "aviso": null,
+  "aviso": "Só parte destes achados foi conferida por uma pessoa; nos demais, o estágio é o que o modelo atribuiu. Não leia o mapa como retrato confirmado da adoção.",
   "link": null
  },
  "regiao_forte": {

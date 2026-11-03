@@ -16,8 +16,10 @@ from test_analises_vies import LEITURA
 VALORES = json.loads((Path(__file__).parent / "valores_analises_exploratorias.json").read_text(encoding="utf-8"))
 ONDE_H1_SEM = "análise exploratória baseada em classificações automatizadas, ainda sem verificação humana (veja a aba Adoção)"
 ONDE_H1_PARCIAL = "análise exploratória baseada em classificações automatizadas, com verificação humana parcial (veja a aba Adoção)"
-ONDE_H6_SEM = "análise exploratória baseada em classificações automatizadas, ainda sem verificação humana (aba Operação)"
-ONDE_H6_PARCIAL = "análise exploratória baseada em classificações automatizadas, com verificação humana parcial (aba Operação)"
+ONDE_H6_SEM = ("análise exploratória dos achados marcados pelo modelo e das respostas em formato inválido; não usa verificação "
+               "humana (aba Operação)")
+ONDE_H6_PARCIAL = ONDE_H6_SEM
+PRONTIDAO_ATINGIDA = {"h2": {"destravado": True}, "h5": {"destravado": True}}
 
 
 def _valores(bloco):
@@ -34,7 +36,8 @@ def _grafico_sem_titulo(bloco):
 
 def _linhas_hipoteses(humano):
     res = {"tem_dados_humanos_achados": humano, "tem_dados_humanos_artigos": humano}
-    bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]}, {"tem_excluidos_checados": humano})
+    bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]}, {"tem_excluidos_checados": humano},
+                           PRONTIDAO_ATINGIDA)
     return {l[0][:2]: l for l in bl["tabela"]["linhas"]}
 
 
@@ -47,6 +50,7 @@ def test_h1_e_h6_sao_exploratorias_e_nunca_feitas(humano, onde_h1, onde_h6):
 
 
 def test_h2_a_h5_nao_mudam():
+    """Com a prontidao atingida, H2 a H5 ficam como antes; sem ela, H2 e H5 aguardam (test_prontidao_das_analises.py)."""
     sem, com = _linhas_hipoteses(False), _linhas_hipoteses(True)
     assert {h: sem[h] for h in ("H2", "H3", "H4", "H5")} == {h: VALORES["hipoteses_sem"][h] for h in ("H2", "H3", "H4", "H5")}
     assert {h: com[h] for h in ("H2", "H3", "H4", "H5")} == {h: VALORES["hipoteses_com"][h] for h in ("H2", "H3", "H4", "H5")}
@@ -55,9 +59,10 @@ def test_h2_a_h5_nao_mudam():
 def test_texto_do_quadro_de_hipoteses():
     bl = b.bloco_hipoteses({"tem_dados_humanos_achados": False, "tem_dados_humanos_artigos": False}, {"provedores": []})
     assert bl["titulo"] == "O que o plano de análise já pode responder"
-    assert bl["texto"] == ["As hipóteses que dependem de pessoas ficam à espera da verificação.",
-                           "Exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; não responde à "
-                           "hipótese, porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana."]
+    assert bl["texto"][0] == ("As hipóteses que dependem de pessoas só são respondidas com verificação humana; a coluna Situação diz "
+                              "o que falta em cada uma.")
+    assert bl["texto"][1] == ("H1 é exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; não "
+                              "responde à hipótese, porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana.")
 
 
 # ---------------------------------------------------------------- adocao (maturidade)
@@ -84,10 +89,12 @@ def test_titulo_da_adocao_sem_verificacao_diz_que_e_o_modelo(base):
     assert _valores(bl) == VALORES["maturidade_sem"]
 
 
-def test_adocao_com_verificacao_nao_muda():
+def test_adocao_com_verificacao_parcial_diz_a_parcialidade_e_nao_muda_os_valores():
+    """Mudanca de contrato (residuo R3): com verificacao parcial, o titulo diz quantos achados foram verificados."""
     bl = b.bloco_maturidade(_maturidade(1))
-    assert bl["titulo"] == ("1 de 3 UFs com ao menos um achado no estágio “em uso” (estágio do revisor quando ele o registrou; "
-                            "nos demais, o do modelo)")
+    assert bl["titulo"] == ("Segundo os rótulos do modelo, com revisão humana parcial, 1 de 3 UFs têm ao menos um achado no "
+                            "estágio “em uso” (confirmados por revisor: 1 de 3 achados do mapa, com o estágio do revisor; "
+                            "descartados, fora do mapa: 0)")
     assert bl["texto"][0] == ("Cada quadrado mostra o estágio mais avançado encontrado para aquela tecnologia naquela UF "
                               "(do cinza, apenas citado, ao azul-escuro, em uso). Clique para ver os achados.")
     assert _valores(bl) == VALORES["maturidade_com"]

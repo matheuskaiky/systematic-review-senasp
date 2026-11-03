@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 
 from markupsafe import Markup
 
-from dominio import estatistica as est
+from dominio import estatistica as est, prontidao as dom_prontidao
 from dominio.auditoria_negativos import amostra_minima_sem_erros
 from painel import formatacao as fmt, graficos_analises as g, rotulos, selos_estatisticos as selos
 
@@ -17,6 +17,8 @@ LIMITE_FALSA_EXCLUSAO = 0.02
 LIMITE_TEXTO_MODELO = 60_000          # igual a CLASSIFICACAO["max_chars_texto"] (o painel nao le config/)
 AVISO_NAO_VERIFICADO = ("Estes números são de achados classificados pelo modelo, ainda sem verificação humana; "
                         "não são resultados confirmados.")
+AVISO_VERIFICACAO_PARCIAL = ("Só parte destes achados foi conferida por uma pessoa; nos demais, o estágio é o que o modelo atribuiu. "
+                             "Não leia o mapa como retrato confirmado da adoção.")
 AVISO_SEM_HUMANOS = "Aguardando verificação humana: este gráfico só aparece quando houver decisões de uma pessoa."
 
 
@@ -60,6 +62,12 @@ def _eh_maioria(parte, total):
     return int(digitos) > 50 if digitos else False
 
 
+def _tudo_verificado(d):
+    nv = d.get("n_verificados")
+    na = d.get("n_achados")
+    return nv is not None and na is not None and nv >= na > 0
+
+
 # ---------------------------------------------------------------- adocao
 def bloco_maturidade(d):
     regioes = d.get("regioes") or {}
@@ -75,17 +83,29 @@ def bloco_maturidade(d):
         if c["status_max"] == "em_uso":
             em_uso.add(c["uf"])
     total = len(ufs) or 27
+    nd = d.get("n_descartados") or 0
     if not d.get("n_achados"):
         titulo = "Ainda não há achados para mapear"
     elif d.get("base") == "confirmados":
         titulo = (f"{len(em_uso)} de {total} UFs com ao menos um achado confirmado por revisor no estágio “em uso” "
                   f"(estágio do revisor quando ele o registrou; nos demais, o do modelo)")
     elif not d.get("tem_dados_humanos"):
-        titulo = (f"Segundo o modelo, {len(em_uso)} de {total} UFs têm ao menos um achado marcado como “em uso”; "
-                  f"nenhum achado foi verificado por pessoa")
-    else:
+        if nd == 0:
+            titulo = (f"Segundo o modelo, {len(em_uso)} de {total} UFs têm ao menos um achado marcado como “em uso”; "
+                      f"nenhum achado foi verificado por pessoa")
+        else:
+            titulo = (f"Segundo o modelo, {len(em_uso)} de {total} UFs têm ao menos um achado marcado como “em uso”; "
+                      f"nenhum achado do mapa foi confirmado por revisor (descartados, fora do mapa: {fmt.numero(nd)})")
+    elif _tudo_verificado(d):
         titulo = (f"{len(em_uso)} de {total} UFs com ao menos um achado no estágio “em uso” "
                   f"(estágio do revisor quando ele o registrou; nos demais, o do modelo)")
+    else:
+        nv_str = fmt.numero(d.get("n_verificados"))
+        na_str = fmt.numero(d.get("n_achados"))
+        nd_str = fmt.numero(nd)
+        titulo = (f"Segundo os rótulos do modelo, com revisão humana parcial, {len(em_uso)} de {total} UFs têm ao menos um "
+                  f"achado no estágio “em uso” (confirmados por revisor: {nv_str} de {na_str} achados do mapa, com o estágio "
+                  f"do revisor; descartados, fora do mapa: {nd_str})")
     if d.get("n_achados") and d.get("base") != "confirmados" and not d.get("tem_dados_humanos"):
         primeiro_p = ("Cada quadrado mostra o estágio mais avançado que o modelo atribuiu aos achados daquela tecnologia naquela UF "
                       "(do cinza, apenas citado, ao azul-escuro, em uso). Não é verificação de uso. Clique para ver os achados.")
@@ -101,11 +121,17 @@ def bloco_maturidade(d):
     if soma and por_status.get("em_uso", 0) / soma > 0.5 and not d.get("tem_dados_humanos"):
         texto.append(f"Cuidado: o modelo classificou {_pct(por_status['em_uso'], soma)} dos achados como em uso e, por mostrar o estágio "
                      "mais avançado, o mapa tende a ficar quase todo azul. Sem verificação humana, não leia como retrato da adoção.")
+    if not d.get("tem_dados_humanos"):
+        aviso = AVISO_NAO_VERIFICADO
+    elif d.get("base") == "confirmados" or _tudo_verificado(d):
+        aviso = None
+    else:
+        aviso = AVISO_VERIFICACAO_PARCIAL
     return _bloco("maturidade", titulo, g.matriz_maturidade(linhas, colunas, celulas),
                   f"{fmt.numero(d.get('n_achados'))} achados em {len(com_dados)} UFs; pesos ordinais em_uso=5 … apenas_citado=0",
-                  texto, aviso=None if d.get("tem_dados_humanos") else AVISO_NAO_VERIFICADO,
+                  texto, aviso=aviso,
                   pares=[("Achados considerados", fmt.numero(d.get("n_achados"))),
-                         ("Achados verificados por humano", fmt.numero(d.get("n_verificados"))),
+                         ("Achados do mapa confirmados por revisor", fmt.numero(d.get("n_verificados"))),
                          ("Achados descartados (fora da conta)", fmt.numero(d.get("n_descartados"))),
                          ("UFs com algum achado", f"{len(com_dados)} de {total}")])
 
@@ -134,9 +160,7 @@ def bloco_regiao_tecnologia(d):
         titulo = "Região e tecnologia: dados insuficientes para o teste"
     else:
         nv = d.get("n_verificados")
-        na = d.get("n_achados")
-        tudo_verificado = (nv is not None and na is not None and nv >= na > 0)
-        if tudo_verificado:
+        if _tudo_verificado(d):
             if p < 0.05:
                 titulo = "A mistura de tecnologias muda de uma região para outra"
             else:
@@ -340,14 +364,28 @@ def bloco_calibracao(d):
                       g.barras_calibracao(grupos, "Acerto real por nível de certeza"), aviso=AVISO_SEM_HUMANOS,
                       texto=["Compara a confiança que o modelo declarou com o que a pessoa confirmou."],
                       pares=[("Achados no total", fmt.numero(d.get("n_achados"))), ("Verificados", "0")])
-    por = {x["chave"]: x for x in grupos}
-    a, b = por.get("alta"), por.get("baixa")
-    titulo = "Confiança do modelo e acerto real por nível"
-    if a and b and a["n"] and b["n"]:
-        titulo = (f"Quando o modelo diz confiança alta a pessoa confirma {_pct(a['concordam'], a['n'])}; "
-                  f"quando diz baixa, {_pct(b['concordam'], b['n'])}")
+    por_conf = d.get("por_confianca") or []
+    conf = sum(x.get("n_confirmados", 0) for x in por_conf)
+    desc = sum(x.get("n_descartados", 0) for x in por_conf)
+    minimo = dom_prontidao.H2_MIN_CLASSE_RARA
+    texto = ["Se a coluna 'alta' acerta bem mais que 'baixa', a confiança serve de guia para priorizar a revisão."]
+    if min(conf, desc) < minimo:
+        minimo_str = fmt.numero(minimo)
+        titulo = (f"Confiança do modelo e acerto real: ainda não dá para comparar os níveis "
+                  f"({fmt.numero(conf)} confirmados e {fmt.numero(desc)} descartados; "
+                  f"o painel só compara os níveis com ao menos {minimo_str} de cada)")
+        texto = [f"Os níveis de confiança só são comparados quando há ao menos {minimo_str} achados confirmados e {minimo_str} descartados."]
+    else:
+        por = {x["chave"]: x for x in grupos}
+        a, b = por.get("alta"), por.get("baixa")
+        titulo = "Confiança do modelo e acerto real por nível"
+        if a and b and a["n"] and b["n"]:
+            n_a = f"{fmt.numero(a['n'])} {'verificado' if a['n'] == 1 else 'verificados'}"
+            n_b = f"{fmt.numero(b['n'])} {'verificado' if b['n'] == 1 else 'verificados'}"
+            titulo = (f"Quando o modelo diz confiança alta a pessoa confirma {_pct(a['concordam'], a['n'])} ({n_a}); "
+                      f"quando diz baixa, {_pct(b['concordam'], b['n'])} ({n_b})")
     return _bloco("calibracao", titulo, g.barras_calibracao(grupos, titulo), f"{fmt.numero(d.get('n_verificados'))} achados verificados; "
-                  "intervalo de Wilson 95%", ["Se a coluna 'alta' acerta bem mais que 'baixa', a confiança serve de guia para priorizar a revisão."],
+                  "intervalo de Wilson 95%", texto,
                   tabela={"cabecalho": ["Confiança", "Verificados", "Confirmados", "Descartados"],
                           "linhas": [[CONF[x["confianca"]], fmt.numero(x["n_verificados"]), fmt.numero(x["n_confirmados"]),
                                       fmt.numero(x["n_descartados"])] for x in d["por_confianca"]]})
@@ -479,32 +517,53 @@ def bloco_prontidao(d):
             "cartoes": cartoes}
 
 
-def bloco_hipoteses(resumo, funil, falsa_exclusao=None):
+def bloco_hipoteses(resumo, funil, falsa_exclusao=None, prontidao=None):
     """Quadro do que cada hipotese do plano de analise ja pode ser testada e o que falta."""
     achados_h = bool(resumo.get("tem_dados_humanos_achados"))
     artigos_h = bool(resumo.get("tem_dados_humanos_artigos"))
     dois = len((funil or {}).get("provedores") or []) >= 2
     excluidos_h = bool((falsa_exclusao or {}).get("tem_excluidos_checados"))
 
+    pr = prontidao or {}
+    h2_destravado = bool((pr.get("h2") or {}).get("destravado"))
+    h5_destravado = bool((pr.get("h5") or {}).get("destravado"))
+
     def estado(ok, falta):
         return "pode ser feita" if ok else "aguarda: " + falta
 
+    if not achados_h:
+        estado_h2 = "aguarda: verificação humana dos achados"
+    elif h2_destravado:
+        estado_h2 = "pode ser feita"
+    else:
+        estado_h2 = "aguarda: o mínimo de verificação humana dos achados (veja o quadro de rotulagem humana acima)"
+
+    if not artigos_h:
+        estado_h5 = "aguarda: triagem humana dos artigos"
+    elif h5_destravado:
+        estado_h5 = "pode ser feita"
+    else:
+        estado_h5 = "aguarda: o mínimo de triagem humana dos artigos (veja o quadro de rotulagem humana acima)"
+
     qualif = "com verificação humana parcial" if achados_h else "ainda sem verificação humana"
     onde_h1 = f"análise exploratória baseada em classificações automatizadas, {qualif} (veja a aba Adoção)"
-    onde_h6 = f"análise exploratória baseada em classificações automatizadas, {qualif} (aba Operação)"
+    onde_h6 = "análise exploratória dos achados marcados pelo modelo e das respostas em formato inválido; não usa verificação humana (aba Operação)"
     linhas = [
         ["H1 região × tecnologia", "exploratória", onde_h1],
-        ["H2 evidência e confirmação (regressão)", estado(achados_h, "verificação humana dos achados"), "fase 3 (`analises/`)"],
+        ["H2 evidência e confirmação (regressão)", estado_h2, "fase 3 (`analises/`)"],
         ["H3 buscadores (custo por achado confirmado)", estado(achados_h and dois, "um segundo buscador usado na coleta e a verificação humana"), "fase 3"],
         ["H4 falsa exclusão da triagem", estado(excluidos_h, "conferência por uma pessoa de uma amostra sorteada dos artigos que o modelo excluiu"),
          "feita na aba Confiança na IA quando houver essa conferência"],
-        ["H5 citações e posição × inclusão", estado(artigos_h, "triagem humana dos artigos"), "fase 3"],
+        ["H5 citações e posição × inclusão", estado_h5, "fase 3"],
         ["H6 tamanho do texto e falhas", "exploratória", onde_h6],
     ]
     texto = [
-        "As hipóteses que dependem de pessoas ficam à espera da verificação.",
-        "Exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; "
-        "não responde à hipótese, porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana.",
+        "As hipóteses que dependem de pessoas só são respondidas com verificação humana; a coluna Situação diz o que falta em cada uma.",
+        "H1 é exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; não responde à hipótese, "
+        "porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana.",
+        "H6 é exploratória: relaciona o tamanho do texto enviado ao modelo com o número de achados que ele marcou e com as respostas "
+        "em formato inválido; sem verificação humana, descreve o comportamento do modelo, não a perda real de aplicações.",
+        "H2 e H5 só podem ser feitas quando o mínimo de rotulagem humana do quadro acima é atingido.",
     ]
     return _bloco("hipoteses", "O que o plano de análise já pode responder", texto=texto,
                   tabela={"cabecalho": ["Hipótese", "Situação", "Onde"], "linhas": linhas})

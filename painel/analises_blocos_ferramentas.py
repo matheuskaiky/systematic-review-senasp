@@ -2,7 +2,7 @@
 banco: quanto cada ferramenta trouxe, quanto se aproveitou e quanto custou. Funcoes puras sobre
 `dominio.analises_ferramentas.linhas`."""
 from painel import formatacao as fmt, graficos, graficos_analises as g, rotulos
-from painel.analises_blocos import _bloco, _pct
+from painel.analises_blocos import _bloco, _juntar_e, _pct
 
 MARGEM_ROTULOS = 285
 MAX_ROTULO = 40               # 'triagem de escopo · gemini:modelo' e cortado; o inteiro fica na dica
@@ -22,15 +22,6 @@ def _razao(v, casas=2):
 
 def _nome(l):
     return f"{rotulos.ETAPAS.get(l['etapa'], l['etapa'])} · {l['ferramenta']}"
-
-
-def _juntar_e(itens):
-    itens = [str(x) for x in itens]
-    if not itens:
-        return ""
-    if len(itens) == 1:
-        return itens[0]
-    return f"{', '.join(itens[:-1])} e {itens[-1]}"
 
 
 def _eh_maioria(parte, total):

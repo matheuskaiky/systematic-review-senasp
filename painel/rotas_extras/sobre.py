@@ -10,4 +10,9 @@ def registrar(c):
 
     @c.app.get("/sobre", response_class=HTMLResponse)
     def sobre(request: Request):
-        return c.pagina(request, "sobre.html", secoes=glossario.SECOES)
+        return c.pagina(
+            request,
+            "sobre.html",
+            secoes=glossario.secoes(c.contexto.banco),
+            subtitulo=glossario.subtitulo(c.contexto.banco),
+        )

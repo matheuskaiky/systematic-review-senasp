@@ -4,7 +4,7 @@ Estrutura: SECOES e uma lista de secoes `{"id", "titulo", "intro", "entradas"}`;
 `{"id", "termo", "texto"}` e, nos status, tambem `"status"` (a chave do vocabulario, para a pagina mostrar a definicao
 oficial, em ingles, que vai para o prompt). O `id` de cada entrada e a ancora: outras paginas podem apontar para
 `/sobre#<id>`. Toda chave de `config.vocabulario` e de `painel.rotulos` tem entrada, com o prefixo de PREFIXOS
-(`tests/test_glossario.py` confere).
+(`tests/test_glossario.py` confere). No banco vies, o glossário próprio desta pesquisa é SECOES_VIES.
 """
 from painel import rotulos, rotulos_escopo
 
@@ -434,7 +434,166 @@ SECOES = [
      "intro": "Como se mede o que o modelo acerta e o que ele deixa passar, e o que a coleta não conseguiu ver.", "entradas": _AUDITORIA_IA},
 ]
 
+EXECUCOES_REUSADAS = [
+    "execucao-concluida", "execucao-em_andamento", "execucao-interrompida", "execucao-falhou", "idempotencia",
+    "config-hash", "commit-git", "chamada-bruta", "custo-estimado"
+]
 
-def ids_de_ancoras():
+_do_real = {e["id"]: e for e in _EXECUCOES}
+_execucoes_reusadas = [_do_real[i] for i in EXECUCOES_REUSADAS]
+
+SECOES_VIES = [
+    {"id": "unidades", "titulo": "Unidades de contagem",
+     "intro": "Cada número desta pesquisa conta uma destas unidades. Números de unidades diferentes não se somam.",
+     "entradas": [
+         _e("chamada", "Chamada",
+            "Um pedido feito a um provedor externo: uma consulta à busca na web, uma página de resultados de uma consulta no "
+            "Google Scholar ou um lote de itens enviado ao modelo da triagem. Cada chamada fica registrada com os parâmetros "
+            "enviados e, quando o provedor respondeu, com a resposta bruta e, se o provedor tem preço configurado, com o custo "
+            "estimado em dólares. O Google Scholar é contado em créditos do serviço, medidos por execução, sem preço em dólares."),
+         _e("ocorrencia", "Ocorrência",
+            "Um resultado devolvido por uma chamada de busca. O mesmo trabalho pode voltar em várias consultas, e cada volta é "
+            "uma ocorrência. Na busca na web, as ocorrências do mesmo endereço formam uma referência da web; no Google Scholar, "
+            "as do mesmo título formam um artigo do Scholar."),
+         _e("artigo-scholar", "Artigo do Scholar",
+            "Um trabalho encontrado pelo Google Scholar, contado uma vez mesmo quando várias consultas o devolvem. Dois "
+            "resultados são o mesmo artigo quando o título é igual depois de normalizado (sem acentos, maiúsculas nem "
+            "pontuação). Apesar do nome, pode ser uma dissertação, um livro, um capítulo ou outro trabalho que o Scholar indexa."),
+         _e("referencia-web", "Referência da web",
+            "Uma página encontrada pela busca na web, contada uma vez mesmo quando várias consultas a devolvem. Dois resultados "
+            "são a mesma referência quando o endereço é igual depois de normalizado (sem “www”, sem a barra final e sem "
+            "parâmetros de rastreamento). Pode ser um artigo, uma notícia, um relatório, uma norma ou a página de um produto."),
+         _e("item", "Item",
+            "Um artigo do Scholar ou uma referência da web. É a unidade da triagem pelo modelo: o mesmo trabalho encontrado nas "
+            "duas fontes são dois itens, cada um com a sua classificação."),
+         _e("obra", "Obra",
+            "O item depois de juntar a referência da web que repete um artigo do Scholar, por ter o mesmo endereço normalizado "
+            "ou o mesmo título normalizado. A obra assim juntada conta uma vez, e nas análises por obra vale a classificação do "
+            "artigo do Scholar. A junção é um procedimento automático, não uma conferência bibliográfica: títulos escritos de "
+            "forma diferente não são reconhecidos como a mesma obra, e possíveis duplicatas que restam ainda não foram "
+            "examinadas por uma pessoa."),
+     ]},
+    {"id": "busca", "titulo": "Busca",
+     "intro": "De onde vêm os itens. A Metodologia descreve os filtros, a profundidade e as execuções de cada fonte.",
+     "entradas": [
+         _e("conjuntos-consultas", "Conjuntos de consultas A, B e C",
+            "As quinze consultas da busca, em português, em três conjuntos de cinco. O conjunto A combina termos de "
+            "inteligência artificial, segurança pública, viés algorítmico e investigação criminal; o B, de inteligência "
+            "artificial, segurança pública, viés algorítmico, discriminação e ética; o C trata das aplicações da inteligência "
+            "artificial na segurança pública, na investigação criminal e no policiamento, inclusive o reconhecimento facial e "
+            "as soluções tecnológicas. As mesmas consultas foram usadas na busca na web e no Google Scholar."),
+         _e("busca-web", "Busca na web",
+            "Busca em páginas da internet feita pelo serviço Perplexity, uma chamada por consulta. Devolve o endereço, o "
+            "título e um trecho de cada página."),
+         _e("google-scholar", "Google Scholar",
+            "Buscador acadêmico consultado por meio do serviço SerpApi, uma chamada por página de resultados de cada consulta. "
+            "Devolve o título, um trecho, os autores e a publicação de cada trabalho e, quando a fonte informa, o número de "
+            "citações."),
+     ]},
+    {"id": "triagem-modelo", "titulo": "Triagem pelo modelo (versão v2)",
+     "intro": "Um modelo de linguagem leu cada item e atribuiu os rótulos abaixo. São classificações automatizadas, não decisões "
+              "de pesquisadores.",
+     "entradas": [
+         _e("triagem-escopo", "Triagem pelo modelo",
+            "Classificação de cada item por um modelo de linguagem, com as instruções da versão v2, que cobrem os dois ângulos "
+            "da pesquisa: o viés algorítmico e as aplicações tecnológicas da IA na segurança pública. O modelo é instruído a "
+            "julgar pelo que o próprio item mostra (título, trecho, autores, ano e endereço), nunca pela consulta que o "
+            "encontrou. As classificações de uma versão anterior (v1) continuam guardadas; as análises usam a v2, e a ocultação "
+            "usa a classificação mais recente de cada item."),
+         _e("relevancia", "Relevância",
+            "O quanto o item trata do tema da pesquisa, segundo o modelo, em quatro níveis. O modelo é instruído a escolher "
+            "entre alta e média pelo que o item mostra e, na dúvida entre manter e excluir, a manter. A relevância é um rótulo "
+            "do modelo, não a decisão de uma pessoa de incluir ou excluir o item da revisão; o artigo que o modelo põe fora do "
+            "escopo com confiança alta, numa resposta que passou na conferência automática, fica oculto, como explica “Item "
+            "oculto pelo modelo”."),
+         _e("relevancia-alta", "Relevância alta", "Segundo o modelo: " + rotulos.RELEVANCIA_V2["alta"] + "."),
+         _e("relevancia-media", "Relevância média", "Segundo o modelo: " + rotulos.RELEVANCIA_V2["media"] + "."),
+         _e("relevancia-baixa", "Relevância baixa", "Segundo o modelo: " + rotulos.RELEVANCIA_V2["baixa"] + "."),
+         _e("relevancia-fora-do-escopo", "Fora do escopo", "Segundo o modelo: " + rotulos.RELEVANCIA_V2["fora_do_escopo"] + "."),
+         _e("confianca-modelo", "Confiança do modelo",
+            "O quanto o modelo diz estar seguro da relevância que deu: alta, média ou baixa. É uma declaração do próprio "
+            "modelo, não uma medida de acerto."),
+         _e("elegivel", "Elegível",
+            "Relevância alta ou média segundo o modelo. É um rótulo técnico da triagem automática, não a inclusão do item na "
+            "revisão."),
+         _e("no-escopo", "No escopo",
+            "Relevância alta, média ou baixa segundo o modelo. Ficam de fora os itens fora do escopo e os que não têm triagem "
+            "válida."),
+         _e("angulo", "Ângulo predominante",
+            "O recorte do item, segundo o modelo: viés algorítmico, quando o tema central é viés, discriminação, equidade, "
+            "ética, direitos, transparência, responsabilização ou governança da IA ou de algoritmos; ou aplicações "
+            "tecnológicas, quando o tema central é o uso, a implantação, o desempenho, os produtos ou as soluções de IA ou de "
+            "tecnologia, sem centrar o viés ou a ética. É um só ângulo por item, o que domina o título e o trecho; não quer "
+            "dizer que a obra trate só desse tema."),
+         _e("tipo-fonte", "Tipo de fonte",
+            "Um entre 43 tipos fixos (artigo científico, dissertação, relatório, reportagem, norma, solução tecnológica e "
+            "outros), escolhido pelo modelo. O sistema acrescenta o grupo: literatura científica, literatura cinzenta ou fonte "
+            "primária (normas e regulação)."),
+         _e("pais-escopo", "País ou escopo",
+            "O país ou a abrangência do item segundo o modelo, em texto curto (por exemplo, Brasil, EUA, União Europeia ou "
+            "Internacional). Quando o item não mostra, fica “Indeterminado”: o modelo é instruído a não supor Brasil só porque "
+            "a busca foi em português."),
+         _e("topicos", "Tópicos",
+            "De um a cinco temas curtos que o modelo tira do item. Nas análises, os tópicos que aparecem como palavra ou "
+            "expressão de alguma consulta ficam marcados como “termo de busca” e contam como os demais."),
+         _e("eixo", "Eixo de exploração",
+            "Um dos seis eixos de exploração definidos para a pesquisa, ou nenhum, escolhido pelo modelo. Os eixos foram "
+            "pensados para o viés algorítmico, e itens sobre aplicações podem ficar sem eixo."),
+         _e("justificativa", "Justificativa",
+            "Frase curta em que o modelo diz por que deu aquela relevância; ele é instruído a usar até 25 palavras. Aparece na "
+            "página de cada item."),
+         _e("conferencia-automatica", "Conferência automática",
+            "Depois de cada resposta, o programa confere, sem usar o modelo, se cada campo está entre as opções e dentro dos "
+            "tamanhos permitidos. Uma resposta com algum campo fora disso fica marcada como inválida, e o item conta como sem "
+            "triagem válida. A conferência olha o formato da resposta, não se a classificação está certa."),
+     ]},
+    {"id": "apresentacao", "titulo": "O que fica oculto e o que é decisão humana",
+     "intro": "Como as telas tratam a classificação do modelo e a decisão de uma pessoa. Nada é apagado do banco.",
+     "entradas": [
+         _e("oculto-pelo-modelo", "Item oculto pelo modelo",
+            "Um artigo do Scholar que o modelo pôs fora do escopo, com confiança alta e numa resposta que passou na "
+            "conferência automática, fica oculto das listas de artigos enquanto nenhuma pessoa decidir sobre ele. Uma resposta "
+            "fora do escopo sem confiança alta não oculta nada. O artigo oculto não é apagado: quem tem acesso pode mostrá-lo "
+            "pelo filtro da lista, e a decisão de uma pessoa sempre prevalece. As referências da web não são ocultadas: a tela "
+            "Referências mostra todas."),
+         _e("decisao-humana", "Decisão humana",
+            "A decisão de triagem registrada por uma pessoa sobre um artigo do Scholar (incluir ou excluir). É diferente da "
+            "classificação do modelo e prevalece sobre ela. As referências da web ainda não passam por triagem humana. "
+            "Enquanto não houver decisões humanas, os números da triagem são só do modelo."),
+         _e("validacao-humana", "Validação humana da triagem",
+            "Conferência, por uma pessoa que não vê a resposta do modelo no formulário, de uma amostra de 40 itens com triagem válida e tipo "
+            "de fonte, sorteada uma só vez por estratos de relevância. Mede a concordância entre a pessoa e o modelo em quatro "
+            "campos (relevância, grupo da fonte, eixo e país) e na elegibilidade; a concordância da elegibilidade para todos os "
+            "itens triados é estimada pesando cada estrato pelo seu tamanho, e só quando todos os estratos têm resposta."),
+         _e("sinais-brasil-tema", "Sinais de Brasil e de tema",
+            "Ajuda de priorização nas listas de artigos: uma busca de palavras no título, no resumo, nos autores e no endereço "
+            "procura sinais de que o artigo é brasileiro e de que trata de segurança pública. Não é a relevância da triagem "
+            "pelo modelo e não oculta nem exclui nada."),
+     ]},
+    {"id": "execucoes", "titulo": "Execuções e reprodutibilidade",
+     "intro": "Cada passagem de uma etapa é uma execução, com situação, configuração e custo próprios.",
+     "entradas": _execucoes_reusadas},
+]
+
+SUBTITULO_REAL = (
+    "O que cada número, status e motivo desta ferramenta significa, em linguagem simples. Os mesmos termos aparecem "
+    "nas telas e na planilha Excel exportada."
+)
+SUBTITULO_VIES = (
+    "O que significam as unidades de contagem, os rótulos da triagem pelo modelo e as regras de apresentação "
+    "desta pesquisa, em linguagem simples."
+)
+
+
+def subtitulo(banco) -> str:
+    return SUBTITULO_VIES if banco == "vies" else SUBTITULO_REAL
+
+
+def secoes(banco):
+    return SECOES_VIES if banco == "vies" else SECOES
+
+
+def ids_de_ancoras(banco="real"):
     """Todas as ancoras do glossario, na ordem em que aparecem (secoes e entradas)."""
-    return [s["id"] for s in SECOES] + [e["id"] for s in SECOES for e in s["entradas"]]
+    secs = secoes(banco)
+    return [s["id"] for s in secs] + [e["id"] for s in secs for e in s["entradas"]]

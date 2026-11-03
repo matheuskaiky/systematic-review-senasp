@@ -36,6 +36,17 @@ def rotulo_ferramenta(provedor):
 
 # relevancia da triagem da busca de vies (gravada em triagem_escopo.status_bruto, D116)
 RELEVANCIA_VIES = {"alta": "Alta", "media": "Média", "baixa": "Baixa", "fora_do_escopo": "Fora do escopo"}
+RELEVANCIA_V2 = {
+    "alta": ("diretamente sobre IA, algoritmos ou sistemas de decisão automatizada na segurança pública, no policiamento, na "
+             "investigação criminal, na perícia ou na justiça criminal, tratando de viés, discriminação, ética, direitos ou "
+             "governança, ou de aplicações, implantações, resultados empíricos, soluções tecnológicas ou produtos"),
+    "media": ("IA numa área vizinha (justiça em geral, vigilância, cidades inteligentes) que se transfere claramente para a "
+              "segurança pública, ou viés e ética da IA em outra área que se transfere claramente para a segurança pública"),
+    "baixa": ("só tangencial, inclusive tecnologia de segurança pública sem IA nem decisão automatizada (câmeras comuns, "
+              "câmeras corporais, drones sem IA)"),
+    "fora_do_escopo": ("sem relação com o tema; o modelo é instruído a usar esta classe só quando tem certeza, e então com "
+                       "confiança alta"),
+}
 ORIGEM_TEXTO = {"pagina": "Texto completo", "snippet": "Somente snippet"}
 # O que "Somente snippet" quer dizer, para quem vê o selo (o modelo não leu a página)
 EXPLICACAO_SNIPPET = ("O modelo não leu a página: recebeu só o título e o resumo do resultado de busca. A confiança fica limitada a "

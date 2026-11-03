@@ -137,11 +137,22 @@ def resumo(lista):
     triados = [i for i in lista if i["relevancia"]]
     por_url, por_titulo = _repetidos_por_criterio(lista)
     repetidos = por_url | por_titulo
+    obras_base, _ = obras_com_origem(lista)
+    n_ambas, n_web, n_sch = 0, 0, 0
+    for o in obras_base:
+        fontes = {f for f, _ in o.get("membros") or []}
+        if FONTE_WEB in fontes and FONTE_SCHOLAR in fontes:
+            n_ambas += 1
+        elif fontes == {FONTE_WEB}:
+            n_web += 1
+        elif fontes == {FONTE_SCHOLAR}:
+            n_sch += 1
     return {"n_itens": len(lista), "n_web": por_fonte[FONTE_WEB], "n_scholar": por_fonte[FONTE_SCHOLAR],
             "n_obras": len(lista) - len(repetidos), "n_em_ambas_fontes": len(repetidos),
             "n_ambas_por_url": len(por_url), "n_ambas_so_por_titulo": len(por_titulo), "n_triados": len(triados),
             "n_alta": sum(1 for i in triados if i["relevancia"] == "alta"),
-            "n_fora": sum(1 for i in triados if i["relevancia"] == "fora_do_escopo")}
+            "n_fora": sum(1 for i in triados if i["relevancia"] == "fora_do_escopo"),
+            "n_obras_em_ambas": n_ambas, "n_obras_so_web": n_web, "n_obras_so_scholar": n_sch}
 
 
 def relevancia_por_fonte(lista):
@@ -452,3 +463,40 @@ def relevancia_por_ferramenta(linhas, lista):
                       "custo_por_elegivel": l["custo_usd"] / eleg if eleg and l["custo_usd"] else None,
                       "creditos_por_elegivel": l["creditos"] / eleg if eleg and l["creditos"] else None})
     return saida
+
+
+def repeticoes_na_mesma_consulta(linhas):
+    """Decompõe os registros repetidos do Scholar na mesma consulta segundo D160 (encadeamento por chamada, página e filtro).
+
+    Devolve None se qualquer linha tiver filtro_idioma fora de ('so_portugues', 'sem_filtro'), se uma chamada_id
+    aparecer com mais de uma tupla (consulta_id, filtro_idioma, pagina), ou se uma tupla (consulta_id, filtro_idioma,
+    pagina) aparecer com mais de uma chamada_id. Caso contrário devolve {'mesma_chamada': ..., 'outra_pagina': ...,
+    'outro_idioma': ..., 'total': ...}."""
+    for r in linhas:
+        f = r.get("filtro_idioma")
+        if f not in ("so_portugues", "sem_filtro"):
+            return None
+
+    chamada_meta = {}
+    meta_chamada = {}
+    for r in linhas:
+        ch = r.get("chamada_id")
+        meta = (r.get("consulta_id"), r.get("filtro_idioma"), r.get("pagina"))
+        if ch in chamada_meta and chamada_meta[ch] != meta:
+            return None
+        chamada_meta[ch] = meta
+        if meta in meta_chamada and meta_chamada[meta] != ch:
+            return None
+        meta_chamada[meta] = ch
+
+    n = len(linhas)
+    d_art_ch = len({(r.get("artigo_id"), r.get("chamada_id")) for r in linhas})
+    d_art_con_filtro = len({(r.get("artigo_id"), r.get("consulta_id"), r.get("filtro_idioma")) for r in linhas})
+    d_art_con = len({(r.get("artigo_id"), r.get("consulta_id")) for r in linhas})
+
+    return {
+        "mesma_chamada": n - d_art_ch,
+        "outra_pagina": d_art_ch - d_art_con_filtro,
+        "outro_idioma": d_art_con_filtro - d_art_con,
+        "total": n - d_art_con,
+    }

@@ -92,6 +92,11 @@ def conferir_resposta(valores, eixos):
 ROTULOS = {"relevancia": "relevância", "grupo": "tipo de fonte", "eixo": "eixo temático", "pais": "país"}
 
 
+def respondidas(linhas):
+    """Quantidade de linhas respondidas (com relevância preenchida)."""
+    return sum(1 for l in linhas if l.get("relevancia"))
+
+
 def concordancia(linhas, eixos):
     """Por campo: {n, iguais, proporcao, kappa (o dict de `estatistica.kappa_cohen`), faixa, matriz, categorias}, na
     amostra sem ponderar; mais `elegivel` (alta ou media) e a concordancia da elegibilidade estimada para todos os itens

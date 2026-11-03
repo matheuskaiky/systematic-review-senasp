@@ -32,6 +32,7 @@ from painel import (
     formatacao as fmt,
     mapa_ufs,
     navegacao,
+    prisma_vies,
     rotulos,
     visao_geral,
     visao_geral_vies,
@@ -1028,6 +1029,11 @@ def criar_app(leitura, repositorio_fabrica, bruto, contexto, contas=None):
     def prisma(request: Request):
         if not leitura.existe():
             return sem_banco(request)
+        if contexto.banco == "vies":
+            with leitura.instantaneo() as l:
+                dados = prisma_vies.dados_vies(l, contexto)
+            ocultos = PRISMA_DO_MODELO if _anonimo(request) else frozenset()
+            return pagina(request, "prisma_vies.html", p=prisma_vies.montar_prisma_vies(dados, ocultos), ocultos=ocultos)
         d = leitura.prisma()
         fases = {}
         for c in d["caixas"]:

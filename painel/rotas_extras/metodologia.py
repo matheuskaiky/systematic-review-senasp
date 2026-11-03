@@ -2,7 +2,7 @@
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from painel import metodologia_texto
+from painel import metodologia_texto, metodologia_vies
 
 
 def registrar(c):
@@ -12,11 +12,17 @@ def registrar(c):
     def metodologia(request: Request):
         if not leitura.existe():
             return c.sem_banco(request)
+        custos = "ver_custos" in c.perms(request)
+        if contexto.banco == "vies":
+            with leitura.instantaneo() as l:
+                fatos = metodologia_vies.fatos_vies(l, contexto)
+            return c.pagina(request, "metodologia.html",
+                            m=metodologia_texto.filtrar_links(metodologia_vies.gerar_metodologia_vies(fatos, custos=custos, modelo=not c.anonimo(request)),
+                                                             c.pode_seguir(request)))
         with leitura.instantaneo() as l:
             fatos = l.fatos_metodologia(len(contexto.ufs) or 27)
         fatos["bases_esperadas"] = list(contexto.bases)
         fatos["banco"] = contexto.banco
-        custos = "ver_custos" in c.perms(request)
         return c.pagina(request, "metodologia.html",
                         m=metodologia_texto.filtrar_links(metodologia_texto.gerar_metodologia(fatos, contexto.ufs, custos=custos, modelo=not c.anonimo(request)),
                                                          c.pode_seguir(request)))

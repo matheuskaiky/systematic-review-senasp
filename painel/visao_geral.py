@@ -300,7 +300,7 @@ def montar(dados: dict, quem: dict) -> list[dict]:
             _indicador("n_obras", "coleta", "Obras distintas", av.get("n_obras"), None, ITENS, "Itens contados uma vez quando a mesma obra aparece nas duas fontes.", "C1"),
             _indicador("n_web", "coleta", "Referências da web", av.get("n_web"), None, ITENS, "Itens devolvidos pela busca de literatura na web.", "C1"),
             _indicador("n_scholar", "coleta", "Artigos do Scholar", av.get("n_scholar"), None, ITENS, "Artigos devolvidos pelo Google Scholar.", "C1"),
-            _indicador("n_em_ambas_fontes", "coleta", "Nas duas fontes", av.get("n_em_ambas_fontes"), None, ITENS, "Obras encontradas na web e no Scholar (mesmo endereço ou mesmo título).", "C1"),
+            _indicador("n_em_ambas_fontes", "coleta", "Nas duas fontes", av.get("n_obras_em_ambas"), None, ITENS, "Obras encontradas na web e no Scholar (mesmo endereço ou mesmo título).", "C1"),
         ]
 
     bloco_cobertura = _bloco_base(

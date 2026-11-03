@@ -57,8 +57,10 @@ ESPERADO = [
           "pontuação). Apesar do nome, pode ser uma dissertação, um livro, um capítulo ou outro trabalho que o Scholar indexa."),
          ("referencia-web", "Referência da web",
           "Uma página encontrada pela busca na web, contada uma vez mesmo quando várias consultas a devolvem. Dois resultados "
-          "são a mesma referência quando o endereço é igual depois de normalizado (sem “www”, sem a barra final e sem "
-          "parâmetros de rastreamento). Pode ser um artigo, uma notícia, um relatório, uma norma ou a página de um produto."),
+          "são a mesma referência quando o endereço é igual depois de normalizado (domínio em minúsculas e sem “www”, sem "
+          "barras no fim do caminho, sem o trecho após “#”, com os parâmetros em qualquer ordem e sem os de rastreamento, que "
+          "são os que começam por “utm_” e “fbclid”, “gclid”, “mc_cid” e “mc_eid”; “http” e “https” contam como endereços "
+          "diferentes, e as maiúsculas do caminho e a porta contam). Pode ser um artigo, uma notícia, um relatório, uma norma ou a página de um produto."),
          ("item", "Item",
           "Um artigo do Scholar ou uma referência da web. É a unidade da triagem pelo modelo: o mesmo trabalho encontrado nas "
           "duas fontes são dois itens, cada um com a sua classificação."),

@@ -491,18 +491,23 @@ def _curto(valor, n=12):
     return str(valor)[:n] if valor else None
 
 
+def _itens_execucoes(execucoes):
+    itens = []
+    for e in execucoes:
+        p = _P().l(e["run_id"], _execucao(e["run_id"])).t(f": {e.get('comando') or 'comando não registrado'} ({e.get('status') or 'situação não registrada'}")
+        p.t(", hash da configuração " + (_curto(e.get("config_hash")) or "não registrado"))
+        p.t(", commit " + (e.get("commit_git") or "não registrado") + ")")
+        itens.append(p.seg)
+    return itens
+
+
 def _reprodutibilidade(x):
     blocos = []
     ex = x.no_relatorio
     if not ex:
         blocos.append(_p(("Nenhuma execução está incluída no relatório.", None)))
     else:
-        itens = []
-        for e in ex:
-            p = _P().l(e["run_id"], _execucao(e["run_id"])).t(f": {e.get('comando') or 'comando não registrado'} ({e.get('status') or 'situação não registrada'}")
-            p.t(", hash da configuração " + (_curto(e.get("config_hash")) or "não registrado"))
-            p.t(", commit " + (e.get("commit_git") or "não registrado") + ")")
-            itens.append(p.seg)
+        itens = _itens_execucoes(ex)
         p = _P().t("Os números acima consideram ").n(len(ex), "/execucoes").t(" " + _pl(len(ex), "execução", "execuções") + " marcadas para o relatório. ")
         hashes = sorted({e["config_hash"] for e in ex if e.get("config_hash")})
         if len(hashes) == 1:
@@ -517,6 +522,41 @@ def _reprodutibilidade(x):
         p.runs([e["run_id"] for e in x.fora]).t(".")
         blocos.append(_bloco_p(p))
     return _secao("reprodutibilidade", "Reprodutibilidade", blocos)
+
+
+def _ressalvas_execucoes(x, custos=True):
+    r = []
+
+    def add(*segmentos):
+        r.append(list(segmentos))
+
+    sujas = [e["run_id"] for e in x.no_relatorio if "+sujo" in (e.get("commit_git") or "")]
+    if sujas:
+        add(("Execuções feitas com código ainda não commitado (commit com “+sujo”): ", None), *_P().runs(sujas).seg,
+            (". O commit registrado não reproduz exatamente o código que rodou.", None))
+    sem_commit = [e["run_id"] for e in x.no_relatorio if not e.get("commit_git")]
+    if sem_commit:
+        add(("Commit do código não registrado em: " + ", ".join(sem_commit) + ".", None))
+    nao_concluidas = [e for e in x.no_relatorio if e.get("status") != "concluida"]
+    if nao_concluidas:
+        p = _P().runs([e["run_id"] for e in nao_concluidas])
+        add(("Execuções do relatório que não terminaram como concluídas: ", None), *p.seg, (". Os números podem estar parciais.", None))
+    hashes = {e["config_hash"] for e in x.no_relatorio if e.get("config_hash")}
+    if len(hashes) > 1:
+        add((f"As execuções do relatório usaram {len(hashes)} configurações diferentes; confira as diferenças antes de descrever o método como único.", None))
+    if x.retomadas:
+        p = _P().runs([e["run_id"] for e in x.retomadas])
+        add(("Execuções retomadas (--retomar), cujo código e ambiente podem diferir dos da execução original: ", None), *p.seg, (".", None))
+    if x.fora:
+        if custos:
+            add((f"{fmt.numero(len(x.fora))} {_pl(len(x.fora), 'execução está fora', 'execuções estão fora')} do relatório e não "
+                 f"{_pl(len(x.fora), 'entra', 'entram')} nos números; {_pl(len(x.fora), 'seu custo entra', 'seus custos entram')} apenas no gasto real total. ", None),
+                ("Ver execuções.", "/execucoes"))
+        else:
+            add((f"{fmt.numero(len(x.fora))} {_pl(len(x.fora), 'execução está fora', 'execuções estão fora')} do relatório e não "
+                 f"{_pl(len(x.fora), 'entra', 'entram')} nos números. ", None),
+                ("Ver execuções.", "/execucoes"))
+    return r
 
 
 # ---------------------------------------------------------------- ressalvas
@@ -582,32 +622,7 @@ def _ressalvas(x, custos=True, modelo=True):
         if parcial:
             add(("Há chamadas bem-sucedidas sem custo gravado (" + "; ".join(parcial) + "): o custo total está subestimado.", None))
     # reprodutibilidade
-    sujas = [e["run_id"] for e in x.no_relatorio if "+sujo" in (e.get("commit_git") or "")]
-    if sujas:
-        add(("Execuções feitas com código ainda não commitado (commit com “+sujo”): ", None), *_P().runs(sujas).seg,
-            (". O commit registrado não reproduz exatamente o código que rodou.", None))
-    sem_commit = [e["run_id"] for e in x.no_relatorio if not e.get("commit_git")]
-    if sem_commit:
-        add(("Commit do código não registrado em: " + ", ".join(sem_commit) + ".", None))
-    nao_concluidas = [e for e in x.no_relatorio if e.get("status") != "concluida"]
-    if nao_concluidas:
-        p = _P().runs([e["run_id"] for e in nao_concluidas])
-        add(("Execuções do relatório que não terminaram como concluídas: ", None), *p.seg, (". Os números podem estar parciais.", None))
-    hashes = {e["config_hash"] for e in x.no_relatorio if e.get("config_hash")}
-    if len(hashes) > 1:
-        add((f"As execuções do relatório usaram {len(hashes)} configurações diferentes; confira as diferenças antes de descrever o método como único.", None))
-    if x.retomadas:
-        p = _P().runs([e["run_id"] for e in x.retomadas])
-        add(("Execuções retomadas (--retomar), cujo código e ambiente podem diferir dos da execução original: ", None), *p.seg, (".", None))
-    if x.fora:
-        if custos:
-            add((f"{fmt.numero(len(x.fora))} {_pl(len(x.fora), 'execução está fora', 'execuções estão fora')} do relatório e não "
-                 f"{_pl(len(x.fora), 'entra', 'entram')} nos números; {_pl(len(x.fora), 'seu custo entra', 'seus custos entram')} apenas no gasto real total. ", None),
-                ("Ver execuções.", "/execucoes"))
-        else:
-            add((f"{fmt.numero(len(x.fora))} {_pl(len(x.fora), 'execução está fora', 'execuções estão fora')} do relatório e não "
-                 f"{_pl(len(x.fora), 'entra', 'entram')} nos números. ", None),
-                ("Ver execuções.", "/execucoes"))
+    r.extend(_ressalvas_execucoes(x, custos=custos))
     pares = x.cl.get("classificadores") or []
     if modelo:
         if len(pares) > 1:

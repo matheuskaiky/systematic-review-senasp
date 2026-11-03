@@ -105,7 +105,8 @@ def test_resumo():
     lista = _itens([_web(1, url_original="https://s.org/9"), _web(2)], [_art(9), _art(10)],
                    {("referencia", 1): _t(), ("referencia", 2): _t(status_bruto="fora_do_escopo"), ("artigo", 9): _t()})
     assert AV.resumo(lista) == {"n_itens": 4, "n_web": 2, "n_scholar": 2, "n_obras": 3, "n_em_ambas_fontes": 1,
-                                "n_ambas_por_url": 1, "n_ambas_so_por_titulo": 0, "n_triados": 3, "n_alta": 2, "n_fora": 1}
+                                "n_ambas_por_url": 1, "n_ambas_so_por_titulo": 0, "n_obras_em_ambas": 1, "n_obras_so_web": 1,
+                                "n_obras_so_scholar": 1, "n_triados": 3, "n_alta": 2, "n_fora": 1}
 
 
 def test_sobreposicao_separa_url_e_so_titulo():
@@ -307,8 +308,9 @@ def test_aviso_quando_uma_fonte_tem_mais_de_uma_ferramenta():
 
 def test_complemento_das_fontes_so_abaixo_do_limiar():
     pouco = {"n_itens": 10, "n_web": 5, "n_scholar": 5, "n_obras": 9, "n_em_ambas_fontes": 1, "n_ambas_por_url": 1,
-             "n_ambas_so_por_titulo": 0, "n_triados": 10, "n_alta": 5, "n_fora": 0}
-    muito = {**pouco, "n_obras": 6, "n_em_ambas_fontes": 4}
+             "n_ambas_so_por_titulo": 0, "n_obras_em_ambas": 1, "n_obras_so_web": 4, "n_obras_so_scholar": 4,
+             "n_triados": 10, "n_alta": 5, "n_fora": 0}
+    muito = {**pouco, "n_obras": 6, "n_em_ambas_fontes": 4, "n_obras_em_ambas": 4, "n_obras_so_web": 1, "n_obras_so_scholar": 1}
     assert bv.bloco_sobreposicao(pouco)["texto"] and not bv.bloco_sobreposicao(muito)["texto"]
     assert bv.bloco_sobreposicao(muito)["titulo"] == "6 obras distintas: 4 aparecem nas duas fontes"
     so_titulo = bv.bloco_sobreposicao({**muito, "n_ambas_por_url": 3, "n_ambas_so_por_titulo": 1})["texto"]

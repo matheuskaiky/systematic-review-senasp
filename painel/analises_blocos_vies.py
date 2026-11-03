@@ -67,10 +67,10 @@ def bloco_sobreposicao(r):
     """Quantas obras aparecem nas duas fontes (mesma URL ou mesmo titulo)."""
     if not r["n_itens"]:
         return _bloco("vies-sobreposicao", "Ainda não há itens da busca de viés algorítmico neste banco")
-    ambas = r["n_em_ambas_fontes"]
+    ambas = r["n_obras_em_ambas"]
     titulo = (f"{fmt.numero(r['n_obras'])} obras distintas: {fmt.numero(ambas)} "
               f"{'aparece' if ambas == 1 else 'aparecem'} nas duas fontes")
-    itens = [("Só na web", r["n_web"] - ambas), ("Só no Scholar", r["n_scholar"] - ambas), ("Nas duas fontes", ambas)]
+    itens = [("Só na web", r["n_obras_so_web"]), ("Só no Scholar", r["n_obras_so_scholar"]), ("Nas duas fontes", ambas)]
     graf = graficos.barras_horizontais(itens, titulo, "Obras distintas por fonte", fmt.numero)
     texto = []
     if r["n_obras"] and ambas / r["n_obras"] < LIMIAR_SOBREPOSICAO:
@@ -79,7 +79,9 @@ def bloco_sobreposicao(r):
                   texto + (["Antes de citar a sobreposição, confira à mão os pares achados só pelo título: títulos "
                             "comuns podem juntar obras diferentes."] if r["n_ambas_so_por_titulo"] else []),
                   pares=[("Itens (web + Scholar)", fmt.numero(r["n_itens"])), ("Obras distintas", fmt.numero(r["n_obras"])),
-                         ("Nas duas fontes", fmt.numero(ambas)), ("… pela URL", fmt.numero(r["n_ambas_por_url"])),
+                         ("Obras nas duas fontes", fmt.numero(ambas)),
+                         ("Referências da web juntadas a um artigo", fmt.numero(r["n_em_ambas_fontes"])),
+                         ("… pela URL", fmt.numero(r["n_ambas_por_url"])),
                          ("… só pelo título", fmt.numero(r["n_ambas_so_por_titulo"]))])
 
 

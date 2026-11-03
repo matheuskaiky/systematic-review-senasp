@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Fluxo PRISMA{% endblock %}
+{% block conteudo %}
+<p class="trilha">{% if pode_seguir("/literatura") %}<a href="/literatura">Literatura</a>{% else %}Literatura{% endif %} › PRISMA</p>
+<h1>Fluxo PRISMA</h1>
+<section class="cartao" aria-label="Sobre este fluxo">
+<p><strong>O que é este fluxo.</strong> PRISMA (<em>Preferred Reporting Items for Systematic Reviews and Meta-Analyses</em>) é uma diretriz para relatar com transparência como os estudos de uma revisão foram encontrados, organizados, triados e selecionados. Não é um algoritmo de classificação nem uma garantia de qualidade científica: o fluxograma só mostra quantos registros passaram por cada etapa e quantos saíram em cada uma.</p>
+<p><strong>O que ele cobre aqui.</strong> Este fluxo é uma adaptação da estrutura do PRISMA a duas origens, contadas separadamente: artigos do Google Scholar e referências encontradas pela busca na web. Uma referência da web que repete um artigo do Scholar conta uma só vez como obra (uma referência que coincide com mais de um artigo não é juntada a nenhum). A pesquisa ainda não é uma revisão sistemática concluída: as referências da web não passam por triagem humana no procedimento atualmente documentado, e as etapas sem decisões registradas aparecem como tal.</p>
+<p><strong>Como ler os números.</strong> Cada caixa diz o que conta (ocorrência devolvida pela busca, chamada, artigo único, referência, obra) e de qual origem; números de unidades diferentes não se somam. As etapas marcadas “triagem de escopo do modelo” foram feitas por um modelo de linguagem e não são decisões de pesquisadores. Avaliados, excluídos e incluídos contam só decisões registradas por pessoas; “artigos únicos para triagem” e “pendentes” já descontam os artigos removidos pelo modelo. O que não se aplica a esta pesquisa aparece escrito assim, nunca como zero.</p>
+</section>
+{% if ocultos %}<div class="aviso" role="status">Resultados automatizados ainda não divulgados.</div>{% endif %}
+<div class="prisma">
+{% for fase in p.fases %}
+  <section class="cartao prisma-fase" aria-label="{{ fase.titulo }}"><h2>{{ fase.titulo }}</h2>
+    {% if fase.nota %}<p class="sub">{{ fase.nota }}</p>{% endif %}
+    <ul class="lista-simples">{% for c in fase.caixas %}
+      <li class="caixa-prisma"><span class="num-prisma">{% if c.especial %}<span class="nd">{{ c.valor }}</span>{% else %}{{ c.valor }}{% endif %}</span>
+        <span>{{ c.rotulo }}<br><small>{{ c.nota }}{% if c.link_triagem and pode_seguir("/triagem-escopo") %} (<a href="/triagem-escopo">ver a triagem do modelo</a>){% endif %}</small></span></li>{% endfor %}</ul></section>
+  {% if not loop.last and fase.id != "identificacao" %}<div class="seta-prisma" aria-hidden="true">▼</div>{% if fase.id == "web" %}<p class="sub">Seguem para a triagem só os artigos do Google Scholar; as referências da web ficam na identificação e na organização.</p>{% endif %}{% endif %}
+{% endfor %}
+</div>
+{% if p.repetidos_por_causa %}<details class="acordeao-metodologico guia-metodologico"><summary>Por que a mesma consulta devolve o mesmo artigo de novo</summary><div class="acordeao-corpo"><p>Registros que a mesma consulta devolveu de novo, por causa (as causas não se sobrepõem):</p><ul class="lista-simples">{% for item in p.repetidos_por_causa %}<li>{{ item }}</li>{% endfor %}</ul></div></details>{% endif %}
+{% if p.motivos %}<section class="cartao"><h2 data-ic="list-bullets" data-tom="rosa">Motivos de exclusão</h2><div class="tabela-rolavel"><table><thead><tr><th>Etapa</th><th>Motivo</th><th class="num">Artigos</th></tr></thead>
+  <tbody>{% for m in p.motivos %}<tr><td>{{ "Título e resumo" if m.etapa == "titulo_resumo" else "Texto completo" }}</td><td>{{ m.motivo }}</td><td class="num">{{ m.n }}</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+<p><small>Removidos por ferramenta automática: artigos retirados do fluxo de triagem pela classificação automatizada de escopo, conforme as regras desta pesquisa, apresentados separadamente neste fluxograma adaptado ao PRISMA 2020. A retirada exige que o modelo ponha o artigo fora do escopo com confiança alta (veredito atual válido) e que nenhuma pessoa tenha decidido sobre ele. Nada é apagado; se uma pessoa decidir sobre um deles, ele volta ao fluxo humano e deixa de contar aqui.</small></p>
+{% endblock %}

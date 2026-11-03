@@ -204,7 +204,7 @@ def _espiar(monkeypatch):
     return chamadas
 
 
-@pytest.mark.parametrize("banco", ["real", "vies"])
+@pytest.mark.parametrize("banco", ["real"])                            # no vies: tests/test_metodologia_vies.py
 def test_visitante_recebe_o_texto_publico(demo, tmp_path, monkeypatch, banco):  # noqa: F811
     chamadas = _espiar(monkeypatch)
     app, contas, contas_db, _ = _painel(demo, tmp_path, banco=banco)

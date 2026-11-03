@@ -499,6 +499,88 @@ class LeituraPainelSQLite(LeituraClassificadores, LeituraMetodologia, LeituraTri
             l["idiomas"] = ",".join(sorted({chave.get(c, "outro") for c in chamadas}))
         return linhas
 
+    def parametros_buscas_vies(self):
+        """Parâmetros das chamadas das buscas web e Scholar nas execuções do relatório."""
+        sql = """
+            SELECT chamada_id, etapa, run_id, alvo_id, pagina, sucesso, parametros_json, n_retornados
+            FROM r_chamadas
+            WHERE etapa IN ('busca_literatura', 'busca_academica')
+            ORDER BY chamada_id"""
+        try:
+            linhas = self._consulta(sql)
+        except sqlite3.OperationalError:
+            return {"web": [], "scholar": []}
+        web = []
+        scholar = []
+        for l in linhas:
+            param_raw = l.get("parametros_json")
+            p = {}
+            if param_raw:
+                try:
+                    dec = json.loads(param_raw)
+                    if isinstance(dec, dict):
+                        p = dec
+                except (TypeError, ValueError):
+                    pass
+            etapa = l.get("etapa")
+            if etapa == "busca_literatura":
+                web.append({
+                    "consulta_id": l.get("alvo_id"),
+                    "run_id": l.get("run_id"),
+                    "sucesso": l.get("sucesso"),
+                    "max_resultados": p.get("max_results"),
+                    "idiomas": p.get("search_language_filter"),
+                    "pais": p.get("country"),
+                    "n_retornados": l.get("n_retornados"),
+                })
+            elif etapa == "busca_academica":
+                scholar.append({
+                    "consulta_id": l.get("alvo_id"),
+                    "run_id": l.get("run_id"),
+                    "sucesso": l.get("sucesso"),
+                    "interface": p.get("hl"),
+                    "filtro_idioma": _idioma_da_chamada(param_raw),
+                    "por_pagina": p.get("num"),
+                    "pagina": l.get("pagina"),
+                    "n_retornados": l.get("n_retornados"),
+                })
+        return {"web": web, "scholar": scholar}
+
+    def triagem_vies_por_execucao(self):
+        """Retorna as linhas distintas de triagem_escopo com prompt_versao e provedor da chamada para execuções no relatório."""
+        sql = """
+            SELECT DISTINCT t.run_id, t.prompt_versao AS versao, c.provedor
+            FROM triagem_escopo t
+            JOIN execucoes e ON e.run_id = t.run_id
+            LEFT JOIN chamadas c ON c.chamada_id = t.chamada_id
+            WHERE e.no_relatorio = 1"""
+        try:
+            return self._consulta(sql)
+        except sqlite3.OperationalError:
+            return []
+
+    def ocorrencias_scholar_por_chamada(self):
+        """Retorna ocorrências do Scholar nas execuções do relatório com metadados da chamada."""
+        sql = """
+            SELECT o.artigo_id, o.chamada_id, o.termo_id, c.parametros_json, c.pagina
+            FROM r_ocorrencias o
+            JOIN chamadas c ON c.chamada_id = o.chamada_id
+            ORDER BY o.ocorrencia_id"""
+        try:
+            linhas = self._consulta(sql)
+        except sqlite3.OperationalError:
+            return []
+        return [
+            {
+                "artigo_id": l.get("artigo_id"),
+                "chamada_id": l.get("chamada_id"),
+                "consulta_id": l.get("termo_id"),
+                "filtro_idioma": _idioma_da_chamada(l.get("parametros_json")),
+                "pagina": l.get("pagina"),
+            }
+            for l in linhas
+        ]
+
     def linhas_casos_estaduais(self):
         """Os achados das execucoes do relatorio, com a pagina (titulo e data do resultado mais recente da mesma URL e UF,
         D101) e a fonte efetiva, para a planilha no modelo "Casos Estaduais" (D112)."""

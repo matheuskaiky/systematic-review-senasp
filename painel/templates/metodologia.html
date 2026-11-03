@@ -4,11 +4,11 @@
 {% macro seg(par) %}{% for texto, href in par %}{% if href %}<a href="{{ href }}">{{ texto }}</a>{% else %}{{ texto }}{% endif %}{% endfor %}{% endmacro %}
 {% block conteudo %}
 <h1>Metodologia</h1>
-<p class="sub">Texto gerado a partir do banco, pronto para adaptar à seção de método. Os números com link levam à página do painel que os justifica. Nada aqui é inventado: o que falta nos dados aparece como ressalva.</p>
+{% if m.subtitulo %}<p class="sub">{{ m.subtitulo }}</p>{% else %}<p class="sub">Texto gerado a partir do banco, pronto para adaptar à seção de método. Os números com link levam à página do painel que os justifica. Nada aqui é inventado: o que falta nos dados aparece como ressalva.</p>{% endif %}
 
 {% if m.ressalvas %}
 <section class="aviso aviso-lista" aria-label="Ressalvas">
-  <strong class="em-linha">Antes de usar este texto</strong>: {{ m.ressalvas|length }} {{ "ressalva" if m.ressalvas|length == 1 else "ressalvas" }} sobre os dados. <a href="#ressalvas">Ler as ressalvas</a>.
+  {% if m.subtitulo %}<strong class="em-linha">Ressalvas sobre os dados</strong>: {{ m.ressalvas|length }} {{ "ressalva" if m.ressalvas|length == 1 else "ressalvas" }}. <a href="#ressalvas">Ler as ressalvas</a>.{% else %}<strong class="em-linha">Antes de usar este texto</strong>: {{ m.ressalvas|length }} {{ "ressalva" if m.ressalvas|length == 1 else "ressalvas" }} sobre os dados. <a href="#ressalvas">Ler as ressalvas</a>.{% endif %}
 </section>
 {% endif %}
 

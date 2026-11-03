@@ -76,15 +76,15 @@ def test_visitante_ve_o_prisma_sem_os_numeros_do_modelo(demo, tmp_path, banco): 
     assert re.search(r'<div class="aviso" role="status">' + re.escape(AVISO) + "</div>", conteudo)
 
 
-@pytest.mark.parametrize("banco", ["real", "vies"])
-def test_os_numeros_humanos_e_da_coleta_continuam_para_o_visitante(demo, tmp_path, banco):  # noqa: F811
+@pytest.mark.parametrize("banco,n_caixas", [("real", 20), ("vies", 26)])     # no vies: as 20 de v_prisma e as 6 da web
+def test_os_numeros_humanos_e_da_coleta_continuam_para_o_visitante(demo, tmp_path, banco, n_caixas):  # noqa: F811
     app, contas, contas_db, copia = _painel(demo, tmp_path, banco=banco)
     _com_removidos_pelo_modelo(copia)
     gravar_politica(contas, banco)
     visitante = _caixas(TestClient(app).get("/literatura/prisma").text)
     leitor = _caixas(_leitor(app, contas, contas_db).get("/literatura/prisma").text)
     ocultos = {rotulos.rotulo(rotulos.PRISMA, m) for m in DO_MODELO}
-    assert list(visitante) == list(leitor) and len(visitante) == 20          # as mesmas caixas, na mesma ordem
+    assert list(visitante) == list(leitor) and len(visitante) == n_caixas    # as mesmas caixas, na mesma ordem
     assert {k: v for k, v in visitante.items() if k not in ocultos} == {k: v for k, v in leitor.items() if k not in ocultos}
 
 

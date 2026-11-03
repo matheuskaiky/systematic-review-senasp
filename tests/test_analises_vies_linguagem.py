@@ -159,7 +159,7 @@ def test_ferramentas_avisam_que_a_comparacao_nao_e_de_qualidade_pura():
 
 def test_sobreposicao_sem_interpretacao_de_complementaridade():
     from dominio import analises_vies as AV_
-    r = {**AV_.resumo(_lista()), "n_obras": 100, "n_em_ambas_fontes": 1}
+    r = {**AV_.resumo(_lista()), "n_obras": 100, "n_em_ambas_fontes": 1, "n_obras_em_ambas": 1}
     assert "As duas fontes se sobrepõem pouco: poucas obras aparecem nas duas." in bv.bloco_sobreposicao(r)["texto"]
 
 

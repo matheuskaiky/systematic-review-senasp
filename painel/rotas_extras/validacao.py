@@ -32,7 +32,7 @@ def registrar(c):
         if fora:
             return fora
         linhas = leitura.linhas_validacao_vies()
-        respondidas = sum(1 for l in linhas if l["relevancia"])
+        respondidas = VV.respondidas(linhas)
         completa = bool(linhas) and respondidas == len(linhas)
         resultado = VV.concordancia(linhas, _eixos()) if completa else None
         return c.pagina(request, "validacao.html", linhas=linhas, respondidas=respondidas, completa=completa,

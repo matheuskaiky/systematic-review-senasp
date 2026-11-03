@@ -46,7 +46,8 @@ EXECUCOES = [{"run_id": "20261028_100000_a1b2", "comando": "pipeline-uf", "statu
              {"run_id": "x y/z", "comando": "classificar", "status": "falhou", "iniciado_em": "2026-10-27T10:00:00+00:00",
               "finalizado_em": None, "no_relatorio": 0, "custo_usd": 0.0}]
 RESUMO_VIES = {"custo_total_usd": 0.75, "execucoes_nao_concluidas": 0, "chamadas_com_falha": 1}
-AV = {"n_itens": 200, "n_web": 120, "n_scholar": 80, "n_obras": 190, "n_em_ambas_fontes": 10, "n_triados": 180, "n_alta": 40,
+AV = {"n_itens": 200, "n_web": 120, "n_scholar": 80, "n_obras": 190, "n_em_ambas_fontes": 10, "n_obras_em_ambas": 9,
+      "n_obras_so_web": 110, "n_obras_so_scholar": 71, "n_triados": 180, "n_alta": 40,
       "n_fora": 60}
 TRIAGEM = {"total": 70, "incluidos": 20, "excluidos": 15, "pendentes": 35, "ocultos_llm": 9}
 RELEVANCIA = {"titulo": "t", "grafico": "<svg>relevancia</svg>", "aviso": None}
@@ -184,7 +185,7 @@ INDICADORES_VIES = {
                              "Itens contados uma vez quando a mesma obra aparece nas duas fontes.", "C1"),
         "n_web": _esperado("coleta", "Referências da web", 120, None, ITENS, "Itens devolvidos pela busca de literatura na web.", "C1"),
         "n_scholar": _esperado("coleta", "Artigos do Scholar", 80, None, ITENS, "Artigos devolvidos pelo Google Scholar.", "C1"),
-        "n_em_ambas_fontes": _esperado("coleta", "Nas duas fontes", 10, None, ITENS,
+        "n_em_ambas_fontes": _esperado("coleta", "Nas duas fontes", 9, None, ITENS,                   # obras, não referências
                                        "Obras encontradas na web e no Scholar (mesmo endereço ou mesmo título).", "C1"),
     },
     "fila": {

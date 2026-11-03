@@ -14,8 +14,15 @@ from painel import analises_blocos as b, analises_blocos_ferramentas as bf, anal
 from test_analises_vies import LEITURA
 
 VALORES = json.loads((Path(__file__).parent / "valores_analises_exploratorias.json").read_text(encoding="utf-8"))
-ONDE_H1_SEM = "análise exploratória baseada em classificações automatizadas, ainda sem verificação humana (veja a aba Adoção)"
-ONDE_H1_PARCIAL = "análise exploratória baseada em classificações automatizadas, com verificação humana parcial (veja a aba Adoção)"
+ONDE_H1_SEM = ("análise exploratória baseada em classificações automatizadas, sem achados do mapa confirmados por revisor (veja a "
+               "aba Adoção)")
+ONDE_H1_PARCIAL = ("análise exploratória baseada em classificações automatizadas, com verificação humana parcial: {nv} de {na} "
+                   "achados do mapa confirmados por revisor (veja a aba Adoção)")
+ONDE_H1_COMPLETA = "análise exploratória dos achados do mapa, todos confirmados por revisor (veja a aba Adoção)"
+H1_TEXTO = ("H1 é exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; não responde à "
+            "hipótese, porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana.")
+H1_TEXTO_COMPLETA = ("H1 é exploratória: todos os achados do mapa foram confirmados por revisor, mas o mapa mostra o que as buscas "
+                     "encontraram nas páginas das secretarias, não um levantamento completo do uso ou da implantação.")
 ONDE_H6_SEM = ("análise exploratória dos achados marcados pelo modelo e das respostas em formato inválido; não usa verificação "
                "humana (aba Operação)")
 ONDE_H6_PARCIAL = ONDE_H6_SEM
@@ -34,19 +41,97 @@ def _grafico_sem_titulo(bloco):
     return re.sub(r"\b([a-z]{2})-[0-9a-f]{8}", r"\1-ID", svg)
 
 
-def _linhas_hipoteses(humano):
+def _bloco_hipoteses(humano, mapa=None):
     res = {"tem_dados_humanos_achados": humano, "tem_dados_humanos_artigos": humano}
-    bl = b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]}, {"tem_excluidos_checados": humano},
-                           PRONTIDAO_ATINGIDA)
-    return {l[0][:2]: l for l in bl["tabela"]["linhas"]}
+    kw = {} if mapa is None else {"mapa": mapa}
+    return b.bloco_hipoteses(res, {"provedores": [{"provedor": "a"}, {"provedor": "b"}]}, {"tem_excluidos_checados": humano},
+                             PRONTIDAO_ATINGIDA, **kw)
 
 
-@pytest.mark.parametrize("humano,onde_h1,onde_h6", [(False, ONDE_H1_SEM, ONDE_H6_SEM), (True, ONDE_H1_PARCIAL, ONDE_H6_PARCIAL)])
-def test_h1_e_h6_sao_exploratorias_e_nunca_feitas(humano, onde_h1, onde_h6):
-    linhas = _linhas_hipoteses(humano)
+def _linhas_hipoteses(humano, mapa=None):
+    return {l[0][:2]: l for l in _bloco_hipoteses(humano, mapa)["tabela"]["linhas"]}
+
+
+def _mapa(nv, na, **kw):
+    """O dicionário da aba Adoção (analise_maturidade_uf_tecnologia): achados do mapa e quantos deles um revisor confirmou."""
+    return {"n_achados": na, "n_verificados": nv, "n_descartados": 2, "tem_dados_humanos": bool(nv and nv > 0), **kw}
+
+
+# (descrição, humano no resumo, mapa da Adoção, coluna Onde da H1, parágrafo da H1)
+H1_CASOS = [
+    ("sem o mapa", False, None, ONDE_H1_SEM, H1_TEXTO),
+    ("sem o mapa, mesmo com verificação no resumo", True, None, ONDE_H1_SEM, H1_TEXTO),
+    ("mapa vazio", True, {}, ONDE_H1_SEM, H1_TEXTO),
+    ("nenhum achado do mapa confirmado", True, _mapa(0, 3), ONDE_H1_SEM, H1_TEXTO),
+    ("sem achados no mapa", False, _mapa(0, 0), ONDE_H1_SEM, H1_TEXTO),
+    ("só os descartados verificados (fora do mapa)", True, _mapa(0, 3, n_descartados=5), ONDE_H1_SEM, H1_TEXTO),
+    ("parcial", True, _mapa(1, 3), ONDE_H1_PARCIAL.format(nv="1", na="3"), H1_TEXTO),
+    ("parcial com milhar", True, _mapa(1000, 2500), ONDE_H1_PARCIAL.format(nv="1.000", na="2.500"), H1_TEXTO),
+    ("o mapa decide, não o resumo", False, _mapa(2, 3), ONDE_H1_PARCIAL.format(nv="2", na="3"), H1_TEXTO),
+    ("completa", True, _mapa(3, 3), ONDE_H1_COMPLETA, H1_TEXTO_COMPLETA),
+    ("completa com um achado", True, _mapa(1, 1), ONDE_H1_COMPLETA, H1_TEXTO_COMPLETA),
+    ("verificados acima dos achados: a mesma regra da Adoção", True, _mapa(4, 3), ONDE_H1_COMPLETA, H1_TEXTO_COMPLETA),
+    ("dados humanos sem os números: parcial com o número ausente", True, {"tem_dados_humanos": True},
+     ONDE_H1_PARCIAL.format(nv="—", na="—"), H1_TEXTO),
+    ("números sem a marca de dados humanos", True, {"n_achados": 3, "n_verificados": 3}, ONDE_H1_SEM, H1_TEXTO),
+]
+
+
+@pytest.mark.parametrize("descricao, humano, mapa, onde_h1, texto_h1", H1_CASOS, ids=[c[0] for c in H1_CASOS])
+def test_h1_segue_o_mapa_da_adocao_e_h6_nao_muda(descricao, humano, mapa, onde_h1, texto_h1):
+    bl = _bloco_hipoteses(humano, mapa)
+    linhas = {l[0][:2]: l for l in bl["tabela"]["linhas"]}
     assert linhas["H1"] == ["H1 região × tecnologia", "exploratória", onde_h1]
-    assert linhas["H6"] == ["H6 tamanho do texto e falhas", "exploratória", onde_h6]
+    assert linhas["H6"] == ["H6 tamanho do texto e falhas", "exploratória", ONDE_H6_SEM]
+    assert bl["texto"][1] == texto_h1
+    assert [bl["texto"][0], *bl["texto"][2:]] == [TEXTO_0, TEXTO_H6, TEXTO_H2_H5]
     assert "feita" not in " ".join(linhas["H1"] + linhas["H6"]).replace("exploratória", "")
+
+
+@pytest.mark.parametrize("descricao, humano, mapa, onde_h1, texto_h1", H1_CASOS, ids=[c[0] for c in H1_CASOS])
+def test_h2_a_h5_nao_mudam_com_o_mapa(descricao, humano, mapa, onde_h1, texto_h1):
+    linhas = _linhas_hipoteses(humano, mapa)
+    chave = "hipoteses_com" if humano else "hipoteses_sem"
+    assert {h: linhas[h] for h in ("H2", "H3", "H4", "H5")} == {h: VALORES[chave][h] for h in ("H2", "H3", "H4", "H5")}
+
+
+def test_h1_usa_a_mesma_regra_da_adocao(monkeypatch):
+    """A H1 e o título da Adoção leem o mesmo ajudante: trocado o ajudante, os dois mudam juntos."""
+    monkeypatch.setattr(b, "_tudo_verificado", lambda d: True)
+    assert _linhas_hipoteses(True, _mapa(1, 3))["H1"][2] == ONDE_H1_COMPLETA
+    monkeypatch.setattr(b, "_tudo_verificado", lambda d: False)
+    assert _linhas_hipoteses(True, _mapa(3, 3))["H1"][2] == ONDE_H1_PARCIAL.format(nv="3", na="3")
+
+
+def test_h1_nao_muda_o_mapa():
+    mapa = _mapa(1, 3)
+    antes = copy.deepcopy(mapa)
+    _bloco_hipoteses(True, mapa)
+    assert mapa == antes
+
+
+class _LeituraVisao:
+    def __init__(self, mapa):
+        self.mapa, self.lidas = mapa, []
+
+    def __getattr__(self, nome):
+        valores = {"analise_resumo": {"tem_dados_humanos_achados": True, "tem_dados_humanos_artigos": False},
+                   "analise_funil_por_provedor": {"provedores": []}, "analise_prontidao": {},
+                   "analise_falsa_exclusao": {"tem_excluidos_checados": False},
+                   "analise_maturidade_uf_tecnologia": self.mapa}
+        if nome not in valores:
+            raise AttributeError(nome)
+        return lambda: self.lidas.append(nome) or valores[nome]
+
+
+def test_aba_visao_le_o_mapa_uma_vez_e_o_passa_a_h1():
+    from painel.rotas_extras import analises as rota
+    leitura = _LeituraVisao(_mapa(3, 3))
+    blocos, _ = rota.montar(leitura, "visao")
+    h1 = {l[0][:2]: l for l in blocos[1]["tabela"]["linhas"]}["H1"]
+    assert h1[2] == ONDE_H1_COMPLETA
+    assert leitura.lidas.count("analise_maturidade_uf_tecnologia") == 1
+
 
 
 def test_h2_a_h5_nao_mudam():
@@ -61,8 +146,14 @@ def test_texto_do_quadro_de_hipoteses():
     assert bl["titulo"] == "O que o plano de análise já pode responder"
     assert bl["texto"][0] == ("As hipóteses que dependem de pessoas só são respondidas com verificação humana; a coluna Situação diz "
                               "o que falta em cada uma.")
-    assert bl["texto"][1] == ("H1 é exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; não "
-                              "responde à hipótese, porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana.")
+    assert bl["texto"][1] == H1_TEXTO
+
+
+TEXTO_0 = ("As hipóteses que dependem de pessoas só são respondidas com verificação humana; a coluna Situação diz o que falta em "
+           "cada uma.")
+TEXTO_H6 = ("H6 é exploratória: relaciona o tamanho do texto enviado ao modelo com o número de achados que ele marcou e com as "
+            "respostas em formato inválido; sem verificação humana, descreve o comportamento do modelo, não a perda real de aplicações.")
+TEXTO_H2_H5 = "H2 e H5 só podem ser feitas quando o mínimo de rotulagem humana do quadro acima é atingido."
 
 
 # ---------------------------------------------------------------- adocao (maturidade)

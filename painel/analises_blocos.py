@@ -517,7 +517,7 @@ def bloco_prontidao(d):
             "cartoes": cartoes}
 
 
-def bloco_hipoteses(resumo, funil, falsa_exclusao=None, prontidao=None):
+def bloco_hipoteses(resumo, funil, falsa_exclusao=None, prontidao=None, mapa=None):
     """Quadro do que cada hipotese do plano de analise ja pode ser testada e o que falta."""
     achados_h = bool(resumo.get("tem_dados_humanos_achados"))
     artigos_h = bool(resumo.get("tem_dados_humanos_artigos"))
@@ -545,8 +545,32 @@ def bloco_hipoteses(resumo, funil, falsa_exclusao=None, prontidao=None):
     else:
         estado_h5 = "aguarda: o mínimo de triagem humana dos artigos (veja o quadro de rotulagem humana acima)"
 
-    qualif = "com verificação humana parcial" if achados_h else "ainda sem verificação humana"
-    onde_h1 = f"análise exploratória baseada em classificações automatizadas, {qualif} (veja a aba Adoção)"
+    if not mapa or not mapa.get("tem_dados_humanos"):
+        onde_h1 = (
+            "análise exploratória baseada em classificações automatizadas, sem achados do mapa confirmados por revisor (veja a aba Adoção)"
+        )
+        texto_h1 = (
+            "H1 é exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; não responde à hipótese, "
+            "porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana."
+        )
+    elif _tudo_verificado(mapa):
+        onde_h1 = "análise exploratória dos achados do mapa, todos confirmados por revisor (veja a aba Adoção)"
+        texto_h1 = (
+            "H1 é exploratória: todos os achados do mapa foram confirmados por revisor, mas o mapa mostra o que as buscas "
+            "encontraram nas páginas das secretarias, não um levantamento completo do uso ou da implantação."
+        )
+    else:
+        nv = fmt.numero(mapa.get("n_verificados"))
+        na = fmt.numero(mapa.get("n_achados"))
+        onde_h1 = (
+            f"análise exploratória baseada em classificações automatizadas, com verificação humana parcial: {nv} de {na} "
+            f"achados do mapa confirmados por revisor (veja a aba Adoção)"
+        )
+        texto_h1 = (
+            "H1 é exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; não responde à hipótese, "
+            "porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana."
+        )
+
     onde_h6 = "análise exploratória dos achados marcados pelo modelo e das respostas em formato inválido; não usa verificação humana (aba Operação)"
     linhas = [
         ["H1 região × tecnologia", "exploratória", onde_h1],
@@ -559,8 +583,7 @@ def bloco_hipoteses(resumo, funil, falsa_exclusao=None, prontidao=None):
     ]
     texto = [
         "As hipóteses que dependem de pessoas só são respondidas com verificação humana; a coluna Situação diz o que falta em cada uma.",
-        "H1 é exploratória: a análise roda sobre os rótulos do modelo e descreve padrões nesses rótulos; não responde à hipótese, "
-        "porque nenhuma conclusão sobre uso ou implantação vale sem verificação humana.",
+        texto_h1,
         "H6 é exploratória: relaciona o tamanho do texto enviado ao modelo com o número de achados que ele marcou e com as respostas "
         "em formato inválido; sem verificação humana, descreve o comportamento do modelo, não a perda real de aplicações.",
         "H2 e H5 só podem ser feitas quando o mínimo de rotulagem humana do quadro acima é atingido.",

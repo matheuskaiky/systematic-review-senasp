@@ -318,6 +318,9 @@ def test_visao_geral_le_a_prontidao_uma_vez_e_o_quadro_usa_a_mesma(monkeypatch):
             Leitura.n += 1
             return _prontidao(True, False)
 
+        def analise_maturidade_uf_tecnologia(self):
+            return {"n_achados": 3, "n_verificados": 1, "tem_dados_humanos": True}
+
     blocos, _ = rota.montar(Leitura(), "visao")
     assert Leitura.n == 1
     s = {l[0][:2]: l[1] for l in blocos[1]["tabela"]["linhas"]}

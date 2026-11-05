@@ -105,8 +105,8 @@ td .selo { white-space: normal; font-size: var(--fs-xs); }
   box-shadow: var(--sombra-botao), var(--realce-solido); }
 .botao:hover { filter: brightness(1.07); }
 .botao:active { filter: brightness(.96); transform: translateY(1px); }
-.botao.secundario { background-color: var(--superficie); background-image: none; color: var(--texto); border-color: var(--borda-controle); box-shadow: var(--sombra-botao), var(--realce); }
-.botao.secundario:hover { border-color: var(--acento); color: var(--acento); filter: none; }
+.botao.secundario, .vg-bloco .botao ~ .botao, #vg-bloco-links .botao { background-color: var(--superficie); background-image: none; color: var(--texto); border-color: var(--borda-controle); box-shadow: var(--sombra-botao), var(--realce); }
+.botao.secundario:hover, .vg-bloco .botao ~ .botao:hover, #vg-bloco-links .botao:hover { border-color: var(--acento); color: var(--acento); filter: none; }
 /* formularios da administracao: campos empilhados com largura de leitura; botao de perigo (desativar conta) em contorno vermelho */
 .form-admin { display: grid; gap: .35rem; max-width: 32rem; margin: 0; }
 .form-admin .botao { justify-self: start; margin-top: var(--esp-2); }
@@ -122,9 +122,18 @@ button.link { background: none; border: 0; color: var(--acento); text-decoration
 form.em-linha { display: inline; margin-left: var(--esp-2); }
 
 /* ---- tabelas ---- */
-.tabela-rolavel { overflow-x: auto; position: relative; }   /* relative: o texto só para leitor de tela (absoluto) não escapa da rolagem e alarga a página */
+.tabela-rolavel { overflow-x: auto; position: relative;
+  background-image:
+    linear-gradient(to right, var(--superficie) 30%, transparent),
+    linear-gradient(to left, var(--superficie) 30%, transparent),
+    linear-gradient(to right, var(--borda-controle), transparent),
+    linear-gradient(to left, var(--borda-controle), transparent);
+  background-position: left center, right center, left center, right center;
+  background-repeat: no-repeat;
+  background-size: 2.5rem 100%, 2.5rem 100%, 1rem 100%, 1rem 100%;
+  background-attachment: local, local, scroll, scroll; }   /* relative: o texto só para leitor de tela (absoluto) não escapa da rolagem e alarga a página */
 /* tabela solta na página (fora de cartão): vira uma folha branca com contorno e relevo, como os cartões */
-main > .tabela-rolavel { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra); margin-bottom: var(--esp-5); }
+main > .tabela-rolavel { background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); box-shadow: var(--sombra); margin-bottom: var(--esp-5); }
 table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: var(--fs-md); }
 th, td { text-align: left; padding: .6rem .7rem; border-bottom: 1px solid var(--borda); vertical-align: top; }
 th { white-space: nowrap; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-suave); font-weight: 650; background: var(--superficie-subtil); }
@@ -246,3 +255,21 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--texto); bac
   .pares { grid-template-columns: minmax(0, 1fr); }
   .pares dt { border-bottom: 0; padding-bottom: 0; }
 }
+
+/* gaveta "Definições e origem dos números": mesmo padrão da Memória de cálculo */
+details.vg-definicoes { margin-top: var(--esp-3); background: var(--superficie-subtil); border: 1px solid var(--borda); border-radius: var(--raio-md); }
+details.vg-definicoes > summary { display: flex; align-items: center; gap: .6rem; min-height: 2.6rem; padding: .45rem var(--esp-4); border-radius: var(--raio-md); cursor: pointer; list-style: none; font-weight: 600; color: var(--texto); }
+details.vg-definicoes > summary::-webkit-details-marker { display: none; }
+details.vg-definicoes > summary::before { content: "\25B8"; flex: none; width: 1.25em; text-align: center; color: var(--acento); }
+details.vg-definicoes[open] > summary::before { content: "\25BE"; }
+details.vg-definicoes > summary::after { content: "Mostrar"; margin-left: auto; font-size: var(--fs-sm); font-weight: 500; color: var(--texto-suave); }
+details.vg-definicoes[open] > summary::after { content: "Ocultar"; }
+details.vg-definicoes > summary:hover { background: var(--superficie); }
+details.vg-definicoes[open] > summary { border-bottom: 1px solid var(--borda); border-radius: var(--raio-md) var(--raio-md) 0 0; }
+details.vg-definicoes > dl { padding: var(--esp-3) var(--esp-4); margin: 0; }
+
+/* índice "Nesta página" */
+.nesta-pagina { margin: var(--esp-3) 0 var(--esp-4); }
+.nesta-pagina ul { display: flex; flex-wrap: wrap; list-style: none; gap: var(--esp-1); padding: 0; margin: 0; }
+.nesta-pagina a { display: inline-flex; align-items: center; min-height: 2rem; padding: .25rem .75rem; border: 1px solid var(--borda); border-radius: var(--raio-pilula); font-size: var(--fs-sm); color: var(--texto-suave); text-decoration: none; background: var(--superficie); }
+.nesta-pagina a:hover { border-color: var(--acento); color: var(--acento); }

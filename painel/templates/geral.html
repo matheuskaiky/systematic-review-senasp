@@ -43,6 +43,15 @@
   "links": ("link", "petroleo")
 } %}
 
+{% if secoes|length >= 3 %}
+<nav class="nesta-pagina" aria-label="Nesta página">
+<ul>
+{% for s in secoes -%}
+<li><a href="#vg-{{ s.id }}">{{ s.titulo }}</a></li>
+{% endfor -%}
+</ul>
+</nav>
+{% endif %}
 {% for s in secoes %}
 <section class="vg-secao" id="vg-{{ s.id }}" aria-labelledby="t-vg-{{ s.id }}">
 <h2 id="t-vg-{{ s.id }}">{{ s.titulo }}</h2>

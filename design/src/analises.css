@@ -226,9 +226,24 @@ tr.an-nivel-aberto th[scope="row"]::before { background: var(--an-ok); box-shado
 /* cabeçalhos longos das colunas da matriz */
 .an-matriz .an-cab { font-size: 11px; }
 
+/* ficha de metadados do Observatório */
+.obs-ficha { display: flex; flex-wrap: wrap; gap: var(--esp-2) var(--esp-4); align-items: baseline; margin: var(--esp-3) 0 var(--esp-4); }
+.obs-ficha dt { color: var(--texto-suave); font-size: var(--fs-sm); font-weight: 600; }
+.obs-ficha dd { margin: 0; font-size: var(--fs-sm); }
+
 /* ---------- moldura da página /analises ---------- */
 /* abas: controle segmentado (trilho suave com pílulas). A aba atual é a ficha branca com anel e relevo, no matiz da página. */
-.an-abas { display: flex; flex-wrap: wrap; gap: .2rem; margin: var(--esp-4) 0 var(--esp-5); padding: .25rem; background: var(--superficie-subtil);
+.an-abas { display: flex; flex-wrap: wrap; gap: .2rem; margin: var(--esp-4) 0 var(--esp-5); padding: .25rem;
+  background-color: var(--superficie-subtil);
+  background-image:
+    linear-gradient(to right, var(--superficie-subtil) 30%, transparent),
+    linear-gradient(to left, var(--superficie-subtil) 30%, transparent),
+    linear-gradient(to right, color-mix(in srgb, var(--texto) 15%, transparent), transparent),
+    linear-gradient(to left, color-mix(in srgb, var(--texto) 15%, transparent), transparent);
+  background-position: left center, right center, left center, right center;
+  background-repeat: no-repeat;
+  background-size: 2.5rem 100%, 2.5rem 100%, 1rem 100%, 1rem 100%;
+  background-attachment: local, local, scroll, scroll;
   border: 1px solid var(--borda); border-radius: var(--raio-md); }
 .an-abas a { display: inline-flex; align-items: center; gap: .45rem; min-height: 2.25rem; padding: .35rem .85rem; border: 1px solid transparent; border-radius: calc(var(--raio-md) - 3px);
   color: var(--texto-suave); font-size: var(--fs-md); font-weight: 550; text-decoration: none; white-space: nowrap; }
@@ -298,7 +313,7 @@ html.icones-ok .an-memoria > summary::before, html.icones-ok .an-memoria[open] >
 .an-memoria > summary:hover { background: var(--superficie); }
 .an-memoria[open] > summary { border-bottom: 1px solid var(--borda); border-radius: var(--raio-md) var(--raio-md) 0 0; }
 .an-memoria > :not(summary) { margin-left: var(--esp-4); margin-right: var(--esp-4); }
-.an-memoria > .tabela-rolavel { margin: var(--esp-3) var(--esp-4); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-sm); }
+.an-memoria > .tabela-rolavel { margin: var(--esp-3) var(--esp-4); background-color: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-sm); }
 .an-memoria > :last-child { margin-bottom: var(--esp-4); }
 .an-pares { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 var(--esp-5); margin-top: var(--esp-3); margin-bottom: var(--esp-3); }
 .an-pares dt, .an-pares dd { padding: .4rem 0; border-bottom: 1px dotted var(--borda-forte); }
@@ -321,6 +336,10 @@ html.icones-ok .an-memoria > summary::before, html.icones-ok .an-memoria[open] >
   html.icones-ok .an-bloco > .an-subtitulo { padding-left: 0; }
   .an-pares { grid-template-columns: minmax(0, 1fr); }
   .an-pares dt { border-bottom: 0; padding-bottom: 0; }
+}
+
+@media (max-width: 600px) {
+  .an-grafico .an-svg { min-width: 34rem; }
 }
 
 @media print {
